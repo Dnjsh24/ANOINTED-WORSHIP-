@@ -1,0 +1,11 @@
+.env*
+!.env.example
+.vercel
+node_modules
+.next
+coverage
+playwright-report
+test-results
+.vscode
+dev-server.log
+public/practice-files
