@@ -122,7 +122,7 @@ function revalidateAppShell() {
 
 export async function signInWithGoogle() {
   if (!hasSupabaseEnv()) {
-    redirect("/teams");
+    redirect("/login?error=config");
   }
 
   const supabase = await createClient();
@@ -144,7 +144,7 @@ export async function signInWithEmail(formData: FormData) {
   const email = z.string().trim().email().parse(formData.get("email"));
 
   if (!hasSupabaseEnv()) {
-    redirect("/teams");
+    redirect("/login?error=config");
   }
 
   const supabase = await createClient();
@@ -175,7 +175,7 @@ export async function createTeamAction(formData: FormData) {
   const name = teamNameSchema.parse(formData.get("name") ?? "Anointed Worship");
 
   if (!hasSupabaseEnv()) {
-    redirect("/dashboard");
+    redirect("/login?error=config");
   }
 
   const supabase = await createClient();
@@ -229,7 +229,7 @@ export async function joinTeamAction(formData: FormData) {
   joinCodeSchema.parse(formData.get("code"));
 
   if (!hasSupabaseEnv()) {
-    redirect("/pending");
+    redirect("/login?error=config");
   }
 
   const supabase = await createClient();

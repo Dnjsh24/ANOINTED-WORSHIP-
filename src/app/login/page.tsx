@@ -17,7 +17,7 @@ export default function LoginPage({
   async function handleGoogleSignIn(event: React.FormEvent) {
     event.preventDefault();
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
-      window.location.href = "/teams";
+      window.location.href = "/login?error=config";
       return;
     }
     try {
@@ -118,9 +118,14 @@ function LoginStatus({ params }: { params: { sent?: string; error?: string } }) 
     );
   }
   if (params.error) {
+    const message =
+      params.error === "config"
+        ? "Sign-in is not configured yet. Add the Supabase environment variables in Vercel, then redeploy."
+        : "Sign-in could not be completed. Please try again.";
+
     return (
       <p className="mt-4 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-center text-xs font-semibold text-red-300">
-        Sign-in could not be completed. Please try again.
+        {message}
       </p>
     );
   }

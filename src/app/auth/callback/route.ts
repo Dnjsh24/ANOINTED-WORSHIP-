@@ -12,8 +12,12 @@ export async function GET(request: NextRequest) {
   const proto = request.headers.get("x-forwarded-proto") || requestUrl.protocol.replace(":", "");
   const origin = `${proto}://${host}`;
 
-  if (!hasSupabaseEnv() || !code) {
-    return NextResponse.redirect(new URL("/dashboard", origin));
+  if (!hasSupabaseEnv()) {
+    return NextResponse.redirect(new URL("/login?error=config", origin));
+  }
+
+  if (!code) {
+    return NextResponse.redirect(new URL("/login?error=auth", origin));
   }
 
   const supabase = await createClient();

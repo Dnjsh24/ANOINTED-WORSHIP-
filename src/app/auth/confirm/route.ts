@@ -9,8 +9,12 @@ export async function GET(request: NextRequest) {
   const tokenHash = requestUrl.searchParams.get("token_hash");
   const type = requestUrl.searchParams.get("type") as EmailOtpType | null;
 
-  if (!hasSupabaseEnv() || !tokenHash || !type) {
-    return NextResponse.redirect(new URL("/dashboard", requestUrl.origin));
+  if (!hasSupabaseEnv()) {
+    return NextResponse.redirect(new URL("/login?error=config", requestUrl.origin));
+  }
+
+  if (!tokenHash || !type) {
+    return NextResponse.redirect(new URL("/login?error=otp", requestUrl.origin));
   }
 
   const supabase = await createClient();
