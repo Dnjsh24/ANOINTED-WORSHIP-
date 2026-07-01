@@ -1,0 +1,17 @@
+{
+  "services": {
+    "anointed-worship-app": {
+      "root": ".",
+      "framework": "nextjs"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": {
+        "type": "service",
+        "service": "anointed-worship-app"
+      }
+    }
+  ]
+}
