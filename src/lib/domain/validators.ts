@@ -33,6 +33,7 @@ export const memberRoleSchema = z.object({
 export const messageSchema = z.object({
   channelId: z.string().min(1),
   body: z.string().trim().min(1).max(2000),
+  attachmentFileId: z.string().uuid().optional(),
 });
 
 export const setlistInputSchema = z.object({
@@ -50,9 +51,10 @@ export const setlistInputSchema = z.object({
   drums: z.string().trim().max(160).optional(),
   mainKeys: z.string().trim().max(160).optional(),
   secondKeys: z.string().trim().max(160).optional(),
+  extraBandMembers: z.array(z.string().trim()).optional(),
   backupSingers: z.array(z.string().trim()).optional(),
   media: z.string().trim().max(160).optional(),
-  dancers: z.string().trim().max(160).optional(),
+  dancers: z.array(z.string().trim()).optional(),
   eventId: z.string().trim().optional(),
 });
 
@@ -85,7 +87,6 @@ export const inviteMemberSchema = z.object({
 export const profileInputSchema = z.object({
   fullName: z.string().trim().min(1, "Full name is required").max(160),
   primaryRole: z.string().trim().min(1, "Primary role is required").max(160),
-  accessLevel: z.enum(teamRoles),
   avatarUrl: z.string().trim().nullish().or(z.literal("")),
 });
 

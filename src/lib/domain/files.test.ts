@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { storagePath, validatePracticeFile } from "@/lib/domain/files";
+import { fileKindLabel, formatFileSize, inferPracticeFileMimeType, storagePath, validatePracticeFile } from "@/lib/domain/files";
 
 describe("practice files", () => {
   it("accepts supported practice materials", () => {
@@ -24,5 +24,13 @@ describe("practice files", () => {
 
   it("builds safe storage paths", () => {
     expect(storagePath("team-1", "songs", "song-1", "Demo Chart!!.pdf")).toBe("team-1/songs/song-1/Demo-Chart--.pdf");
+  });
+
+  it("formats file metadata for message attachments", () => {
+    expect(formatFileSize(240 * 1024)).toBe("240 KB");
+    expect(formatFileSize(1258291)).toBe("1.2 MB");
+    expect(fileKindLabel("image/png", "stage.png")).toBe("Image");
+    expect(fileKindLabel("application/pdf", "setlist.pdf")).toBe("PDF");
+    expect(inferPracticeFileMimeType({ name: "chart.pdf", type: "" })).toBe("application/pdf");
   });
 });

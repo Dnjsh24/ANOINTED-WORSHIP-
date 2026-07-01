@@ -1,9 +1,9 @@
 import { AppShell } from "@/components/app-shell";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Card, Panel } from "@/components/ui/card";
 import { ProfileForm } from "@/components/profile-form";
 import { InstallAppButton } from "@/components/install-app-button";
+import { LiveGmt8Time } from "@/components/live-gmt8-time";
 import { currentUser as sampleUser } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +16,7 @@ export default async function ProfilePage() {
   let primaryRole = "Acoustic Guitar";
   let accessLevel = teamContext.role;
   let avatarUrl: string | null = null;
+  const initialNowIso = new Date().toISOString();
 
   if (hasSupabaseEnv() && teamContext.userId) {
     const supabase = await createClient();
@@ -78,7 +79,7 @@ export default async function ProfilePage() {
               </div>
               <div className="flex justify-between">
                 <span>Last Active</span>
-                <span className="text-white font-bold">Today at 9:24 AM</span>
+                <LiveGmt8Time initialNowIso={initialNowIso} />
               </div>
             </div>
           </Card>
@@ -87,7 +88,7 @@ export default async function ProfilePage() {
         <Panel>
           <h2 className="text-2xl font-bold">Profile Settings</h2>
           <div className="mt-6">
-            <ProfileForm fullName={fullName} email={email} primaryRole={primaryRole} accessLevel={accessLevel} avatarUrl={avatarUrl} />
+            <ProfileForm fullName={fullName} email={email} primaryRole={primaryRole} avatarUrl={avatarUrl} />
           </div>
         </Panel>
       </div>

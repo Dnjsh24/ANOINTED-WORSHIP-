@@ -1,14 +1,15 @@
 "use client";
 
-import { Download, Menu, MoreVertical, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X } from "lucide-react";
+import { Download, FileText, Image as ImageIcon, Menu, MoreVertical, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { addChannelMemberAction, createChannelAction, getOrCreateDirectChannelAction, leaveChannelAction, removeChannelMemberAction, sendMessageAction, updateChannelPreferenceAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { initialActionState } from "@/lib/action-state";
+import { fileKindLabel, formatFileSize, inferPracticeFileMimeType, isImageMimeType, storagePath, validatePracticeFile } from "@/lib/domain/files";
 import type { Message } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -40,16 +41,32 @@ type ChannelMembership = {
 
 const emojiOptions = ["🙏", "🙌", "🎶", "✅"];
 
+type AttachmentDetails = NonNullable<Message["attachment"]>;
+
+type PendingAttachment = {
+  file: File;
+  previewUrl?: string;
+  details: AttachmentDetails;
+};
+
+function attachmentHref(attachment: AttachmentDetails) {
+  return attachment.url || `/practice-files/${attachment.name}`;
+}
+
 export function MessagesClient({
   channels,
   teamMembers = [],
   currentMemberId,
+  currentProfileId,
+  teamId,
   role,
   allChannelMemberships = [],
 }: {
   channels: Channel[];
   teamMembers?: TeamMember[];
   currentMemberId: string;
+  currentProfileId: string;
+  teamId: string;
   role: string;
   allChannelMemberships?: ChannelMembership[];
 }) {
@@ -60,6 +77,8 @@ export function MessagesClient({
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [attachmentOpen, setAttachmentOpen] = useState(false);
+  const [selectedAttachment, setSelectedAttachment] = useState<PendingAttachment | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [managePanelOpen, setManagePanelOpen] = useState(false);
@@ -67,9 +86,19 @@ export function MessagesClient({
   const [status, setStatus] = useState("");
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const [onlineMemberIds, setOnlineMemberIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    return () => {
+      if (selectedAttachment?.previewUrl) {
+        URL.revokeObjectURL(selectedAttachment.previewUrl);
+      }
+    };
+  }, [selectedAttachment]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -136,12 +165,13 @@ export function MessagesClient({
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
+        async (payload) => {
           const newMessage = payload.new as {
             id: string;
             channel_id: string;
             sender_member_id: string;
             body: string;
+            attachment_file_id: string | null;
             created_at: string;
           };
 
@@ -154,6 +184,30 @@ export function MessagesClient({
             (m) => m.memberId === newMessage.sender_member_id
           );
           const authorName = sender ? sender.fullName : "Unknown Member";
+          let attachment: AttachmentDetails | undefined;
+
+          if (newMessage.attachment_file_id) {
+            const { data: fileRecord } = await supabase
+              .from("practice_files")
+              .select("id, file_name, mime_type, size_bytes, storage_path")
+              .eq("id", newMessage.attachment_file_id)
+              .maybeSingle();
+
+            if (fileRecord) {
+              const { data: signedUrl } = await supabase.storage
+                .from("practice-files")
+                .createSignedUrl(fileRecord.storage_path, 60 * 60);
+
+              attachment = {
+                id: fileRecord.id,
+                name: fileRecord.file_name,
+                size: formatFileSize(Number(fileRecord.size_bytes)),
+                type: fileKindLabel(fileRecord.mime_type, fileRecord.file_name),
+                mimeType: fileRecord.mime_type,
+                url: signedUrl?.signedUrl ?? "",
+              };
+            }
+          }
 
           const formattedMessage: Message = {
             id: newMessage.id,
@@ -165,6 +219,7 @@ export function MessagesClient({
               minute: "2-digit",
             }),
             mine: false,
+            attachment,
           };
 
           setChannelList((current) =>
@@ -213,6 +268,20 @@ export function MessagesClient({
   }, [activeChannelId]);
 
   const activeChannel = channelList.find((channel) => channel.id === activeChannelId) ?? channelList[0] ?? { id: "", name: "No Channel", membersOnline: 0, preview: "", messages: [] };
+  const activeChannelFiles = useMemo(() => {
+    const seen = new Set<string>();
+    return (activeChannel.messages || [])
+      .map((message) => message.attachment)
+      .filter((attachment): attachment is AttachmentDetails => Boolean(attachment))
+      .filter((attachment) => {
+        const key = attachment.id ?? attachment.name;
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      });
+  }, [activeChannel.messages]);
   const normalizedSearch = search.trim().toLowerCase();
   const visibleChannels = channelList.filter((channel) => `${channel.name} ${channel.preview}`.toLowerCase().includes(normalizedSearch));
   const visibleMessages = activeChannel.messages?.filter((message) =>
@@ -238,6 +307,109 @@ export function MessagesClient({
           : channel,
       ),
     );
+  }
+
+  function clearSelectedAttachment() {
+    if (selectedAttachment?.previewUrl) {
+      URL.revokeObjectURL(selectedAttachment.previewUrl);
+    }
+    setSelectedAttachment(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
+    }
+  }
+
+  function handleAttachmentSelected(file: File | undefined, kind: "file" | "image") {
+    if (!file) {
+      return;
+    }
+
+    const validation = validatePracticeFile(file);
+    if (!validation.valid) {
+      setStatus(validation.reason ?? "This attachment is not supported.");
+      clearSelectedAttachment();
+      return;
+    }
+
+    const mimeType = inferPracticeFileMimeType(file);
+    if (kind === "image" && !isImageMimeType(mimeType)) {
+      setStatus("Choose a JPG or PNG picture.");
+      clearSelectedAttachment();
+      return;
+    }
+
+    if (selectedAttachment?.previewUrl) {
+      URL.revokeObjectURL(selectedAttachment.previewUrl);
+    }
+
+    const previewUrl = isImageMimeType(mimeType) ? URL.createObjectURL(file) : undefined;
+    setSelectedAttachment({
+      file,
+      previewUrl,
+      details: {
+        name: file.name,
+        size: formatFileSize(file.size),
+        type: fileKindLabel(mimeType, file.name),
+        mimeType,
+        url: previewUrl,
+      },
+    });
+    setAttachmentOpen(false);
+    setStatus("Attachment ready.");
+  }
+
+  async function uploadSelectedAttachment(attachment: PendingAttachment): Promise<AttachmentDetails> {
+    if (!teamId || !currentProfileId) {
+      throw new Error("Sign in with Supabase to attach files.");
+    }
+
+    const supabase = createClient();
+    const objectId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`;
+    const mimeType = inferPracticeFileMimeType(attachment.file);
+    const path = storagePath(teamId, "messages", objectId, attachment.file.name);
+    const { error: uploadError } = await supabase.storage
+      .from("practice-files")
+      .upload(path, attachment.file, {
+        cacheControl: "3600",
+        contentType: mimeType,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new Error("Attachment upload failed.");
+    }
+
+    const { data: fileRecord, error: recordError } = await supabase
+      .from("practice_files")
+      .insert({
+        team_id: teamId,
+        storage_path: path,
+        file_name: attachment.file.name,
+        mime_type: mimeType,
+        size_bytes: attachment.file.size,
+        uploaded_by: currentProfileId,
+      })
+      .select("id, file_name, mime_type, size_bytes, storage_path")
+      .single();
+
+    if (recordError || !fileRecord) {
+      await supabase.storage.from("practice-files").remove([path]);
+      throw new Error("Attachment could not be saved.");
+    }
+
+    const { data: signedUrl } = await supabase.storage.from("practice-files").createSignedUrl(path, 60 * 60);
+
+    return {
+      id: fileRecord.id,
+      name: fileRecord.file_name,
+      size: formatFileSize(Number(fileRecord.size_bytes)),
+      type: fileKindLabel(fileRecord.mime_type, fileRecord.file_name),
+      mimeType: fileRecord.mime_type,
+      url: signedUrl?.signedUrl ?? attachment.previewUrl,
+    };
   }
 
   async function handleStartDirectMessage(otherMemberId: string) {
@@ -298,16 +470,32 @@ export function MessagesClient({
   }
 
   function sendCurrentMessage() {
-    const body = draft.trim();
+    const pendingAttachment = selectedAttachment;
+    const body = draft.trim() || (pendingAttachment ? `Shared ${pendingAttachment.details.name}` : "");
     if (!body) {
       return;
     }
 
-    const formData = new FormData();
-    formData.set("channelId", activeChannel.id);
-    formData.set("body", body);
-
     startTransition(async () => {
+      let uploadedAttachment: AttachmentDetails | undefined;
+
+      try {
+        if (pendingAttachment) {
+          setStatus("Uploading attachment...");
+          uploadedAttachment = await uploadSelectedAttachment(pendingAttachment);
+        }
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "Attachment upload failed.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.set("channelId", activeChannel.id);
+      formData.set("body", body);
+      if (uploadedAttachment?.id) {
+        formData.set("attachmentFileId", uploadedAttachment.id);
+      }
+
       const result = await sendMessageAction(formData);
       setStatus(result.message);
       if (!result.ok) {
@@ -320,8 +508,10 @@ export function MessagesClient({
         body,
         createdAt: "Now",
         mine: true,
+        attachment: uploadedAttachment,
       });
       setDraft("");
+      clearSelectedAttachment();
       setSearch("");
     });
   }
@@ -633,15 +823,25 @@ export function MessagesClient({
                     <p className="text-sm font-semibold leading-6">{message.body}</p>
                     {message.attachment && (
                       <a
-                        href={`/practice-files/${message.attachment.name}`}
+                        href={attachmentHref(message.attachment)}
                         download
-                        className="mt-3 flex items-center justify-between rounded-md bg-black/40 p-3 transition hover:bg-black/60"
+                        className="mt-3 block rounded-md bg-black/40 p-3 transition hover:bg-black/60"
                       >
-                        <span>
-                          <span className="block text-sm font-bold">{message.attachment.name}</span>
-                          <span className="text-xs text-zinc-400">{message.attachment.size}</span>
+                        {isImageMimeType(message.attachment.mimeType) && message.attachment.url && (
+                          <span
+                            role="img"
+                            aria-label={message.attachment.name}
+                            className="mb-3 block h-48 w-full rounded-md bg-cover bg-center"
+                            style={{ backgroundImage: `url("${message.attachment.url}")` }}
+                          />
+                        )}
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-bold">{message.attachment.name}</span>
+                            <span className="text-xs text-zinc-400">{message.attachment.type ?? "File"} - {message.attachment.size}</span>
+                          </span>
+                          <Download className="size-4 shrink-0" />
                         </span>
-                        <Download className="size-4" />
                       </a>
                     )}
                     <p className="mt-2 text-right font-mono text-[10px] text-zinc-400">{message.createdAt}</p>
@@ -652,37 +852,111 @@ export function MessagesClient({
               <div ref={bottomRef} />
             </div>
             {status && <p className="px-4 pb-2 text-sm font-bold text-emerald-300">{status}</p>}
-            <div className="flex items-center gap-3 border-t border-white/10 bg-[#111014] p-4">
-              <div className="relative">
-                <button type="button" aria-label="Open emoji menu" className="rounded-md p-2 text-zinc-400 hover:bg-white/[0.06]" onClick={() => setEmojiOpen((value) => !value)}>
-                  <Smile className="size-5" />
-                </button>
-                {emojiOpen && (
-                  <div className="absolute bottom-11 left-0 flex gap-1 rounded-md border border-white/10 bg-[#18171c] p-2">
-                    {emojiOptions.map((emoji) => (
-                      <button key={emoji} type="button" aria-label={`Insert ${emoji}`} className="rounded-md p-2 hover:bg-white/[0.06]" onClick={() => setDraft((value) => `${value}${emoji}`)}>
-                        {emoji}
-                      </button>
-                    ))}
+            <div className="border-t border-white/10 bg-[#111014] p-4">
+              {selectedAttachment && (
+                <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2">
+                  <div className="flex min-w-0 items-center gap-3">
+                    {isImageMimeType(selectedAttachment.details.mimeType) && selectedAttachment.previewUrl ? (
+                      <span
+                        aria-hidden="true"
+                        className="size-10 shrink-0 rounded-md bg-cover bg-center"
+                        style={{ backgroundImage: `url("${selectedAttachment.previewUrl}")` }}
+                      />
+                    ) : (
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-violet-500/15 text-violet-200">
+                        <FileText className="size-5" />
+                      </span>
+                    )}
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-bold text-white">{selectedAttachment.details.name}</span>
+                      <span className="text-[10px] font-semibold text-zinc-500">
+                        {selectedAttachment.details.type} - {selectedAttachment.details.size}
+                      </span>
+                    </span>
                   </div>
-                )}
+                  <button
+                    type="button"
+                    aria-label="Remove attachment"
+                    className="rounded-md p-1.5 text-zinc-400 transition hover:bg-white/[0.06] hover:text-white"
+                    onClick={clearSelectedAttachment}
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="relative">
+                  <button type="button" aria-label="Open emoji menu" className="rounded-md p-2 text-zinc-400 hover:bg-white/[0.06]" onClick={() => setEmojiOpen((value) => !value)}>
+                    <Smile className="size-5" />
+                  </button>
+                  {emojiOpen && (
+                    <div className="absolute bottom-11 left-0 z-20 flex gap-1 rounded-md border border-white/10 bg-[#18171c] p-2 shadow-2xl shadow-black/30">
+                      {emojiOptions.map((emoji) => (
+                        <button key={emoji} type="button" aria-label={`Insert ${emoji}`} className="rounded-md p-2 hover:bg-white/[0.06]" onClick={() => setDraft((value) => `${value}${emoji}`)}>
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative">
+                  <button type="button" aria-label="Open attachment menu" className="rounded-md p-2 text-zinc-400 hover:bg-white/[0.06]" onClick={() => setAttachmentOpen((value) => !value)}>
+                    <Paperclip className="size-5" />
+                  </button>
+                  {attachmentOpen && (
+                    <div role="menu" aria-label="Attachment options" className="absolute bottom-11 left-0 z-20 w-44 rounded-lg border border-white/10 bg-[#18171c] p-2 shadow-2xl shadow-black/30">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-bold text-zinc-200 hover:bg-white/[0.06]"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <FileText className="size-4 text-violet-300" />
+                        Attach file
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-bold text-zinc-200 hover:bg-white/[0.06]"
+                        onClick={() => imageInputRef.current?.click()}
+                      >
+                        <ImageIcon className="size-4 text-violet-300" />
+                        Attach picture
+                      </button>
+                    </div>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.docx,.mp3,.wav,.jpg,.jpeg,.png"
+                    onChange={(event) => handleAttachmentSelected(event.target.files?.[0], "file")}
+                  />
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/jpeg,image/png"
+                    onChange={(event) => handleAttachmentSelected(event.target.files?.[0], "image")}
+                  />
+                </div>
+                <Input
+                  ref={inputRef}
+                  name="body"
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      sendCurrentMessage();
+                    }
+                  }}
+                  placeholder={`Message ${activeChannel.name}...`}
+                />
+                <Button type="button" aria-label="Send message" disabled={isPending} onClick={sendCurrentMessage}>
+                  <Send className="size-4" />
+                </Button>
               </div>
-              <Input
-                ref={inputRef}
-                name="body"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    sendCurrentMessage();
-                  }
-                }}
-                placeholder={`Message ${activeChannel.name}...`}
-              />
-              <Button type="button" aria-label="Send message" disabled={isPending} onClick={sendCurrentMessage}>
-                <Send className="size-4" />
-              </Button>
             </div>
           </>
         )}
@@ -720,25 +994,34 @@ export function MessagesClient({
         <div className="mt-6 border-t border-white/[0.06] pt-5">
           <p className="font-mono text-[9px] font-bold uppercase tracking-wider text-zinc-500">Files</p>
           <div className="mt-3 space-y-2">
-            {[
-              { name: "Setlist_Jul12.pdf", size: "240 KB", type: "PDF" },
-              { name: "Chord-Charts.zip", size: "1.2 MB", type: "ZIP" },
-              { name: "Stage-Plot.pdf", size: "1.1 MB", type: "PDF" },
-            ].map((file) => (
-              <div key={file.name} className="group flex items-center justify-between rounded-xl bg-white/[0.02] p-2.5 hover:bg-white/[0.04] transition">
+            {activeChannelFiles.length > 0 ? activeChannelFiles.map((file) => (
+              <a
+                key={file.id ?? file.name}
+                href={attachmentHref(file)}
+                download
+                className="group flex items-center justify-between rounded-xl bg-white/[0.02] p-2.5 transition hover:bg-white/[0.04]"
+              >
                 <div className="min-w-0 flex-1 pr-2">
                   <p className="text-xs font-bold text-white truncate">{file.name}</p>
-                  <p className="mt-0.5 text-[10px] font-semibold text-zinc-500">{file.type} · {file.size}</p>
+                  <p className="mt-0.5 text-[10px] font-semibold text-zinc-500">{file.type ?? "File"} - {file.size}</p>
                 </div>
-                <button className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] text-zinc-400 hover:text-white transition">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] text-zinc-400 transition group-hover:text-white">
                   <Download className="size-3.5" />
-                </button>
+                </span>
+              </a>
+            )) : (
+              <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-3 py-4 text-center">
+                <Paperclip className="mx-auto size-5 text-zinc-600" />
+                <p className="mt-2 text-xs font-bold text-zinc-400">No files uploaded yet.</p>
+                <p className="mt-1 text-[10px] font-semibold text-zinc-600">Attach a file or picture in chat to show it here.</p>
               </div>
-            ))}
+            )}
           </div>
-          <Link href="/setlists" className="mt-4 block text-center text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors">
-            View all files →
-          </Link>
+          {activeChannelFiles.length > 0 && (
+            <Link href="/setlists" className="mt-4 block text-center text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors">
+              View all files -&gt;
+            </Link>
+          )}
         </div>
       </aside>
     </div>

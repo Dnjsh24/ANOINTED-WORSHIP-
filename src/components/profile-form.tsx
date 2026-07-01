@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { useActionState } from "react";
-import { updateProfileAction } from "@/app/actions";
+import { signOut, updateProfileAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
 import { initialActionState } from "@/lib/action-state";
-import { type TeamRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const TIMEZONES = [
@@ -28,12 +27,11 @@ export function ProfileForm({
   fullName: string;
   email: string;
   primaryRole: string;
-  accessLevel: TeamRole;
   avatarUrl: string | null;
 }) {
   const [state, formAction] = useActionState(updateProfileAction, initialActionState);
   const [phone, setPhone] = useState("(555) 555-0123");
-  const [timezone, setTimezone] = useState("(UTC-6) Central Time (US & Canada)");
+  const [timezone, setTimezone] = useState("(UTC+8) Asia/Manila");
   const [language, setLanguage] = useState("English");
   const [emailNotif, setEmailNotif] = useState(true);
   const [pushNotif, setPushNotif] = useState(true);
@@ -138,15 +136,25 @@ export function ProfileForm({
       </div>
 
       {/* Buttons */}
-      <div className="flex items-center gap-4 pt-4">
-        <SubmitButton className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500 hover:shadow-[0_0_15px_rgba(139,92,246,0.35)]">
-          Save Changes
-        </SubmitButton>
+      <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <SubmitButton className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500 hover:shadow-[0_0_15px_rgba(139,92,246,0.35)]">
+            Save Changes
+          </SubmitButton>
+          <button
+            type="button"
+            className="rounded-xl border border-white/10 bg-white/[0.04] px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]"
+          >
+            Reset Password
+          </button>
+        </div>
         <button
-          type="button"
-          className="rounded-xl border border-white/10 bg-white/[0.04] px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]"
+          type="submit"
+          formAction={signOut}
+          formNoValidate
+          className="rounded-xl border border-red-400/20 bg-red-500/15 px-6 py-2.5 text-xs font-bold text-red-100 transition hover:border-red-300/30 hover:bg-red-500/25 sm:ml-auto"
         >
-          Reset Password
+          Log Out
         </button>
       </div>
     </form>

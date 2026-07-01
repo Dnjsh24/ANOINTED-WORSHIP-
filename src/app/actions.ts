@@ -380,9 +380,10 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     drums: formString(formData, "drums"),
     mainKeys: formString(formData, "mainKeys"),
     secondKeys: formString(formData, "secondKeys"),
+    extraBandMembers: formData.getAll("extraBandMembers").map(String).filter(Boolean),
     backupSingers: formData.getAll("backupSingers").map(String).filter(Boolean),
     media: formString(formData, "media"),
-    dancers: formString(formData, "dancers"),
+    dancers: formData.getAll("dancers").map(String).filter(Boolean),
   });
 
   if (!parsed.success) {
@@ -485,11 +486,22 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
   if (parsed.data.secondKeys) {
     assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: parsed.data.secondKeys, assignment: "Second Keys" });
   }
+  if (parsed.data.extraBandMembers) {
+    for (const memberId of parsed.data.extraBandMembers) {
+      if (memberId) {
+        assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: memberId, assignment: "Band Member" });
+      }
+    }
+  }
   if (parsed.data.media) {
     assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: parsed.data.media, assignment: "Media" });
   }
   if (parsed.data.dancers) {
-    assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: parsed.data.dancers, assignment: "Dancers" });
+    for (const dancerId of parsed.data.dancers) {
+      if (dancerId) {
+        assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: dancerId, assignment: "Dancers" });
+      }
+    }
   }
   if (parsed.data.backupSingers) {
     for (const singerId of parsed.data.backupSingers) {
@@ -524,9 +536,10 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
     drums: formString(formData, "drums"),
     mainKeys: formString(formData, "mainKeys"),
     secondKeys: formString(formData, "secondKeys"),
+    extraBandMembers: formData.getAll("extraBandMembers").map(String).filter(Boolean),
     backupSingers: formData.getAll("backupSingers").map(String).filter(Boolean),
     media: formString(formData, "media"),
-    dancers: formString(formData, "dancers"),
+    dancers: formData.getAll("dancers").map(String).filter(Boolean),
   });
 
   if (!id) {
@@ -633,11 +646,22 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
     if (parsed.data.secondKeys) {
       assignmentsToInsert.push({ event_id: eventId, team_member_id: parsed.data.secondKeys, assignment: "Second Keys" });
     }
+    if (parsed.data.extraBandMembers) {
+      for (const memberId of parsed.data.extraBandMembers) {
+        if (memberId) {
+          assignmentsToInsert.push({ event_id: eventId, team_member_id: memberId, assignment: "Band Member" });
+        }
+      }
+    }
     if (parsed.data.media) {
       assignmentsToInsert.push({ event_id: eventId, team_member_id: parsed.data.media, assignment: "Media" });
     }
     if (parsed.data.dancers) {
-      assignmentsToInsert.push({ event_id: eventId, team_member_id: parsed.data.dancers, assignment: "Dancers" });
+      for (const dancerId of parsed.data.dancers) {
+        if (dancerId) {
+          assignmentsToInsert.push({ event_id: eventId, team_member_id: dancerId, assignment: "Dancers" });
+        }
+      }
     }
     if (parsed.data.backupSingers) {
       for (const singerId of parsed.data.backupSingers) {
@@ -845,6 +869,7 @@ export async function updateAttendanceAction(formData: FormData): Promise<Action
           profile_id: adm.profile_id,
           title: "Attendance Updated",
           body: `${memberProfile?.full_name || "A member"} is now ${parsed.data.status} for ${eventDetails?.name || "the service"}.`,
+          target_path: `/events/${eventId}`,
         }));
 
       if (notificationsToInsert.length > 0) {
@@ -858,6 +883,7 @@ export async function updateAttendanceAction(formData: FormData): Promise<Action
   revalidatePath("/events");
   revalidatePath("/setlists/[id]", "page");
   revalidatePath("/dashboard");
+  revalidatePath("/reminders");
   return { ok: true, message: `Marked ${parsed.data.status}.` };
 }
 
@@ -918,6 +944,7 @@ export async function sendMessageAction(formData: FormData): Promise<ActionState
   const parsed = messageSchema.safeParse({
     channelId: formData.get("channelId"),
     body: formData.get("body"),
+    attachmentFileId: formString(formData, "attachmentFileId") || undefined,
   });
 
   if (!parsed.success) {
@@ -929,10 +956,25 @@ export async function sendMessageAction(formData: FormData): Promise<ActionState
     return { ok: false, message: "Sign in with Supabase to send messages." };
   }
 
+  const attachmentFileId = parsed.data.attachmentFileId ?? null;
+  if (attachmentFileId) {
+    const { data: attachment, error: attachmentError } = await context.supabase
+      .from("practice_files")
+      .select("id")
+      .eq("id", attachmentFileId)
+      .eq("team_id", context.teamId)
+      .maybeSingle();
+
+    if (attachmentError || !attachment) {
+      return { ok: false, message: "Attachment could not be added to this message." };
+    }
+  }
+
   const { error } = await context.supabase.from("messages").insert({
     channel_id: parsed.data.channelId,
     sender_member_id: context.memberId,
     body: parsed.data.body,
+    attachment_file_id: attachmentFileId,
   });
 
   if (error) {
@@ -1324,7 +1366,6 @@ export async function updateProfileAction(_previous: ActionState, formData: Form
   const parsed = profileInputSchema.safeParse({
     fullName: formString(formData, "fullName"),
     primaryRole: formString(formData, "primaryRole"),
-    accessLevel: formString(formData, "accessLevel"),
     avatarUrl: formString(formData, "avatarUrl"),
   });
 
@@ -1343,7 +1384,7 @@ export async function updateProfileAction(_previous: ActionState, formData: Form
   }).eq("id", context.userId);
   const { error: memberError } = await context.supabase
     .from("team_members")
-    .update({ ministry: parsed.data.primaryRole, role: parsed.data.accessLevel })
+    .update({ ministry: parsed.data.primaryRole })
     .eq("id", context.memberId);
 
   if (profileError || memberError) {

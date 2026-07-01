@@ -16,6 +16,7 @@ function mapAssignmentToProp(assignment: string): keyof SetlistAssignments | nul
     case "Drums": return "drums";
     case "Main Keys": return "mainKeys";
     case "Second Keys": return "secondKeys";
+    case "Band Member": return "extraBandMembers";
     case "Backup Singer": return "backupSingers";
     case "Media": return "media";
     case "Dancers": return "dancers";
@@ -69,6 +70,16 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
                 initialAssignments.backupSingers = [];
               }
               initialAssignments.backupSingers.push(ass.team_member_id);
+            } else if (key === "dancers") {
+              if (!initialAssignments.dancers) {
+                initialAssignments.dancers = [];
+              }
+              initialAssignments.dancers.push(ass.team_member_id);
+            } else if (key === "extraBandMembers") {
+              if (!initialAssignments.extraBandMembers) {
+                initialAssignments.extraBandMembers = [];
+              }
+              initialAssignments.extraBandMembers.push(ass.team_member_id);
             } else if (key) {
               initialAssignments[key] = ass.team_member_id as any;
             }

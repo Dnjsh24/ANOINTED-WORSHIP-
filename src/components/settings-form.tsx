@@ -1,9 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { signOut, updateTeamSettingsAction } from "@/app/actions";
+import { updateTeamSettingsAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { initialActionState } from "@/lib/action-state";
 
@@ -80,14 +79,6 @@ export function SettingsForm({
               <p className="mt-2 text-3xl font-bold text-violet-200">{teamCode}</p>
             </div>
           )}
-        </aside>
-
-        <aside className="rounded-lg border border-white/10 bg-[#17161b] p-5">
-          <h2 className="text-xl font-bold text-red-400">Account</h2>
-          <p className="mt-2 text-xs text-zinc-400">End your current session on this device.</p>
-          <Button type="submit" formAction={signOut} variant="danger" className="mt-4 w-full justify-center">
-            Log Out
-          </Button>
         </aside>
       </div>
     </form>

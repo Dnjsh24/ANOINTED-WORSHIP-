@@ -4,6 +4,7 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTeamContext } from "@/lib/supabase/team-context";
 import { messages as sampleMessages } from "@/lib/sample-data";
+import { fileKindLabel, formatFileSize } from "@/lib/domain/files";
 
 export default async function MessagesPage() {
   const teamContext = await getCurrentTeamContext();
@@ -95,6 +96,39 @@ export default async function MessagesPage() {
           messagesByChannel.set(message.channel_id, messages);
         });
 
+        const attachmentFileIds = Array.from(
+          new Set<string>(
+            (dbMsgs || [])
+              .map((message: any) => message.attachment_file_id)
+              .filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
+          )
+        );
+        const attachmentMap = new Map<string, any>();
+
+        if (attachmentFileIds.length > 0) {
+          const { data: dbFiles } = (await supabase
+            .from("practice_files")
+            .select("id, storage_path, file_name, mime_type, size_bytes")
+            .in("id", attachmentFileIds)) as any;
+
+          await Promise.all(
+            (dbFiles || []).map(async (file: any) => {
+              const { data: signedUrl } = await supabase.storage
+                .from("practice-files")
+                .createSignedUrl(file.storage_path, 60 * 60);
+
+              attachmentMap.set(file.id, {
+                id: file.id,
+                name: file.file_name,
+                size: formatFileSize(Number(file.size_bytes)),
+                type: fileKindLabel(file.mime_type, file.file_name),
+                mimeType: file.mime_type,
+                url: signedUrl?.signedUrl ?? "",
+              });
+            })
+          );
+        }
+
         for (const chan of visibleDbChannels) {
           const chanMembers = allMemberships?.filter((m: any) => m.channel_id === chan.id) || [];
           const membersCount = chanMembers.length;
@@ -122,6 +156,7 @@ export default async function MessagesPage() {
                 minute: "2-digit",
               }),
               mine: msg.sender_member_id === myMemberId,
+              attachment: msg.attachment_file_id ? attachmentMap.get(msg.attachment_file_id) : undefined,
             };
           });
 
@@ -182,6 +217,8 @@ export default async function MessagesPage() {
         channels={channelsList}
         teamMembers={teamMembersList}
         currentMemberId={myMemberId}
+        currentProfileId={teamContext.userId ?? ""}
+        teamId={teamContext.teamId ?? ""}
         role={teamContext.role || "member"}
         allChannelMemberships={allChannelMemberships}
       />

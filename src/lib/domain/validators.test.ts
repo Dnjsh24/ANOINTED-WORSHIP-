@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { eventInputSchema, inviteMemberSchema, joinCodeSchema, setlistInputSchema, songInputSchema } from "@/lib/domain/validators";
+import {
+  eventInputSchema,
+  inviteMemberSchema,
+  joinCodeSchema,
+  messageSchema,
+  profileInputSchema,
+  setlistInputSchema,
+  songInputSchema,
+} from "@/lib/domain/validators";
 
 describe("validators", () => {
   it("accepts team codes", () => {
@@ -64,5 +72,34 @@ describe("validators", () => {
       role: "member",
     });
     expect(() => inviteMemberSchema.parse({ email: "bad", role: "visitor" })).toThrow();
+  });
+
+  it("does not accept profile role changes from personal settings", () => {
+    const parsed = profileInputSchema.parse({
+      fullName: "Dan Jeshua",
+      primaryRole: "Member",
+      accessLevel: "owner",
+      avatarUrl: "",
+    });
+
+    expect(parsed).not.toHaveProperty("accessLevel");
+  });
+
+  it("validates optional message attachments", () => {
+    expect(
+      messageSchema.parse({
+        channelId: "worship-team",
+        body: "Please review this chart.",
+        attachmentFileId: "11111111-1111-4111-8111-111111111111",
+      }),
+    ).toMatchObject({ attachmentFileId: "11111111-1111-4111-8111-111111111111" });
+
+    expect(() =>
+      messageSchema.parse({
+        channelId: "worship-team",
+        body: "Bad attachment",
+        attachmentFileId: "not-a-file-id",
+      }),
+    ).toThrow();
   });
 });

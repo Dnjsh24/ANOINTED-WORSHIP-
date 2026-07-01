@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { Plus, X } from "lucide-react";
+import { type Dispatch, type ReactNode, type SetStateAction, useActionState, useId, useRef, useState } from "react";
 import { createSetlistAction, updateSetlistAction, deleteSetlistAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -16,10 +17,16 @@ export interface SetlistAssignments {
   drums?: string;
   mainKeys?: string;
   secondKeys?: string;
+  extraBandMembers?: string[];
   backupSingers?: string[];
   media?: string;
-  dancers?: string;
+  dancers?: string[];
 }
+
+type AssignmentRow = {
+  id: string;
+  defaultValue?: string;
+};
 
 export function SetlistForm({
   setlist,
@@ -34,6 +41,24 @@ export function SetlistForm({
 }) {
   const action = setlist ? updateSetlistAction : createSetlistAction;
   const [state, formAction] = useActionState(action, initialActionState);
+  const nextRowId = useRef(0);
+  const [showSecondKeys, setShowSecondKeys] = useState(true);
+  const [extraBandRows, setExtraBandRows] = useState(() => createAssignmentRows("extra-band", initialAssignments.extraBandMembers, 0));
+  const [singerRows, setSingerRows] = useState(() => createAssignmentRows("singer", initialAssignments.backupSingers, 2));
+  const [dancerRows, setDancerRows] = useState(() => createAssignmentRows("dancer", initialAssignments.dancers, 3));
+
+  function addAssignmentRow(prefix: string, setRows: Dispatch<SetStateAction<AssignmentRow[]>>) {
+    const id = `${prefix}-added-${nextRowId.current}`;
+    nextRowId.current += 1;
+    setRows((rows) => [...rows, { id }]);
+  }
+
+  function removeAssignmentRow(rowId: string, setRows: Dispatch<SetStateAction<AssignmentRow[]>>, minimumRows = 0) {
+    setRows((rows) => {
+      if (rows.length <= minimumRows) return rows;
+      return rows.filter((row) => row.id !== rowId);
+    });
+  }
 
   return (
     <div className="animate-fade-in">
@@ -103,85 +128,76 @@ export function SetlistForm({
           <div className="space-y-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 text-left">
             <h3 className="text-sm font-bold text-white mb-2 pb-2 border-b border-white/[0.04]">Team Assignments</h3>
 
-            <label className="block space-y-1.5">
-              <span className="text-xs font-bold text-zinc-300">Worship Leader *</span>
-              <div className="relative">
-                <select
-                  name="worshipLeader"
-                  defaultValue={initialAssignments.worshipLeader ?? ""}
-                  className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400"
-                  required
-                >
-                  <option value="" className="bg-[#111014]">Select leader</option>
-                  {teamMembers.map((m) => (
-                    <option key={m.id} value={m.id} className="bg-[#111014]">
-                      {m.profile.fullName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </label>
+            <RoleSelect
+              name="worshipLeader"
+              label="Worship Leader *"
+              placeholder="Select leader"
+              defaultValue={initialAssignments.worshipLeader}
+              required
+              teamMembers={teamMembers}
+            />
 
-            <label className="block space-y-1.5">
-              <span className="text-xs font-bold text-zinc-300">Keys</span>
-              <div className="relative">
-                <select
-                  name="mainKeys"
-                  defaultValue={initialAssignments.mainKeys ?? ""}
-                  className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400"
-                >
-                  <option value="" className="bg-[#111014]">Select keys</option>
-                  {teamMembers.map((m) => (
-                    <option key={m.id} value={m.id} className="bg-[#111014]">{m.profile.fullName}</option>
-                  ))}
-                </select>
-              </div>
-            </label>
+            <AssignmentSection title="Band">
+              <RoleSelect name="mainKeys" label="Keys" placeholder="Select keys" defaultValue={initialAssignments.mainKeys} teamMembers={teamMembers} />
+              {showSecondKeys && (
+                <RoleSelect
+                  name="secondKeys"
+                  label="Keys 2"
+                  placeholder="Select keys 2"
+                  defaultValue={initialAssignments.secondKeys}
+                  teamMembers={teamMembers}
+                  onRemove={() => setShowSecondKeys(false)}
+                />
+              )}
+              <RoleSelect name="acousticGuitar" label="Acoustic Guitar" placeholder="Select acoustic guitarist" defaultValue={initialAssignments.acousticGuitar} teamMembers={teamMembers} />
+              <RoleSelect name="electricGuitar" label="Electric Guitar" placeholder="Select electric guitarist" defaultValue={initialAssignments.electricGuitar} teamMembers={teamMembers} />
+              <RoleSelect name="bass" label="Bass" placeholder="Select bassist" defaultValue={initialAssignments.bass} teamMembers={teamMembers} />
+              <RoleSelect name="drums" label="Drums" placeholder="Select drummer" defaultValue={initialAssignments.drums} teamMembers={teamMembers} />
+              {extraBandRows.map((row, index) => (
+                <RoleSelect
+                  key={row.id}
+                  name="extraBandMembers"
+                  label={`Band Member ${index + 1}`}
+                  placeholder="Select band member"
+                  defaultValue={row.defaultValue}
+                  teamMembers={teamMembers}
+                  onRemove={() => removeAssignmentRow(row.id, setExtraBandRows)}
+                />
+              ))}
+              <AddAssignmentButton label="Add More" onClick={() => addAssignmentRow("extra-band", setExtraBandRows)} />
+            </AssignmentSection>
 
-            <label className="block space-y-1.5">
-              <span className="text-xs font-bold text-zinc-300">Acoustic Guitar</span>
-              <div className="relative">
-                <select
-                  name="acousticGuitar"
-                  defaultValue={initialAssignments.acousticGuitar ?? ""}
-                  className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400"
-                >
-                  <option value="" className="bg-[#111014]">Select guitarist</option>
-                  {teamMembers.map((m) => (
-                    <option key={m.id} value={m.id} className="bg-[#111014]">{m.profile.fullName}</option>
-                  ))}
-                </select>
-              </div>
-            </label>
+            <AssignmentSection title="Singers">
+              {singerRows.map((row, index) => (
+                <RoleSelect
+                  key={row.id}
+                  name="backupSingers"
+                  label={`Singer ${index + 1}`}
+                  placeholder={`Select singer ${index + 1}`}
+                  defaultValue={row.defaultValue}
+                  teamMembers={teamMembers}
+                  onRemove={singerRows.length > 1 ? () => removeAssignmentRow(row.id, setSingerRows, 1) : undefined}
+                />
+              ))}
+              <AddAssignmentButton label="Add Singer" onClick={() => addAssignmentRow("singer", setSingerRows)} />
+            </AssignmentSection>
 
-            <label className="block space-y-1.5">
-              <span className="text-xs font-bold text-zinc-300">Bass</span>
-              <div className="relative">
-                <select
-                  name="bass"
-                  defaultValue={initialAssignments.bass ?? ""}
-                  className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400"
-                >
-                  <option value="" className="bg-[#111014]">Select bassist</option>
-                  {teamMembers.map((m) => (
-                    <option key={m.id} value={m.id} className="bg-[#111014]">{m.profile.fullName}</option>
-                  ))}
-                </select>
-              </div>
-            </label>
+            <AssignmentSection title="Dance">
+              {dancerRows.map((row, index) => (
+                <RoleSelect
+                  key={row.id}
+                  name="dancers"
+                  label={`Dancer ${index + 1}`}
+                  placeholder={`Select dancer ${index + 1}`}
+                  defaultValue={row.defaultValue}
+                  teamMembers={teamMembers}
+                  onRemove={() => removeAssignmentRow(row.id, setDancerRows)}
+                />
+              ))}
+              <AddAssignmentButton label="Add Dancers" onClick={() => addAssignmentRow("dancer", setDancerRows)} />
+            </AssignmentSection>
 
-            {/* Hidden / Backup details - kept intact to combine */}
-            <div className="hidden">
-              <input type="hidden" name="electricGuitar" value={initialAssignments.electricGuitar ?? ""} />
-              <input type="hidden" name="drums" value={initialAssignments.drums ?? ""} />
-              <input type="hidden" name="secondKeys" value={initialAssignments.secondKeys ?? ""} />
-              <input type="hidden" name="media" value={initialAssignments.media ?? ""} />
-              <input type="hidden" name="dancers" value={initialAssignments.dancers ?? ""} />
-            </div>
-
-            <button type="button" className="text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors pt-2 block">
-              + Add Team Role
-            </button>
+            <input type="hidden" name="media" value={initialAssignments.media ?? ""} />
           </div>
 
         </div>
@@ -223,6 +239,85 @@ export function SetlistForm({
   );
 }
 
+function AssignmentSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-violet-300">{title}</h4>
+      <div className="space-y-3">{children}</div>
+    </section>
+  );
+}
+
+function RoleSelect({
+  name,
+  label,
+  placeholder,
+  defaultValue,
+  required,
+  teamMembers,
+  onRemove,
+}: {
+  name: string;
+  label: string;
+  placeholder: string;
+  defaultValue?: string;
+  required?: boolean;
+  teamMembers: TeamMember[];
+  onRemove?: () => void;
+}) {
+  const selectId = useId();
+
+  return (
+    <div className="block space-y-1.5">
+      <div className="flex items-center justify-between gap-3">
+        <label htmlFor={selectId} className="text-xs font-bold text-zinc-300">
+          {label}
+        </label>
+        {onRemove && (
+          <button
+            type="button"
+            aria-label={`Remove ${label}`}
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-red-300 transition hover:bg-red-500/10 hover:text-red-200"
+            onClick={onRemove}
+          >
+            <X className="size-3" />
+            Remove
+          </button>
+        )}
+      </div>
+      <div className="relative">
+        <select
+          id={selectId}
+          name={name}
+          defaultValue={defaultValue ?? ""}
+          className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400"
+          required={required}
+        >
+          <option value="" className="bg-[#111014]">{placeholder}</option>
+          {teamMembers.map((member) => (
+            <option key={member.id} value={member.id} className="bg-[#111014]">
+              {member.profile.fullName}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function AddAssignmentButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="inline-flex items-center gap-1.5 pt-1 text-xs font-bold text-violet-400 transition-colors hover:text-violet-300"
+      onClick={onClick}
+    >
+      <Plus className="size-3.5" />
+      {label}
+    </button>
+  );
+}
+
 function toTimeValue(value?: string) {
   if (!value) return undefined;
   const match = value.match(/^(\d{1,2}):(\d{2})/);
@@ -230,4 +325,14 @@ function toTimeValue(value?: string) {
   const date = new Date(`2026-01-01 ${value}`);
   if (Number.isNaN(date.getTime())) return undefined;
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function createAssignmentRows(prefix: string, values: string[] | undefined, minimumRows: number): AssignmentRow[] {
+  const savedValues = values?.filter(Boolean) ?? [];
+  const rowCount = Math.max(savedValues.length, minimumRows);
+
+  return Array.from({ length: rowCount }, (_, index) => ({
+    id: `${prefix}-${index}`,
+    defaultValue: savedValues[index] ?? "",
+  }));
 }

@@ -107,7 +107,11 @@ export interface Message {
   mine?: boolean;
   avatarUrl?: string | null;
   attachment?: {
+    id?: string;
     name: string;
     size: string;
+    type?: string;
+    mimeType?: string;
+    url?: string;
   };
 }

@@ -8,10 +8,23 @@ const allowedTypes = new Set([
 ]);
 
 const allowedExtensions = new Set([".pdf", ".docx", ".mp3", ".wav", ".jpg", ".jpeg", ".png"]);
+const mimeTypesByExtension = new Map([
+  [".pdf", "application/pdf"],
+  [".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  [".mp3", "audio/mpeg"],
+  [".wav", "audio/wav"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".png", "image/png"],
+]);
 const maxUploadBytes = 15 * 1024 * 1024;
 
+function extensionFor(filename: string) {
+  return filename.toLowerCase().match(/\.[^.]+$/)?.[0] ?? "";
+}
+
 export function validatePracticeFile(file: Pick<File, "name" | "size" | "type">) {
-  const extension = file.name.toLowerCase().match(/\.[^.]+$/)?.[0] ?? "";
+  const extension = extensionFor(file.name);
 
   if (file.size > maxUploadBytes) {
     return { valid: false, reason: "Files must be 15 MB or smaller." };
@@ -26,6 +39,39 @@ export function validatePracticeFile(file: Pick<File, "name" | "size" | "type">)
   }
 
   return { valid: true, reason: null };
+}
+
+export function inferPracticeFileMimeType(file: Pick<File, "name" | "type">) {
+  return file.type || mimeTypesByExtension.get(extensionFor(file.name)) || "application/octet-stream";
+}
+
+export function formatFileSize(sizeBytes: number) {
+  if (sizeBytes < 1024) {
+    return `${sizeBytes} B`;
+  }
+
+  if (sizeBytes < 1024 * 1024) {
+    return `${Math.round(sizeBytes / 1024)} KB`;
+  }
+
+  return `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+export function isImageMimeType(mimeType?: string | null) {
+  return Boolean(mimeType?.startsWith("image/"));
+}
+
+export function fileKindLabel(mimeType: string | null | undefined, filename: string) {
+  if (isImageMimeType(mimeType)) {
+    return "Image";
+  }
+
+  const extension = extensionFor(filename);
+  if (extension) {
+    return extension.slice(1).toUpperCase();
+  }
+
+  return mimeType?.split("/")[0]?.toUpperCase() || "File";
 }
 
 export function storagePath(teamId: string, category: string, objectId: string, filename: string) {

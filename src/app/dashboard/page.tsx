@@ -2,7 +2,6 @@ import {
   AlertCircle,
   AlertTriangle,
   BarChart3,
-  Bell,
   CalendarDays,
   CheckCircle2,
   Clock,
@@ -17,11 +16,33 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
+import type { ComponentType, ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
-import { announcements, currentUser as sampleUser, events, setlists } from "@/lib/sample-data";
+import { currentUser as sampleUser, events, setlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+
+type IconComponent = ComponentType<{ className?: string }>;
+
+type DashboardAnnouncementItem = {
+  icon: IconComponent;
+  color: string;
+  bg: string;
+  badge: string;
+  badgeColor: string;
+  title: string;
+  body: string;
+};
+
+type DashboardReminderItem = {
+  icon: IconComponent;
+  title: string;
+  body: string;
+  due: string;
+  dueColor: string;
+  href: string;
+};
 
 export default async function DashboardPage() {
   const teamContext = await getCurrentTeamContext();
@@ -45,6 +66,16 @@ export default async function DashboardPage() {
   let confirmedThisMonthCount = 12;
   let myConfirmedCount = 5;
   let totalSetlistsCount = setlists.length;
+  let announcementItems: DashboardAnnouncementItem[] = [
+    { icon: Sparkles, color: "text-emerald-400", bg: "bg-emerald-500/10", badge: "New", badgeColor: "bg-emerald-500/20 text-emerald-300", title: "New Soundboard Training", body: "Required for all audio techs this Wednesday." },
+    { icon: AlertTriangle, color: "text-amber-400", bg: "bg-amber-500/10", badge: "Attention", badgeColor: "bg-amber-500/20 text-amber-300", title: "Rehearsal moved to 7 PM", body: "Youth event sound check needs the room first. See you then." },
+    { icon: Info, color: "text-blue-400", bg: "bg-blue-500/10", badge: "Info", badgeColor: "bg-blue-500/20 text-blue-300", title: "Midweek Prayer Time", body: "Join us Wednesdays at 7:00 PM in Room 101." },
+  ];
+  let reminders: DashboardReminderItem[] = [
+    { icon: Clock, title: "Rehearsal", body: "Bring in-ear monitors and updated charts.", due: "Due Fri, Jul 10", dueColor: "bg-violet-500/20 text-violet-300", href: "/reminders" },
+    { icon: Users, title: "Attendance", body: "Confirm availability before Friday night.", due: "Due Fri, Jul 10", dueColor: "bg-violet-500/20 text-violet-300", href: "/reminders" },
+    { icon: Folder, title: "Media", body: "Upload practice files before rehearsal.", due: "Due Sat, Jul 11", dueColor: "bg-red-500/20 text-red-300", href: "/messages" },
+  ];
 
   if (hasSupabaseEnv() && teamContext.userId) {
     const supabase = await createClient();
@@ -182,6 +213,43 @@ export default async function DashboardPage() {
         const sc = setlistsCountResult.count;
         if (sc !== null) totalSetlistsCount = sc;
       }
+
+      const [announcementsResult, remindersResult] = await Promise.all([
+        supabase
+          .from("announcements")
+          .select("id, category, title, body, created_at")
+          .eq("team_id", teamContext.teamId)
+          .order("created_at", { ascending: false })
+          .limit(3),
+        supabase
+          .from("notifications")
+          .select("id, title, body, read_at, created_at, target_path")
+          .eq("team_id", teamContext.teamId)
+          .eq("profile_id", teamContext.userId)
+          .order("created_at", { ascending: false })
+          .limit(3),
+      ]);
+
+      announcementItems = (announcementsResult.data ?? []).map((announcement, index) => {
+        const visual = getAnnouncementVisual(announcement.category, announcement.title, index);
+        return {
+          ...visual,
+          title: announcement.title,
+          body: announcement.body,
+        };
+      });
+
+      reminders = (remindersResult.data ?? []).map((reminder) => {
+        const visual = getReminderVisual(reminder.title);
+        return {
+          ...visual,
+          title: reminder.title,
+          body: reminder.body ?? "Open this reminder for details.",
+          due: reminder.read_at ? "Read" : "Unread",
+          dueColor: reminder.read_at ? "bg-white/[0.06] text-zinc-400" : "bg-violet-500/20 text-violet-300",
+          href: reminder.target_path || "/reminders",
+        };
+      });
     }
   }
 
@@ -191,18 +259,6 @@ export default async function DashboardPage() {
   const nextDateLabel = nextSetlist.date
     ? new Date(nextSetlist.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
     : "Sunday, July 12";
-
-  const announcementItems = [
-    { icon: Sparkles, color: "text-emerald-400", bg: "bg-emerald-500/10", badge: "New", badgeColor: "bg-emerald-500/20 text-emerald-300", title: "New Soundboard Training", body: "Required for all audio techs this Wednesday." },
-    { icon: AlertTriangle, color: "text-amber-400", bg: "bg-amber-500/10", badge: "Attention", badgeColor: "bg-amber-500/20 text-amber-300", title: "Rehearsal moved to 7 PM", body: "Youth event sound check needs the room first. See you then." },
-    { icon: Info, color: "text-blue-400", bg: "bg-blue-500/10", badge: "Info", badgeColor: "bg-blue-500/20 text-blue-300", title: "Midweek Prayer Time", body: "Join us Wednesdays at 7:00 PM in Room 101." },
-  ];
-
-  const reminders = [
-    { icon: Clock, title: "Rehearsal", body: "Bring in-ear monitors and updated charts.", due: "Due Fri, Jul 10", dueColor: "bg-violet-500/20 text-violet-300" },
-    { icon: Users, title: "Attendance", body: "Confirm availability before Friday night.", due: "Due Fri, Jul 10", dueColor: "bg-violet-500/20 text-violet-300" },
-    { icon: Folder, title: "Media", body: "Upload practice files before rehearsal.", due: "Due Sat, Jul 11", dueColor: "bg-red-500/20 text-red-300" },
-  ];
 
   const quickLinks = [
     { href: "/setlists", label: "Setlists", sub: "View and manage", icon: Music },
@@ -237,7 +293,7 @@ export default async function DashboardPage() {
       <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
 
         {/* ── LEFT COLUMN: Hero + Setlist Preview ─── */}
-        <div className="flex flex-col gap-5">
+        <div className="flex h-full flex-col gap-5">
           {/* Hero card */}
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0f0e14] animate-fade-up" style={{ minHeight: 260 }}>
             {/* Background gradient overlay */}
@@ -306,7 +362,7 @@ export default async function DashboardPage() {
           </div>
 
           {/* Setlist Preview */}
-          <div className="rounded-2xl border border-white/10 bg-[#111014]/80 p-5 animate-fade-up" style={{ animationDelay: "80ms" }}>
+          <div className="flex flex-1 flex-col rounded-2xl border border-white/10 bg-[#111014]/80 p-5 animate-fade-up" style={{ animationDelay: "80ms" }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-white">Setlist Preview</h3>
               <Link href={`/setlists/${nextSetlist.id}`} className="text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1">
@@ -331,7 +387,7 @@ export default async function DashboardPage() {
                 <p className="px-3 py-4 text-center text-xs font-semibold text-zinc-500">No songs in this setlist yet.</p>
               )}
             </div>
-            <p className="mt-4 border-t border-white/10 pt-3 flex items-center gap-2 text-xs font-semibold text-zinc-500">
+            <p className="mt-auto border-t border-white/10 pt-3 flex items-center gap-2 text-xs font-semibold text-zinc-500">
               <Music className="size-3.5" />
               {setlistSongsList.length} songs &nbsp;·&nbsp; Est. duration {Math.ceil(setlistSongsList.length * 5.5)} min
             </p>
@@ -339,7 +395,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* ── RIGHT COLUMN: Stats (3-col row) + Announcements + Reminders ── */}
-        <div className="flex flex-col gap-5">
+        <div className="flex h-full flex-col gap-5">
 
           {/* 3 stat cards in a horizontal row */}
           <div className="grid grid-cols-3 gap-3">
@@ -391,25 +447,32 @@ export default async function DashboardPage() {
             <div className="rounded-2xl border border-white/10 bg-[#111014]/80 p-4 animate-fade-up" style={{ animationDelay: "180ms" }}>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-white">Announcements</h3>
-                <Link href="/messages" className="text-[10px] font-bold text-violet-400 hover:text-violet-300 transition-colors">View all →</Link>
+                <Link href="/announcements" className="text-[10px] font-bold text-violet-400 hover:text-violet-300 transition-colors">View all →</Link>
               </div>
               <div className="space-y-2">
-                {announcementItems.map((a, i) => (
-                  <Link key={i} href="/messages" className="group flex gap-2 rounded-xl bg-white/[0.03] p-2.5 transition-all duration-150 hover:bg-white/[0.07]">
-                    <span className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg ${a.bg}`}>
-                      <a.icon className={`size-3.5 ${a.color}`} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-1">
-                        <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight">{a.title}</p>
-                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold ${a.badgeColor}`}>{a.badge}</span>
+                {announcementItems.length > 0 ? (
+                  announcementItems.map((a, i) => (
+                    <Link key={i} href="/announcements" className="group flex gap-2 rounded-xl bg-white/[0.03] p-2.5 transition-all duration-150 hover:bg-white/[0.07]">
+                      <span className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg ${a.bg}`}>
+                        <a.icon className={`size-3.5 ${a.color}`} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-1">
+                          <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight">{a.title}</p>
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold ${a.badgeColor}`}>{a.badge}</span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2">{a.body}</p>
                       </div>
-                      <p className="mt-0.5 text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2">{a.body}</p>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-4 text-center">
+                    <p className="text-xs font-bold text-zinc-400">No announcements yet.</p>
+                    <p className="mt-1 text-[10px] font-semibold text-zinc-600">New team announcements will appear here.</p>
+                  </div>
+                )}
               </div>
-              <Link href="/messages" className="mt-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-violet-300 transition-colors">
+              <Link href="/announcements" className="mt-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-violet-300 transition-colors">
                 View all announcements →
               </Link>
             </div>
@@ -418,25 +481,32 @@ export default async function DashboardPage() {
             <div className="rounded-2xl border border-white/10 bg-[#111014]/80 p-4 animate-fade-up" style={{ animationDelay: "220ms" }}>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold text-white">Reminders</h3>
-                <Link href="/events" className="text-[10px] font-bold text-violet-400 hover:text-violet-300 transition-colors">View all →</Link>
+                <Link href="/reminders" className="text-[10px] font-bold text-violet-400 hover:text-violet-300 transition-colors">View all →</Link>
               </div>
               <div className="space-y-2">
-                {reminders.map((r, i) => (
-                  <Link key={i} href="/events" className="group flex gap-2 rounded-xl bg-white/[0.03] p-2.5 transition-all duration-150 hover:bg-white/[0.07]">
-                    <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
-                      <r.icon className="size-3.5 text-violet-300" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-1">
-                        <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight">{r.title}</p>
-                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold ${r.dueColor}`}>{r.due}</span>
+                {reminders.length > 0 ? (
+                  reminders.map((r, i) => (
+                    <Link key={i} href={r.href} className="group flex gap-2 rounded-xl bg-white/[0.03] p-2.5 transition-all duration-150 hover:bg-white/[0.07]">
+                      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
+                        <r.icon className="size-3.5 text-violet-300" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-1">
+                          <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight">{r.title}</p>
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold ${r.dueColor}`}>{r.due}</span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2">{r.body}</p>
                       </div>
-                      <p className="mt-0.5 text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2">{r.body}</p>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  ))
+                ) : (
+                  <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-4 text-center">
+                    <p className="text-xs font-bold text-zinc-400">No reminders right now.</p>
+                    <p className="mt-1 text-[10px] font-semibold text-zinc-600">Unread team reminders will show up here.</p>
+                  </div>
+                )}
               </div>
-              <Link href="/events" className="mt-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-violet-300 transition-colors">
+              <Link href="/reminders" className="mt-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-violet-300 transition-colors">
                 View all reminders →
               </Link>
             </div>
@@ -470,11 +540,85 @@ export default async function DashboardPage() {
   );
 }
 
+function getAnnouncementVisual(
+  category: string | null | undefined,
+  title: string,
+  index: number,
+): Omit<DashboardAnnouncementItem, "title" | "body"> {
+  const text = `${category ?? ""} ${title}`.toLowerCase();
+
+  if (text.includes("urgent") || text.includes("attention") || text.includes("move")) {
+    return {
+      icon: AlertTriangle,
+      color: "text-amber-400",
+      bg: "bg-amber-500/10",
+      badge: "Attention",
+      badgeColor: "bg-amber-500/20 text-amber-300",
+    };
+  }
+
+  if (text.includes("media") || text.includes("sound") || text.includes("training")) {
+    return {
+      icon: Sparkles,
+      color: "text-emerald-400",
+      bg: "bg-emerald-500/10",
+      badge: "New",
+      badgeColor: "bg-emerald-500/20 text-emerald-300",
+    };
+  }
+
+  if (text.includes("prayer") || text.includes("info")) {
+    return {
+      icon: Info,
+      color: "text-blue-400",
+      bg: "bg-blue-500/10",
+      badge: "Info",
+      badgeColor: "bg-blue-500/20 text-blue-300",
+    };
+  }
+
+  const fallback: Array<Omit<DashboardAnnouncementItem, "title" | "body">> = [
+    {
+      icon: Sparkles,
+      color: "text-emerald-400",
+      bg: "bg-emerald-500/10",
+      badge: "New",
+      badgeColor: "bg-emerald-500/20 text-emerald-300",
+    },
+    {
+      icon: AlertTriangle,
+      color: "text-amber-400",
+      bg: "bg-amber-500/10",
+      badge: "Attention",
+      badgeColor: "bg-amber-500/20 text-amber-300",
+    },
+    {
+      icon: Info,
+      color: "text-blue-400",
+      bg: "bg-blue-500/10",
+      badge: "Info",
+      badgeColor: "bg-blue-500/20 text-blue-300",
+    },
+  ];
+
+  return fallback[index % fallback.length];
+}
+
+function getReminderVisual(title: string): Pick<DashboardReminderItem, "icon"> {
+  const text = title.toLowerCase();
+
+  if (text.includes("attendance")) return { icon: Users };
+  if (text.includes("media") || text.includes("file")) return { icon: Folder };
+  if (text.includes("message")) return { icon: MessageSquare };
+
+  return { icon: Clock };
+}
+
 function MiniStatCard({
   label, value, sub, subColor, icon, iconBg, href, linkLabel,
 }: {
   label: string; value: number; sub: string; subColor: string;
-  icon: React.ReactNode; iconBg: string; href: string; linkLabel: string;
+  icon: ReactNode; iconBg: string; href: string; linkLabel: string;
 }) {
   return (
     <Link

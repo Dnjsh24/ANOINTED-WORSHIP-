@@ -122,7 +122,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
               .slice(0, 2);
 
             let group = "Worship Leader";
-            if (["Acoustic Guitar", "Electric Guitar", "Bass", "Drums", "Main Keys", "Second Keys"].includes(role)) {
+            if (["Acoustic Guitar", "Electric Guitar", "Bass", "Drums", "Main Keys", "Second Keys", "Band Member"].includes(role)) {
               group = "Band";
             } else if (role === "Backup Singer") {
               group = "Vocals";

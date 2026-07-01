@@ -10,7 +10,7 @@ const notifications = [
   { title: "Pending requests", body: "2 people are waiting for review.", href: "/members" },
   { title: "Upcoming event", body: "Sunday Morning Worship is coming up.", href: "/events/event-sunday" },
   { title: "Unread messages", body: "New note in Sunday Morning Team.", href: "/messages" },
-  { title: "Attendance reminder", body: "Confirm availability before Friday.", href: "/events" },
+  { title: "Attendance reminder", body: "Confirm availability before Friday.", href: "/reminders" },
 ];
 
 export function AppShellActions({ userId, teamId }: { userId: string | null; teamId: string | null }) {
@@ -73,6 +73,13 @@ export function AppShellActions({ userId, teamId }: { userId: string | null; tea
               <span className="mt-1 block text-xs font-semibold text-zinc-400">{notification.body}</span>
             </Link>
           ))}
+          <Link
+            href="/reminders"
+            className="mt-2 block rounded-md border-t border-white/10 px-3 py-3 text-xs font-bold text-violet-300 transition-colors duration-150 hover:bg-white/[0.06] hover:text-violet-200"
+            onClick={() => setOpen(false)}
+          >
+            View all reminders -&gt;
+          </Link>
         </div>
       )}
       <Link
