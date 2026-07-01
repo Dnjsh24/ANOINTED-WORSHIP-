@@ -13,43 +13,38 @@ export default async function SetlistsPage() {
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
-    // 1. Fetch setlists for this team
+    // Fetch setlists, leaders (with profile names), and setlist songs (with song titles/BPMs) in a single nested select
     const { data: dbSetlists } = (await supabase
       .from("setlists")
-      .select("*, leader:team_members(*)")
+      .select(`
+        *,
+        leader:team_members (
+          id,
+          profile_id,
+          profiles (
+            id,
+            full_name
+          )
+        ),
+        setlist_songs (
+          id,
+          assigned_key,
+          song_order,
+          song:songs (
+            id,
+            title,
+            bpm
+          )
+        )
+      `)
       .eq("team_id", teamContext.teamId)
       .order("setlist_date", { ascending: false })) as any;
 
-    // 2. Fetch profile names and setlist songs in parallel.
-    const leaderProfileIds = (dbSetlists ?? [])
-      .map((s: any) => s.leader?.profile_id)
-      .filter(Boolean);
-    const setlistIds = (dbSetlists ?? []).map((s: any) => s.id);
-
-    const [profilesResult, songsResult] = (await Promise.all([
-      leaderProfileIds.length > 0
-        ? supabase.from("profiles").select("id, full_name").in("id", leaderProfileIds)
-        : Promise.resolve({ data: [] }),
-      setlistIds.length > 0
-        ? supabase
-            .from("setlist_songs")
-            .select("*, song:songs(*)")
-            .in("setlist_id", setlistIds)
-            .order("song_order", { ascending: true })
-        : Promise.resolve({ data: [] }),
-    ])) as any;
-
-    const leaderProfilesMap: Record<string, string> = Object.fromEntries(
-      (profilesResult.data ?? []).map((p: any) => [p.id, p.full_name || ""]),
-    );
-
-    const songsMap: Record<string, any[]> = {};
-    if (songsResult.data) {
-      songsResult.data.forEach((ss: any) => {
-        if (!songsMap[ss.setlist_id]) {
-          songsMap[ss.setlist_id] = [];
-        }
-        songsMap[ss.setlist_id].push({
+    setlistsList = (dbSetlists ?? []).map((s: any) => {
+      const leaderName = s.leader?.profiles?.full_name || "Worship Leader";
+      const songs = (s.setlist_songs ?? [])
+        .sort((a: any, b: any) => a.song_order - b.song_order)
+        .map((ss: any) => ({
           id: ss.id,
           assignedKey: ss.assigned_key,
           order: ss.song_order,
@@ -58,23 +53,18 @@ export default async function SetlistsPage() {
             title: ss.song?.title || "Unknown Song",
             bpm: ss.song?.bpm || 70,
           },
-        });
-      });
-    }
+        }));
 
-    setlistsList = (dbSetlists ?? []).map((s: any) => {
-      const leaderProfileId = s.leader?.profile_id;
-      const leaderName = leaderProfileId ? leaderProfilesMap[leaderProfileId] : "Worship Leader";
       return {
         id: s.id,
         name: s.name,
         date: s.setlist_date,
-        leader: leaderName || "Worship Leader",
+        leader: leaderName,
         location: s.location ?? "Main Sanctuary",
         callTime: s.call_time?.slice(0, 5) || "09:00",
         rehearsalTime: s.rehearsal_time?.slice(0, 5) || "08:00",
         serviceTimes: s.service_times || ["Sunday Worship"],
-        songs: songsMap[s.id] || [],
+        songs,
       };
     });
   }

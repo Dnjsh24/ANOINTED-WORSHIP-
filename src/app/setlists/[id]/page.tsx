@@ -26,42 +26,40 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
-    // 1. Fetch setlist details
+    // Fetch setlist details, leader profiles and setlist songs with titles/BPMs in a single query
     const { data: dbSetlist } = (await supabase
       .from("setlists")
-      .select("*, leader:team_members(*)")
+      .select(`
+        *,
+        leader:team_members (
+          id,
+          profile_id,
+          profiles (
+            id,
+            full_name
+          )
+        ),
+        setlist_songs (
+          id,
+          assigned_key,
+          song_order,
+          notes,
+          song:songs (
+            id,
+            title,
+            bpm,
+            original_key
+          )
+        )
+      `)
       .eq("id", id)
       .maybeSingle()) as any;
 
     if (dbSetlist) {
-      // Resolve worship leader name
-      let leaderName = "Worship Leader";
-      if (dbSetlist.leader_member_id) {
-        const { data: leaderMember } = (await supabase
-          .from("team_members")
-          .select("profile_id")
-          .eq("id", dbSetlist.leader_member_id)
-          .maybeSingle()) as any;
-        
-        if (leaderMember) {
-          const { data: leaderProfile } = (await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("id", leaderMember.profile_id)
-            .maybeSingle()) as any;
-          if (leaderProfile?.full_name) leaderName = leaderProfile.full_name;
-        }
-      }
+      const leaderName = dbSetlist.leader?.profiles?.full_name || "Worship Leader";
+      const dbSetlistSongs = dbSetlist.setlist_songs || [];
 
-      // Fetch setlist songs
-      const { data: dbSetlistSongs } = (await supabase
-        .from("setlist_songs")
-        .select("*, song:songs(*)")
-        .eq("setlist_id", id)
-        .order("song_order", { ascending: true })) as any;
-
-      const songsList = (dbSetlistSongs || []).map((ss: any) => {
-        // Parse lead vocalist from notes if present
+      const songsList = dbSetlistSongs.map((ss: any) => {
         let leadVocal = "";
         if (ss.notes && ss.notes.startsWith("Lead: ")) {
           leadVocal = ss.notes.replace("Lead: ", "");
@@ -80,33 +78,46 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
         };
       });
 
-      // Fetch event assignments
+      // Fetch event assignments, RSVPs, and counts in parallel
       if (dbSetlist.event_id) {
-        const { data: dbAssignments } = (await supabase
-          .from("event_assignments")
-          .select("*, team_member:team_members(*)")
-          .eq("event_id", dbSetlist.event_id)) as any;
+        const [assignmentsResult, attendanceResult, activeMembersResult] = await Promise.all([
+          supabase
+            .from("event_assignments")
+            .select(`
+              assignment,
+              team_member:team_members (
+                id,
+                profile_id,
+                profiles (
+                  id,
+                  full_name
+                )
+              )
+            `)
+            .eq("event_id", dbSetlist.event_id),
+          supabase
+            .from("attendance")
+            .select("status, team_member_id")
+            .eq("event_id", dbSetlist.event_id),
+          supabase
+            .from("team_members")
+            .select("id", { count: "exact", head: true })
+            .eq("team_id", teamContext.teamId)
+            .eq("status", "active"),
+        ]);
 
-        const profileIds = dbAssignments?.map((a: any) => a.team_member?.profile_id).filter(Boolean) || [];
-        let profilesMap: Record<string, string> = {};
-        if (profileIds.length > 0) {
-          const { data: profiles } = (await supabase
-            .from("profiles")
-            .select("id, full_name")
-            .in("id", profileIds)) as any;
-          if (profiles) {
-            profilesMap = Object.fromEntries(profiles.map((p: any) => [p.id, p.full_name || ""]));
-          }
-        }
+        const dbAssignments = assignmentsResult.data as any[];
+        const dbAttendance = attendanceResult.data as any[];
+        const totalMembers = activeMembersResult.count;
 
         if (dbAssignments) {
           dbAssignments.forEach((ass: any) => {
-            const memberProfileId = ass.team_member?.profile_id;
-            const name = memberProfileId ? profilesMap[memberProfileId] : "Unknown";
+            const profile = ass.team_member?.profiles;
+            const name = profile?.full_name || "Unknown";
             const role = ass.assignment;
             const initials = name
               .split(" ")
-              .map((w) => w[0]?.toUpperCase() ?? "")
+              .map((w: any) => w[0]?.toUpperCase() ?? "")
               .join("")
               .slice(0, 2);
 
@@ -124,18 +135,6 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           });
         }
 
-        // Fetch RSVP / Attendance counts
-        const { data: dbAttendance } = (await supabase
-          .from("attendance")
-          .select("status, team_member_id")
-          .eq("event_id", dbSetlist.event_id)) as any;
-
-        const { count: totalMembers } = (await supabase
-          .from("team_members")
-          .select("id", { count: "exact", head: true })
-          .eq("team_id", teamContext.teamId)
-          .eq("status", "active")) as any;
-
         let respondedCount = 0;
         if (dbAttendance) {
           respondedCount = dbAttendance.length;
@@ -148,21 +147,9 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
         const noResponseCount = Math.max(0, (totalMembers || 0) - respondedCount);
         pendingCount += noResponseCount;
 
-        // Fetch current user status
-        const { data: myMember } = (await supabase
-          .from("team_members")
-          .select("id")
-          .eq("team_id", teamContext.teamId)
-          .eq("profile_id", teamContext.userId)
-          .maybeSingle()) as any;
-
-        if (myMember) {
-          const { data: myAttendance } = (await supabase
-            .from("attendance")
-            .select("status")
-            .eq("event_id", dbSetlist.event_id)
-            .eq("team_member_id", myMember.id)
-            .maybeSingle()) as any;
+        // Resolve current user RSVP status
+        if (teamContext.memberId && dbAttendance) {
+          const myAttendance = dbAttendance.find((att: any) => att.team_member_id === teamContext.memberId);
           if (myAttendance?.status) {
             myStatus = myAttendance.status as any;
           }

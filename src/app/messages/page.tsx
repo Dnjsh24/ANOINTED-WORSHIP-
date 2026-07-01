@@ -16,51 +16,40 @@ export default async function MessagesPage() {
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
-    // Fetch my own membership ID
-    const { data: myMembership } = await supabase
-      .from("team_members")
-      .select("id")
-      .eq("profile_id", teamContext.userId)
-      .eq("team_id", teamContext.teamId)
-      .maybeSingle();
+    if (teamContext.memberId) {
+      myMemberId = teamContext.memberId;
 
-    if (myMembership) {
-      myMemberId = myMembership.id;
-    }
-
-    if (myMemberId) {
-      // 1. Fetch team members and channels in parallel.
+      // 1. Fetch team members (with profiles) and channels (with memberships) in parallel.
       const [{ data: dbMembers }, { data: dbChannels }] = (await Promise.all([
         supabase
           .from("team_members")
-          .select("id, profile_id, role")
+          .select(`
+            id,
+            profile_id,
+            role,
+            profiles (
+              id,
+              full_name,
+              email,
+              avatar_url
+            )
+          `)
           .eq("team_id", teamContext.teamId),
         supabase
           .from("message_channels")
-          .select("*")
+          .select(`
+            *,
+            message_channel_members (
+              channel_id,
+              team_member_id
+            )
+          `)
           .eq("team_id", teamContext.teamId),
       ])) as any;
 
-      const profileIds = dbMembers?.map((m: any) => m.profile_id) || [];
-      const channelIds = dbChannels?.map((channel: any) => channel.id) || [];
-
-      const [{ data: profiles }, { data: allMemberships }] = (await Promise.all([
-        profileIds.length > 0
-          ? supabase.from("profiles").select("id, full_name, email, avatar_url").in("id", profileIds)
-          : Promise.resolve({ data: [] }),
-        channelIds.length > 0
-          ? supabase
-              .from("message_channel_members")
-              .select("channel_id, team_member_id")
-              .in("channel_id", channelIds)
-          : Promise.resolve({ data: [] }),
-      ])) as any;
-
-      const profileMap = new Map<string, any>((profiles ?? []).map((profile: any) => [profile.id, profile]));
-
       const memberMap = new Map<string, any>();
       dbMembers?.forEach((m: any) => {
-        const profile = profileMap.get(m.profile_id);
+        const profile = m.profiles;
         memberMap.set(m.id, {
           memberId: m.id,
           profileId: m.profile_id,
@@ -74,15 +63,17 @@ export default async function MessagesPage() {
       // All other team members (for DM list and admin panel)
       teamMembersList = Array.from(memberMap.values());
 
-      allChannelMemberships = (allMemberships || []).map((m: any) => ({
+      const allMemberships = (dbChannels || []).flatMap((c: any) => c.message_channel_members || []);
+
+      allChannelMemberships = allMemberships.map((m: any) => ({
         channelId: m.channel_id,
         memberId: m.team_member_id,
       }));
 
       const myChannelIds = new Set(
-        allMemberships
-          ?.filter((m: any) => m.team_member_id === myMemberId)
-          .map((m: any) => m.channel_id) || []
+        allChannelMemberships
+          ?.filter((m: any) => m.memberId === myMemberId)
+          .map((m: any) => m.channelId) || []
       );
 
       if (dbChannels) {

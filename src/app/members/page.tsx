@@ -25,37 +25,45 @@ export default async function MembersPage() {
     const [{ data: dbPendingRequests }, { data: dbMembers }] = await Promise.all([
       supabase
         .from("join_requests")
-        .select("id, profile_id, requested_role")
+        .select(`
+          id,
+          profile_id,
+          requested_role,
+          profiles (
+            id,
+            full_name,
+            email,
+            avatar_url
+          )
+        `)
         .eq("team_id", teamContext.teamId)
         .eq("status", "pending")
         .order("created_at", { ascending: false }),
       supabase
         .from("team_members")
-        .select("id, profile_id, role, status, ministry")
+        .select(`
+          id,
+          profile_id,
+          role,
+          status,
+          ministry,
+          profiles (
+            id,
+            full_name,
+            email,
+            avatar_url
+          )
+        `)
         .eq("team_id", teamContext.teamId)
         .order("created_at", { ascending: true }),
     ]);
 
-    const pendingProfileIds = (dbPendingRequests ?? []).map((jr) => jr.profile_id);
-    const memberProfileIds = (dbMembers ?? []).map((tm) => tm.profile_id);
-    const profileIds = Array.from(new Set([...pendingProfileIds, ...memberProfileIds]));
-    const { data: dbProfiles } = profileIds.length > 0
-      ? await supabase
-          .from("profiles")
-          .select("id, full_name, email, avatar_url")
-          .in("id", profileIds)
-      : { data: [] };
-
-    const profilesMap = Object.fromEntries(
-      (dbProfiles ?? []).map((p) => [p.id, { id: p.id, full_name: p.full_name, email: p.email, avatar_url: p.avatar_url }])
-    );
-
-    const pendingRequests = (dbPendingRequests ?? []).map((jr) => {
-      const profile = profilesMap[jr.profile_id];
+    const pendingRequests = (dbPendingRequests ?? []).map((jr: any) => {
+      const profile = jr.profiles;
       const name = profile?.full_name ?? profile?.email ?? "Unknown";
       const initials = name
         .split(" ")
-        .map((w) => w[0]?.toUpperCase() ?? "")
+        .map((w: any) => w[0]?.toUpperCase() ?? "")
         .join("")
         .slice(0, 2);
       return {
@@ -66,8 +74,8 @@ export default async function MembersPage() {
       };
     });
 
-    const members: TeamMember[] = (dbMembers ?? []).map((tm) => {
-      const profile = profilesMap[tm.profile_id];
+    const members: TeamMember[] = (dbMembers ?? []).map((tm: any) => {
+      const profile = tm.profiles;
       return {
         id: tm.id,
         profile: {

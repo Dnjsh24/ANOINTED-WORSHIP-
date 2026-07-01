@@ -10,6 +10,7 @@ import type { TeamRole } from "@/lib/types";
 export interface TeamContext {
   userId: string | null;
   teamId: string | null;
+  memberId: string | null;
   teamName: string;
   teamCode: string | null;
   role: TeamRole;
@@ -20,6 +21,7 @@ export interface TeamContext {
 export const demoTeamContext: TeamContext = {
   userId: null,
   teamId: "demo-team",
+  memberId: "demo-member",
   teamName: appName,
   teamCode,
   role: "owner",
@@ -45,42 +47,44 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
     return demoTeamContext;
   }
 
-  const { data: membership } = await supabase
-    .from("team_members")
-    .select("team_id, role, status")
-    .eq("profile_id", user.id)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+  const [membershipResult, pendingRequestResult] = await Promise.all([
+    supabase
+      .from("team_members")
+      .select("id, team_id, role, status, teams (id, name, code)")
+      .eq("profile_id", user.id)
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("join_requests")
+      .select("id")
+      .eq("profile_id", user.id)
+      .eq("status", "pending")
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-  if (membership) {
+  const membership = membershipResult.data as any;
+  const pendingRequest = pendingRequestResult.data;
+
+  if (membership && membership.teams) {
     const role = assertRole(membership.role);
-    const { data: team } = await supabase.from("teams").select("id, name, code").eq("id", membership.team_id).maybeSingle();
-
-    if (team) {
-      return {
-        userId: user.id,
-        teamId: membership.team_id,
-        teamName: team.name,
-        teamCode: team.code ?? null,
-        role,
-        canManageMembers: can(role, "members.manage"),
-        hasPendingJoinRequest: false,
-      };
-    }
+    return {
+      userId: user.id,
+      teamId: membership.team_id,
+      memberId: membership.id,
+      teamName: membership.teams.name,
+      teamCode: membership.teams.code ?? null,
+      role,
+      canManageMembers: can(role, "members.manage"),
+      hasPendingJoinRequest: false,
+    };
   }
-
-  const { data: pendingRequest } = await supabase
-    .from("join_requests")
-    .select("id")
-    .eq("profile_id", user.id)
-    .eq("status", "pending")
-    .limit(1)
-    .maybeSingle();
 
   return {
     userId: user.id,
     teamId: null,
+    memberId: null,
     teamName: appName,
     teamCode: null,
     role: "member",

@@ -13,70 +13,51 @@ export default async function EventsPage() {
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
-    // 1. Fetch events for this team
-    const { data: dbEvents } = (await supabase
-      .from("events")
-      .select("*")
-      .eq("team_id", teamContext.teamId)
-      .order("event_date", { ascending: true })) as any;
+    // Fetch events along with their nested assignments, attendance, setlists, and active members count in parallel
+    const [eventsResult, activeMembersResult] = await Promise.all([
+      supabase
+        .from("events")
+        .select(`
+          *,
+          event_assignments (
+            assignment
+          ),
+          attendance (
+            status
+          ),
+          setlists (
+            id
+          )
+        `)
+        .eq("team_id", teamContext.teamId)
+        .order("event_date", { ascending: true }),
+      supabase
+        .from("team_members")
+        .select("id", { count: "exact", head: true })
+        .eq("team_id", teamContext.teamId)
+        .eq("status", "active"),
+    ]);
+
+    const dbEvents = eventsResult.data;
+    const totalMembers = activeMembersResult.count;
 
     if (dbEvents && dbEvents.length > 0) {
-      const eventIds = dbEvents.map((e: any) => e.id);
-
-      // 2. Fetch the independent event rollups in parallel.
-      const [
-        { data: dbAssignments },
-        { data: dbAttendance },
-        { count: totalMembers },
-        { data: dbSetlists },
-      ] = (await Promise.all([
-        supabase.from("event_assignments").select("event_id, assignment").in("event_id", eventIds),
-        supabase.from("attendance").select("event_id, status").in("event_id", eventIds),
-        supabase
-          .from("team_members")
-          .select("id", { count: "exact", head: true })
-          .eq("team_id", teamContext.teamId)
-          .eq("status", "active"),
-        supabase.from("setlists").select("id, event_id").in("event_id", eventIds),
-      ])) as any;
-
-      const assignmentsMap: Record<string, string[]> = {};
-      if (dbAssignments) {
-        dbAssignments.forEach((ass: any) => {
-          if (!assignmentsMap[ass.event_id]) {
-            assignmentsMap[ass.event_id] = [];
-          }
-          if (!assignmentsMap[ass.event_id].includes(ass.assignment)) {
-            assignmentsMap[ass.event_id].push(ass.assignment);
-          }
-        });
-      }
-
-      const attendanceMap: Record<string, { confirmed: number; pending: number }> = {};
-      dbEvents.forEach((e: any) => {
-        const eventAttendance = (dbAttendance ?? []).filter((a: any) => a.event_id === e.id);
-        const confirmed = eventAttendance.filter((a: any) => a.status === "available").length;
-        const respondedCount = eventAttendance.length;
-        const noResponseCount = Math.max(0, (totalMembers || 0) - respondedCount);
-        const pending = eventAttendance.filter((a: any) => a.status === "maybe").length + noResponseCount;
-        attendanceMap[e.id] = { confirmed, pending };
-      });
-
-      // 3.5 Fetch linked setlist IDs
-      const setlistMap: Record<string, string> = {};
-      if (dbSetlists) {
-        dbSetlists.forEach((s: any) => {
-          if (s.event_id) {
-            setlistMap[s.event_id] = s.id;
-          }
-        });
-      }
-
-      // 4. Construct final list
       eventsList = dbEvents.map((e: any) => {
         const timeStr = e.ends_at
           ? `${e.starts_at.slice(0, 5)} - ${e.ends_at.slice(0, 5)}`
           : e.starts_at.slice(0, 5);
+
+        const assignedTeams = Array.from(
+          new Set((e.event_assignments ?? []).map((ass: any) => ass.assignment))
+        ) as string[];
+
+        const eventAttendance = e.attendance ?? [];
+        const confirmed = eventAttendance.filter((a: any) => a.status === "available").length;
+        const respondedCount = eventAttendance.length;
+        const noResponseCount = Math.max(0, (totalMembers || 0) - respondedCount);
+        const pending = eventAttendance.filter((a: any) => a.status === "maybe").length + noResponseCount;
+
+        const setlistId = e.setlists?.[0]?.id || null;
 
         return {
           id: e.id,
@@ -85,10 +66,10 @@ export default async function EventsPage() {
           date: e.event_date,
           time: timeStr,
           location: e.location ?? "Main Sanctuary",
-          assignedTeams: assignmentsMap[e.id] || [],
-          confirmed: attendanceMap[e.id]?.confirmed ?? 0,
-          pending: attendanceMap[e.id]?.pending ?? 0,
-          setlistId: setlistMap[e.id],
+          assignedTeams,
+          confirmed,
+          pending,
+          setlistId,
         };
       });
     }

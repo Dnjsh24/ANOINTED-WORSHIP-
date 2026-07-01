@@ -31,30 +31,36 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     const supabase = await createClient();
     const { data: dbEvent } = (await supabase
       .from("events")
-      .select("*")
+      .select(`
+        *,
+        event_assignments (
+          role
+        ),
+        setlists (
+          id
+        )
+      `)
       .eq("id", id)
       .maybeSingle()) as any;
 
     if (dbEvent) {
-      // Fetch assigned teams
-      const { data: dbAssignments } = (await supabase
-        .from("event_assignments")
-        .select("role")
-        .eq("event_id", id)) as any;
-      const assigned = dbAssignments ? dbAssignments.map((a: any) => a.role) : [];
+      // Fetch RSVPs and active members in parallel
+      const [attendanceResult, activeMembersResult] = await Promise.all([
+        supabase
+          .from("attendance")
+          .select("status")
+          .eq("event_id", id),
+        supabase
+          .from("team_members")
+          .select("id", { count: "exact", head: true })
+          .eq("team_id", teamContext.teamId || "")
+          .eq("status", "active"),
+      ]);
 
-      // Fetch RSVPs
-      const { data: dbAttendance } = (await supabase
-        .from("attendance")
-        .select("status")
-        .eq("event_id", id)) as any;
+      const dbAttendance = attendanceResult.data;
+      const totalMembers = activeMembersResult.count;
 
-      const { count: totalMembers } = (await supabase
-        .from("team_members")
-        .select("id", { count: "exact", head: true })
-        .eq("team_id", teamContext.teamId || "")
-        .eq("status", "active")) as any;
-
+      const assigned = dbEvent.event_assignments ? dbEvent.event_assignments.map((a: any) => a.role) : [];
       const confirmed = (dbAttendance || []).filter((a: any) => a.status === "available").length;
       const respondedCount = (dbAttendance || []).length;
       const noResponseCount = Math.max(0, (totalMembers || 0) - respondedCount);
@@ -76,15 +82,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         pending,
       };
 
-      // Fetch linked setlist ID
-      const { data: dbSetlist } = (await supabase
-        .from("setlists")
-        .select("id")
-        .eq("event_id", id)
-        .maybeSingle()) as any;
-      if (dbSetlist) {
-        linkedSetlistId = dbSetlist.id;
-      }
+      linkedSetlistId = dbEvent.setlists?.[0]?.id || null;
     }
   }
 

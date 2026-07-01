@@ -77,7 +77,25 @@ export default async function DashboardPage() {
       teamContext.teamId
         ? supabase
             .from("setlists")
-            .select("*")
+            .select(`
+              *,
+              leader:team_members (
+                id,
+                profiles (
+                  full_name
+                )
+              ),
+              setlist_songs (
+                id,
+                assigned_key,
+                song_order,
+                song:songs (
+                  id,
+                  title,
+                  bpm
+                )
+              )
+            `)
             .eq("team_id", teamContext.teamId)
             .gte("setlist_date", todayStr)
             .order("setlist_date", { ascending: true })
@@ -102,50 +120,19 @@ export default async function DashboardPage() {
         } as any;
       }
 
-      const dbSetlist = dbSetlistResult.data;
+      const dbSetlist = dbSetlistResult.data as any;
       if (dbSetlist) {
-        let leaderName = "Worship Leader";
-        const [memberResult, setlistSongsResult] = await Promise.all([
-          dbSetlist.leader_member_id
-            ? supabase
-                .from("team_members")
-                .select("profile_id")
-                .eq("id", dbSetlist.leader_member_id)
-                .maybeSingle()
-            : Promise.resolve({ data: null }),
-          supabase
-            .from("setlist_songs")
-            .select("id, song_id, assigned_key, song_order")
-            .eq("setlist_id", dbSetlist.id)
-            .order("song_order", { ascending: true }),
-        ]);
+        const leaderName = dbSetlist.leader?.profiles?.full_name || "Worship Leader";
+        const dbSetlistSongs = dbSetlist.setlist_songs || [];
 
-        const dbSetlistSongs = setlistSongsResult.data;
-        const songIds = dbSetlistSongs?.map((ss) => ss.song_id) || [];
-        const [leaderProfileResult, songsResult] = await Promise.all([
-          memberResult.data
-            ? supabase
-                .from("profiles")
-                .select("full_name")
-                .eq("id", memberResult.data.profile_id)
-                .maybeSingle()
-            : Promise.resolve({ data: null }),
-          songIds.length > 0
-            ? supabase.from("songs").select("id, title, bpm").in("id", songIds)
-            : Promise.resolve({ data: [] }),
-        ]);
-
-        if (leaderProfileResult.data?.full_name) leaderName = leaderProfileResult.data.full_name;
-
-        let songsMap: Record<string, { title: string; bpm: number }> = {};
-        if (songsResult.data) {
-          songsMap = songsResult.data.reduce((acc, s) => { acc[s.id] = { title: s.title, bpm: s.bpm }; return acc; }, {} as Record<string, { title: string; bpm: number }>);
-        }
-
-        setlistSongsList = (dbSetlistSongs || []).map((ss) => ({
+        setlistSongsList = (dbSetlistSongs || []).map((ss: any) => ({
           id: ss.id,
           assignedKey: ss.assigned_key,
-          song: { id: ss.song_id, title: songsMap[ss.song_id]?.title || "Unknown Song", bpm: songsMap[ss.song_id]?.bpm || 72 },
+          song: {
+            id: ss.song?.id,
+            title: ss.song?.title || "Unknown Song",
+            bpm: ss.song?.bpm || 72,
+          },
         })) as any;
 
         nextSetlist = {
