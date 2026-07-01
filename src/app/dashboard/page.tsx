@@ -48,34 +48,50 @@ export default async function DashboardPage() {
 
   if (hasSupabaseEnv() && teamContext.userId) {
     const supabase = await createClient();
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", teamContext.userId)
-      .maybeSingle();
 
-    if (profile?.full_name) userFullName = profile.full_name;
+    const todayStr = new Date().toISOString().split("T")[0];
+    const [profileResult, upcomingCountResult, dbEventResult, dbSetlistResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", teamContext.userId)
+        .maybeSingle(),
+      teamContext.teamId
+        ? supabase
+            .from("events")
+            .select("id", { count: "exact", head: true })
+            .eq("team_id", teamContext.teamId)
+            .gte("event_date", todayStr)
+        : Promise.resolve({ count: null }),
+      teamContext.teamId
+        ? supabase
+            .from("events")
+            .select("*")
+            .eq("team_id", teamContext.teamId)
+            .gte("event_date", todayStr)
+            .order("event_date", { ascending: true })
+            .order("starts_at", { ascending: true })
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      teamContext.teamId
+        ? supabase
+            .from("setlists")
+            .select("*")
+            .eq("team_id", teamContext.teamId)
+            .gte("setlist_date", todayStr)
+            .order("setlist_date", { ascending: true })
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+
+    if (profileResult.data?.full_name) userFullName = profileResult.data.full_name;
 
     if (teamContext.teamId) {
-      const todayStr = new Date().toISOString().split("T")[0];
+      if (upcomingCountResult.count !== null) upcomingEventsCount = upcomingCountResult.count;
 
-      const { count: upcomingCount } = await supabase
-        .from("events")
-        .select("id", { count: "exact", head: true })
-        .eq("team_id", teamContext.teamId)
-        .gte("event_date", todayStr);
-      if (upcomingCount !== null) upcomingEventsCount = upcomingCount;
-
-      const { data: dbEvent } = await supabase
-        .from("events")
-        .select("*")
-        .eq("team_id", teamContext.teamId)
-        .gte("event_date", todayStr)
-        .order("event_date", { ascending: true })
-        .order("starts_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
+      const dbEvent = dbEventResult.data;
       if (dbEvent) {
         nextEvent = {
           id: dbEvent.id,
@@ -86,44 +102,46 @@ export default async function DashboardPage() {
         } as any;
       }
 
-      const { data: dbSetlist } = await supabase
-        .from("setlists")
-        .select("*")
-        .eq("team_id", teamContext.teamId)
-        .gte("setlist_date", todayStr)
-        .order("setlist_date", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
+      const dbSetlist = dbSetlistResult.data;
       if (dbSetlist) {
         let leaderName = "Worship Leader";
-        if (dbSetlist.leader_member_id) {
-          const { data: member } = await supabase
-            .from("team_members")
-            .select("profile_id")
-            .eq("id", dbSetlist.leader_member_id)
-            .maybeSingle();
-          if (member) {
-            const { data: lp } = await supabase
-              .from("profiles")
-              .select("full_name")
-              .eq("id", member.profile_id)
-              .maybeSingle();
-            if (lp?.full_name) leaderName = lp.full_name;
-          }
-        }
-        const { data: dbSetlistSongs } = await supabase
-          .from("setlist_songs")
-          .select("id, song_id, assigned_key, song_order")
-          .eq("setlist_id", dbSetlist.id)
-          .order("song_order", { ascending: true });
+        const [memberResult, setlistSongsResult] = await Promise.all([
+          dbSetlist.leader_member_id
+            ? supabase
+                .from("team_members")
+                .select("profile_id")
+                .eq("id", dbSetlist.leader_member_id)
+                .maybeSingle()
+            : Promise.resolve({ data: null }),
+          supabase
+            .from("setlist_songs")
+            .select("id, song_id, assigned_key, song_order")
+            .eq("setlist_id", dbSetlist.id)
+            .order("song_order", { ascending: true }),
+        ]);
 
+        const dbSetlistSongs = setlistSongsResult.data;
         const songIds = dbSetlistSongs?.map((ss) => ss.song_id) || [];
+        const [leaderProfileResult, songsResult] = await Promise.all([
+          memberResult.data
+            ? supabase
+                .from("profiles")
+                .select("full_name")
+                .eq("id", memberResult.data.profile_id)
+                .maybeSingle()
+            : Promise.resolve({ data: null }),
+          songIds.length > 0
+            ? supabase.from("songs").select("id, title, bpm").in("id", songIds)
+            : Promise.resolve({ data: [] }),
+        ]);
+
+        if (leaderProfileResult.data?.full_name) leaderName = leaderProfileResult.data.full_name;
+
         let songsMap: Record<string, { title: string; bpm: number }> = {};
-        if (songIds.length > 0) {
-          const { data: dbSongs } = await supabase.from("songs").select("id, title, bpm").in("id", songIds);
-          if (dbSongs) songsMap = dbSongs.reduce((acc, s) => { acc[s.id] = { title: s.title, bpm: s.bpm }; return acc; }, {} as Record<string, { title: string; bpm: number }>);
+        if (songsResult.data) {
+          songsMap = songsResult.data.reduce((acc, s) => { acc[s.id] = { title: s.title, bpm: s.bpm }; return acc; }, {} as Record<string, { title: string; bpm: number }>);
         }
+
         setlistSongsList = (dbSetlistSongs || []).map((ss) => ({
           id: ss.id,
           assignedKey: ss.assigned_key,
@@ -144,13 +162,18 @@ export default async function DashboardPage() {
 
       const isAdminOrOwner = teamContext.role === "owner" || teamContext.role === "admin";
       if (isAdminOrOwner) {
-        const { count: pr } = await supabase.from("join_requests").select("id", { count: "exact", head: true }).eq("team_id", teamContext.teamId).eq("status", "pending");
-        if (pr !== null) pendingRequestsCount = pr;
-
         const now = new Date();
         const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
         const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
-        const { data: monthEvents } = await supabase.from("events").select("id").eq("team_id", teamContext.teamId).gte("event_date", firstDay).lte("event_date", lastDay);
+        const [pendingRequestsResult, monthEventsResult] = await Promise.all([
+          supabase.from("join_requests").select("id", { count: "exact", head: true }).eq("team_id", teamContext.teamId).eq("status", "pending"),
+          supabase.from("events").select("id").eq("team_id", teamContext.teamId).gte("event_date", firstDay).lte("event_date", lastDay),
+        ]);
+
+        const pr = pendingRequestsResult.count;
+        if (pr !== null) pendingRequestsCount = pr;
+
+        const monthEvents = monthEventsResult.data;
         const eventIds = monthEvents?.map((e) => e.id) || [];
         if (eventIds.length > 0) {
           const { count: cc } = await supabase.from("attendance").select("id", { count: "exact", head: true }).in("event_id", eventIds).eq("status", "available");
@@ -159,12 +182,17 @@ export default async function DashboardPage() {
           confirmedThisMonthCount = 0;
         }
       } else {
-        const { data: mr } = await supabase.from("team_members").select("id").eq("team_id", teamContext.teamId).eq("profile_id", teamContext.userId).maybeSingle();
+        const [memberResult, setlistsCountResult] = await Promise.all([
+          supabase.from("team_members").select("id").eq("team_id", teamContext.teamId).eq("profile_id", teamContext.userId).maybeSingle(),
+          supabase.from("setlists").select("id", { count: "exact", head: true }).eq("team_id", teamContext.teamId),
+        ]);
+
+        const mr = memberResult.data;
         if (mr) {
           const { count: cc } = await supabase.from("attendance").select("id", { count: "exact", head: true }).eq("team_member_id", mr.id).eq("status", "available");
           if (cc !== null) myConfirmedCount = cc;
         } else { myConfirmedCount = 0; }
-        const { count: sc } = await supabase.from("setlists").select("id", { count: "exact", head: true }).eq("team_id", teamContext.teamId);
+        const sc = setlistsCountResult.count;
         if (sc !== null) totalSetlistsCount = sc;
       }
     }

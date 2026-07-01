@@ -7,7 +7,6 @@ import { songs as sampleSongs } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTeamContext } from "@/lib/supabase/team-context";
-import { parseLyricsAndChords } from "@/lib/domain/chords";
 import type { Song } from "@/lib/types";
 
 export default async function SongsPage() {
@@ -20,7 +19,7 @@ export default async function SongsPage() {
     const supabase = await createClient();
     const { data: dbSongs } = await supabase
       .from("songs")
-      .select("*")
+      .select("id, title, artist, original_key, bpm, time_signature, tags")
       .eq("team_id", teamContext.teamId)
       .order("title");
 
@@ -35,7 +34,7 @@ export default async function SongsPage() {
         timeSignature: s.time_signature,
         tags: s.tags || [],
         favorite: false,
-        sections: parseLyricsAndChords(s.lyrics_chords),
+        sections: [],
       }));
       totalSongsCount = dbSongs.length;
     }

@@ -20,32 +20,33 @@ export default async function ProfilePage() {
   if (hasSupabaseEnv() && teamContext.userId) {
     const supabase = await createClient();
 
-    // 1. Fetch profile details
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name, email, avatar_url")
-      .eq("id", teamContext.userId)
-      .maybeSingle();
+    const [profileResult, membershipResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("full_name, email, avatar_url")
+        .eq("id", teamContext.userId)
+        .maybeSingle(),
+      teamContext.teamId
+        ? supabase
+            .from("team_members")
+            .select("role, ministry")
+            .eq("team_id", teamContext.teamId)
+            .eq("profile_id", teamContext.userId)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
 
+    const profile = profileResult.data;
     if (profile) {
       fullName = profile.full_name ?? "Unknown User";
       email = profile.email ?? "";
       avatarUrl = profile.avatar_url ?? null;
     }
 
-    // 2. Fetch membership details (role & ministry)
-    if (teamContext.teamId) {
-      const { data: membership } = await supabase
-        .from("team_members")
-        .select("role, ministry")
-        .eq("team_id", teamContext.teamId)
-        .eq("profile_id", teamContext.userId)
-        .maybeSingle();
-
-      if (membership) {
-        primaryRole = membership.ministry ?? "Member";
-        accessLevel = membership.role ?? "member";
-      }
+    const membership = membershipResult.data;
+    if (membership) {
+      primaryRole = membership.ministry ?? "Member";
+      accessLevel = membership.role ?? "member";
     }
   }
 

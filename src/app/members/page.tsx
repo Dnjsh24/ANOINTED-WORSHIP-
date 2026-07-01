@@ -22,32 +22,36 @@ export default async function MembersPage() {
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
-    // Fetch pending join requests for this team
-    const { data: dbPendingRequests } = await supabase
-      .from("join_requests")
-      .select("id, profile_id, requested_role")
-      .eq("team_id", teamContext.teamId)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
+    const [{ data: dbPendingRequests }, { data: dbMembers }] = await Promise.all([
+      supabase
+        .from("join_requests")
+        .select("id, profile_id, requested_role")
+        .eq("team_id", teamContext.teamId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("team_members")
+        .select("id, profile_id, role, status, ministry")
+        .eq("team_id", teamContext.teamId)
+        .order("created_at", { ascending: true }),
+    ]);
 
-    // Collect profile IDs from join requests to fetch their names
     const pendingProfileIds = (dbPendingRequests ?? []).map((jr) => jr.profile_id);
+    const memberProfileIds = (dbMembers ?? []).map((tm) => tm.profile_id);
+    const profileIds = Array.from(new Set([...pendingProfileIds, ...memberProfileIds]));
+    const { data: dbProfiles } = profileIds.length > 0
+      ? await supabase
+          .from("profiles")
+          .select("id, full_name, email, avatar_url")
+          .in("id", profileIds)
+      : { data: [] };
 
-    // Fetch profiles of pending requesters (separate query to avoid RLS join issues)
-    let pendingProfilesMap: Record<string, { full_name: string | null; email: string | null }> = {};
-    if (pendingProfileIds.length > 0) {
-      const { data: pendingProfiles } = await supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .in("id", pendingProfileIds);
-
-      pendingProfilesMap = Object.fromEntries(
-        (pendingProfiles ?? []).map((p) => [p.id, { full_name: p.full_name, email: p.email }])
-      );
-    }
+    const profilesMap = Object.fromEntries(
+      (dbProfiles ?? []).map((p) => [p.id, { id: p.id, full_name: p.full_name, email: p.email, avatar_url: p.avatar_url }])
+    );
 
     const pendingRequests = (dbPendingRequests ?? []).map((jr) => {
-      const profile = pendingProfilesMap[jr.profile_id];
+      const profile = profilesMap[jr.profile_id];
       const name = profile?.full_name ?? profile?.email ?? "Unknown";
       const initials = name
         .split(" ")
@@ -62,31 +66,8 @@ export default async function MembersPage() {
       };
     });
 
-    // Fetch active team members
-    const { data: dbMembers } = await supabase
-      .from("team_members")
-      .select("id, profile_id, role, status, ministry")
-      .eq("team_id", teamContext.teamId)
-      .order("created_at", { ascending: true });
-
-    // Collect profile IDs from team members
-    const memberProfileIds = (dbMembers ?? []).map((tm) => tm.profile_id);
-
-    // Fetch profiles for all team members
-    let memberProfilesMap: Record<string, { id: string; full_name: string | null; email: string | null; avatar_url: string | null }> = {};
-    if (memberProfileIds.length > 0) {
-      const { data: memberProfiles } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, avatar_url")
-        .in("id", memberProfileIds);
-
-      memberProfilesMap = Object.fromEntries(
-        (memberProfiles ?? []).map((p) => [p.id, { id: p.id, full_name: p.full_name, email: p.email, avatar_url: p.avatar_url }])
-      );
-    }
-
     const members: TeamMember[] = (dbMembers ?? []).map((tm) => {
-      const profile = memberProfilesMap[tm.profile_id];
+      const profile = profilesMap[tm.profile_id];
       return {
         id: tm.id,
         profile: {

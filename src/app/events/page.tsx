@@ -23,13 +23,24 @@ export default async function EventsPage() {
     if (dbEvents && dbEvents.length > 0) {
       const eventIds = dbEvents.map((e: any) => e.id);
 
-      // 2. Fetch distinct roles/assignments for these events
-      let assignmentsMap: Record<string, string[]> = {};
-      const { data: dbAssignments } = (await supabase
-        .from("event_assignments")
-        .select("event_id, assignment")
-        .in("event_id", eventIds)) as any;
+      // 2. Fetch the independent event rollups in parallel.
+      const [
+        { data: dbAssignments },
+        { data: dbAttendance },
+        { count: totalMembers },
+        { data: dbSetlists },
+      ] = (await Promise.all([
+        supabase.from("event_assignments").select("event_id, assignment").in("event_id", eventIds),
+        supabase.from("attendance").select("event_id, status").in("event_id", eventIds),
+        supabase
+          .from("team_members")
+          .select("id", { count: "exact", head: true })
+          .eq("team_id", teamContext.teamId)
+          .eq("status", "active"),
+        supabase.from("setlists").select("id, event_id").in("event_id", eventIds),
+      ])) as any;
 
+      const assignmentsMap: Record<string, string[]> = {};
       if (dbAssignments) {
         dbAssignments.forEach((ass: any) => {
           if (!assignmentsMap[ass.event_id]) {
@@ -41,19 +52,7 @@ export default async function EventsPage() {
         });
       }
 
-      // 3. Fetch attendance RSVP counts
-      let attendanceMap: Record<string, { confirmed: number; pending: number }> = {};
-      const { data: dbAttendance } = (await supabase
-        .from("attendance")
-        .select("event_id, status")
-        .in("event_id", eventIds)) as any;
-
-      const { count: totalMembers } = (await supabase
-        .from("team_members")
-        .select("id", { count: "exact", head: true })
-        .eq("team_id", teamContext.teamId)
-        .eq("status", "active")) as any;
-
+      const attendanceMap: Record<string, { confirmed: number; pending: number }> = {};
       dbEvents.forEach((e: any) => {
         const eventAttendance = (dbAttendance ?? []).filter((a: any) => a.event_id === e.id);
         const confirmed = eventAttendance.filter((a: any) => a.status === "available").length;
@@ -64,11 +63,7 @@ export default async function EventsPage() {
       });
 
       // 3.5 Fetch linked setlist IDs
-      let setlistMap: Record<string, string> = {};
-      const { data: dbSetlists } = (await supabase
-        .from("setlists")
-        .select("id, event_id")
-        .in("event_id", eventIds)) as any;
+      const setlistMap: Record<string, string> = {};
       if (dbSetlists) {
         dbSetlists.forEach((s: any) => {
           if (s.event_id) {

@@ -29,25 +29,38 @@ export default async function MessagesPage() {
     }
 
     if (myMemberId) {
-      // 1. Fetch all team members and their profiles
-      const { data: dbMembers } = await supabase
-        .from("team_members")
-        .select("id, profile_id, role")
-        .eq("team_id", teamContext.teamId);
+      // 1. Fetch team members and channels in parallel.
+      const [{ data: dbMembers }, { data: dbChannels }] = (await Promise.all([
+        supabase
+          .from("team_members")
+          .select("id, profile_id, role")
+          .eq("team_id", teamContext.teamId),
+        supabase
+          .from("message_channels")
+          .select("*")
+          .eq("team_id", teamContext.teamId),
+      ])) as any;
 
-      const profileIds = dbMembers?.map((m) => m.profile_id) || [];
-      let dbProfiles: any[] = [];
-      if (profileIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, full_name, email, avatar_url")
-          .in("id", profileIds);
-        if (profiles) dbProfiles = profiles;
-      }
+      const profileIds = dbMembers?.map((m: any) => m.profile_id) || [];
+      const channelIds = dbChannels?.map((channel: any) => channel.id) || [];
+
+      const [{ data: profiles }, { data: allMemberships }] = (await Promise.all([
+        profileIds.length > 0
+          ? supabase.from("profiles").select("id, full_name, email, avatar_url").in("id", profileIds)
+          : Promise.resolve({ data: [] }),
+        channelIds.length > 0
+          ? supabase
+              .from("message_channel_members")
+              .select("channel_id, team_member_id")
+              .in("channel_id", channelIds)
+          : Promise.resolve({ data: [] }),
+      ])) as any;
+
+      const profileMap = new Map<string, any>((profiles ?? []).map((profile: any) => [profile.id, profile]));
 
       const memberMap = new Map<string, any>();
-      dbMembers?.forEach((m) => {
-        const profile = dbProfiles.find((p) => p.id === m.profile_id);
+      dbMembers?.forEach((m: any) => {
+        const profile = profileMap.get(m.profile_id);
         memberMap.set(m.id, {
           memberId: m.id,
           profileId: m.profile_id,
@@ -61,54 +74,52 @@ export default async function MessagesPage() {
       // All other team members (for DM list and admin panel)
       teamMembersList = Array.from(memberMap.values());
 
-      // 2. Fetch ALL channel memberships for this team (for admin panel)
-      const { data: allMemberships } = await supabase
-        .from("message_channel_members")
-        .select("channel_id, team_member_id");
-
-      allChannelMemberships = (allMemberships || []).map((m) => ({
+      allChannelMemberships = (allMemberships || []).map((m: any) => ({
         channelId: m.channel_id,
         memberId: m.team_member_id,
       }));
 
       const myChannelIds = new Set(
         allMemberships
-          ?.filter((m) => m.team_member_id === myMemberId)
-          .map((m) => m.channel_id) || []
+          ?.filter((m: any) => m.team_member_id === myMemberId)
+          .map((m: any) => m.channel_id) || []
       );
-
-      // 3. Fetch all channels for this team
-      const { data: dbChannels } = await supabase
-        .from("message_channels")
-        .select("*")
-        .eq("team_id", teamContext.teamId);
 
       if (dbChannels) {
         // Only show channels the current user is a member of
-        const visibleDbChannels = dbChannels.filter((c) => myChannelIds.has(c.id));
+        const visibleDbChannels = dbChannels.filter((c: any) => myChannelIds.has(c.id));
+        const visibleChannelIds = visibleDbChannels.map((channel: any) => channel.id);
+        const { data: dbMsgs } = (visibleChannelIds.length > 0
+          ? await supabase
+              .from("messages")
+              .select("*")
+              .in("channel_id", visibleChannelIds)
+              .order("created_at", { ascending: true })
+          : { data: [] }) as any;
 
-        // Fetch messages for each visible channel
+        const messagesByChannel = new Map<string, any[]>();
+        (dbMsgs || []).forEach((message: any) => {
+          const messages = messagesByChannel.get(message.channel_id) ?? [];
+          messages.push(message);
+          messagesByChannel.set(message.channel_id, messages);
+        });
+
         for (const chan of visibleDbChannels) {
-          const { data: dbMsgs } = await supabase
-            .from("messages")
-            .select("*")
-            .eq("channel_id", chan.id)
-            .order("created_at", { ascending: true });
-
-          const chanMembers = allMemberships?.filter((m) => m.channel_id === chan.id) || [];
+          const chanMembers = allMemberships?.filter((m: any) => m.channel_id === chan.id) || [];
           const membersCount = chanMembers.length;
+          const channelMessages = messagesByChannel.get(chan.id) ?? [];
 
           // Resolve direct message name
           let channelName = chan.name;
           if (chan.channel_type === "direct") {
-            const otherMember = chanMembers.find((m) => m.team_member_id !== myMemberId);
+            const otherMember = chanMembers.find((m: any) => m.team_member_id !== myMemberId);
             if (otherMember) {
               const sender = memberMap.get(otherMember.team_member_id);
               if (sender) channelName = sender.fullName;
             }
           }
 
-          const formattedMessages = (dbMsgs || []).map((msg) => {
+          const formattedMessages = channelMessages.map((msg) => {
             const sender = memberMap.get(msg.sender_member_id);
             return {
               id: msg.id,

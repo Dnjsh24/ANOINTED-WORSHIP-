@@ -20,49 +20,46 @@ export default async function SetlistsPage() {
       .eq("team_id", teamContext.teamId)
       .order("setlist_date", { ascending: false })) as any;
 
-    // 2. Fetch profile names of the leaders
+    // 2. Fetch profile names and setlist songs in parallel.
     const leaderProfileIds = (dbSetlists ?? [])
       .map((s: any) => s.leader?.profile_id)
       .filter(Boolean);
-
-    let leaderProfilesMap: Record<string, string> = {};
-    if (leaderProfileIds.length > 0) {
-      const { data: profiles } = (await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", leaderProfileIds)) as any;
-      if (profiles) {
-        leaderProfilesMap = Object.fromEntries(profiles.map((p: any) => [p.id, p.full_name || ""]));
-      }
-    }
-
-    // 3. Fetch setlist songs
     const setlistIds = (dbSetlists ?? []).map((s: any) => s.id);
-    let songsMap: Record<string, any[]> = {};
-    if (setlistIds.length > 0) {
-      const { data: dbSongs } = (await supabase
-        .from("setlist_songs")
-        .select("*, song:songs(*)")
-        .in("setlist_id", setlistIds)
-        .order("song_order", { ascending: true })) as any;
 
-      if (dbSongs) {
-        dbSongs.forEach((ss: any) => {
-          if (!songsMap[ss.setlist_id]) {
-            songsMap[ss.setlist_id] = [];
-          }
-          songsMap[ss.setlist_id].push({
-            id: ss.id,
-            assignedKey: ss.assigned_key,
-            order: ss.song_order,
-            song: {
-              id: ss.song?.id,
-              title: ss.song?.title || "Unknown Song",
-              bpm: ss.song?.bpm || 70,
-            },
-          });
+    const [profilesResult, songsResult] = (await Promise.all([
+      leaderProfileIds.length > 0
+        ? supabase.from("profiles").select("id, full_name").in("id", leaderProfileIds)
+        : Promise.resolve({ data: [] }),
+      setlistIds.length > 0
+        ? supabase
+            .from("setlist_songs")
+            .select("*, song:songs(*)")
+            .in("setlist_id", setlistIds)
+            .order("song_order", { ascending: true })
+        : Promise.resolve({ data: [] }),
+    ])) as any;
+
+    const leaderProfilesMap: Record<string, string> = Object.fromEntries(
+      (profilesResult.data ?? []).map((p: any) => [p.id, p.full_name || ""]),
+    );
+
+    const songsMap: Record<string, any[]> = {};
+    if (songsResult.data) {
+      songsResult.data.forEach((ss: any) => {
+        if (!songsMap[ss.setlist_id]) {
+          songsMap[ss.setlist_id] = [];
+        }
+        songsMap[ss.setlist_id].push({
+          id: ss.id,
+          assignedKey: ss.assigned_key,
+          order: ss.song_order,
+          song: {
+            id: ss.song?.id,
+            title: ss.song?.title || "Unknown Song",
+            bpm: ss.song?.bpm || 70,
+          },
         });
-      }
+      });
     }
 
     setlistsList = (dbSetlists ?? []).map((s: any) => {
