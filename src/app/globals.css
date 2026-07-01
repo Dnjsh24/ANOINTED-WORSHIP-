@@ -1,0 +1,247 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0d0d10;
+  --foreground: #f7f4ff;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Custom animation tokens */
+  --animate-fade-in: fade-in 0.5s ease both;
+  --animate-fade-up: fade-up 0.55s ease both;
+  --animate-fade-down: fade-down 0.45s ease both;
+  --animate-slide-in-right: slide-in-right 0.4s ease both;
+  --animate-slide-in-left: slide-in-left 0.4s ease both;
+  --animate-scale-in: scale-in 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+  --animate-float: float 4s ease-in-out infinite;
+  --animate-pulse-glow: pulse-glow 3s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.4s linear infinite;
+  --animate-spin-slow: spin 8s linear infinite;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(139, 92, 246, 0.45);
+}
+
+/* ─── Keyframes ──────────────────────────────────────── */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-down {
+  from { opacity: 0; transform: translateY(-14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.88); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+  50%       { box-shadow: 0 0 28px 4px rgba(139, 92, 246, 0.22); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to   { background-position: 200% center; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes bar-grow {
+  from { transform: scaleY(0.1); opacity: 0; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+
+@keyframes card-hover-lift {
+  from { transform: translateY(0); box-shadow: none; }
+  to   { transform: translateY(-4px); box-shadow: 0 12px 36px rgba(139, 92, 246, 0.18); }
+}
+
+/* ─── Utility Classes ────────────────────────────────── */
+
+/* Stagger helpers — add to parent, children get delays */
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 80ms; }
+.stagger > *:nth-child(3) { animation-delay: 160ms; }
+.stagger > *:nth-child(4) { animation-delay: 240ms; }
+.stagger > *:nth-child(5) { animation-delay: 320ms; }
+.stagger > *:nth-child(6) { animation-delay: 400ms; }
+
+/* Individual animation classes */
+.animate-fade-in        { animation: fade-in 0.5s ease both; }
+.animate-fade-up        { animation: fade-up 0.55s ease both; }
+.animate-fade-down      { animation: fade-down 0.45s ease both; }
+.animate-slide-right    { animation: slide-in-right 0.4s ease both; }
+.animate-slide-left     { animation: slide-in-left 0.4s ease both; }
+.animate-scale-in       { animation: scale-in 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
+.animate-float          { animation: float 4s ease-in-out infinite; }
+.animate-pulse-glow     { animation: pulse-glow 3s ease-in-out infinite; }
+.animate-shimmer-text   {
+  background: linear-gradient(90deg, #a78bfa 0%, #f3e8ff 45%, #a78bfa 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 2.4s linear infinite;
+}
+.animate-spin-slow      { animation: spin 8s linear infinite; }
+
+/* ─── Interactive transitions ────────────────────────── */
+
+/* Card lift on hover */
+.card-hover {
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  will-change: transform;
+}
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 32px rgba(139, 92, 246, 0.16);
+  border-color: rgba(167, 139, 250, 0.4) !important;
+}
+
+/* Button press effect */
+.btn-press {
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.btn-press:active {
+  transform: scale(0.96);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Nav link underline slide */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: rgba(167, 139, 250, 0.8);
+  border-radius: 2px;
+  transition: width 0.25s ease;
+}
+.nav-link:hover::after,
+.nav-link.active::after {
+  width: 100%;
+}
+
+/* Sidebar icon pulse on active */
+.sidebar-icon-active {
+  position: relative;
+}
+.sidebar-icon-active::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.18);
+  animation: pulse-glow 2.5s ease-in-out infinite;
+}
+
+/* Dropdown/menu fade-scale in */
+.menu-enter {
+  animation: scale-in 0.2s cubic-bezier(0.34,1.56,0.64,1) both;
+  transform-origin: top right;
+}
+
+/* Message bubble pop in */
+.msg-in {
+  animation: fade-up 0.3s ease both;
+}
+
+/* ─── Background decorations ─────────────────────────── */
+.dotted-frame {
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.12) 1px, transparent 0);
+  background-size: 14px 14px;
+}
+
+.stage-lights {
+  background:
+    radial-gradient(circle at 50% 78%, rgba(168, 85, 247, 0.35), transparent 18%),
+    linear-gradient(68deg, transparent 0 23%, rgba(255, 255, 255, 0.16) 24%, transparent 27% 100%),
+    linear-gradient(74deg, transparent 0 28%, rgba(255, 255, 255, 0.12) 29%, transparent 32% 100%),
+    linear-gradient(112deg, transparent 0 68%, rgba(255, 255, 255, 0.13) 70%, transparent 73% 100%),
+    linear-gradient(118deg, transparent 0 73%, rgba(255, 255, 255, 0.16) 74%, transparent 77% 100%),
+    linear-gradient(180deg, #1d1c22, #101014 62%, #211227);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+/* ─── Scrollbar styling ──────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.25);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+/* ─── Page transition ────────────────────────────────── */
+main {
+  animation: fade-up 0.4s ease both;
+}
+
+/* ─── Reduce motion for accessibility ────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

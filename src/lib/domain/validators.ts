@@ -1,0 +1,98 @@
+import { z } from "zod";
+import { teamRoles } from "@/lib/types";
+
+export const emailSchema = z.string().trim().email().max(254);
+
+export const teamNameSchema = z.string().trim().min(2).max(80);
+
+export const joinCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z]{2,3}-\d{5}$/, "Use a team code like DM-10001");
+
+export const songInputSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  artist: z.string().trim().min(1).max(160),
+  originalKey: z.string().trim().min(1).max(3),
+  bpm: z.coerce.number().int().min(40).max(240),
+  timeSignature: z.string().trim().regex(/^\d{1,2}\/\d{1,2}$/),
+  lyrics: z.string().trim().min(1).max(20000),
+});
+
+export const attendanceSchema = z.object({
+  eventId: z.string().uuid().or(z.string().min(1)),
+  status: z.enum(["available", "maybe", "unavailable"]),
+});
+
+export const memberRoleSchema = z.object({
+  memberId: z.string().min(1),
+  role: z.enum(teamRoles),
+});
+
+export const messageSchema = z.object({
+  channelId: z.string().min(1),
+  body: z.string().trim().min(1).max(2000),
+});
+
+export const setlistInputSchema = z.object({
+  title: z.string().trim().min(1, "Setlist title is required").max(160),
+  serviceDate: z.string().trim().min(1, "Service date is required"),
+  serviceType: z.string().trim().min(1).max(80).default("Service"),
+  location: z.string().trim().min(1, "Location is required").max(160),
+  callTime: z.string().trim().min(1, "Call time is required"),
+  rehearsalTime: z.string().trim().min(1, "Rehearsal time is required"),
+  worshipLeader: z.string().trim().min(1, "Worship leader is required").max(160),
+  notes: z.string().trim().max(2000).optional(),
+  acousticGuitar: z.string().trim().max(160).optional(),
+  electricGuitar: z.string().trim().max(160).optional(),
+  bass: z.string().trim().max(160).optional(),
+  drums: z.string().trim().max(160).optional(),
+  mainKeys: z.string().trim().max(160).optional(),
+  secondKeys: z.string().trim().max(160).optional(),
+  backupSingers: z.array(z.string().trim()).optional(),
+  media: z.string().trim().max(160).optional(),
+  dancers: z.string().trim().max(160).optional(),
+  eventId: z.string().trim().optional(),
+});
+
+export const setlistSongInputSchema = z.object({
+  setlistId: z.string().min(1),
+  songId: z.string().min(1),
+  assignedKey: z.string().trim().min(1).max(3),
+  bpm: z.coerce.number().int().min(40).max(240).optional(),
+  lead: z.string().trim().max(160).optional(),
+});
+
+export const eventInputSchema = z.object({
+  title: z.string().trim().min(1, "Event title is required").max(160),
+  eventType: z.enum(["service", "rehearsal", "meeting", "special_event"]),
+  date: z.string().trim().min(1, "Date is required"),
+  startTime: z.string().trim().min(1, "Start time is required"),
+  endTime: z.string().trim().optional(),
+  location: z.string().trim().min(1, "Location is required").max(160),
+  assignedTeams: z.string().trim().max(500).optional(),
+  linkedSetlistId: z.string().trim().optional(),
+  notes: z.string().trim().max(2000).optional(),
+});
+
+export const inviteMemberSchema = z.object({
+  email: emailSchema,
+  role: z.enum(teamRoles),
+  message: z.string().trim().max(1000).optional(),
+});
+
+export const profileInputSchema = z.object({
+  fullName: z.string().trim().min(1, "Full name is required").max(160),
+  primaryRole: z.string().trim().min(1, "Primary role is required").max(160),
+  accessLevel: z.enum(teamRoles),
+  avatarUrl: z.string().trim().nullish().or(z.literal("")),
+});
+
+export const teamSettingsSchema = z.object({
+  teamName: teamNameSchema,
+  notificationPreferences: z.array(z.string()).default([]),
+  defaultServiceLocation: z.string().trim().min(1).max(160),
+  defaultCallTime: z.string().trim().min(1),
+  defaultRehearsalTime: z.string().trim().min(1),
+});

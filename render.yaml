@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: anointed-worship-app
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+        placeholder: "Your Supabase project URL (e.g., https://your-project.supabase.co)"
+      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+        placeholder: "Your Supabase project Anon/Publishable API Key"
+      - key: NEXT_PUBLIC_SITE_URL
+        sync: false
+        placeholder: "Your Render deployment URL (e.g., https://anointed-worship.onrender.com)"

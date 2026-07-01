@@ -1,0 +1,24 @@
+{
+  "name": "Anointed Worship",
+  "short_name": "Anointed Worship",
+  "description": "Empower your worship ministry with streamlined setlists, chords, scheduling, and messages.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0d0c12",
+  "theme_color": "#8b5cf6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ]
+}
