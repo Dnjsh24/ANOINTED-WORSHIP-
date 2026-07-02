@@ -39,7 +39,6 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
   const [serviceDay, setServiceDay] = useState("Sundays");
   const [serviceTime, setServiceTime] = useState("8:00 AM");
   const [timezone, setTimezone] = useState("(UTC-6) Central Time (US & Canada)");
-  const [leader, setLeader] = useState("David M.");
 
   // Invite states
   const [emails, setEmails] = useState<string[]>([]);
@@ -159,19 +158,6 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
                       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
                     </div>
                   </div>
-                  <div>
-                    <label className="mb-1.5 block font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500">Primary Worship Leader</label>
-                    <div className="relative">
-                      <select
-                        value={leader}
-                        onChange={e => setLeader(e.target.value)}
-                        className="w-full appearance-none rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-semibold text-white focus:border-violet-400/50 focus:outline-none transition-all"
-                      >
-                        <option className="bg-[#111014]">Alex M.</option>
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
-                    </div>
-                  </div>
                   <button
                     type="button"
                     onClick={() => setStep(1)}
@@ -266,15 +252,9 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
                       <span className="block font-mono text-[9px] font-bold uppercase tracking-widest text-zinc-500">Location</span>
                       <span className="text-sm font-semibold text-zinc-300">{location}</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <span className="block font-mono text-[9px] font-bold uppercase tracking-widest text-zinc-500">Service Time</span>
-                        <span className="text-sm font-semibold text-zinc-300">{serviceDay} at {serviceTime}</span>
-                      </div>
-                      <div>
-                        <span className="block font-mono text-[9px] font-bold uppercase tracking-widest text-zinc-500">Leader</span>
-                        <span className="text-sm font-semibold text-zinc-300">{leader}</span>
-                      </div>
+                    <div>
+                      <span className="block font-mono text-[9px] font-bold uppercase tracking-widest text-zinc-500">Service Time</span>
+                      <span className="text-sm font-semibold text-zinc-300">{serviceDay} at {serviceTime}</span>
                     </div>
                     <div>
                       <span className="block font-mono text-[9px] font-bold uppercase tracking-widest text-zinc-500">Invited Members</span>
