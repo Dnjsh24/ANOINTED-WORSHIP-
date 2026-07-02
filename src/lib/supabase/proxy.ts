@@ -51,7 +51,11 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getClaims();
+  try {
+    await supabase.auth.getClaims();
+  } catch (error) {
+    console.warn("Supabase session update failed:", error);
+  }
 
   return supabaseResponse;
 }

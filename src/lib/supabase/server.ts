@@ -31,11 +31,16 @@ export async function getClaims() {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.getClaims();
+  try {
+    const { data, error } = await supabase.auth.getClaims();
 
-  if (error || !data?.claims) {
+    if (error || !data?.claims) {
+      return null;
+    }
+
+    return data.claims;
+  } catch (error) {
+    console.warn("getClaims failed:", error);
     return null;
   }
-
-  return data.claims;
 }
