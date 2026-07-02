@@ -6,14 +6,6 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
   },
-  async rewrites() {
-    return [
-      {
-        source: "/services/anointed-worship-app/:path*",
-        destination: "/:path*",
-      },
-    ];
-  },
 };
 
 export default nextConfig;
