@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { createTeamAction } from "@/app/actions";
 
+import { generateTeamCode } from "@/lib/domain/team-code";
+
 const createTeamErrors: Record<string, string> = {
   create: "We could not create that workspace yet. Please try again.",
   member: "The workspace was created, but we could not add you as owner. Please try again.",
@@ -31,21 +33,22 @@ interface NewTeamPageProps {
 export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
   const [step, setStep] = useState(0);
   const [copied, setCopied] = useState(false);
-  const teamCode = "DM-10001";
 
   // Form states
-  const [teamName, setTeamName] = useState("Demo Worship Team");
-  const [location, setLocation] = useState("Demo Campus");
+  const [teamName, setTeamName] = useState("");
+  const [location, setLocation] = useState("");
   const [serviceDay, setServiceDay] = useState("Sundays");
-  const [serviceTime, setServiceTime] = useState("8:00 AM");
-  const [timezone, setTimezone] = useState("(UTC-6) Central Time (US & Canada)");
+  const [serviceTime, setServiceTime] = useState("9:00 AM");
+  const [timezone, setTimezone] = useState("(UTC-8) Pacific Time (US & Canada)");
 
   // Invite states
   const [emails, setEmails] = useState<string[]>([]);
   const [emailInput, setEmailInput] = useState("");
 
+  const previewCode = teamName ? generateTeamCode(teamName, "preview") : "AWT-12345";
+
   function handleCopy() {
-    navigator.clipboard.writeText(teamCode);
+    navigator.clipboard.writeText(previewCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -106,6 +109,7 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
                       value={teamName}
                       onChange={e => setTeamName(e.target.value)}
                       required
+                      placeholder="e.g. Anointed Praise"
                       className="w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-semibold text-white placeholder:text-zinc-600 focus:border-violet-400/50 focus:outline-none focus:ring-1 focus:ring-violet-400/30 transition-all"
                     />
                   </div>
@@ -115,6 +119,7 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
                       <input
                         value={location}
                         onChange={e => setLocation(e.target.value)}
+                        placeholder="e.g. Main Campus"
                         className="w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 pr-10 text-sm font-semibold text-white placeholder:text-zinc-600 focus:border-violet-400/50 focus:outline-none focus:ring-1 focus:ring-violet-400/30 transition-all"
                       />
                       <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
@@ -266,6 +271,10 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
 
                   <form action={createTeamAction}>
                     <input type="hidden" name="name" value={teamName} />
+                    <input type="hidden" name="location" value={location} />
+                    <input type="hidden" name="serviceDay" value={serviceDay} />
+                    <input type="hidden" name="serviceTime" value={serviceTime} />
+                    <input type="hidden" name="timezone" value={timezone} />
                     <div className="flex gap-3">
                       <button
                         type="button"
@@ -290,10 +299,10 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
           {/* Right Panel: Team Code + What's Next */}
           <div className="flex flex-col gap-5">
             <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-6">
-              <h3 className="text-sm font-bold text-white">Your Team Code</h3>
+              <h3 className="text-sm font-bold text-white">Your Team Code (Preview)</h3>
               <p className="mt-1 text-[11px] font-semibold text-zinc-400">Share this code for members to join your team.</p>
               <div className="mt-5 rounded-xl border border-violet-400/20 bg-violet-500/5 py-4 text-center">
-                <p className="font-mono text-2xl font-extrabold tracking-widest text-violet-300">{teamCode}</p>
+                <p className="font-mono text-2xl font-extrabold tracking-widest text-violet-300">{previewCode}</p>
               </div>
               <button
                 onClick={handleCopy}

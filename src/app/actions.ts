@@ -341,6 +341,8 @@ export async function signOut() {
 
 export async function createTeamAction(formData: FormData) {
   const name = teamNameSchema.parse(formData.get("name") ?? "Anointed Worship");
+  const location = formData.get("location") as string || "";
+  const serviceTime = formData.get("serviceTime") as string || "9:00 AM";
 
   if (!hasSupabaseEnv()) {
     redirect("/login?error=config");
@@ -398,6 +400,14 @@ export async function createTeamAction(formData: FormData) {
   if (memberError) {
     redirect("/teams/new?error=member");
   }
+
+  // Create default team settings
+  await supabase.from("team_settings").insert({
+    team_id: createdTeamId,
+    default_service_location: location || "Main Sanctuary",
+    default_call_time: serviceTime || "9:00 AM",
+    default_rehearsal_time: "8:15 AM",
+  });
 
   revalidatePath("/dashboard");
   redirect("/dashboard");
