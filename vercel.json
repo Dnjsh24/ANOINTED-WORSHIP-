@@ -2,16 +2,8 @@
   "services": {
     "anointed-worship-app": {
       "root": ".",
-      "framework": "nextjs"
+      "framework": "nextjs",
+      "routePrefix": "/"
     }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": {
-        "type": "service",
-        "service": "anointed-worship-app"
-      }
-    }
-  ]
+  }
 }

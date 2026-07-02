@@ -8,19 +8,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
-  const prefix = "/services/anointed-worship-app";
-  const pathname = request.nextUrl.pathname;
-  const hasPrefix = pathname.startsWith(prefix);
-
-  const targetUrl = request.nextUrl.clone();
-  if (hasPrefix) {
-    targetUrl.pathname = pathname.slice(prefix.length) || "/";
-  }
-
-  let supabaseResponse = hasPrefix
-    ? NextResponse.rewrite(targetUrl, { request })
-    : NextResponse.next({ request });
-
+  let supabaseResponse = NextResponse.next({ request });
   const { url, publishableKey } = getSupabaseEnv();
 
   const supabase = createServerClient<Database>(url, publishableKey, {
@@ -30,9 +18,7 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        supabaseResponse = hasPrefix
-          ? NextResponse.rewrite(targetUrl, { request })
-          : NextResponse.next({ request });
+        supabaseResponse = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) => {
           supabaseResponse.cookies.set(name, value, options);
         });
