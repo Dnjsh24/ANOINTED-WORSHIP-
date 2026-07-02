@@ -8,6 +8,7 @@ import type { ActionState } from "@/lib/action-state";
 import { can } from "@/lib/domain/rbac";
 import { generateTeamCode } from "@/lib/domain/team-code";
 import {
+  announcementInputSchema,
   attendanceSchema,
   eventInputSchema,
   inviteMemberSchema,
@@ -15,8 +16,10 @@ import {
   memberRoleSchema,
   messageSchema,
   profileInputSchema,
+  reminderInputSchema,
   setlistInputSchema,
   setlistSongInputSchema,
+  serviceTemplateInputSchema,
   songInputSchema,
   teamNameSchema,
   teamSettingsSchema,
@@ -24,7 +27,7 @@ import {
 import { getSiteUrl, hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import type { Permission } from "@/lib/domain/rbac";
-import type { TeamRole } from "@/lib/types";
+import type { ReminderRecurrence, SetlistChangeType, TeamRole } from "@/lib/types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -115,9 +118,174 @@ function revalidateAppShell() {
   revalidatePath("/events");
   revalidatePath("/messages");
   revalidatePath("/members");
+  revalidatePath("/announcements");
+  revalidatePath("/reminders");
   revalidatePath("/profile");
   revalidatePath("/admin/settings");
   revalidatePath("/songs");
+}
+
+type MutationContext = Extract<Awaited<ReturnType<typeof getMutationContext>>, { ok: true }>;
+
+type NoticeTargetInput = {
+  targetType: "all" | "role" | "person";
+  targetRole?: TeamRole;
+  targetMemberId?: string;
+};
+
+type ResolvedNoticeTarget = {
+  targetRole: TeamRole | null;
+  targetProfileId: string | null;
+  targetLabel: string;
+  recipientProfileIds: string[];
+};
+
+type NoticeRecipientRow = {
+  id: string;
+  profile_id: string;
+  role: TeamRole;
+  profiles: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null;
+};
+
+function optionalFormString(formData: FormData, key: string) {
+  const value = formString(formData, key).trim();
+  return value.length > 0 ? value : undefined;
+}
+
+function scheduledDateToIso(value?: string) {
+  if (!value) {
+    return new Date().toISOString();
+  }
+
+  const date = new Date(`${value}T00:00:00+08:00`);
+  if (Number.isNaN(date.getTime())) {
+    return new Date().toISOString();
+  }
+
+  return date.toISOString();
+}
+
+function addMonthsClamped(date: Date, months: number) {
+  const copy = new Date(date);
+  const day = copy.getDate();
+  copy.setMonth(copy.getMonth() + months, 1);
+  const lastDay = new Date(copy.getFullYear(), copy.getMonth() + 1, 0).getDate();
+  copy.setDate(Math.min(day, lastDay));
+  return copy;
+}
+
+function buildReminderOccurrences({
+  recurrence,
+  scheduledFor,
+  occurrences,
+}: {
+  recurrence: ReminderRecurrence;
+  scheduledFor?: string;
+  occurrences: number;
+}) {
+  const firstDate = new Date(scheduledDateToIso(scheduledFor));
+  const total = recurrence === "none" ? 1 : occurrences;
+
+  return Array.from({ length: total }, (_, index) => {
+    const scheduledDate =
+      recurrence === "weekly"
+        ? new Date(firstDate.getTime() + index * 7 * 24 * 60 * 60 * 1000)
+        : recurrence === "monthly"
+          ? addMonthsClamped(firstDate, index)
+          : firstDate;
+
+    return {
+      scheduledFor: scheduledDate.toISOString(),
+      recurrenceIndex: index,
+      recurrenceTotal: total,
+    };
+  });
+}
+
+function formatTeamRole(role: TeamRole) {
+  const labels: Record<TeamRole, string> = {
+    owner: "Owners",
+    admin: "Admins",
+    pastor: "Pastors",
+    worship_leader: "Worship Leaders",
+    band_leader: "Band Leaders",
+    band_member: "Band Members",
+    dancer: "Dancers",
+    media: "Media Team",
+    member: "Members",
+  };
+
+  return labels[role];
+}
+
+async function resolveNoticeTarget(context: MutationContext, target: NoticeTargetInput): Promise<
+  | { ok: true; target: ResolvedNoticeTarget }
+  | { ok: false; state: ActionState }
+> {
+  let query = context.supabase
+    .from("team_members")
+    .select("id, profile_id, role, profiles ( full_name, email )")
+    .eq("team_id", context.teamId)
+    .eq("status", "active");
+
+  if (target.targetType === "role") {
+    query = query.eq("role", target.targetRole ?? "member");
+  }
+
+  if (target.targetType === "person") {
+    query = query.eq("id", target.targetMemberId ?? "");
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    return { ok: false, state: { ok: false, message: "Recipients could not be loaded." } };
+  }
+
+  const recipients = (data ?? []) as unknown as NoticeRecipientRow[];
+  const recipientProfileIds = Array.from(new Set(recipients.map((member) => member.profile_id).filter(Boolean)));
+
+  if (recipientProfileIds.length === 0) {
+    return { ok: false, state: { ok: false, message: "No active members match that target." } };
+  }
+
+  if (target.targetType === "role" && target.targetRole) {
+    return {
+      ok: true,
+      target: {
+        targetRole: target.targetRole,
+        targetProfileId: null,
+        targetLabel: formatTeamRole(target.targetRole),
+        recipientProfileIds,
+      },
+    };
+  }
+
+  if (target.targetType === "person") {
+    const member = recipients[0];
+    const profile = Array.isArray(member?.profiles) ? member.profiles[0] : member?.profiles;
+    const label = profile?.full_name ?? profile?.email ?? "Selected person";
+
+    return {
+      ok: true,
+      target: {
+        targetRole: null,
+        targetProfileId: member.profile_id,
+        targetLabel: label,
+        recipientProfileIds,
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    target: {
+      targetRole: null,
+      targetProfileId: null,
+      targetLabel: "All team",
+      recipientProfileIds,
+    },
+  };
 }
 
 export async function signInWithGoogle() {
@@ -188,6 +356,16 @@ export async function createTeamAction(formData: FormData) {
     redirect("/login");
   }
 
+  // Ensure profile row exists (important in case database tables were truncated/reset)
+  const { data: profile } = await supabase.from("profiles").select("id").eq("id", profileId).maybeSingle();
+  if (!profile) {
+    await supabase.from("profiles").insert({
+      id: profileId,
+      email: user.email ?? null,
+      full_name: user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "New User",
+    });
+  }
+
   let createdTeamId: string | null = null;
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -240,6 +418,16 @@ export async function joinTeamAction(formData: FormData) {
 
   if (!profileId) {
     redirect("/login");
+  }
+
+  // Ensure profile row exists (important in case database tables were truncated/reset)
+  const { data: profile } = await supabase.from("profiles").select("id").eq("id", profileId).maybeSingle();
+  if (!profile) {
+    await supabase.from("profiles").insert({
+      id: profileId,
+      email: user.email ?? null,
+      full_name: user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "New User",
+    });
   }
 
   // Clean up orphaned active membership from deleted teams
@@ -364,6 +552,106 @@ function formatTime(timeStr: string): string {
   return `${timeStr}:00`;
 }
 
+type ParsedSetlistInput = z.infer<typeof setlistInputSchema>;
+
+function buildSetlistAssignments(eventId: string, data: ParsedSetlistInput) {
+  const assignmentsToInsert: Array<{ event_id: string; team_member_id: string; assignment: string }> = [];
+
+  if (data.worshipLeader) {
+    assignmentsToInsert.push({ event_id: eventId, team_member_id: data.worshipLeader, assignment: "Worship Leader" });
+  }
+  if (data.acousticGuitar) {
+    assignmentsToInsert.push({ event_id: eventId, team_member_id: data.acousticGuitar, assignment: "Acoustic Guitar" });
+  }
+  if (data.electricGuitar) {
+    assignmentsToInsert.push({ event_id: eventId, team_member_id: data.electricGuitar, assignment: "Electric Guitar" });
+  }
+  if (data.bass) {
+    assignmentsToInsert.push({ event_id: eventId, team_member_id: data.bass, assignment: "Bass" });
+  }
+  if (data.drums) {
+    assignmentsToInsert.push({ event_id: eventId, team_member_id: data.drums, assignment: "Drums" });
+  }
+  if (data.mainKeys) {
+    assignmentsToInsert.push({ event_id: eventId, team_member_id: data.mainKeys, assignment: "Main Keys" });
+  }
+  if (data.secondKeys) {
+    assignmentsToInsert.push({ event_id: eventId, team_member_id: data.secondKeys, assignment: "Second Keys" });
+  }
+  for (const memberId of data.extraBandMembers ?? []) {
+    if (memberId) {
+      assignmentsToInsert.push({ event_id: eventId, team_member_id: memberId, assignment: "Band Member" });
+    }
+  }
+  if (data.media) {
+    assignmentsToInsert.push({ event_id: eventId, team_member_id: data.media, assignment: "Media" });
+  }
+  for (const dancerId of data.dancers ?? []) {
+    if (dancerId) {
+      assignmentsToInsert.push({ event_id: eventId, team_member_id: dancerId, assignment: "Dancers" });
+    }
+  }
+  for (const singerId of data.backupSingers ?? []) {
+    if (singerId) {
+      assignmentsToInsert.push({ event_id: eventId, team_member_id: singerId, assignment: "Backup Singer" });
+    }
+  }
+
+  return assignmentsToInsert;
+}
+
+function buildSetlistSnapshot(data: ParsedSetlistInput, assignments: Array<{ team_member_id: string; assignment: string }>) {
+  return {
+    title: data.title,
+    serviceDate: data.serviceDate,
+    serviceType: data.serviceType,
+    location: data.location,
+    callTime: data.callTime,
+    rehearsalTime: data.rehearsalTime,
+    notes: data.notes ?? "",
+    assignments: assignments.map((assignment) => ({
+      memberId: assignment.team_member_id,
+      role: assignment.assignment,
+    })),
+  };
+}
+
+async function getServiceTemplateName(context: MutationContext, templateId?: string) {
+  if (!templateId) return undefined;
+
+  const { data } = await context.supabase
+    .from("service_templates")
+    .select("name")
+    .eq("id", templateId)
+    .eq("team_id", context.teamId)
+    .maybeSingle();
+
+  return data?.name ?? undefined;
+}
+
+async function logSetlistChange(
+  context: MutationContext,
+  input: {
+    setlistId: string;
+    changeType: SetlistChangeType;
+    summary: string;
+    snapshot?: any;
+  },
+) {
+  const { error } = await context.supabase.from("setlist_change_log").insert({
+    setlist_id: input.setlistId,
+    team_id: context.teamId,
+    changed_by: context.userId,
+    change_type: input.changeType,
+    summary: input.summary,
+    snapshot: input.snapshot ?? {},
+  });
+
+  if (error) {
+    console.warn("Setlist history could not be recorded:", error.message);
+  }
+}
+
 export async function createSetlistAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = setlistInputSchema.safeParse({
     title: formString(formData, "title"),
@@ -384,6 +672,7 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     backupSingers: formData.getAll("backupSingers").map(String).filter(Boolean),
     media: formString(formData, "media"),
     dancers: formData.getAll("dancers").map(String).filter(Boolean),
+    templateId: optionalFormString(formData, "templateId"),
   });
 
   if (!parsed.success) {
@@ -464,56 +753,19 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
   }
 
   // 3. Save roles/assignments
-  const assignmentsToInsert: any[] = [];
-  if (parsed.data.worshipLeader) {
-    assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: parsed.data.worshipLeader, assignment: "Worship Leader" });
-  }
-  if (parsed.data.acousticGuitar) {
-    assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: parsed.data.acousticGuitar, assignment: "Acoustic Guitar" });
-  }
-  if (parsed.data.electricGuitar) {
-    assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: parsed.data.electricGuitar, assignment: "Electric Guitar" });
-  }
-  if (parsed.data.bass) {
-    assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: parsed.data.bass, assignment: "Bass" });
-  }
-  if (parsed.data.drums) {
-    assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: parsed.data.drums, assignment: "Drums" });
-  }
-  if (parsed.data.mainKeys) {
-    assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: parsed.data.mainKeys, assignment: "Main Keys" });
-  }
-  if (parsed.data.secondKeys) {
-    assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: parsed.data.secondKeys, assignment: "Second Keys" });
-  }
-  if (parsed.data.extraBandMembers) {
-    for (const memberId of parsed.data.extraBandMembers) {
-      if (memberId) {
-        assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: memberId, assignment: "Band Member" });
-      }
-    }
-  }
-  if (parsed.data.media) {
-    assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: parsed.data.media, assignment: "Media" });
-  }
-  if (parsed.data.dancers) {
-    for (const dancerId of parsed.data.dancers) {
-      if (dancerId) {
-        assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: dancerId, assignment: "Dancers" });
-      }
-    }
-  }
-  if (parsed.data.backupSingers) {
-    for (const singerId of parsed.data.backupSingers) {
-      if (singerId) {
-        assignmentsToInsert.push({ event_id: resolvedEventId, team_member_id: singerId, assignment: "Backup Singer" });
-      }
-    }
-  }
+  const assignmentsToInsert = buildSetlistAssignments(resolvedEventId, parsed.data);
 
   if (assignmentsToInsert.length > 0) {
     await (context.supabase.from("event_assignments") as any).insert(assignmentsToInsert);
   }
+
+  const templateName = await getServiceTemplateName(context, parsed.data.templateId);
+  await logSetlistChange(context, {
+    setlistId: setlistData.id,
+    changeType: "created",
+    summary: templateName ? `Created from ${templateName} template.` : "Created setlist.",
+    snapshot: buildSetlistSnapshot(parsed.data, assignmentsToInsert),
+  });
 
   revalidatePath("/setlists");
   redirect(`/setlists/${setlistData.id}`);
@@ -540,6 +792,7 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
     backupSingers: formData.getAll("backupSingers").map(String).filter(Boolean),
     media: formString(formData, "media"),
     dancers: formData.getAll("dancers").map(String).filter(Boolean),
+    templateId: optionalFormString(formData, "templateId"),
   });
 
   if (!id) {
@@ -624,61 +877,94 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
   if (eventId) {
     await (context.supabase.from("event_assignments") as any).delete().eq("event_id", eventId);
 
-    const assignmentsToInsert: any[] = [];
-    if (parsed.data.worshipLeader) {
-      assignmentsToInsert.push({ event_id: eventId, team_member_id: parsed.data.worshipLeader, assignment: "Worship Leader" });
-    }
-    if (parsed.data.acousticGuitar) {
-      assignmentsToInsert.push({ event_id: eventId, team_member_id: parsed.data.acousticGuitar, assignment: "Acoustic Guitar" });
-    }
-    if (parsed.data.electricGuitar) {
-      assignmentsToInsert.push({ event_id: eventId, team_member_id: parsed.data.electricGuitar, assignment: "Electric Guitar" });
-    }
-    if (parsed.data.bass) {
-      assignmentsToInsert.push({ event_id: eventId, team_member_id: parsed.data.bass, assignment: "Bass" });
-    }
-    if (parsed.data.drums) {
-      assignmentsToInsert.push({ event_id: eventId, team_member_id: parsed.data.drums, assignment: "Drums" });
-    }
-    if (parsed.data.mainKeys) {
-      assignmentsToInsert.push({ event_id: eventId, team_member_id: parsed.data.mainKeys, assignment: "Main Keys" });
-    }
-    if (parsed.data.secondKeys) {
-      assignmentsToInsert.push({ event_id: eventId, team_member_id: parsed.data.secondKeys, assignment: "Second Keys" });
-    }
-    if (parsed.data.extraBandMembers) {
-      for (const memberId of parsed.data.extraBandMembers) {
-        if (memberId) {
-          assignmentsToInsert.push({ event_id: eventId, team_member_id: memberId, assignment: "Band Member" });
-        }
-      }
-    }
-    if (parsed.data.media) {
-      assignmentsToInsert.push({ event_id: eventId, team_member_id: parsed.data.media, assignment: "Media" });
-    }
-    if (parsed.data.dancers) {
-      for (const dancerId of parsed.data.dancers) {
-        if (dancerId) {
-          assignmentsToInsert.push({ event_id: eventId, team_member_id: dancerId, assignment: "Dancers" });
-        }
-      }
-    }
-    if (parsed.data.backupSingers) {
-      for (const singerId of parsed.data.backupSingers) {
-        if (singerId) {
-          assignmentsToInsert.push({ event_id: eventId, team_member_id: singerId, assignment: "Backup Singer" });
-        }
-      }
-    }
+    const assignmentsToInsert = buildSetlistAssignments(eventId, parsed.data);
 
     if (assignmentsToInsert.length > 0) {
       await (context.supabase.from("event_assignments") as any).insert(assignmentsToInsert);
     }
+
+    const templateName = await getServiceTemplateName(context, parsed.data.templateId);
+    await logSetlistChange(context, {
+      setlistId: id,
+      changeType: "updated",
+      summary: templateName ? `Updated details from ${templateName} template.` : "Updated setlist details and team assignments.",
+      snapshot: buildSetlistSnapshot(parsed.data, assignmentsToInsert),
+    });
   }
 
   revalidatePath("/setlists");
   revalidatePath(`/setlists/${id}`);
   return { ok: true, message: "Setlist saved." };
+}
+
+export async function createServiceTemplateAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = serviceTemplateInputSchema.safeParse({
+    name: formString(formData, "name"),
+    serviceType: formString(formData, "serviceType") || "Sunday Worship",
+    location: formString(formData, "location") || "Main Sanctuary",
+    callTime: formString(formData, "callTime") || "08:00",
+    rehearsalTime: formString(formData, "rehearsalTime") || "08:30",
+    reminderFrequency: formString(formData, "reminderFrequency") || "weekly",
+    reminderOccurrences: formString(formData, "reminderOccurrences") || "4",
+    worshipLeader: formString(formData, "worshipLeader"),
+    acousticGuitar: formString(formData, "acousticGuitar"),
+    electricGuitar: formString(formData, "electricGuitar"),
+    bass: formString(formData, "bass"),
+    drums: formString(formData, "drums"),
+    mainKeys: formString(formData, "mainKeys"),
+    secondKeys: formString(formData, "secondKeys"),
+    extraBandMembers: formData.getAll("extraBandMembers").map(String).filter(Boolean),
+    backupSingers: formData.getAll("backupSingers").map(String).filter(Boolean),
+    media: formString(formData, "media"),
+    dancers: formData.getAll("dancers").map(String).filter(Boolean),
+  });
+
+  if (!parsed.success) {
+    return validationState(parsed.error);
+  }
+
+  const context = await getMutationContext("members.manage");
+  if (!context.ok) {
+    return { ...context.state, message: "Only owners and admins can create service templates." };
+  }
+
+  const defaultRoles = {
+    worshipLeader: parsed.data.worshipLeader ?? "",
+    acousticGuitar: parsed.data.acousticGuitar ?? "",
+    electricGuitar: parsed.data.electricGuitar ?? "",
+    bass: parsed.data.bass ?? "",
+    drums: parsed.data.drums ?? "",
+    mainKeys: parsed.data.mainKeys ?? "",
+    secondKeys: parsed.data.secondKeys ?? "",
+    extraBandMembers: parsed.data.extraBandMembers ?? [],
+    backupSingers: parsed.data.backupSingers ?? [],
+    media: parsed.data.media ?? "",
+    dancers: parsed.data.dancers ?? [],
+  };
+
+  const { error } = await context.supabase.from("service_templates").upsert(
+    {
+      team_id: context.teamId,
+      name: parsed.data.name,
+      service_type: parsed.data.serviceType,
+      location: parsed.data.location,
+      call_time: parsed.data.callTime,
+      rehearsal_time: parsed.data.rehearsalTime,
+      reminder_frequency: parsed.data.reminderFrequency,
+      reminder_occurrences: parsed.data.reminderOccurrences,
+      default_roles: defaultRoles,
+      created_by: context.userId,
+    },
+    { onConflict: "team_id,name" },
+  );
+
+  if (error) {
+    return { ok: false, message: "Service template could not be saved." };
+  }
+
+  revalidatePath("/setlists/new");
+  revalidatePath("/setlists");
+  return { ok: true, message: "Service template saved." };
 }
 
 export async function deleteSetlistAction(formData: FormData): Promise<ActionState> {
@@ -742,6 +1028,25 @@ export async function addSetlistSongAction(_previous: ActionState, formData: For
     .select("id", { count: "exact", head: true })
     .eq("setlist_id", parsed.data.setlistId);
 
+  const [{ data: setlist }, { data: song }] = await Promise.all([
+    context.supabase
+      .from("setlists")
+      .select("id, team_id")
+      .eq("id", parsed.data.setlistId)
+      .eq("team_id", context.teamId)
+      .maybeSingle(),
+    context.supabase
+      .from("songs")
+      .select("title")
+      .eq("id", parsed.data.songId)
+      .eq("team_id", context.teamId)
+      .maybeSingle(),
+  ]);
+
+  if (!setlist) {
+    return { ok: false, message: "Setlist could not be found." };
+  }
+
   const { error } = await context.supabase.from("setlist_songs").insert({
     setlist_id: parsed.data.setlistId,
     song_id: parsed.data.songId,
@@ -753,6 +1058,19 @@ export async function addSetlistSongAction(_previous: ActionState, formData: For
   if (error) {
     return { ok: false, message: "Song could not be added to the setlist." };
   }
+
+  await logSetlistChange(context, {
+    setlistId: parsed.data.setlistId,
+    changeType: "song_added",
+    summary: `Added ${song?.title ?? "a song"} in ${parsed.data.assignedKey}.`,
+    snapshot: {
+      songId: parsed.data.songId,
+      songTitle: song?.title ?? null,
+      assignedKey: parsed.data.assignedKey,
+      lead: parsed.data.lead ?? "",
+      order: (count ?? 0) + 1,
+    },
+  });
 
   revalidatePath(`/setlists/${parsed.data.setlistId}`);
   redirect(`/setlists/${parsed.data.setlistId}`);
@@ -767,9 +1085,30 @@ export async function removeSetlistSongAction(formData: FormData): Promise<Actio
     return context.state;
   }
 
+  const { data: slot } = await context.supabase
+    .from("setlist_songs")
+    .select("song_order, assigned_key, song:songs(title), setlist:setlists(team_id)")
+    .eq("id", slotId)
+    .maybeSingle() as any;
+
   const { error } = await context.supabase.from("setlist_songs").delete().eq("id", slotId);
   if (error) {
     return { ok: false, message: "Song could not be removed." };
+  }
+
+  if (slot?.setlist?.team_id === context.teamId) {
+    const song = Array.isArray(slot.song) ? slot.song[0] : slot.song;
+    await logSetlistChange(context, {
+      setlistId,
+      changeType: "song_removed",
+      summary: `Removed ${song?.title ?? "a song"} from the setlist.`,
+      snapshot: {
+        slotId,
+        songTitle: song?.title ?? null,
+        assignedKey: slot.assigned_key,
+        order: slot.song_order,
+      },
+    });
   }
 
   revalidatePath(`/setlists/${setlistId}`);
@@ -790,9 +1129,30 @@ export async function reorderSetlistSongAction(formData: FormData): Promise<Acti
     return context.state;
   }
 
+  const { data: slot } = await context.supabase
+    .from("setlist_songs")
+    .select("song_order, song:songs(title), setlist:setlists(team_id)")
+    .eq("id", slotId)
+    .maybeSingle() as any;
+
   const { error } = await context.supabase.from("setlist_songs").update({ song_order: nextOrder.data }).eq("id", slotId);
   if (error) {
     return { ok: false, message: "Song order could not be updated." };
+  }
+
+  if (slot?.setlist?.team_id === context.teamId && slot.song_order !== nextOrder.data) {
+    const song = Array.isArray(slot.song) ? slot.song[0] : slot.song;
+    await logSetlistChange(context, {
+      setlistId,
+      changeType: "song_reordered",
+      summary: `Moved ${song?.title ?? "a song"} from ${slot.song_order} to ${nextOrder.data}.`,
+      snapshot: {
+        slotId,
+        songTitle: song?.title ?? null,
+        previousOrder: slot.song_order,
+        nextOrder: nextOrder.data,
+      },
+    });
   }
 
   revalidatePath(`/setlists/${setlistId}`);
@@ -887,6 +1247,223 @@ export async function updateAttendanceAction(formData: FormData): Promise<Action
   return { ok: true, message: `Marked ${parsed.data.status}.` };
 }
 
+export async function createAnnouncementAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = announcementInputSchema.safeParse({
+    title: formString(formData, "title"),
+    category: formString(formData, "category") || "General",
+    body: formString(formData, "body"),
+    priority: formString(formData, "priority") || "normal",
+    eventId: optionalFormString(formData, "eventId"),
+    target: {
+      targetType: formString(formData, "targetType") || "all",
+      targetRole: formString(formData, "targetRole") || undefined,
+      targetMemberId: formString(formData, "targetMemberId") || undefined,
+    },
+  });
+
+  if (!parsed.success) {
+    return validationState(parsed.error);
+  }
+
+  const context = await getMutationContext("members.manage");
+  if (!context.ok) {
+    return { ...context.state, message: "Only owners and admins can add announcements." };
+  }
+
+  const resolvedTarget = await resolveNoticeTarget(context, parsed.data.target);
+  if (!resolvedTarget.ok) {
+    return resolvedTarget.state;
+  }
+
+  const { target } = resolvedTarget;
+  const { data: announcement, error } = await context.supabase
+    .from("announcements")
+    .insert({
+      team_id: context.teamId,
+      category: parsed.data.category,
+      title: parsed.data.title,
+      body: parsed.data.body,
+      priority: parsed.data.priority,
+      event_id: parsed.data.eventId || null,
+      target_role: target.targetRole,
+      target_profile_id: target.targetProfileId,
+      target_label: target.targetLabel,
+      created_by: context.userId,
+    })
+    .select("id")
+    .single();
+
+  if (error || !announcement) {
+    return { ok: false, message: "Announcement could not be added." };
+  }
+
+  const receipts = target.recipientProfileIds.map((profileId) => ({
+    announcement_id: announcement.id,
+    team_id: context.teamId,
+    profile_id: profileId,
+  }));
+
+  if (receipts.length > 0) {
+    const { error: receiptError } = await context.supabase.from("announcement_receipts").insert(receipts);
+
+    if (receiptError) {
+      return { ok: false, message: "Announcement was added, but delivery tracking could not be created." };
+    }
+  }
+
+  revalidatePath("/announcements");
+  revalidatePath("/dashboard");
+
+  return { ok: true, message: `Announcement added for ${target.targetLabel}.` };
+}
+
+export async function createReminderAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = reminderInputSchema.safeParse({
+    title: formString(formData, "title"),
+    body: formString(formData, "body"),
+    priority: formString(formData, "priority") || "normal",
+    eventId: optionalFormString(formData, "eventId"),
+    targetPath: formString(formData, "targetPath") || "/reminders",
+    scheduledFor: optionalFormString(formData, "scheduledFor"),
+    recurrence: formString(formData, "recurrence") || "none",
+    occurrences: formString(formData, "occurrences") || "1",
+    target: {
+      targetType: formString(formData, "targetType") || "all",
+      targetRole: formString(formData, "targetRole") || undefined,
+      targetMemberId: formString(formData, "targetMemberId") || undefined,
+    },
+  });
+
+  if (!parsed.success) {
+    return validationState(parsed.error);
+  }
+
+  const context = await getMutationContext("members.manage");
+  if (!context.ok) {
+    return { ...context.state, message: "Only owners and admins can add reminders." };
+  }
+
+  const resolvedTarget = await resolveNoticeTarget(context, parsed.data.target);
+  if (!resolvedTarget.ok) {
+    return resolvedTarget.state;
+  }
+
+  const { target } = resolvedTarget;
+  const noticeGroupId = randomUUID();
+  const occurrences = buildReminderOccurrences({
+    recurrence: parsed.data.recurrence,
+    scheduledFor: parsed.data.scheduledFor,
+    occurrences: parsed.data.occurrences,
+  });
+  const targetPath = parsed.data.eventId ? `/events/${parsed.data.eventId}` : parsed.data.targetPath || "/reminders";
+  const notifications = occurrences.flatMap((occurrence) =>
+    target.recipientProfileIds.map((profileId) => ({
+      team_id: context.teamId,
+      profile_id: profileId,
+      title: parsed.data.title,
+      body: parsed.data.body,
+      priority: parsed.data.priority,
+      event_id: parsed.data.eventId || null,
+      target_path: targetPath,
+      target_role: target.targetRole,
+      target_profile_id: target.targetProfileId,
+      target_label: target.targetLabel,
+      scheduled_for: occurrence.scheduledFor,
+      recurrence_rule: parsed.data.recurrence,
+      recurrence_index: occurrence.recurrenceIndex,
+      recurrence_total: occurrence.recurrenceTotal,
+      notice_group_id: noticeGroupId,
+      created_by: context.userId,
+    })),
+  );
+
+  const { error } = await context.supabase.from("notifications").insert(notifications);
+
+  if (error) {
+    return { ok: false, message: "Reminder could not be added." };
+  }
+
+  revalidatePath("/reminders");
+  revalidatePath("/dashboard");
+
+  return {
+    ok: true,
+    message:
+      parsed.data.recurrence === "none"
+        ? `Reminder sent to ${target.targetLabel}.`
+        : `${parsed.data.occurrences} ${parsed.data.recurrence} reminders scheduled for ${target.targetLabel}.`,
+  };
+}
+
+export async function acknowledgeAnnouncementAction(formData: FormData): Promise<void> {
+  const announcementId = formString(formData, "announcementId").trim();
+  if (!announcementId) {
+    return;
+  }
+
+  const context = await getMutationContext();
+  if (!context.ok) {
+    return;
+  }
+
+  const { data: announcement } = await context.supabase
+    .from("announcements")
+    .select("id")
+    .eq("id", announcementId)
+    .eq("team_id", context.teamId)
+    .maybeSingle();
+
+  if (!announcement) {
+    return;
+  }
+
+  const acknowledgedAt = new Date().toISOString();
+  const { error } = await context.supabase.from("announcement_receipts").upsert(
+    {
+      announcement_id: announcementId,
+      team_id: context.teamId,
+      profile_id: context.userId,
+      read_at: acknowledgedAt,
+      acknowledged_at: acknowledgedAt,
+    },
+    { onConflict: "announcement_id,profile_id" },
+  );
+
+  if (error) {
+    return;
+  }
+
+  revalidatePath("/announcements");
+  revalidatePath("/dashboard");
+}
+
+export async function acknowledgeReminderAction(formData: FormData): Promise<void> {
+  const notificationId = formString(formData, "notificationId").trim();
+  if (!notificationId) {
+    return;
+  }
+
+  const context = await getMutationContext();
+  if (!context.ok) {
+    return;
+  }
+
+  const acknowledgedAt = new Date().toISOString();
+  const { error } = await context.supabase
+    .from("notifications")
+    .update({ read_at: acknowledgedAt, acknowledged_at: acknowledgedAt })
+    .eq("id", notificationId)
+    .eq("team_id", context.teamId)
+    .eq("profile_id", context.userId);
+
+  if (error) {
+    return;
+  }
+
+  revalidatePath("/reminders");
+  revalidatePath("/dashboard");
+}
+
 export async function createEventAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = eventInputSchema.safeParse({
     title: formString(formData, "title"),
@@ -904,10 +1481,12 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
     return validationState(parsed.error);
   }
 
-  const context = await getMutationContext("events.manage");
+  const context = await getMutationContext();
   if (!context.ok) {
     return { ...context.state, message: context.state.message.replace("changes", "events") };
   }
+
+  const approvalStatus = can(context.role, "events.manage") ? "approved" : "pending";
 
   const { data, error } = await context.supabase
     .from("events")
@@ -920,6 +1499,7 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
       ends_at: parsed.data.endTime || null,
       location: parsed.data.location,
       description: parsed.data.notes || parsed.data.assignedTeams || null,
+      approval_status: approvalStatus,
       created_by: context.userId,
     })
     .select("id")
@@ -929,7 +1509,7 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
     return { ok: false, message: "Event could not be created." };
   }
 
-  if (parsed.data.linkedSetlistId) {
+  if (approvalStatus === "approved" && parsed.data.linkedSetlistId && can(context.role, "setlists.manage")) {
     await context.supabase
       .from("setlists")
       .update({ event_id: data.id })
@@ -937,7 +1517,58 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
   }
 
   revalidatePath("/events");
+  revalidatePath("/dashboard");
+
+  if (approvalStatus === "pending") {
+    return {
+      ok: true,
+      message: "Event request sent. An admin or owner must approve it before it appears as an official event.",
+    };
+  }
+
   redirect(`/events/${data.id}`);
+}
+
+export async function reviewEventAction(formData: FormData): Promise<ActionState> {
+  const parsed = z.object({
+    eventId: z.string().min(1),
+    decision: z.enum(["approved", "rejected"]),
+  }).safeParse({
+    eventId: formData.get("eventId"),
+    decision: formData.get("decision"),
+  });
+
+  if (!parsed.success) {
+    return validationState(parsed.error);
+  }
+
+  const context = await getMutationContext("events.review");
+  if (!context.ok) {
+    return {
+      ...context.state,
+      message: context.state.message.includes("permission")
+        ? "Only admins and owners can approve event requests."
+        : context.state.message,
+    };
+  }
+
+  const { error } = await context.supabase
+    .from("events")
+    .update({ approval_status: parsed.data.decision })
+    .eq("id", parsed.data.eventId)
+    .eq("team_id", context.teamId);
+
+  if (error) {
+    return { ok: false, message: "Event request could not be reviewed." };
+  }
+
+  revalidatePath("/events");
+  revalidatePath("/dashboard");
+
+  return {
+    ok: true,
+    message: parsed.data.decision === "approved" ? "Event approved and added to the calendar." : "Event request rejected.",
+  };
 }
 
 export async function sendMessageAction(formData: FormData): Promise<ActionState> {
@@ -1276,31 +1907,49 @@ export async function inviteMemberAction(_previous: ActionState, formData: FormD
   return { ok: true, message: "Invitation saved." };
 }
 
-export async function reviewJoinRequestAction(formData: FormData) {
-  const requestId = z.string().min(1).parse(formData.get("requestId"));
-  const decision = z.enum(["approved", "rejected"]).parse(formData.get("decision"));
+export async function reviewJoinRequestAction(formData: FormData): Promise<void> {
+  await reviewJoinRequestWithStateAction(formData);
+}
+
+export async function reviewJoinRequestWithStateAction(formData: FormData): Promise<ActionState> {
+  const parsed = z.object({
+    requestId: z.string().min(1),
+    decision: z.enum(["approved", "rejected"]),
+  }).safeParse({
+    requestId: formData.get("requestId"),
+    decision: formData.get("decision"),
+  });
+
+  if (!parsed.success) {
+    return validationState(parsed.error);
+  }
 
   const context = await getMutationContext("join_requests.review");
   if (!context.ok) {
     revalidatePath("/members");
-    return;
+    revalidatePath("/members/requests");
+    return context.state;
   }
 
   const { data: request } = await context.supabase
     .from("join_requests")
     .select("team_id, profile_id, requested_role")
-    .eq("id", requestId)
+    .eq("id", parsed.data.requestId)
     .eq("team_id", context.teamId)
     .maybeSingle();
 
-  await context.supabase
+  const { error } = await context.supabase
     .from("join_requests")
-    .update({ status: decision, reviewed_by: context.userId, reviewed_at: new Date().toISOString() })
-    .eq("id", requestId)
+    .update({ status: parsed.data.decision, reviewed_by: context.userId, reviewed_at: new Date().toISOString() })
+    .eq("id", parsed.data.requestId)
     .eq("team_id", context.teamId);
 
-  if (decision === "approved" && request) {
-    await context.supabase.from("team_members").upsert(
+  if (error || !request) {
+    return { ok: false, message: "Join request could not be reviewed." };
+  }
+
+  if (parsed.data.decision === "approved") {
+    const { error: memberError } = await context.supabase.from("team_members").upsert(
       {
         team_id: request.team_id,
         profile_id: request.profile_id,
@@ -1309,9 +1958,20 @@ export async function reviewJoinRequestAction(formData: FormData) {
       },
       { onConflict: "team_id,profile_id" },
     );
+
+    if (memberError) {
+      return { ok: false, message: "Join request was approved, but the member could not be added." };
+    }
   }
 
   revalidatePath("/members");
+  revalidatePath("/members/requests");
+  revalidatePath("/dashboard");
+
+  return {
+    ok: true,
+    message: parsed.data.decision === "approved" ? "Join request approved." : "Join request rejected.",
+  };
 }
 
 export async function updateMemberRoleAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
