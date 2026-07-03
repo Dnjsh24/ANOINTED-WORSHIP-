@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { ActionState } from "@/lib/action-state";
 import { can } from "@/lib/domain/rbac";
 import { generateTeamCode } from "@/lib/domain/team-code";
+import { toPostgresTime } from "@/lib/domain/time";
 import {
   announcementInputSchema,
   attendanceSchema,
@@ -377,8 +378,8 @@ export async function createTeamAction(formData: FormData) {
         p_name: name,
         p_code: code,
         p_default_service_location: location || "Main Sanctuary",
-        p_default_call_time: formatTime(serviceTime),
-        p_default_rehearsal_time: "08:15:00",
+        p_default_call_time: toPostgresTime(serviceTime),
+        p_default_rehearsal_time: toPostgresTime("08:15 AM"),
       })
       .single();
 
@@ -544,12 +545,6 @@ export async function joinTeamAction(formData: FormData) {
   }
 }
 
-function formatTime(timeStr: string): string {
-  if (!timeStr) return "09:00:00";
-  if (timeStr.split(":").length === 3) return timeStr;
-  return `${timeStr}:00`;
-}
-
 type ParsedSetlistInput = z.infer<typeof setlistInputSchema>;
 
 function buildSetlistAssignments(eventId: string, data: ParsedSetlistInput) {
@@ -691,9 +686,9 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
       .update({
         name: parsed.data.title,
         event_date: parsed.data.serviceDate,
-        starts_at: formatTime(parsed.data.callTime),
-        call_time: formatTime(parsed.data.callTime),
-        rehearsal_time: formatTime(parsed.data.rehearsalTime),
+        starts_at: toPostgresTime(parsed.data.callTime),
+        call_time: toPostgresTime(parsed.data.callTime),
+        rehearsal_time: toPostgresTime(parsed.data.rehearsalTime),
         location: parsed.data.location,
       })
       .eq("id", resolvedEventId);
@@ -709,9 +704,9 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
         type: "service",
         name: parsed.data.title,
         event_date: parsed.data.serviceDate,
-        starts_at: formatTime(parsed.data.callTime),
-        call_time: formatTime(parsed.data.callTime),
-        rehearsal_time: formatTime(parsed.data.rehearsalTime),
+        starts_at: toPostgresTime(parsed.data.callTime),
+        call_time: toPostgresTime(parsed.data.callTime),
+        rehearsal_time: toPostgresTime(parsed.data.rehearsalTime),
         location: parsed.data.location,
         created_by: context.userId,
       })
@@ -824,9 +819,9 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
         type: "service",
         name: parsed.data.title,
         event_date: parsed.data.serviceDate,
-        starts_at: formatTime(parsed.data.callTime),
-        call_time: formatTime(parsed.data.callTime),
-        rehearsal_time: formatTime(parsed.data.rehearsalTime),
+        starts_at: toPostgresTime(parsed.data.callTime),
+        call_time: toPostgresTime(parsed.data.callTime),
+        rehearsal_time: toPostgresTime(parsed.data.rehearsalTime),
         location: parsed.data.location,
         created_by: context.userId,
       })
@@ -843,9 +838,9 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
       .update({
         name: parsed.data.title,
         event_date: parsed.data.serviceDate,
-        starts_at: formatTime(parsed.data.callTime),
-        call_time: formatTime(parsed.data.callTime),
-        rehearsal_time: formatTime(parsed.data.rehearsalTime),
+        starts_at: toPostgresTime(parsed.data.callTime),
+        call_time: toPostgresTime(parsed.data.callTime),
+        rehearsal_time: toPostgresTime(parsed.data.rehearsalTime),
         location: parsed.data.location,
       })
       .eq("id", eventId);
