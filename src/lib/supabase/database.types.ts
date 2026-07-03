@@ -563,6 +563,10 @@ export interface Database {
           created_by: string;
           created_at: string;
           updated_at: string;
+          song_title: string | null;
+          song_artist: string | null;
+          song_version: string | null;
+          video_url: string | null;
         };
         Insert: {
           id?: string;
@@ -576,6 +580,10 @@ export interface Database {
           created_by: string;
           created_at?: string;
           updated_at?: string;
+          song_title?: string | null;
+          song_artist?: string | null;
+          song_version?: string | null;
+          video_url?: string | null;
         };
         Update: {
           song_id?: string | null;
@@ -585,6 +593,10 @@ export interface Database {
           formation_notes?: string | null;
           outfit_notes?: string | null;
           updated_at?: string;
+          song_title?: string | null;
+          song_artist?: string | null;
+          song_version?: string | null;
+          video_url?: string | null;
         };
         Relationships: [];
       };

@@ -35,6 +35,10 @@ export const danceChartInputSchema = z.object({
   choreographyNotes: z.string().trim().min(1, "Dance or tambourine steps are required").max(6000),
   formationNotes: z.string().trim().max(3000).optional(),
   outfitNotes: z.string().trim().max(2000).optional(),
+  songTitle: z.string().trim().max(160).optional(),
+  songArtist: z.string().trim().max(160).optional(),
+  songVersion: z.string().trim().max(160).optional(),
+  videoUrl: z.union([z.string().trim().url("Must be a valid video URL"), z.literal("")]).optional(),
 });
 
 export const attendanceSchema = z.object({

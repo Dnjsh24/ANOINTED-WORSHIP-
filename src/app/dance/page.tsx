@@ -2,6 +2,7 @@ import { CalendarDays, Footprints, Music, Sparkles, Users } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { DanceChartForm, type DanceChartOption } from "@/components/dance-chart-form";
+import { DanceLibraryList } from "@/components/dance-library-list";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { can } from "@/lib/domain/rbac";
@@ -16,6 +17,9 @@ type DanceChart = {
   formationNotes: string | null;
   outfitNotes: string | null;
   songTitle: string | null;
+  songArtist: string | null;
+  songVersion: string | null;
+  videoUrl: string | null;
   eventName: string | null;
   eventDate: string | null;
   createdAt: string;
@@ -42,21 +46,13 @@ type DanceNoteRow = {
   song_id: string | null;
   event_id: string | null;
   created_at: string;
+  song_title: string | null;
+  song_artist: string | null;
+  song_version: string | null;
+  video_url: string | null;
 };
 
-const sampleCharts: DanceChart[] = [
-  {
-    id: "sample-dance-chart",
-    title: "Sunday tambourine pattern",
-    choreographyNotes: "Intro: hold tambourine low. Verse: step right, tap left. Chorus: raise tambourine on counts 1 and 3.",
-    formationNotes: "Three dancers in a shallow V, lead dancer center.",
-    outfitNotes: "White top, purple sash, tambourine ribbons.",
-    songTitle: "Opening Song",
-    eventName: "Sunday Service",
-    eventDate: "2026-07-12",
-    createdAt: "2026-07-03T00:00:00.000Z",
-  },
-];
+
 
 export default async function DanceChartsPage({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
   const { new: isNew } = await searchParams;
@@ -73,7 +69,7 @@ export default async function DanceChartsPage({ searchParams }: { searchParams: 
     const [notesResult, songsResult, eventsResult] = await Promise.all([
       supabase
         .from("dance_notes")
-        .select("id, title, choreography_notes, formation_notes, outfit_notes, song_id, event_id, created_at")
+        .select("id, title, choreography_notes, formation_notes, outfit_notes, song_id, event_id, created_at, song_title, song_artist, song_version, video_url")
         .eq("team_id", teamContext.teamId)
         .order("created_at", { ascending: false }),
       supabase
@@ -106,7 +102,10 @@ export default async function DanceChartsPage({ searchParams }: { searchParams: 
         choreographyNotes: note.choreography_notes ?? "",
         formationNotes: note.formation_notes,
         outfitNotes: note.outfit_notes,
-        songTitle: song?.title ?? null,
+        songTitle: song?.title ?? note.song_title ?? null,
+        songArtist: song?.artist ?? note.song_artist ?? null,
+        songVersion: note.song_version ?? null,
+        videoUrl: note.video_url ?? null,
         eventName: event?.name ?? null,
         eventDate: event?.event_date ?? null,
         createdAt: note.created_at,
@@ -188,42 +187,7 @@ export default async function DanceChartsPage({ searchParams }: { searchParams: 
               {chartSectionsCard}
             </div>
             <div className="space-y-4">
-              {charts.length > 0 ? (
-                charts.map((chart) => (
-                  <Card key={chart.id} className="p-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <h2 className="text-xl font-bold text-white">{chart.title}</h2>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {chart.songTitle ? (
-                            <Badge className="inline-flex items-center gap-1">
-                              <Music className="size-3" />
-                              {chart.songTitle}
-                            </Badge>
-                          ) : null}
-                          {chart.eventName ? (
-                            <Badge className="inline-flex items-center gap-1">
-                              <CalendarDays className="size-3" />
-                              {chart.eventName}{chart.eventDate ? `, ${formatDate(chart.eventDate)}` : ""}
-                            </Badge>
-                          ) : null}
-                        </div>
-                      </div>
-                      <span className="text-xs font-bold text-zinc-500">{formatDate(chart.createdAt)}</span>
-                    </div>
-
-                    <DanceNoteBlock title="Dance / Tambourine Steps" body={chart.choreographyNotes} />
-                    {chart.formationNotes ? <DanceNoteBlock title="Formation" body={chart.formationNotes} /> : null}
-                    {chart.outfitNotes ? <DanceNoteBlock title="Outfit / Props" body={chart.outfitNotes} /> : null}
-                  </Card>
-                ))
-              ) : (
-                <Card className="border-dashed p-10 text-center">
-                  <Footprints className="mx-auto size-9 text-zinc-600" />
-                  <h2 className="mt-4 text-xl font-bold text-white">No dance charts yet.</h2>
-                  <p className="mt-2 text-sm font-semibold text-zinc-500">Dance and tambourine notes will appear here.</p>
-                </Card>
-              )}
+              <DanceLibraryList charts={charts} />
             </div>
           </>
         )}

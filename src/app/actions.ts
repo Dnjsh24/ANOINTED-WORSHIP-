@@ -2007,6 +2007,10 @@ export async function createDanceChartAction(_previous: ActionState, formData: F
     choreographyNotes: formString(formData, "choreographyNotes"),
     formationNotes: formString(formData, "formationNotes"),
     outfitNotes: formString(formData, "outfitNotes"),
+    songTitle: formString(formData, "songTitle"),
+    songArtist: formString(formData, "songArtist"),
+    songVersion: formString(formData, "songVersion"),
+    videoUrl: formString(formData, "videoUrl"),
   });
 
   if (!parsed.success) {
@@ -2026,6 +2030,10 @@ export async function createDanceChartAction(_previous: ActionState, formData: F
     choreography_notes: parsed.data.choreographyNotes,
     formation_notes: parsed.data.formationNotes || null,
     outfit_notes: parsed.data.outfitNotes || null,
+    song_title: parsed.data.songTitle || null,
+    song_artist: parsed.data.songArtist || null,
+    song_version: parsed.data.songVersion || null,
+    video_url: parsed.data.videoUrl || null,
     created_by: context.userId,
   });
 

@@ -69,7 +69,32 @@ export function DanceChartForm({
         </label>
       </div>
 
-      <label className="block space-y-1.5">
+      <div className="border-t border-white/5 pt-4">
+        <span className="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-3">Or Enter Custom Song Details</span>
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold text-zinc-300">Custom Song Name</span>
+            <Input name="songTitle" placeholder="e.g. Way Maker" />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold text-zinc-300">Artist</span>
+            <Input name="songArtist" placeholder="e.g. Sinach" />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold text-zinc-300">Version / Reference</span>
+            <Input name="songVersion" placeholder="e.g. Leeland Live" />
+          </label>
+        </div>
+      </div>
+
+      <div className="border-t border-white/5 pt-4">
+        <label className="block space-y-1.5">
+          <span className="text-xs font-bold text-zinc-300">YouTube Video Link (Optional)</span>
+          <Input name="videoUrl" type="url" placeholder="https://www.youtube.com/watch?v=..." />
+        </label>
+      </div>
+
+      <label className="block space-y-1.5 pt-4 border-t border-white/5">
         <span className="text-xs font-bold text-zinc-300">Dance / Tambourine Steps *</span>
         <textarea
           name="choreographyNotes"
