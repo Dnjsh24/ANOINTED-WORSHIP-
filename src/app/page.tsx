@@ -1,4 +1,5 @@
-import { CalendarDays, Library, MessageSquare, Music, Music2, Rows3 } from "lucide-react";
+import { CalendarDays, Library, MessageSquare, Rows3 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -21,12 +22,16 @@ export default async function Home() {
     <main className="min-h-screen bg-[#0d0c12] text-white overflow-x-hidden">
       {/* Nav */}
       <nav className="flex items-center justify-between px-8 py-5 animate-fade-down">
-        <div className="flex items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-violet-500/20 border border-violet-400/30">
-            <Music2 className="size-4 text-violet-300" />
-          </span>
-          <span className="text-sm font-bold text-white">Anointed Worship</span>
-        </div>
+        <Link href="/" className="flex items-center" aria-label="Anointed Worship home">
+          <Image
+            src="/brand/anointed-worship-logo-transparent.png"
+            alt="Anointed Worship"
+            width={259}
+            height={51}
+            priority
+            className="h-9 w-auto"
+          />
+        </Link>
         <Link
           href="/login"
           className="rounded-lg border border-white/10 bg-white/[0.05] px-4 py-2 text-xs font-bold text-zinc-300 transition-all hover:bg-white/[0.10] hover:text-white"
@@ -39,14 +44,22 @@ export default async function Home() {
       <section className="mx-auto grid max-w-7xl gap-12 px-8 pb-16 pt-10 lg:grid-cols-2 lg:items-center">
         {/* Left */}
         <div className="animate-fade-up">
+          <Image
+            src="/brand/anointed-worship-logo-transparent.png"
+            alt="Anointed Worship"
+            width={648}
+            height={128}
+            priority
+            className="mb-8 h-auto w-full max-w-xl"
+          />
           <h1 className="text-5xl font-extrabold leading-tight tracking-tight text-white lg:text-6xl">
-            Empower Your<br />
+            Anointed Worship<br />
             <span className="bg-gradient-to-r from-violet-400 to-purple-300 bg-clip-text text-transparent">
-              Worship Ministry
+              Ministry Planning
             </span>
           </h1>
           <p className="mt-6 max-w-lg text-sm font-medium leading-7 text-zinc-400">
-            The all-in-one platform for worship teams, dancers, and media. Streamline setlists, chord charts, scheduling, and team communication in one beautiful space.
+            Plan with excellence. Lead with worship. Streamline setlists, chord charts, scheduling, and team communication in one beautiful space.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -121,7 +134,7 @@ export default async function Home() {
             { icon: Library, title: "Chords", body: "Access chord charts, transpose keys, and lyrics instantly." },
             { icon: CalendarDays, title: "Scheduling", body: "Plan rehearsals, events, and services with ease." },
             { icon: MessageSquare, title: "Messaging", body: "Communicate in real time with your entire team." },
-          ].map((f, i) => (
+          ].map((f) => (
             <div
               key={f.title}
               className="group rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5 transition-all duration-200 hover:border-violet-400/30 hover:bg-white/[0.05]"
