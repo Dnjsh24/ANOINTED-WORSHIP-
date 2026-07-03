@@ -1,4 +1,8 @@
 export function hasSupabaseEnv() {
+  if (process.env.E2E_FORCE_DEMO === "1") {
+    return false;
+  }
+
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
 }
 

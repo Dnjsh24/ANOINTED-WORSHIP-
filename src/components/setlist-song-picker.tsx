@@ -25,11 +25,23 @@ export function SetlistSongPicker({
   const [state, formAction] = useActionState(action, initialState);
   const [query, setQuery] = useState("");
   const [selectedSong, setSelectedSong] = useState(songs[0]?.id ?? "");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedKey, setSelectedKey] = useState("all");
+
+  const keyOptions = useMemo(() => {
+    const keys = songs.map((song) => song.currentKey || song.originalKey).filter(Boolean);
+    return ["all", ...Array.from(new Set(keys))];
+  }, [songs]);
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return songs.filter((song) => `${song.title} ${song.artist} ${song.tags.join(" ")}`.toLowerCase().includes(normalized));
-  }, [query, songs]);
+    return songs.filter((song) => {
+      const matchesQuery = `${song.title} ${song.artist} ${song.tags.join(" ")}`.toLowerCase().includes(normalized);
+      const songKey = song.currentKey || song.originalKey;
+      const matchesKey = selectedKey === "all" || songKey === selectedKey;
+      return matchesQuery && matchesKey;
+    });
+  }, [query, selectedKey, songs]);
 
   const selected = songs.find((song) => song.id === selectedSong) ?? songs[0];
 
@@ -47,12 +59,37 @@ export function SetlistSongPicker({
         </div>
         <button
           type="button"
+          aria-expanded={filtersOpen}
+          onClick={() => setFiltersOpen((value) => !value)}
           className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]"
         >
           <SlidersHorizontal className="size-3.5" />
           Filters
         </button>
       </div>
+
+      {filtersOpen ? (
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-zinc-500">Filter by key</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {keyOptions.map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSelectedKey(key)}
+                className={cn(
+                  "rounded-lg border px-3 py-1 text-[11px] font-bold transition",
+                  selectedKey === key
+                    ? "border-violet-400/40 bg-violet-500/20 text-violet-100"
+                    : "border-white/10 bg-white/[0.03] text-zinc-400 hover:text-white",
+                )}
+              >
+                {key === "all" ? "All Keys" : key}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* Song List Rows */}
       <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
@@ -90,6 +127,7 @@ export function SetlistSongPicker({
                 </span>
                 <button
                   type="button"
+                  onClick={() => setSelectedSong(song.id)}
                   className={cn(
                     "flex size-7 items-center justify-center rounded-lg transition",
                     isSelected ? "bg-violet-600 text-white" : "bg-white/[0.04] text-zinc-400 hover:text-white"

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { MembersClient } from "@/components/members-client";
+import { normalizeJoinRequest, type RawJoinRequest } from "@/lib/domain/join-requests";
 import {
   members as sampleMembers,
   pendingRequests as samplePendingRequests,
@@ -8,11 +9,11 @@ import {
 } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { TeamMember, TeamRole } from "@/lib/types";
 
 export default async function MembersPage() {
-  const teamContext = await getCurrentTeamContext();
+  const teamContext = await getRequiredTeamContext();
 
   if (teamContext.userId && !teamContext.canManageMembers) {
     redirect("/dashboard");
@@ -29,6 +30,7 @@ export default async function MembersPage() {
           id,
           profile_id,
           requested_role,
+          created_at,
           profiles (
             id,
             full_name,
@@ -58,21 +60,7 @@ export default async function MembersPage() {
         .order("created_at", { ascending: true }),
     ]);
 
-    const pendingRequests = (dbPendingRequests ?? []).map((jr: any) => {
-      const profile = jr.profiles;
-      const name = profile?.full_name ?? profile?.email ?? "Unknown";
-      const initials = name
-        .split(" ")
-        .map((w: any) => w[0]?.toUpperCase() ?? "")
-        .join("")
-        .slice(0, 2);
-      return {
-        id: jr.id,
-        initials,
-        name,
-        ministry: jr.requested_role?.replace("_", " ") ?? "Member",
-      };
-    });
+    const pendingRequests = (dbPendingRequests ?? []).map((request) => normalizeJoinRequest(request as RawJoinRequest));
 
     const members: TeamMember[] = (dbMembers ?? []).map((tm: any) => {
       const profile = tm.profiles;

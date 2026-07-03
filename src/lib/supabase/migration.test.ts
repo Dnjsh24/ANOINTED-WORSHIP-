@@ -18,6 +18,30 @@ const interactionMigration = readFileSync(
   join(process.cwd(), "supabase", "migrations", "20260630030000_interaction_mvp_persistence.sql"),
   "utf8",
 );
+const eventApprovalMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260702000000_add_event_approval_status.sql"),
+  "utf8",
+);
+const targetedNoticesMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260702010000_targeted_announcements_reminders.sql"),
+  "utf8",
+);
+const noticeAcknowledgementsMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260702020000_notice_acknowledgements_recurring_reminders.sql"),
+  "utf8",
+);
+const serviceTemplatesMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260702030000_service_templates_conflicts_setlist_history.sql"),
+  "utf8",
+);
+const messageChannelMembershipMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260703000000_fix_message_channel_membership_insert.sql"),
+  "utf8",
+);
+const defaultTeamChannelsBackfillMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260703010000_backfill_default_team_channels.sql"),
+  "utf8",
+);
 
 const requiredTables = [
   "profiles",
@@ -86,5 +110,51 @@ describe("Supabase migration", () => {
     expect(interactionMigration).toContain("muted_at");
     expect(interactionMigration).toContain("Members can create own attendance");
     expect(interactionMigration).toContain("Channel members can update own membership");
+  });
+
+  it("requires approval for member-created event requests", () => {
+    expect(eventApprovalMigration).toContain("approval_status");
+    expect(eventApprovalMigration).toContain("Approved members can request events");
+    expect(eventApprovalMigration).toContain("Owners and admins can review events");
+    expect(eventApprovalMigration).toContain("approval_status = 'pending'");
+  });
+
+  it("supports targeted announcements and reminders", () => {
+    expect(targetedNoticesMigration).toContain("target_role public.team_role");
+    expect(targetedNoticesMigration).toContain("target_profile_id uuid");
+    expect(targetedNoticesMigration).toContain("Targeted members can read announcements");
+    expect(targetedNoticesMigration).toContain("Owners and admins can create announcements");
+    expect(targetedNoticesMigration).toContain("Owners and admins can create notifications");
+  });
+
+  it("tracks notice acknowledgements and scheduled recurring reminders", () => {
+    expect(noticeAcknowledgementsMigration).toContain("create table if not exists public.announcement_receipts");
+    expect(noticeAcknowledgementsMigration).toContain("acknowledged_at timestamptz");
+    expect(noticeAcknowledgementsMigration).toContain("scheduled_for timestamptz");
+    expect(noticeAcknowledgementsMigration).toContain("recurrence_rule text");
+    expect(noticeAcknowledgementsMigration).toContain("notice_group_id uuid");
+    expect(noticeAcknowledgementsMigration).toContain("Owners and admins can read team notifications");
+  });
+
+  it("adds service templates and setlist version history", () => {
+    expect(serviceTemplatesMigration).toContain("create table if not exists public.service_templates");
+    expect(serviceTemplatesMigration).toContain("create table if not exists public.setlist_change_log");
+    expect(serviceTemplatesMigration).toContain("Sunday Morning Service");
+    expect(serviceTemplatesMigration).toContain("Members can read service templates");
+    expect(serviceTemplatesMigration).toContain("Setlist managers can create setlist history");
+  });
+
+  it("allows authorized message channel membership inserts", () => {
+    expect(messageChannelMembershipMigration).toContain("Approved members can create message channels");
+    expect(messageChannelMembershipMigration).toContain("Authorized members can add channel members");
+    expect(messageChannelMembershipMigration).toContain("c.channel_type = 'direct'");
+    expect(messageChannelMembershipMigration).toContain("target_tm.team_id = c.team_id");
+  });
+
+  it("backfills default team channels for existing teams", () => {
+    expect(defaultTeamChannelsBackfillMigration).toContain("insert into public.message_channels");
+    expect(defaultTeamChannelsBackfillMigration).toContain("'Worship Team'");
+    expect(defaultTeamChannelsBackfillMigration).toContain("tm.status = 'active'");
+    expect(defaultTeamChannelsBackfillMigration).toContain("on conflict (channel_id, team_member_id) do nothing");
   });
 });

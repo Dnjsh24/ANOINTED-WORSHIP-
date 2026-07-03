@@ -705,7 +705,15 @@ export function MessagesClient({
             </div>
           </div>
           <div className="relative flex gap-2 text-zinc-300">
-            <button type="button" aria-label="Focus message search" className="rounded-md p-2 hover:bg-white/[0.06]" onClick={() => inputRef.current?.focus()}>
+            <button
+              type="button"
+              aria-label="Focus message search"
+              className="rounded-md p-2 hover:bg-white/[0.06]"
+              onClick={() => {
+                setSidebarExpanded(true);
+                setTimeout(() => inputRef.current?.focus(), 0);
+              }}
+            >
               <Search className="size-5" />
             </button>
             {(role === "owner" || role === "admin") && (

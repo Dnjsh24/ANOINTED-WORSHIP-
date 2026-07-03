@@ -10,9 +10,13 @@ import { initialActionState } from "@/lib/action-state";
 export function EventForm({
   setlists = [],
   defaultDate,
+  requiresApproval = false,
+  canLinkSetlists = true,
 }: {
   setlists?: Array<{ id: string; name: string; date: string }>;
   defaultDate?: string;
+  requiresApproval?: boolean;
+  canLinkSetlists?: boolean;
 }) {
   const [state, formAction] = useActionState(createEventAction, initialActionState);
 
@@ -20,6 +24,12 @@ export function EventForm({
     <div className="animate-fade-in">
       <form action={formAction} className="space-y-6">
         <ActionMessage state={state} />
+
+        {requiresApproval ? (
+          <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-100">
+            Event requests are sent to an admin or owner before becoming official.
+          </div>
+        ) : null}
 
         {/* 2-Column Split Layout */}
         <div className="grid gap-6 md:grid-cols-2">
@@ -80,23 +90,25 @@ export function EventForm({
               <Input name="assignedTeams" defaultValue="Worship Band, AV Team" placeholder="e.g. Choir, Sound Team" className="rounded-xl border-white/10" />
             </label>
 
-            <label className="block space-y-1.5">
-              <span className="text-xs font-bold text-zinc-300">Linked setlist</span>
-              <div className="relative">
-                <select
-                  name="linkedSetlistId"
-                  defaultValue=""
-                  className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20"
-                >
-                  <option value="" className="bg-[#111014] text-white">None (Not linked)</option>
-                  {setlists.map((s) => (
-                    <option key={s.id} value={s.id} className="bg-[#111014] text-white">
-                      {s.name} ({s.date})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </label>
+            {canLinkSetlists ? (
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold text-zinc-300">Linked setlist</span>
+                <div className="relative">
+                  <select
+                    name="linkedSetlistId"
+                    defaultValue=""
+                    className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20"
+                  >
+                    <option value="" className="bg-[#111014] text-white">None (Not linked)</option>
+                    {setlists.map((s) => (
+                      <option key={s.id} value={s.id} className="bg-[#111014] text-white">
+                        {s.name} ({s.date})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </label>
+            ) : null}
           </div>
 
         </div>
@@ -119,7 +131,7 @@ export function EventForm({
             Cancel
           </ButtonLink>
           <SubmitButton className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500 hover:shadow-[0_0_15px_rgba(139,92,246,0.35)]">
-            Create Event
+            {requiresApproval ? "Request Event" : "Create Event"}
           </SubmitButton>
         </div>
       </form>

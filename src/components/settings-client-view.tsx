@@ -63,11 +63,17 @@ export function SettingsClientView({
   teamCode,
   isAdmin,
   role,
+  defaultServiceLocation,
+  defaultCallTime,
+  defaultRehearsalTime,
 }: {
   teamName: string;
   teamCode: string;
   isAdmin: boolean;
   role?: string;
+  defaultServiceLocation: string;
+  defaultCallTime: string;
+  defaultRehearsalTime: string;
 }) {
   const [activeTab, setActiveTab] = useState("controls");
   const [copied, setCopied] = useState(false);
@@ -75,11 +81,17 @@ export function SettingsClientView({
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [leaveState, leaveFormAction] = useActionState(leaveTeamAction, initialActionState);
   const [leaveConfirmText, setLeaveConfirmText] = useState("");
+  const [settingsStatus, setSettingsStatus] = useState("");
 
   function handleCopy() {
     navigator.clipboard.writeText(teamCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function showSettingsStatus(message: string) {
+    setSettingsStatus(message);
+    window.setTimeout(() => setSettingsStatus(""), 4000);
   }
 
   return (
@@ -92,7 +104,10 @@ export function SettingsClientView({
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setSettingsStatus("");
+              }}
               className={cn(
                 "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all text-left w-full",
                 isActive
@@ -109,6 +124,14 @@ export function SettingsClientView({
 
       {/* Main Settings Content Area */}
       <div className="space-y-6">
+        {settingsStatus ? (
+          <p
+            aria-live="polite"
+            className="rounded-xl border border-violet-400/30 bg-violet-400/10 px-4 py-3 text-xs font-bold text-violet-100"
+          >
+            {settingsStatus}
+          </p>
+        ) : null}
         
         {activeTab === "controls" && (
           <div className="space-y-6 animate-fade-in">
@@ -156,13 +179,33 @@ export function SettingsClientView({
                   <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500">Team Information</h3>
                   <div className="mt-3 space-y-1.5 text-xs font-semibold text-zinc-300">
                     <div className="flex justify-between"><span className="text-zinc-500">Name</span><span className="text-white font-bold">{teamName}</span></div>
-                    <div className="flex justify-between"><span className="text-zinc-500">Location</span><span>Austin, TX</span></div>
-                    <div className="flex justify-between"><span className="text-zinc-500">Service Time</span><span>Sundays - 9:00 AM</span></div>
+                    <div className="flex justify-between"><span className="text-zinc-500">Location</span><span>{defaultServiceLocation}</span></div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Service Time</span>
+                      <span>
+                        {(() => {
+                          if (!defaultCallTime) return "Sundays at 9:00 AM";
+                          const timeClean = defaultCallTime.trim();
+                          if (timeClean.includes("AM") || timeClean.includes("PM")) {
+                            return `Sundays at ${timeClean}`;
+                          }
+                          const parts = timeClean.split(":");
+                          if (parts.length >= 2) {
+                            const hrs = parseInt(parts[0], 10);
+                            const m = parts[1];
+                            const ampm = hrs >= 12 ? "PM" : "AM";
+                            const displayHrs = hrs % 12 || 12;
+                            return `Sundays at ${displayHrs}:${m} ${ampm}`;
+                          }
+                          return `Sundays at ${timeClean}`;
+                        })()}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <Link href="/admin/settings" className="mt-4 block text-center text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors">
+                <button type="button" onClick={() => setActiveTab("defaults")} className="mt-4 block w-full text-center text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors">
                   Edit Info →
-                </Link>
+                </button>
               </Panel>
             </div>
 
@@ -176,9 +219,9 @@ export function SettingsClientView({
                     Only approved team members can access these files, stage plots, chords, and internal notes.
                   </p>
                 </div>
-                <Link href="/admin/settings" className="mt-5 block text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors">
+                <button type="button" onClick={() => setActiveTab("materials")} className="mt-5 block text-left text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors">
                   Manage Access →
-                </Link>
+                </button>
               </Panel>
 
               {/* Review Workflow */}
@@ -189,9 +232,9 @@ export function SettingsClientView({
                     Require approval for new members, song sheets, and content changes before they go live.
                   </p>
                 </div>
-                <Link href="/admin/settings" className="mt-5 block text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors">
+                <button type="button" onClick={() => setActiveTab("workflow")} className="mt-5 block text-left text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors">
                   Manage Workflow →
-                </Link>
+                </button>
               </Panel>
             </div>
 
@@ -294,7 +337,14 @@ export function SettingsClientView({
 
         {activeTab === "defaults" && (
           <div className="animate-fade-in bg-[#111014]/80 rounded-2xl border border-white/[0.08] p-5">
-            <SettingsForm teamName={teamName} teamCode={teamCode} isAdmin={isAdmin} />
+            <SettingsForm
+              teamName={teamName}
+              teamCode={teamCode}
+              isAdmin={isAdmin}
+              defaultServiceLocation={defaultServiceLocation}
+              defaultCallTime={defaultCallTime}
+              defaultRehearsalTime={defaultRehearsalTime}
+            />
           </div>
         )}
 
@@ -353,7 +403,11 @@ export function SettingsClientView({
               </div>
 
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/[0.04]">
-                <button type="button" className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => showSettingsStatus("Private material preferences are ready on this screen. Team-wide persistence needs a dedicated database setting before deployment.")}
+                  className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500 transition-colors"
+                >
                   Save Changes
                 </button>
               </div>
@@ -404,7 +458,11 @@ export function SettingsClientView({
               </div>
 
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/[0.04]">
-                <button type="button" className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => showSettingsStatus("Workflow preferences are ready on this screen. Apply the pending Supabase migrations before making them team-wide.")}
+                  className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500 transition-colors"
+                >
                   Save Changes
                 </button>
               </div>
@@ -464,7 +522,11 @@ export function SettingsClientView({
               </div>
 
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/[0.04]">
-                <button type="button" className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => showSettingsStatus("Permission changes are staged on this screen. Database-backed custom permissions need a future RBAC migration.")}
+                  className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500 transition-colors"
+                >
                   Save Permissions
                 </button>
               </div>
@@ -488,7 +550,11 @@ export function SettingsClientView({
                     Sync service items, dates, and member schedules automatically.
                   </p>
                 </div>
-                <button className="mt-5 w-full rounded-xl border border-red-500/20 bg-red-500/5 py-2 text-xs font-bold text-red-400 hover:bg-red-500/10 transition">
+                <button
+                  type="button"
+                  onClick={() => showSettingsStatus("Planning Center disconnect requires provider credentials. No live connection was changed.")}
+                  className="mt-5 w-full rounded-xl border border-red-500/20 bg-red-500/5 py-2 text-xs font-bold text-red-400 hover:bg-red-500/10 transition"
+                >
                   Disconnect Account
                 </button>
               </Panel>
@@ -504,7 +570,11 @@ export function SettingsClientView({
                     Search and import lyrics and official chord charts directly into your song catalog.
                   </p>
                 </div>
-                <button className="mt-5 w-full rounded-xl bg-violet-600 py-2 text-xs font-bold text-white hover:bg-violet-500 transition">
+                <button
+                  type="button"
+                  onClick={() => showSettingsStatus("SongSelect setup needs CCLI OAuth credentials before it can connect.")}
+                  className="mt-5 w-full rounded-xl bg-violet-600 py-2 text-xs font-bold text-white hover:bg-violet-500 transition"
+                >
                   Connect SongSelect
                 </button>
               </Panel>
@@ -520,7 +590,11 @@ export function SettingsClientView({
                     Auto-generate practice playlists for Sunday team members to listen and prepare.
                   </p>
                 </div>
-                <button className="mt-5 w-full rounded-xl border border-white/[0.08] bg-white/[0.04] py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition">
+                <button
+                  type="button"
+                  onClick={() => showSettingsStatus("Playlist sync settings need a music provider connection before they can be saved.")}
+                  className="mt-5 w-full rounded-xl border border-white/[0.08] bg-white/[0.04] py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition"
+                >
                   Configure Playlist Sync
                 </button>
               </Panel>
@@ -536,7 +610,11 @@ export function SettingsClientView({
                     Ping a #worship channel when setlists are published or times change.
                   </p>
                 </div>
-                <button className="mt-5 w-full rounded-xl bg-violet-600 py-2 text-xs font-bold text-white hover:bg-violet-500 transition">
+                <button
+                  type="button"
+                  onClick={() => showSettingsStatus("Discord webhooks need a webhook URL saved securely before they can be enabled.")}
+                  className="mt-5 w-full rounded-xl bg-violet-600 py-2 text-xs font-bold text-white hover:bg-violet-500 transition"
+                >
                   Enable Webhooks
                 </button>
               </Panel>
@@ -560,7 +638,11 @@ export function SettingsClientView({
                   <div className="flex justify-between text-xs font-semibold"><span className="text-zinc-500">Status:</span><span className="text-emerald-400">Active (Auto-renewing)</span></div>
                 </div>
 
-                <button className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition w-full">
+                <button
+                  type="button"
+                  onClick={() => showSettingsStatus("Plan upgrades need a billing provider integration before checkout can open.")}
+                  className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition w-full"
+                >
                   Upgrade to Enterprise Plan
                 </button>
               </Panel>
@@ -578,7 +660,11 @@ export function SettingsClientView({
                   </div>
                 </div>
 
-                <button className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition w-full">
+                <button
+                  type="button"
+                  onClick={() => showSettingsStatus("Card updates need a secure billing portal before payment details can be changed.")}
+                  className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition w-full"
+                >
                   Update Card Details
                 </button>
               </Panel>

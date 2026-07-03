@@ -29,6 +29,17 @@ export const demoTeamContext: TeamContext = {
   hasPendingJoinRequest: false,
 };
 
+export const unauthenticatedTeamContext: TeamContext = {
+  userId: null,
+  teamId: null,
+  memberId: null,
+  teamName: appName,
+  teamCode: null,
+  role: "member",
+  canManageMembers: false,
+  hasPendingJoinRequest: false,
+};
+
 export async function getCurrentTeamContext(): Promise<TeamContext> {
   if (!hasSupabaseEnv()) {
     return demoTeamContext;
@@ -44,7 +55,7 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return demoTeamContext;
+    return unauthenticatedTeamContext;
   }
 
   const [membershipResult, pendingRequestResult] = await Promise.all([

@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { teamRoles } from "@/lib/types";
 
+const noticePriorities = ["normal", "important", "urgent"] as const;
+const reminderRecurrences = ["none", "weekly", "monthly"] as const;
+
 export const emailSchema = z.string().trim().email().max(254);
 
 export const teamNameSchema = z.string().trim().min(2).max(80);
@@ -56,6 +59,28 @@ export const setlistInputSchema = z.object({
   media: z.string().trim().max(160).optional(),
   dancers: z.array(z.string().trim()).optional(),
   eventId: z.string().trim().optional(),
+  templateId: z.string().trim().optional(),
+});
+
+export const serviceTemplateInputSchema = z.object({
+  name: z.string().trim().min(1, "Template name is required").max(160),
+  serviceType: z.string().trim().min(1).max(80),
+  location: z.string().trim().min(1).max(160),
+  callTime: z.string().trim().min(1),
+  rehearsalTime: z.string().trim().min(1),
+  reminderFrequency: z.enum(reminderRecurrences).default("weekly"),
+  reminderOccurrences: z.coerce.number().int().min(1).max(12).default(4),
+  worshipLeader: z.string().trim().max(160).optional(),
+  acousticGuitar: z.string().trim().max(160).optional(),
+  electricGuitar: z.string().trim().max(160).optional(),
+  bass: z.string().trim().max(160).optional(),
+  drums: z.string().trim().max(160).optional(),
+  mainKeys: z.string().trim().max(160).optional(),
+  secondKeys: z.string().trim().max(160).optional(),
+  extraBandMembers: z.array(z.string().trim()).optional(),
+  backupSingers: z.array(z.string().trim()).optional(),
+  media: z.string().trim().max(160).optional(),
+  dancers: z.array(z.string().trim()).optional(),
 });
 
 export const setlistSongInputSchema = z.object({
@@ -76,6 +101,43 @@ export const eventInputSchema = z.object({
   assignedTeams: z.string().trim().max(500).optional(),
   linkedSetlistId: z.string().trim().optional(),
   notes: z.string().trim().max(2000).optional(),
+});
+
+export const noticeTargetSchema = z
+  .object({
+    targetType: z.enum(["all", "role", "person"]).default("all"),
+    targetRole: z.enum(teamRoles).optional(),
+    targetMemberId: z.string().trim().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.targetType === "role" && !value.targetRole) {
+      context.addIssue({ code: "custom", path: ["targetRole"], message: "Choose a team tag." });
+    }
+
+    if (value.targetType === "person" && !value.targetMemberId) {
+      context.addIssue({ code: "custom", path: ["targetMemberId"], message: "Choose a person." });
+    }
+  });
+
+export const announcementInputSchema = z.object({
+  title: z.string().trim().min(1, "Announcement title is required").max(160),
+  category: z.string().trim().min(1).max(80),
+  body: z.string().trim().min(1, "Announcement message is required").max(3000),
+  priority: z.enum(noticePriorities).default("normal"),
+  eventId: z.string().trim().optional(),
+  target: noticeTargetSchema,
+});
+
+export const reminderInputSchema = z.object({
+  title: z.string().trim().min(1, "Reminder title is required").max(160),
+  body: z.string().trim().min(1, "Reminder message is required").max(2000),
+  priority: z.enum(noticePriorities).default("normal"),
+  eventId: z.string().trim().optional(),
+  targetPath: z.string().trim().max(200).optional(),
+  scheduledFor: z.string().trim().optional(),
+  recurrence: z.enum(reminderRecurrences).default("none"),
+  occurrences: z.coerce.number().int().min(1).max(12).default(1),
+  target: noticeTargetSchema,
 });
 
 export const inviteMemberSchema = z.object({

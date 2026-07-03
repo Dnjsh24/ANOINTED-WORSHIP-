@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { addSetlistSongAction } from "@/app/actions";
 import { AppShell } from "@/components/app-shell";
 import { SetlistSongPicker } from "@/components/setlist-song-picker";
@@ -6,11 +7,11 @@ import { initialActionState } from "@/lib/action-state";
 import { setlists as sampleSetlists, songs as sampleSongs } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 
 export default async function AddSongToSetlistPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const teamContext = await getCurrentTeamContext();
+  const teamContext = await getRequiredTeamContext();
 
   let setlist: any = null;
   let songsList: any[] = [];
@@ -23,6 +24,7 @@ export default async function AddSongToSetlistPage({ params }: { params: Promise
       .from("setlists")
       .select("*")
       .eq("id", id)
+      .eq("team_id", teamContext.teamId)
       .maybeSingle();
 
     if (dbSetlist) {
@@ -56,8 +58,12 @@ export default async function AddSongToSetlistPage({ params }: { params: Promise
     }
   }
 
-  // Fallback to sample data when Supabase is not configured or not found
+  // Fallback to sample data only when Supabase is not configured (demo mode).
   if (!setlist) {
+    if (hasSupabaseEnv()) {
+      notFound();
+    }
+
     const sample = sampleSetlists.find((item) => item.id === id) ?? sampleSetlists[0];
     setlist = sample;
     songsList = sampleSongs;

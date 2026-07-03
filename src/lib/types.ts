@@ -15,6 +15,10 @@ export type TeamRole = (typeof teamRoles)[number];
 export type JoinRequestStatus = "pending" | "approved" | "rejected";
 export type AttendanceStatus = "available" | "maybe" | "unavailable" | "pending";
 export type EventType = "service" | "rehearsal" | "meeting" | "special_event";
+export type EventApprovalStatus = "pending" | "approved" | "rejected";
+export type NoticePriority = "normal" | "important" | "urgent";
+export type ReminderRecurrence = "none" | "weekly" | "monthly";
+export type SetlistChangeType = "created" | "updated" | "song_added" | "song_removed" | "song_reordered";
 
 export interface Profile {
   id: string;
@@ -30,6 +34,32 @@ export interface TeamMember {
   status: "active" | "inactive";
   attendanceRate: number;
   ministry: string;
+}
+
+export interface NoticeMemberTarget {
+  memberId: string;
+  profileId: string;
+  name: string;
+  email: string;
+  role: TeamRole;
+  avatarUrl?: string;
+}
+
+export interface NoticeEventTarget {
+  id: string;
+  name: string;
+  date: string;
+}
+
+export interface JoinRequestSummary {
+  id: string;
+  initials: string;
+  name: string;
+  email?: string;
+  avatarUrl?: string;
+  ministry: string;
+  requestedRole: TeamRole;
+  requestedAt?: string;
 }
 
 export interface SongSection {
@@ -77,6 +107,40 @@ export interface Setlist {
   eventId?: string;
 }
 
+export interface ServiceTemplateRoles {
+  worshipLeader?: string;
+  acousticGuitar?: string;
+  electricGuitar?: string;
+  bass?: string;
+  drums?: string;
+  mainKeys?: string;
+  secondKeys?: string;
+  extraBandMembers?: string[];
+  backupSingers?: string[];
+  media?: string;
+  dancers?: string[];
+}
+
+export interface ServiceTemplate {
+  id: string;
+  name: string;
+  serviceType: string;
+  location: string;
+  callTime: string;
+  rehearsalTime: string;
+  reminderFrequency: ReminderRecurrence;
+  reminderOccurrences: number;
+  defaultRoles: ServiceTemplateRoles;
+}
+
+export interface SetlistChangeLog {
+  id: string;
+  changeType: SetlistChangeType;
+  summary: string;
+  changedBy?: string;
+  createdAt: string;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -87,6 +151,8 @@ export interface Event {
   assignedTeams: string[];
   confirmed: number;
   pending: number;
+  approvalStatus?: EventApprovalStatus;
+  createdByMe?: boolean;
   setlistId?: string;
 }
 
@@ -97,6 +163,9 @@ export interface Announcement {
   category: string;
   createdBy: string;
   createdAt: string;
+  targetLabel?: string;
+  priority?: NoticePriority;
+  eventId?: string;
 }
 
 export interface Message {

@@ -389,15 +389,19 @@ export async function createTeamAction(formData: FormData) {
     redirect("/teams/new?error=code");
   }
 
-  const { error: memberError } = await supabase.from("team_members").insert({
-    team_id: createdTeamId,
-    profile_id: profileId,
-    role: "owner",
-    status: "active",
-    ministry: "Worship Leader",
-  });
+  const { data: ownerMember, error: memberError } = await supabase
+    .from("team_members")
+    .insert({
+      team_id: createdTeamId,
+      profile_id: profileId,
+      role: "owner",
+      status: "active",
+      ministry: "Worship Leader",
+    })
+    .select("id")
+    .single();
 
-  if (memberError) {
+  if (memberError || !ownerMember) {
     redirect("/teams/new?error=member");
   }
 
@@ -408,6 +412,30 @@ export async function createTeamAction(formData: FormData) {
     default_call_time: serviceTime || "9:00 AM",
     default_rehearsal_time: "8:15 AM",
   });
+
+  const { data: defaultChannel, error: channelError } = await supabase
+    .from("message_channels")
+    .insert({
+      team_id: createdTeamId,
+      name: "Worship Team",
+      channel_type: "team",
+      created_by: profileId,
+    })
+    .select("id")
+    .single();
+
+  if (channelError || !defaultChannel) {
+    redirect("/teams/new?error=channel");
+  }
+
+  const { error: channelMemberError } = await supabase.from("message_channel_members").insert({
+    channel_id: defaultChannel.id,
+    team_member_id: ownerMember.id,
+  });
+
+  if (channelMemberError) {
+    redirect("/teams/new?error=channel-member");
+  }
 
   revalidatePath("/dashboard");
   redirect("/dashboard");
@@ -1959,24 +1987,49 @@ export async function reviewJoinRequestWithStateAction(formData: FormData): Prom
   }
 
   if (parsed.data.decision === "approved") {
-    const { error: memberError } = await context.supabase.from("team_members").upsert(
-      {
-        team_id: request.team_id,
-        profile_id: request.profile_id,
-        role: request.requested_role,
-        status: "active",
-      },
-      { onConflict: "team_id,profile_id" },
-    );
+    const { data: approvedMember, error: memberError } = await context.supabase
+      .from("team_members")
+      .upsert(
+        {
+          team_id: request.team_id,
+          profile_id: request.profile_id,
+          role: request.requested_role,
+          status: "active",
+        },
+        { onConflict: "team_id,profile_id" },
+      )
+      .select("id")
+      .single();
 
-    if (memberError) {
+    if (memberError || !approvedMember) {
       return { ok: false, message: "Join request was approved, but the member could not be added." };
+    }
+
+    const { data: defaultChannel } = await context.supabase
+      .from("message_channels")
+      .select("id")
+      .eq("team_id", request.team_id)
+      .eq("channel_type", "team")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (defaultChannel) {
+      const { error: channelMemberError } = await context.supabase.from("message_channel_members").insert({
+          channel_id: defaultChannel.id,
+          team_member_id: approvedMember.id,
+        });
+
+      if (channelMemberError && channelMemberError.code !== "23505") {
+        return { ok: false, message: "Join request was approved, but the member could not be added to team chat." };
+      }
     }
   }
 
   revalidatePath("/members");
   revalidatePath("/members/requests");
   revalidatePath("/dashboard");
+  revalidatePath("/messages");
 
   return {
     ok: true,

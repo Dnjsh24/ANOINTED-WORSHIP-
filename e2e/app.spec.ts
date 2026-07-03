@@ -14,7 +14,8 @@ test("team join flow opens the join form and pending request screen", async ({ p
   await expect(page.getByRole("heading", { name: "Join an Existing Team" })).toBeVisible();
 
   await page.goto("/pending");
-  await expect(page.getByRole("heading", { name: "Welcome Back" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Request Sent" })).toBeVisible();
+  await expect(page.getByText("Pending Approval")).toBeVisible();
 });
 
 test("home and setlist screens render core workflow", async ({ page }) => {
@@ -29,6 +30,30 @@ test("home and setlist screens render core workflow", async ({ page }) => {
   await page.goto("/dashboard");
   await page.getByRole("link", { name: "Opening Song B 90 BPM" }).click();
   await expect(page.getByRole("heading", { name: "Opening Song" })).toBeVisible();
+});
+
+test("admin can open announcement and reminder composers", async ({ page }) => {
+  await page.goto("/announcements");
+  await page.getByRole("button", { name: "Add Announcement" }).click();
+  await expect(page.getByRole("dialog", { name: "Add Announcement" })).toBeVisible();
+  await expect(page.getByLabel("Priority")).toBeVisible();
+  await expect(page.getByLabel("Linked event")).toBeVisible();
+  await page.getByLabel("Tag").selectOption("role");
+  await expect(page.locator('select[name="targetRole"]')).toBeVisible();
+  await expect(page.locator('select[name="targetRole"]')).toContainText("Band Members");
+  await page.getByRole("button", { name: "Close" }).click();
+
+  await page.goto("/reminders");
+  await page.getByRole("button", { name: "Add Reminder" }).click();
+  await expect(page.getByRole("dialog", { name: "Add Reminder" })).toBeVisible();
+  await expect(page.getByLabel("Schedule date")).toBeVisible();
+  await expect(page.getByLabel("Repeat")).toBeVisible();
+  await page.getByLabel("Repeat").selectOption("weekly");
+  await expect(page.getByLabel("Occurrences")).toBeEnabled();
+  await page.getByLabel("Tag").selectOption("person");
+  await expect(page.locator('select[name="targetMemberId"]')).toBeVisible();
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("heading", { name: "Admin Delivery" })).toBeVisible();
 });
 
 test("desktop uses top navigation with Home before Setlists", async ({ page, isMobile }) => {
@@ -67,11 +92,28 @@ test("song viewer renders chord tools and practice controls", async ({ page }) =
   await expect(page.getByLabel("Metronome tempo")).toBeVisible();
 });
 
+test("song forms and add-song picker controls respond", async ({ page }) => {
+  await page.goto("/setlists/sunday-service/add-song");
+  await page.getByRole("button", { name: "Filters" }).click();
+  await expect(page.getByText("Filter by key")).toBeVisible();
+  await page.getByRole("button", { name: "All Keys" }).click();
+
+  await page.goto("/songs/opening-song/edit");
+  await page.getByRole("button", { name: "B" }).click();
+  await expect(page.getByText("B inserted.")).toBeVisible();
+  await page.getByRole("button", { name: "Delete Song" }).click();
+  await expect(page.getByText(/Song deletion needs an admin confirmation flow/i)).toBeVisible();
+});
+
 test("member management shows approval controls", async ({ page }) => {
   await page.goto("/members");
   await expect(page.getByRole("heading", { name: "Team Management" })).toBeVisible();
   await expect(page.getByLabel("Approve Casey Lee")).toBeVisible();
   await expect(page.getByText("DM-10001")).toBeVisible();
+  await page.getByRole("link", { name: /View all requests/i }).click();
+  await expect(page).toHaveURL(/\/members\/requests$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Pending Requests" })).toBeVisible();
+  await expect(page.getByText("casey@example.com")).toBeVisible();
 });
 
 test("global shell opens notifications and settings", async ({ page, isMobile }) => {
@@ -100,6 +142,8 @@ test("setlists page filters and exposes create/edit flows", async ({ page }) => 
 
   await page.getByRole("link", { name: /New Setlist/i }).click();
   await expect(page.getByRole("heading", { name: "New Setlist" })).toBeVisible();
+  await expect(page.getByLabel("Service Template")).toBeVisible();
+  await expect(page.getByLabel("Service Template")).toContainText("Sunday Morning Service");
   await expect(page.getByRole("heading", { name: "Band" })).toBeVisible();
   await expect(page.locator('select[name="secondKeys"]')).toBeVisible();
   await page.getByRole("button", { name: "Remove Keys 2" }).click();
@@ -130,6 +174,9 @@ test("setlist detail actions have real targets", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Dance" })).toBeVisible();
 
   await page.goto("/setlists/sunday-service");
+  await expect(page.getByRole("heading", { name: "Conflict Detection" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Who's Missing?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Version History" })).toBeVisible();
   await page.getByRole("button", { name: "Share" }).click();
   await expect(page.getByText(/Share link copied|Share link ready/i)).toBeVisible();
   await page.getByRole("button", { name: "Maybe" }).click();
@@ -146,6 +193,9 @@ test("events filters and detail actions work", async ({ page }) => {
 
   await page.getByPlaceholder("Search events...").fill("");
   await expect(page.getByRole("link", { name: /Midweek Band Rehearsal/i })).toBeVisible();
+  await page.getByRole("button", { name: "Calendar View" }).click();
+  await expect(page.getByRole("heading", { name: "July 2026" })).toBeVisible();
+  await expect(page.getByTitle(/Sunday Morning Worship/)).toBeVisible();
   await page.getByRole("link", { name: "Add Event" }).click();
   await expect(page.getByRole("heading", { name: "Add Event" })).toBeVisible();
 });
@@ -161,6 +211,9 @@ test("messages controls switch channel and report send persistence", async ({ pa
   }
 
   await page.keyboard.press("Escape");
+  if (isMobile) {
+    await page.getByRole("button", { name: "Focus message search" }).click();
+  }
   await page.getByPlaceholder("Search messages...").fill("bridge");
   await expect(page.getByText("The new bridge arrangement is ready for review.")).toBeVisible();
   await page.getByRole("button", { name: "Open emoji menu" }).click();
@@ -183,6 +236,8 @@ test("team/profile/song/settings controls are interactive", async ({ page }) => 
   await expect(page.getByLabel("Email")).toBeDisabled();
   await page.getByRole("button", { name: "Save Changes" }).click();
   await expect(page.getByText(/Profile save requires sign-in|Profile saved/i)).toBeVisible();
+  await page.getByRole("button", { name: "Reset Password" }).click();
+  await expect(page.getByText(/Password reset needs a Supabase email reset flow/i)).toBeVisible();
 
   await page.goto("/songs");
   await page.getByPlaceholder("Search by title, artist, or tag...").fill("Opening");
@@ -193,4 +248,14 @@ test("team/profile/song/settings controls are interactive", async ({ page }) => 
   await page.goto("/admin/settings");
   await expect(page.getByRole("heading", { name: "Team Controls" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Copy Code" })).toBeVisible();
+  await page.getByRole("button", { name: /Manage Access/i }).click();
+  await expect(page.getByRole("heading", { name: "Private Materials Settings" })).toBeVisible();
+  await page.getByRole("button", { name: "Save Changes" }).click();
+  await expect(page.getByText(/Private material preferences are ready/i)).toBeVisible();
+  await page.getByRole("button", { name: "Integrations" }).click();
+  await page.getByRole("button", { name: "Connect SongSelect" }).click();
+  await expect(page.getByText(/SongSelect setup needs CCLI OAuth credentials/i)).toBeVisible();
+  await page.getByRole("button", { name: "Billing" }).click();
+  await page.getByRole("button", { name: "Update Card Details" }).click();
+  await expect(page.getByText(/Card updates need a secure billing portal/i)).toBeVisible();
 });

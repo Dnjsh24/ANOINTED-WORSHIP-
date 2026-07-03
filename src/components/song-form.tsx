@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { createSongAction, updateSongAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { ButtonLink } from "@/components/ui/button";
@@ -15,11 +15,44 @@ export function SongForm({ song }: { song?: Song }) {
   const [state, formAction] = useActionState(song ? updateSongAction : createSongAction, initialActionState);
   const [activeTab, setActiveTab] = useState<"chords" | "lyrics">("chords");
   const [tags, setTags] = useState(song?.tags?.join(", ") ?? "Worship, Contemporary");
+  const [lyrics, setLyrics] = useState(song ? formatSongToText(song) : "");
+  const [songStatus, setSongStatus] = useState("");
+  const lyricsRef = useRef<HTMLTextAreaElement>(null);
+
+  function updateLyricsFromToolbar(token: string) {
+    const textarea = lyricsRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = lyrics.slice(start, end);
+    const wrappers: Record<string, [string, string]> = {
+      B: ["**", "**"],
+      I: ["_", "_"],
+      U: ["<u>", "</u>"],
+    };
+    const [before, after] = wrappers[token] ?? ["", ""];
+    const insertion = wrappers[token] ? `${before}${selected || token}${after}` : ` ${token} `;
+    const nextLyrics = `${lyrics.slice(0, start)}${insertion}${lyrics.slice(end)}`;
+    setLyrics(nextLyrics);
+    setSongStatus(`${token} inserted.`);
+
+    window.requestAnimationFrame(() => {
+      textarea.focus();
+      const cursor = start + insertion.length;
+      textarea.setSelectionRange(cursor, cursor);
+    });
+  }
 
   return (
     <form action={formAction} className="space-y-6 text-left animate-fade-in">
       {song && <input type="hidden" name="songId" value={song.id} />}
       <ActionMessage state={state} />
+      {songStatus ? (
+        <p aria-live="polite" className="rounded-md border border-violet-400/30 bg-violet-400/10 px-3 py-2 text-sm font-semibold text-violet-100">
+          {songStatus}
+        </p>
+      ) : null}
 
       {/* 2-Column Split Layout */}
       <div className="grid gap-6 md:grid-cols-[1fr_1.2fr]">
@@ -109,8 +142,10 @@ export function SongForm({ song }: { song?: Song }) {
           {/* Textarea */}
           <div className="flex-1 min-h-[220px]">
             <textarea
+              ref={lyricsRef}
               name="lyrics"
-              defaultValue={song ? formatSongToText(song) : ""}
+              value={lyrics}
+              onChange={(event) => setLyrics(event.target.value)}
               placeholder="Intro&#10;C   C   G   Am   F   C&#10;&#10;Verse 1&#10;C&#10;You are faithful, always faithful..."
               required
               className="w-full h-full min-h-[220px] rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 font-mono text-xs text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400"
@@ -123,6 +158,7 @@ export function SongForm({ song }: { song?: Song }) {
               <button
                 key={btn}
                 type="button"
+                onClick={() => updateLyricsFromToolbar(btn)}
                 className="flex size-7 items-center justify-center rounded bg-white/[0.04] hover:bg-white/[0.08] text-xs font-bold text-zinc-300 border border-white/10"
               >
                 {btn}
@@ -139,6 +175,7 @@ export function SongForm({ song }: { song?: Song }) {
           {song && (
             <button
               type="button"
+              onClick={() => setSongStatus("Song deletion needs an admin confirmation flow before it can remove live data.")}
               className="flex items-center gap-1.5 text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
             >
               <Trash2 className="size-3.5" />

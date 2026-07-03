@@ -2,12 +2,12 @@ import { AppShell } from "@/components/app-shell";
 import { MessagesClient } from "@/components/messages-client";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { messages as sampleMessages } from "@/lib/sample-data";
 import { fileKindLabel, formatFileSize } from "@/lib/domain/files";
 
 export default async function MessagesPage() {
-  const teamContext = await getCurrentTeamContext();
+  const teamContext = await getRequiredTeamContext();
 
   let channelsList: any[] = [];
   let teamMembersList: any[] = [];
@@ -197,8 +197,8 @@ export default async function MessagesPage() {
     }
   }
 
-  // Fallback to sample data if no supabase or empty
-  if (channelsList.length === 0) {
+  // Fallback to sample data only when Supabase is not configured (demo mode).
+  if (!hasSupabaseEnv() && channelsList.length === 0) {
     channelsList = [
       {
         id: "sunday-morning-team",

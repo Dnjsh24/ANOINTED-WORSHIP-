@@ -1,16 +1,18 @@
 import { AppShell } from "@/components/app-shell";
 import { SetlistForm } from "@/components/setlist-form";
 import { Panel } from "@/components/ui/card";
+import { fallbackServiceTemplates, mapServiceTemplate } from "@/lib/domain/service-templates";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { members as sampleMembers } from "@/lib/sample-data";
-import type { TeamMember, TeamRole } from "@/lib/types";
+import type { ServiceTemplate, TeamMember, TeamRole } from "@/lib/types";
 
 export default async function NewSetlistPage({ searchParams }: { searchParams: Promise<{ eventId?: string }> }) {
   const { eventId } = await searchParams;
-  const teamContext = await getCurrentTeamContext();
+  const teamContext = await getRequiredTeamContext();
   let teamMembersList: TeamMember[] = [];
+  let serviceTemplates: ServiceTemplate[] = fallbackServiceTemplates;
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
@@ -53,7 +55,17 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
         ministry: tm.ministry ?? "",
       };
     });
-  } else {
+
+    const { data: templateRows } = await supabase
+      .from("service_templates")
+      .select("id, name, service_type, location, call_time, rehearsal_time, reminder_frequency, reminder_occurrences, default_roles")
+      .eq("team_id", teamContext.teamId)
+      .order("created_at", { ascending: true });
+
+    if (templateRows && templateRows.length > 0) {
+      serviceTemplates = templateRows.map((row) => mapServiceTemplate(row as any));
+    }
+  } else if (!hasSupabaseEnv()) {
     // Demo fallback
     teamMembersList = sampleMembers as any[];
   }
@@ -66,7 +78,7 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
         <p className="mt-2 text-sm font-semibold text-zinc-300">Create service details, scheduling, team assignments, and song order.</p>
       </div>
       <Panel>
-        <SetlistForm teamMembers={teamMembersList} eventId={eventId} />
+        <SetlistForm teamMembers={teamMembersList} eventId={eventId} serviceTemplates={serviceTemplates} />
       </Panel>
     </AppShell>
   );

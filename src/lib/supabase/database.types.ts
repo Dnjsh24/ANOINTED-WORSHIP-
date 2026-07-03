@@ -5,7 +5,10 @@ type MemberStatus = "active" | "inactive";
 type JoinRequestStatus = "pending" | "approved" | "rejected";
 type AttendanceStatus = "available" | "maybe" | "unavailable" | "pending";
 type EventType = "service" | "rehearsal" | "meeting" | "special_event";
+type EventApprovalStatus = "pending" | "approved" | "rejected";
 type SongEditStatus = "pending" | "approved" | "rejected";
+type NoticePriority = "normal" | "important" | "urgent";
+type ReminderRecurrence = "none" | "weekly" | "monthly";
 
 export interface Database {
   public: {
@@ -87,6 +90,51 @@ export interface Database {
           default_call_time?: string;
           default_rehearsal_time?: string;
           dashboard_widgets?: string[];
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      service_templates: {
+        Row: {
+          id: string;
+          team_id: string;
+          name: string;
+          service_type: string;
+          location: string;
+          call_time: string;
+          rehearsal_time: string;
+          reminder_frequency: ReminderRecurrence;
+          reminder_occurrences: number;
+          default_roles: Json;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          team_id: string;
+          name: string;
+          service_type?: string;
+          location?: string;
+          call_time?: string;
+          rehearsal_time?: string;
+          reminder_frequency?: ReminderRecurrence;
+          reminder_occurrences?: number;
+          default_roles?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          service_type?: string;
+          location?: string;
+          call_time?: string;
+          rehearsal_time?: string;
+          reminder_frequency?: ReminderRecurrence;
+          reminder_occurrences?: number;
+          default_roles?: Json;
+          created_by?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -190,6 +238,11 @@ export interface Database {
           category: string;
           title: string;
           body: string;
+          target_role: TeamRole | null;
+          target_profile_id: string | null;
+          target_label: string;
+          priority: NoticePriority;
+          event_id: string | null;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -200,6 +253,11 @@ export interface Database {
           category: string;
           title: string;
           body: string;
+          target_role?: TeamRole | null;
+          target_profile_id?: string | null;
+          target_label?: string;
+          priority?: NoticePriority;
+          event_id?: string | null;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -208,6 +266,40 @@ export interface Database {
           category?: string;
           title?: string;
           body?: string;
+          target_role?: TeamRole | null;
+          target_profile_id?: string | null;
+          target_label?: string;
+          priority?: NoticePriority;
+          event_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      announcement_receipts: {
+        Row: {
+          announcement_id: string;
+          team_id: string;
+          profile_id: string;
+          delivered_at: string;
+          read_at: string | null;
+          acknowledged_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          announcement_id: string;
+          team_id: string;
+          profile_id: string;
+          delivered_at?: string;
+          read_at?: string | null;
+          acknowledged_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          delivered_at?: string;
+          read_at?: string | null;
+          acknowledged_at?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -225,6 +317,7 @@ export interface Database {
           description: string | null;
           call_time: string | null;
           rehearsal_time: string | null;
+          approval_status: EventApprovalStatus;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -241,6 +334,7 @@ export interface Database {
           description?: string | null;
           call_time?: string | null;
           rehearsal_time?: string | null;
+          approval_status?: EventApprovalStatus;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -255,6 +349,7 @@ export interface Database {
           description?: string | null;
           call_time?: string | null;
           rehearsal_time?: string | null;
+          approval_status?: EventApprovalStatus;
           updated_at?: string;
         };
         Relationships: [];
@@ -402,6 +497,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      setlist_change_log: {
+        Row: {
+          id: string;
+          setlist_id: string;
+          team_id: string;
+          changed_by: string | null;
+          change_type: "created" | "updated" | "song_added" | "song_removed" | "song_reordered";
+          summary: string;
+          snapshot: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          setlist_id: string;
+          team_id: string;
+          changed_by?: string | null;
+          change_type: "created" | "updated" | "song_added" | "song_removed" | "song_reordered";
+          summary: string;
+          snapshot?: Json;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
       attendance: {
         Row: {
           id: string;
@@ -539,6 +658,18 @@ export interface Database {
           title: string;
           body: string | null;
           target_path: string | null;
+          target_role: TeamRole | null;
+          target_profile_id: string | null;
+          target_label: string;
+          acknowledged_at: string | null;
+          priority: NoticePriority;
+          event_id: string | null;
+          scheduled_for: string;
+          recurrence_rule: ReminderRecurrence;
+          recurrence_index: number;
+          recurrence_total: number;
+          notice_group_id: string | null;
+          created_by: string | null;
           read_at: string | null;
           created_at: string;
         };
@@ -549,12 +680,36 @@ export interface Database {
           title: string;
           body?: string | null;
           target_path?: string | null;
+          target_role?: TeamRole | null;
+          target_profile_id?: string | null;
+          target_label?: string;
+          acknowledged_at?: string | null;
+          priority?: NoticePriority;
+          event_id?: string | null;
+          scheduled_for?: string;
+          recurrence_rule?: ReminderRecurrence;
+          recurrence_index?: number;
+          recurrence_total?: number;
+          notice_group_id?: string | null;
+          created_by?: string | null;
           read_at?: string | null;
           created_at?: string;
         };
         Update: {
           read_at?: string | null;
+          acknowledged_at?: string | null;
           target_path?: string | null;
+          target_role?: TeamRole | null;
+          target_profile_id?: string | null;
+          target_label?: string;
+          priority?: NoticePriority;
+          event_id?: string | null;
+          scheduled_for?: string;
+          recurrence_rule?: ReminderRecurrence;
+          recurrence_index?: number;
+          recurrence_total?: number;
+          notice_group_id?: string | null;
+          created_by?: string | null;
         };
         Relationships: [];
       };

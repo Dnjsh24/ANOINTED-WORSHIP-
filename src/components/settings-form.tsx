@@ -10,10 +10,16 @@ export function SettingsForm({
   teamName,
   teamCode,
   isAdmin = false,
+  defaultServiceLocation = "Main Sanctuary",
+  defaultCallTime = "08:00",
+  defaultRehearsalTime = "08:15",
 }: {
   teamName: string;
   teamCode: string;
   isAdmin?: boolean;
+  defaultServiceLocation?: string;
+  defaultCallTime?: string;
+  defaultRehearsalTime?: string;
 }) {
   const [state, formAction] = useActionState(updateTeamSettingsAction, initialActionState);
 
@@ -34,15 +40,15 @@ export function SettingsForm({
           </label>
           <label className="space-y-2">
             <span className="text-sm font-bold text-zinc-300">Default service location</span>
-            <Input name="defaultServiceLocation" defaultValue="Main Sanctuary" required disabled={!isAdmin} />
+            <Input name="defaultServiceLocation" defaultValue={defaultServiceLocation} required disabled={!isAdmin} />
           </label>
           <label className="space-y-2">
             <span className="text-sm font-bold text-zinc-300">Default call time</span>
-            <Input type="time" name="defaultCallTime" defaultValue="08:00" required disabled={!isAdmin} />
+            <Input type="time" name="defaultCallTime" defaultValue={defaultCallTime} required disabled={!isAdmin} />
           </label>
           <label className="space-y-2">
             <span className="text-sm font-bold text-zinc-300">Default rehearsal time</span>
-            <Input type="time" name="defaultRehearsalTime" defaultValue="08:15" required disabled={!isAdmin} />
+            <Input type="time" name="defaultRehearsalTime" defaultValue={defaultRehearsalTime} required disabled={!isAdmin} />
           </label>
         </div>
         <fieldset className="space-y-3">

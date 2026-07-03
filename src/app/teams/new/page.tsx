@@ -2,7 +2,7 @@
 
 import { Check, ChevronDown, Copy, Mail, MapPin, Music2, Trash2, Users } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { use, useState } from "react";
 import { createTeamAction } from "@/app/actions";
 
 import { generateTeamCode } from "@/lib/domain/team-code";
@@ -11,6 +11,8 @@ const createTeamErrors: Record<string, string> = {
   create: "We could not create that workspace yet. Please try again.",
   member: "The workspace was created, but we could not add you as owner. Please try again.",
   code: "We could not generate a unique join code. Please try again.",
+  channel: "The workspace was created, but we could not create the team chat channel. Please try again.",
+  "channel-member": "The workspace was created, but we could not add you to the team chat channel. Please try again.",
 };
 
 const STEPS = ["Team Details", "Invite Members", "Review & Create"];
@@ -31,6 +33,8 @@ interface NewTeamPageProps {
 }
 
 export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
+  const params = use(searchParams ?? Promise.resolve<{ error?: string }>({}));
+  const errorMessage = params.error ? createTeamErrors[params.error] ?? "Team creation failed. Please try again." : null;
   const [step, setStep] = useState(0);
   const [copied, setCopied] = useState(false);
 
@@ -97,6 +101,12 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           {/* Left Panel */}
           <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-7">
+            {errorMessage ? (
+              <p className="mb-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-200">
+                {errorMessage}
+              </p>
+            ) : null}
+
             {step === 0 && (
               <div className="animate-fade-in">
                 <h1 className="text-2xl font-extrabold text-white">Create Your Ministry Workspace</h1>

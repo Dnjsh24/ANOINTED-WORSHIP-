@@ -35,10 +35,16 @@ export function ProfileForm({
   const [language, setLanguage] = useState("English");
   const [emailNotif, setEmailNotif] = useState(true);
   const [pushNotif, setPushNotif] = useState(true);
+  const [profileStatus, setProfileStatus] = useState("");
 
   return (
     <form action={formAction} className="space-y-6 animate-fade-in">
       <ActionMessage state={state} />
+      {profileStatus ? (
+        <p aria-live="polite" className="rounded-md border border-violet-400/30 bg-violet-400/10 px-3 py-2 text-sm font-semibold text-violet-100">
+          {profileStatus}
+        </p>
+      ) : null}
       
       {/* Profile Settings */}
       <div className="space-y-4">
@@ -143,6 +149,7 @@ export function ProfileForm({
           </SubmitButton>
           <button
             type="button"
+            onClick={() => setProfileStatus("Password reset needs a Supabase email reset flow before it can send a secure link.")}
             className="rounded-xl border border-white/10 bg-white/[0.04] px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]"
           >
             Reset Password

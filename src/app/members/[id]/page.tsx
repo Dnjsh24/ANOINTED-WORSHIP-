@@ -1,21 +1,91 @@
 import { Mail, Music, Shield } from "lucide-react";
+import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
 import { members, pendingRequests } from "@/lib/sample-data";
+import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 
 export default async function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const member =
+  const teamContext = await getRequiredTeamContext();
+  let member =
     members.find((item) => item.id === id) ??
     members.find((item) => item.profile.fullName.toLowerCase().replaceAll(" ", "-").replaceAll(".", "") === id) ??
     members[0];
-  const request = pendingRequests.find((item) => item.id === id);
+  let request = pendingRequests.find((item) => item.id === id);
+
+  if (hasSupabaseEnv()) {
+    const supabase = await createClient();
+    const { data: dbMember } = (await supabase
+      .from("team_members")
+      .select("id, profile_id, role, status, ministry, profiles ( id, full_name, email, avatar_url )")
+      .eq("id", id)
+      .eq("team_id", teamContext.teamId)
+      .maybeSingle()) as any;
+
+    if (dbMember) {
+      const profile = Array.isArray(dbMember.profiles) ? dbMember.profiles[0] : dbMember.profiles;
+      member = {
+        id: dbMember.id,
+        profile: {
+          id: profile?.id ?? dbMember.profile_id,
+          fullName: profile?.full_name ?? profile?.email ?? "Unknown",
+          email: profile?.email ?? "",
+          avatarUrl: profile?.avatar_url ?? undefined,
+        },
+        role: dbMember.role ?? "member",
+        status: dbMember.status ?? "active",
+        attendanceRate: 0,
+        ministry: dbMember.ministry ?? "",
+      };
+      request = undefined;
+    } else {
+      const { data: dbRequest } = (await supabase
+        .from("join_requests")
+        .select("id, requested_role, created_at, profiles ( full_name, email, avatar_url )")
+        .eq("id", id)
+        .eq("team_id", teamContext.teamId)
+        .eq("status", "pending")
+        .maybeSingle()) as any;
+
+      if (!dbRequest) {
+        notFound();
+      }
+
+      const profile = Array.isArray(dbRequest.profiles) ? dbRequest.profiles[0] : dbRequest.profiles;
+      request = {
+        id: dbRequest.id,
+        initials: (profile?.full_name ?? profile?.email ?? "U").slice(0, 2).toUpperCase(),
+        name: profile?.full_name ?? profile?.email ?? "Unknown",
+        email: profile?.email ?? "",
+        requestedRole: dbRequest.requested_role ?? "member",
+        ministry: dbRequest.requested_role ?? "member",
+        requestedAt: dbRequest.created_at,
+        avatarUrl: profile?.avatar_url ?? undefined,
+      };
+      member = {
+        id: dbRequest.id,
+        profile: {
+          id: dbRequest.id,
+          fullName: request.name,
+          email: profile?.email ?? "",
+          avatarUrl: profile?.avatar_url ?? undefined,
+        },
+        role: request.requestedRole,
+        status: "inactive",
+        attendanceRate: 0,
+        ministry: request.ministry,
+      };
+    }
+  }
 
   return (
-    <AppShell active="Team Management">
+    <AppShell active="Team Management" teamContext={teamContext}>
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <Card className="p-6 text-center">
           <Avatar name={request?.name ?? member.profile.fullName} src={member.profile.avatarUrl} className="mx-auto size-20 text-2xl" />
@@ -41,7 +111,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
                 <Shield className="size-4" />
                 Access Level
               </p>
-              <p className="mt-2 font-semibold">{request ? "member" : member.role.replace("_", " ")}</p>
+              <p className="mt-2 font-semibold">{request ? request.requestedRole.replace("_", " ") : member.role.replace("_", " ")}</p>
             </div>
             <div className="rounded-md border border-white/10 bg-white/[0.04] p-4 md:col-span-2">
               <p className="flex items-center gap-2 text-sm font-bold text-zinc-300">

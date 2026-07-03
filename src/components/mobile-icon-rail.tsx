@@ -98,6 +98,7 @@ export function MobileIconRail({ active, items }: { active: string; items: Mobil
         {/* 5th Tab: More */}
         <button
           onClick={toggleMoreMenu}
+          aria-label="Expand navigation"
           className="flex flex-col items-center justify-center flex-1 py-1 transition-all duration-200 focus:outline-none"
         >
           <MoreHorizontal className={cn("size-5 transition-transform duration-200", showMoreMenu || (moreTabActive && !showMoreMenu) ? "text-violet-400 scale-110" : "text-zinc-500")} />

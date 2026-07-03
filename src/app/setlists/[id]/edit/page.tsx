@@ -1,11 +1,13 @@
+import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { SetlistForm, type SetlistAssignments } from "@/components/setlist-form";
 import { Panel } from "@/components/ui/card";
+import { fallbackServiceTemplates, mapServiceTemplate } from "@/lib/domain/service-templates";
 import { setlists as sampleSetlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentTeamContext } from "@/lib/supabase/team-context";
-import type { TeamMember, TeamRole } from "@/lib/types";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+import type { ServiceTemplate, TeamMember, TeamRole } from "@/lib/types";
 
 function mapAssignmentToProp(assignment: string): keyof SetlistAssignments | null {
   switch (assignment) {
@@ -26,11 +28,12 @@ function mapAssignmentToProp(assignment: string): keyof SetlistAssignments | nul
 
 export default async function EditSetlistPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const teamContext = await getCurrentTeamContext();
+  const teamContext = await getRequiredTeamContext();
 
   let setlist: any = null;
   let teamMembersList: TeamMember[] = [];
   let initialAssignments: SetlistAssignments = {};
+  let serviceTemplates: ServiceTemplate[] = fallbackServiceTemplates;
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
@@ -40,6 +43,7 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
       .from("setlists")
       .select("*")
       .eq("id", id)
+      .eq("team_id", teamContext.teamId)
       .maybeSingle()) as any;
 
     if (dbSetlist) {
@@ -126,10 +130,24 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
         ministry: tm.ministry ?? "",
       };
     });
+
+    const { data: templateRows } = (await supabase
+      .from("service_templates")
+      .select("id, name, service_type, location, call_time, rehearsal_time, reminder_frequency, reminder_occurrences, default_roles")
+      .eq("team_id", teamContext.teamId)
+      .order("created_at", { ascending: true })) as any;
+
+    if (templateRows && templateRows.length > 0) {
+      serviceTemplates = templateRows.map((row: any) => mapServiceTemplate(row));
+    }
   }
 
-  // Fallback to sample data when Supabase is not configured or setlist not found
+  // Fallback to sample data only when Supabase is not configured (demo mode).
   if (!setlist) {
+    if (hasSupabaseEnv()) {
+      notFound();
+    }
+
     const sample = sampleSetlists.find((item) => item.id === id) ?? sampleSetlists[0];
     setlist = sample;
     teamMembersList = [];
@@ -148,6 +166,7 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
           setlist={setlist}
           teamMembers={teamMembersList}
           initialAssignments={initialAssignments}
+          serviceTemplates={serviceTemplates}
         />
       </Panel>
     </AppShell>

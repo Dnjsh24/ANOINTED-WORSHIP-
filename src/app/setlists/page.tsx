@@ -3,11 +3,11 @@ import { SetlistsClient } from "@/components/setlists-client";
 import { setlists as sampleSetlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { Setlist } from "@/lib/types";
 
 export default async function SetlistsPage() {
-  const teamContext = await getCurrentTeamContext();
+  const teamContext = await getRequiredTeamContext();
   let setlistsList: Setlist[] = [];
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
@@ -69,8 +69,8 @@ export default async function SetlistsPage() {
     });
   }
 
-  // Fallback to sample data if Supabase is not configured or empty
-  if (setlistsList.length === 0) {
+  // Fallback to sample data only when Supabase is not configured (demo mode).
+  if (!hasSupabaseEnv() && setlistsList.length === 0) {
     setlistsList = sampleSetlists;
   }
 

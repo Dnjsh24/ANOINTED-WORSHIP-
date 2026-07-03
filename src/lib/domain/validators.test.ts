@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  announcementInputSchema,
   eventInputSchema,
   inviteMemberSchema,
   joinCodeSchema,
   messageSchema,
   profileInputSchema,
+  reminderInputSchema,
+  serviceTemplateInputSchema,
   setlistInputSchema,
   songInputSchema,
 } from "@/lib/domain/validators";
@@ -99,6 +102,70 @@ describe("validators", () => {
         channelId: "worship-team",
         body: "Bad attachment",
         attachmentFileId: "not-a-file-id",
+      }),
+    ).toThrow();
+  });
+
+  it("validates recurring service templates", () => {
+    expect(
+      serviceTemplateInputSchema.parse({
+        name: "Sunday Morning Service",
+        serviceType: "Sunday Worship",
+        location: "Main Sanctuary",
+        callTime: "08:00",
+        rehearsalTime: "08:30",
+        reminderFrequency: "weekly",
+        reminderOccurrences: "4",
+        backupSingers: ["member-a", "member-b"],
+        dancers: ["member-c"],
+      }),
+    ).toMatchObject({
+      name: "Sunday Morning Service",
+      reminderFrequency: "weekly",
+      reminderOccurrences: 4,
+    });
+
+    expect(() =>
+      serviceTemplateInputSchema.parse({
+        name: "",
+        serviceType: "Sunday Worship",
+        location: "Main Sanctuary",
+        callTime: "08:00",
+        rehearsalTime: "08:30",
+        reminderOccurrences: 99,
+      }),
+    ).toThrow();
+  });
+
+  it("validates notice priority, tags, and recurrence", () => {
+    expect(
+      announcementInputSchema.parse({
+        title: "Room changed",
+        category: "Urgent",
+        body: "Rehearsal moved to room 2.",
+        priority: "urgent",
+        target: { targetType: "role", targetRole: "band_member" },
+      }),
+    ).toMatchObject({ priority: "urgent" });
+
+    expect(
+      reminderInputSchema.parse({
+        title: "Upload charts",
+        body: "Please upload files before rehearsal.",
+        priority: "important",
+        recurrence: "weekly",
+        occurrences: "4",
+        target: { targetType: "all" },
+      }),
+    ).toMatchObject({ recurrence: "weekly", occurrences: 4 });
+
+    expect(() =>
+      reminderInputSchema.parse({
+        title: "Too many",
+        body: "Nope",
+        recurrence: "weekly",
+        occurrences: 99,
+        target: { targetType: "all" },
       }),
     ).toThrow();
   });

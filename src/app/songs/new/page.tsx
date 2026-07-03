@@ -1,10 +1,10 @@
 import { AppShell } from "@/components/app-shell";
 import { SongForm } from "@/components/song-form";
 import { Panel } from "@/components/ui/card";
-import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 
 export default async function NewSongPage() {
-  const teamContext = await getCurrentTeamContext();
+  const teamContext = await getRequiredTeamContext();
 
   return (
     <AppShell active="Song Library" teamContext={teamContext}>

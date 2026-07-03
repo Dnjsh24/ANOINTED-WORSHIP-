@@ -21,7 +21,7 @@ import { AppShell } from "@/components/app-shell";
 import { currentUser as sampleUser, events, setlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -45,7 +45,7 @@ type DashboardReminderItem = {
 };
 
 export default async function DashboardPage() {
-  const teamContext = await getCurrentTeamContext();
+  const teamContext = await getRequiredTeamContext();
 
   let nextSetlist = {
     id: setlists[0].id,
@@ -149,6 +149,8 @@ export default async function DashboardPage() {
           time: `${dbEvent.starts_at.slice(0, 5)} - ${dbEvent.ends_at?.slice(0, 5) || ""}`,
           location: dbEvent.location ?? "Main Sanctuary",
         } as any;
+      } else {
+        nextEvent = null as any;
       }
 
       const dbSetlist = dbSetlistResult.data as any;
@@ -176,6 +178,9 @@ export default async function DashboardPage() {
           leader: leaderName,
           serviceTimes: dbSetlist.service_times || ["9:00 AM", "11:00 AM"],
         };
+      } else {
+        nextSetlist = null as any;
+        setlistSongsList = [];
       }
 
       const isAdminOrOwner = teamContext.role === "owner" || teamContext.role === "admin";
@@ -217,15 +222,16 @@ export default async function DashboardPage() {
       const [announcementsResult, remindersResult] = await Promise.all([
         supabase
           .from("announcements")
-          .select("id, category, title, body, created_at")
+          .select("id, category, title, body, priority, created_at")
           .eq("team_id", teamContext.teamId)
           .order("created_at", { ascending: false })
           .limit(3),
         supabase
           .from("notifications")
-          .select("id, title, body, read_at, created_at, target_path")
+          .select("id, title, body, read_at, acknowledged_at, priority, scheduled_for, created_at, target_path")
           .eq("team_id", teamContext.teamId)
           .eq("profile_id", teamContext.userId)
+          .lte("scheduled_for", new Date().toISOString())
           .order("created_at", { ascending: false })
           .limit(3),
       ]);
@@ -245,8 +251,8 @@ export default async function DashboardPage() {
           ...visual,
           title: reminder.title,
           body: reminder.body ?? "Open this reminder for details.",
-          due: reminder.read_at ? "Read" : "Unread",
-          dueColor: reminder.read_at ? "bg-white/[0.06] text-zinc-400" : "bg-violet-500/20 text-violet-300",
+          due: reminder.acknowledged_at ? "Got it" : reminder.read_at ? "Read" : "Unread",
+          dueColor: reminder.acknowledged_at || reminder.read_at ? "bg-white/[0.06] text-zinc-400" : "bg-violet-500/20 text-violet-300",
           href: reminder.target_path || "/reminders",
         };
       });
@@ -256,9 +262,9 @@ export default async function DashboardPage() {
   const isAdminOrOwner = teamContext.role === "owner" || teamContext.role === "admin";
   const firstName = userFullName.split(" ")[0];
 
-  const nextDateLabel = nextSetlist.date
+  const nextDateLabel = nextSetlist?.date
     ? new Date(nextSetlist.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
-    : "Sunday, July 12";
+    : "No Service Scheduled";
 
   const quickLinks = [
     { href: "/setlists", label: "Setlists", sub: "View and manage", icon: Music },
@@ -280,13 +286,15 @@ export default async function DashboardPage() {
             Welcome back, <span className="text-violet-300">{firstName}</span>. Ready for {teamContext.teamName ?? "Anointed Worship"} this week.
           </p>
         </div>
-        <Link
-          href={`/events/${nextEvent.id}`}
-          className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-zinc-200 transition-all duration-200 hover:border-violet-400/50 hover:bg-white/[0.09] hover:text-white"
-        >
-          <CalendarDays className="size-4 text-violet-400" />
-          Next up: {nextEvent.name}
-        </Link>
+        {nextEvent && (
+          <Link
+            href={`/events/${nextEvent.id}`}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-zinc-200 transition-all duration-200 hover:border-violet-400/50 hover:bg-white/[0.09] hover:text-white"
+          >
+            <CalendarDays className="size-4 text-violet-400" />
+            Next up: {nextEvent.name}
+          </Link>
+        )}
       </section>
 
       {/* ── Main grid ─────────────────────────────── */}
@@ -314,42 +322,52 @@ export default async function DashboardPage() {
                 <p className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-widest text-violet-400">
                   <CalendarDays className="size-3" /> Next Service
                 </p>
-                <h2 className="text-3xl font-extrabold text-white leading-tight">{nextSetlist.name}</h2>
+                <h2 className="text-3xl font-extrabold text-white leading-tight">{nextSetlist?.name ?? "No Service Scheduled"}</h2>
                 <p className="mt-1 text-sm font-semibold text-violet-300">
-                  {nextDateLabel} &nbsp;·&nbsp; {nextSetlist.serviceTimes?.join(" & ") || "9:00 AM & 11:00 AM"}
+                  {nextDateLabel}
+                  {nextSetlist?.serviceTimes?.length ? ` - ${nextSetlist.serviceTimes.join(" & ")}` : ""}
                 </p>
 
                 <div className="mt-5 flex flex-wrap gap-5 text-sm text-zinc-300">
                   <span className="flex items-center gap-1.5">
                     <MapPin className="size-3.5 text-violet-400" />
                     <span className="font-mono text-[10px] uppercase text-zinc-500 mr-1">Location</span>
-                    {nextSetlist.location}
+                    {nextSetlist?.location ?? "Set a location"}
                   </span>
                   <span className="flex items-center gap-1.5">
                     <Clock className="size-3.5 text-violet-400" />
                     <span className="font-mono text-[10px] uppercase text-zinc-500 mr-1">Call Time</span>
-                    {nextSetlist.callTime}
+                    {nextSetlist?.callTime ?? "--:--"}
                   </span>
                   <span className="flex items-center gap-1.5">
                     <User className="size-3.5 text-violet-400" />
                     <span className="font-mono text-[10px] uppercase text-zinc-500 mr-1">Leader</span>
-                    {nextSetlist.leader}
+                    {nextSetlist?.leader ?? "Unassigned"}
                   </span>
                 </div>
               </div>
 
               <div className="mt-6 flex flex-wrap gap-3">
+                {nextEvent ? (
+                  <Link
+                    href={`/events/${nextEvent.id}`}
+                    className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]"
+                  >
+                    <CheckCircle2 className="size-4" /> Confirm Availability
+                  </Link>
+                ) : (
+                  <Link
+                    href="/events/new"
+                    className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]"
+                  >
+                    <CalendarDays className="size-4" /> Add Event
+                  </Link>
+                )}
                 <Link
-                  href={`/events/${nextEvent.id}`}
-                  className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]"
-                >
-                  <CheckCircle2 className="size-4" /> Confirm Availability
-                </Link>
-                <Link
-                  href={`/setlists/${nextSetlist.id}`}
+                  href={nextSetlist ? `/setlists/${nextSetlist.id}` : "/setlists/new"}
                   className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12]"
                 >
-                  <Music className="size-4" /> Open Setlist
+                  <Music className="size-4" /> {nextSetlist ? "Open Setlist" : "Create Setlist"}
                 </Link>
                 <Link
                   href="/messages"
@@ -365,8 +383,8 @@ export default async function DashboardPage() {
           <div className="flex flex-1 flex-col rounded-2xl border border-white/10 bg-[#111014]/80 p-5 animate-fade-up" style={{ animationDelay: "80ms" }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-white">Setlist Preview</h3>
-              <Link href={`/setlists/${nextSetlist.id}`} className="text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1">
-                View full setlist →
+              <Link href={nextSetlist ? `/setlists/${nextSetlist.id}` : "/setlists/new"} className="text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1">
+                {nextSetlist ? "View full setlist ->" : "Create setlist ->"}
               </Link>
             </div>
             <div className="space-y-1.5">

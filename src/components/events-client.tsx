@@ -1,22 +1,30 @@
 "use client";
 
-import { CalendarDays, Clock, MapPin, Plus, Search, SlidersHorizontal, Users } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { updateAttendanceAction } from "@/app/actions";
-import { Badge } from "@/components/ui/badge";
+import { useMemo, useState, useTransition } from "react";
+import { reviewEventAction } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { Event } from "@/lib/types";
 
-export function EventsClient({ events }: { events: Event[] }) {
+type EventsClientProps = {
+  events: Event[];
+  canReviewEvents?: boolean;
+  memberSubmissionMode?: boolean;
+};
+
+export function EventsClient({ events, canReviewEvents = false, memberSubmissionMode = false }: EventsClientProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [dateFilter, setDateFilter] = useState<"all" | "upcoming" | "past" | "calendar">("upcoming");
+  const [dateFilter, setDateFilter] = useState<"all" | "upcoming" | "past" | "calendar">(
+    memberSubmissionMode ? "calendar" : "upcoming",
+  );
   const [message, setMessage] = useState("");
   const [messageOk, setMessageOk] = useState(true);
+  const [isReviewPending, startReviewTransition] = useTransition();
   const today = "2026-06-30";
 
   // Date state for Calendar View
@@ -78,11 +86,24 @@ export function EventsClient({ events }: { events: Event[] }) {
     return days;
   }, [currentDate]);
 
-  const nextEvent = events.find((e) => e.date >= today) || events[0];
+  const visibleEvents = useMemo(
+    () => events.filter((event) => (event.approvalStatus ?? "approved") !== "rejected"),
+    [events],
+  );
+  const officialEvents = useMemo(
+    () => visibleEvents.filter((event) => (event.approvalStatus ?? "approved") === "approved"),
+    [visibleEvents],
+  );
+  const pendingReviewEvents = useMemo(
+    () => (canReviewEvents ? events.filter((event) => event.approvalStatus === "pending") : []),
+    [canReviewEvents, events],
+  );
+
+  const nextEvent = officialEvents.find((e) => e.date >= today) || officialEvents[0];
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return events.filter((event) => {
+    return visibleEvents.filter((event) => {
       const haystack = `${event.name} ${event.type} ${event.location} ${event.assignedTeams.join(" ")} ${event.date}`.toLowerCase();
       const matchesSearch = !normalized || haystack.includes(normalized);
       const matchesDate =
@@ -90,15 +111,20 @@ export function EventsClient({ events }: { events: Event[] }) {
         (dateFilter === "upcoming" ? event.date >= today : dateFilter === "past" ? event.date < today : true);
       return matchesSearch && matchesDate;
     });
-  }, [dateFilter, events, query]);
+  }, [dateFilter, query, visibleEvents]);
 
-  async function confirm(eventId: string) {
-    const formData = new FormData();
-    formData.set("eventId", eventId);
-    formData.set("status", "available");
-    const result = await updateAttendanceAction(formData);
-    setMessage(result.message || "Attendance confirmed.");
-    setMessageOk(result.ok);
+  function reviewEvent(eventId: string, decision: "approved" | "rejected") {
+    startReviewTransition(() => {
+      void (async () => {
+        const formData = new FormData();
+        formData.set("eventId", eventId);
+        formData.set("decision", decision);
+        const result = await reviewEventAction(formData);
+        setMessage(result.message || "Event request reviewed.");
+        setMessageOk(result.ok);
+        router.refresh();
+      })();
+    });
   }
 
   function getMonthDay(dateStr: string) {
@@ -115,13 +141,13 @@ export function EventsClient({ events }: { events: Event[] }) {
   // Count event types
   const typeCounts = useMemo(() => {
     const counts = { service: 0, rehearsal: 0, meeting: 0, special_event: 0 };
-    events.forEach((e) => {
+    officialEvents.forEach((e) => {
       if (e.type in counts) {
         counts[e.type as keyof typeof counts]++;
       }
     });
     return counts;
-  }, [events]);
+  }, [officialEvents]);
 
   return (
     <div className="animate-fade-up">
@@ -129,7 +155,9 @@ export function EventsClient({ events }: { events: Event[] }) {
       <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight">Events & Rehearsals</h1>
-          <p className="mt-1.5 text-sm font-semibold text-zinc-400">Manage gatherings, rehearsals, and special events.</p>
+          <p className="mt-1.5 text-sm font-semibold text-zinc-400">
+            {memberSubmissionMode ? "View the team calendar and request new gatherings." : "Manage gatherings, rehearsals, and special events."}
+          </p>
         </div>
         <div className="flex flex-wrap gap-3">
           <div className="relative w-full sm:w-64">
@@ -141,7 +169,7 @@ export function EventsClient({ events }: { events: Event[] }) {
             className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-violet-500 hover:shadow-[0_0_15px_rgba(139,92,246,0.35)]"
           >
             <Plus className="size-4" />
-            Add Event
+            {memberSubmissionMode ? "Request Event" : "Add Event"}
           </Link>
         </div>
       </div>
@@ -211,7 +239,7 @@ export function EventsClient({ events }: { events: Event[] }) {
           {/* Days grid */}
           <div className="grid grid-cols-7 gap-2 auto-rows-[110px]">
             {calendarDays.map((cell, idx) => {
-              const dayEvents = events.filter((e) => {
+              const dayEvents = visibleEvents.filter((e) => {
                 const matchesDate = e.date === cell.dateStr;
                 const normalized = query.trim().toLowerCase();
                 const matchesSearch = !normalized || `${e.name} ${e.type} ${e.location}`.toLowerCase().includes(normalized);
@@ -239,8 +267,10 @@ export function EventsClient({ events }: { events: Event[] }) {
 
                   <div className="mt-1.5 space-y-1 overflow-y-auto max-h-[70px] scrollbar-thin">
                     {dayEvents.map((evt) => {
-                      const pillStyle =
-                        evt.type === "service"
+                      const isPending = evt.approvalStatus === "pending";
+                      const pillStyle = isPending
+                        ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                        : evt.type === "service"
                           ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                           : evt.type === "rehearsal"
                           ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
@@ -261,6 +291,7 @@ export function EventsClient({ events }: { events: Event[] }) {
                           )}
                           title={`${evt.name} (${evt.time})`}
                         >
+                          {isPending ? "Pending: " : ""}
                           {evt.name}
                         </div>
                       );
@@ -318,6 +349,11 @@ export function EventsClient({ events }: { events: Event[] }) {
                           <span className={cn("rounded-full border px-2 py-0.5 font-mono text-[9px] font-bold tracking-tight uppercase", badgeStyles)}>
                             {event.type.replace("_", " ")}
                           </span>
+                          {event.approvalStatus === "pending" ? (
+                            <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-tight text-amber-200">
+                              Pending approval
+                            </span>
+                          ) : null}
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-4 text-xs font-semibold text-zinc-400">
                           <span className="flex items-center gap-1.5"><Clock className="size-3.5 text-violet-400" /> {event.time}</span>
@@ -348,6 +384,48 @@ export function EventsClient({ events }: { events: Event[] }) {
 
           {/* Right Column: Widgets */}
           <aside className="flex flex-col gap-5">
+            {canReviewEvents && pendingReviewEvents.length > 0 ? (
+              <Panel className="border-t-4 border-t-amber-400 bg-[#111014]/80">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-bold text-white">Event Requests</h2>
+                  <span className="rounded bg-amber-500/10 px-2 py-1 font-mono text-[9px] font-bold uppercase text-amber-200">
+                    {pendingReviewEvents.length} Pending
+                  </span>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {pendingReviewEvents.slice(0, 4).map((event) => (
+                    <div key={event.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
+                      <Link href={`/events/${event.id}`} className="text-sm font-bold text-white hover:text-violet-300">
+                        {event.name}
+                      </Link>
+                      <p className="mt-1 text-xs font-semibold text-zinc-500">
+                        {event.date} at {event.time}
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          type="button"
+                          className="h-8 flex-1 rounded-lg px-3 text-xs"
+                          disabled={isReviewPending}
+                          onClick={() => reviewEvent(event.id, "approved")}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          className="h-8 flex-1 rounded-lg px-3 text-xs"
+                          disabled={isReviewPending}
+                          onClick={() => reviewEvent(event.id, "rejected")}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            ) : null}
+
             {/* Up Next widget */}
             {nextEvent ? (
               <Panel className="border-t-4 border-t-violet-500 bg-[#111014]/80">

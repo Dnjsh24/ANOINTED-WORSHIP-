@@ -2,14 +2,16 @@
 
 import { Check, Copy, RefreshCw, UserPlus, X } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, useEffect } from "react";
 import { regenerateTeamCodeAction, reviewJoinRequestAction, updateMemberRoleAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { normalizeJoinRequest, type RawJoinRequest } from "@/lib/domain/join-requests";
 import { createClient } from "@/lib/supabase/client";
-import { teamRoles, type TeamMember, type TeamRole } from "@/lib/types";
+import { teamRoles, type JoinRequestSummary, type TeamMember, type TeamRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function MembersClient({
@@ -19,10 +21,11 @@ export function MembersClient({
   teamId,
 }: {
   members: TeamMember[];
-  pendingRequests: Array<{ id: string; initials: string; name: string; ministry: string }>;
+  pendingRequests: JoinRequestSummary[];
   teamCode: string;
   teamId: string | null;
 }) {
+  const router = useRouter();
   const [requests, setRequests] = useState(pendingRequests);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -41,56 +44,44 @@ export function MembersClient({
   useEffect(() => {
     if (!teamId) return;
 
+    const activeTeamId = teamId;
     const supabase = createClient();
+    async function refreshPendingRequests() {
+      const { data } = await supabase
+        .from("join_requests")
+        .select(`
+          id,
+          profile_id,
+          requested_role,
+          created_at,
+          profiles (
+            id,
+            full_name,
+            email,
+            avatar_url
+          )
+        `)
+        .eq("team_id", activeTeamId)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+
+      setRequests((data ?? []).map((request) => normalizeJoinRequest(request as RawJoinRequest)));
+      router.refresh();
+    }
+
     const channel = supabase
-      .channel(`team-join-requests-${teamId}`)
+      .channel(`team-join-requests-${activeTeamId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "join_requests", filter: `team_id=eq.${teamId}` },
-        async (payload) => {
-          if (payload.eventType === "INSERT") {
-            const newRequest = payload.new;
-            if (newRequest.status !== "pending") return;
-
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("id, full_name, email")
-              .eq("id", newRequest.profile_id)
-              .maybeSingle();
-
-            const name = profile?.full_name ?? profile?.email ?? "Unknown";
-            const initials = name.split(" ").map((w) => w[0]?.toUpperCase() ?? "").join("").slice(0, 2);
-
-            const requestObj = {
-              id: newRequest.id,
-              initials,
-              name,
-              ministry: newRequest.requested_role?.replace("_", " ") ?? "Member",
-            };
-
-            setRequests((prev) => {
-              if (prev.some((r) => r.id === requestObj.id)) return prev;
-              return [requestObj, ...prev];
-            });
-          }
-
-          if (payload.eventType === "UPDATE") {
-            const updatedRequest = payload.new;
-            if (updatedRequest.status !== "pending") {
-              setRequests((prev) => prev.filter((r) => r.id !== updatedRequest.id));
-            }
-          }
-
-          if (payload.eventType === "DELETE") {
-            const deletedRequest = payload.old;
-            setRequests((prev) => prev.filter((r) => r.id !== deletedRequest.id));
-          }
+        { event: "*", schema: "public", table: "join_requests", filter: `team_id=eq.${activeTeamId}` },
+        () => {
+          void refreshPendingRequests();
         }
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [teamId]);
+  }, [router, teamId]);
 
   useEffect(() => {
     const handleOnlineUsersChanged = (e: Event) => {
@@ -164,6 +155,9 @@ export function MembersClient({
     return counts;
   }, [memberList]);
 
+  const requestPreview = requests.slice(0, 3);
+  const hiddenRequestCount = Math.max(0, requests.length - requestPreview.length);
+
   return (
     <div className="animate-fade-up">
       {/* Header row */}
@@ -189,10 +183,10 @@ export function MembersClient({
           <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
             <h2 className="text-sm font-bold text-white mb-4">Pending Requests ({requests.length})</h2>
             <div className="space-y-3">
-              {requests.map((request) => (
+              {requestPreview.map((request) => (
                 <div key={request.id} className="flex items-center justify-between rounded-xl bg-white/[0.02] border border-white/[0.06] p-3">
                   <div className="flex items-center gap-3">
-                    <Avatar name={request.initials} className="size-9" />
+                    <Avatar name={request.name} src={request.avatarUrl} className="size-9" />
                     <div>
                       <span className="block text-xs font-bold text-white">{request.name}</span>
                       <span className="text-[10px] font-semibold text-zinc-400">{request.ministry}</span>
@@ -216,11 +210,16 @@ export function MembersClient({
                   </div>
                 </div>
               ))}
+              {hiddenRequestCount > 0 && (
+                <p className="rounded-xl border border-violet-400/10 bg-violet-500/5 py-2 text-center text-[11px] font-bold text-violet-200">
+                  +{hiddenRequestCount} more pending
+                </p>
+              )}
               {requests.length === 0 && (
                 <p className="py-4 text-center text-xs font-semibold text-zinc-600">No pending join requests.</p>
               )}
             </div>
-            <Link href="/members" className="mt-4 block text-center text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors">
+            <Link href="/members/requests" className="mt-4 block text-center text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors">
               View all requests →
             </Link>
           </div>

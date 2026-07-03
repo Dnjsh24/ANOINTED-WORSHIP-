@@ -6,6 +6,7 @@ export type Permission =
   | "join_requests.review"
   | "announcements.create"
   | "events.manage"
+  | "events.review"
   | "songs.create"
   | "songs.edit"
   | "songs.review"
@@ -23,6 +24,7 @@ const permissionsByRole: Record<TeamRole, Permission[]> = {
     "join_requests.review",
     "announcements.create",
     "events.manage",
+    "events.review",
     "songs.create",
     "songs.edit",
     "songs.review",
@@ -38,6 +40,7 @@ const permissionsByRole: Record<TeamRole, Permission[]> = {
     "join_requests.review",
     "announcements.create",
     "events.manage",
+    "events.review",
     "songs.review",
     "setlists.manage",
     "files.upload",
@@ -92,6 +95,10 @@ export function canReviewJoinRequests(role: TeamRole) {
 
 export function canManageSetlists(role: TeamRole) {
   return can(role, "setlists.manage");
+}
+
+export function canReviewEventRequests(role: TeamRole) {
+  return can(role, "events.review");
 }
 
 export function visibleNavigation(role: TeamRole) {

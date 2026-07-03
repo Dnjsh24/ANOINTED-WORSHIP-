@@ -1,13 +1,14 @@
 import { AppShell } from "@/components/app-shell";
 import { EventsClient } from "@/components/events-client";
+import { can, canReviewEventRequests } from "@/lib/domain/rbac";
 import { events as sampleEvents } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { Event } from "@/lib/types";
 
 export default async function EventsPage() {
-  const teamContext = await getCurrentTeamContext();
+  const teamContext = await getRequiredTeamContext();
   let eventsList: Event[] = [];
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
@@ -69,6 +70,8 @@ export default async function EventsPage() {
           assignedTeams,
           confirmed,
           pending,
+          approvalStatus: e.approval_status ?? "approved",
+          createdByMe: e.created_by === teamContext.userId,
           setlistId,
         };
       });
@@ -80,7 +83,11 @@ export default async function EventsPage() {
 
   return (
     <AppShell active="Timeline" teamContext={teamContext}>
-      <EventsClient events={eventsList} />
+      <EventsClient
+        events={eventsList}
+        canReviewEvents={canReviewEventRequests(teamContext.role)}
+        memberSubmissionMode={!can(teamContext.role, "events.manage")}
+      />
     </AppShell>
   );
 }

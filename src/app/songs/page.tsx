@@ -6,14 +6,14 @@ import { ButtonLink } from "@/components/ui/button";
 import { songs as sampleSongs } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { Song } from "@/lib/types";
 
 export default async function SongsPage() {
-  const teamContext = await getCurrentTeamContext();
+  const teamContext = await getRequiredTeamContext();
 
-  let songsList: Song[] = sampleSongs;
-  let totalSongsCount = sampleSongs.length;
+  let songsList: Song[] = hasSupabaseEnv() ? [] : sampleSongs;
+  let totalSongsCount = hasSupabaseEnv() ? 0 : sampleSongs.length;
 
   if (hasSupabaseEnv() && teamContext.teamId) {
     const supabase = await createClient();

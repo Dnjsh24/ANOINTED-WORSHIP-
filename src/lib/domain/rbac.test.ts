@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { assertRole, can, canManageSetlists, canReviewJoinRequests, visibleNavigation } from "@/lib/domain/rbac";
+import {
+  assertRole,
+  can,
+  canManageSetlists,
+  canReviewEventRequests,
+  canReviewJoinRequests,
+  visibleNavigation,
+} from "@/lib/domain/rbac";
 
 describe("rbac", () => {
   it("allows owners to manage team access", () => {
@@ -28,6 +35,10 @@ describe("rbac", () => {
     expect(canReviewJoinRequests("dancer")).toBe(false);
     expect(canManageSetlists("band_leader")).toBe(true);
     expect(canManageSetlists("media")).toBe(false);
+    expect(canReviewEventRequests("owner")).toBe(true);
+    expect(canReviewEventRequests("admin")).toBe(true);
+    expect(canReviewEventRequests("worship_leader")).toBe(false);
+    expect(canReviewEventRequests("member")).toBe(false);
   });
 
   it("asserts valid role strings", () => {

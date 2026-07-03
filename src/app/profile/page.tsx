@@ -2,15 +2,16 @@ import { AppShell } from "@/components/app-shell";
 import { Avatar } from "@/components/ui/avatar";
 import { Card, Panel } from "@/components/ui/card";
 import { ProfileForm } from "@/components/profile-form";
+import { PhotoPickerButton } from "@/components/photo-picker-button";
 import { InstallAppButton } from "@/components/install-app-button";
 import { LiveGmt8Time } from "@/components/live-gmt8-time";
 import { currentUser as sampleUser } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 
 export default async function ProfilePage() {
-  const teamContext = await getCurrentTeamContext();
+  const teamContext = await getRequiredTeamContext();
   let fullName = "David M.";
   let email = sampleUser.email;
   let primaryRole = "Acoustic Guitar";
@@ -58,9 +59,7 @@ export default async function ProfilePage() {
           <Card className="flex flex-col items-center p-6 text-center bg-[#111014]/80 border border-white/[0.08]">
             <Avatar name={fullName} src={avatarUrl} className="size-20 text-2xl" />
             
-            <button type="button" className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] transition">
-              Change Photo
-            </button>
+            <PhotoPickerButton />
 
             <h1 className="mt-5 text-2xl font-bold text-white">{fullName}</h1>
             <p className="mt-1 text-sm font-semibold text-zinc-400 capitalize">{primaryRole || accessLevel.replace("_", " ")}</p>

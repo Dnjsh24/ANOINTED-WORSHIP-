@@ -1,6 +1,7 @@
 import type {
   Announcement,
   Event,
+  JoinRequestSummary,
   Message,
   Setlist,
   Song,
@@ -323,9 +324,9 @@ export const members: TeamMember[] = [
   },
 ];
 
-export const pendingRequests = [
-  { id: "request-casey", initials: "CL", name: "Casey Lee", ministry: "Vocals" },
-  { id: "request-riley", initials: "RR", name: "Riley Ross", ministry: "Guitar" },
+export const pendingRequests: JoinRequestSummary[] = [
+  { id: "request-casey", initials: "CL", name: "Casey Lee", email: "casey@example.com", ministry: "Vocals", requestedRole: "member" },
+  { id: "request-riley", initials: "RR", name: "Riley Ross", email: "riley@example.com", ministry: "Guitar", requestedRole: "member" },
 ];
 
 export const messages: Message[] = [

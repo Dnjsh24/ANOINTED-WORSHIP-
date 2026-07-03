@@ -1,17 +1,18 @@
 import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
+import { notFound } from "next/navigation";
 import { AttendanceToggle } from "@/components/attendance-toggle";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
-import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { can } from "@/lib/domain/rbac";
 
 export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const teamContext = await getCurrentTeamContext();
+  const teamContext = await getRequiredTeamContext();
 
   let event = {
     id,
@@ -23,6 +24,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     assignedTeams: ["Worship Team"],
     confirmed: 0,
     pending: 0,
+    approvalStatus: "approved",
   };
 
   let linkedSetlistId: string | null = null;
@@ -34,13 +36,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       .select(`
         *,
         event_assignments (
-          role
+          assignment
         ),
         setlists (
           id
         )
       `)
       .eq("id", id)
+      .eq("team_id", teamContext.teamId)
       .maybeSingle()) as any;
 
     if (dbEvent) {
@@ -60,7 +63,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       const dbAttendance = attendanceResult.data;
       const totalMembers = activeMembersResult.count;
 
-      const assigned = dbEvent.event_assignments ? dbEvent.event_assignments.map((a: any) => a.role) : [];
+      const assigned = dbEvent.event_assignments ? dbEvent.event_assignments.map((a: any) => a.assignment) : [];
       const confirmed = (dbAttendance || []).filter((a: any) => a.status === "available").length;
       const respondedCount = (dbAttendance || []).length;
       const noResponseCount = Math.max(0, (totalMembers || 0) - respondedCount);
@@ -80,9 +83,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         assignedTeams: assigned.length > 0 ? assigned : ["Worship Team"],
         confirmed,
         pending,
+        approvalStatus: dbEvent.approval_status ?? "approved",
       };
 
       linkedSetlistId = dbEvent.setlists?.[0]?.id || null;
+    } else {
+      notFound();
     }
   }
 
@@ -108,6 +114,11 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             <span className="inline-block rounded-full bg-violet-500/20 px-2.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-violet-300">
               {event.type.replace("_", " ")}
             </span>
+            {event.approvalStatus === "pending" ? (
+              <span className="ml-2 inline-block rounded-full border border-amber-300/30 bg-amber-500/15 px-2.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-amber-100">
+                Pending approval
+              </span>
+            ) : null}
             <h1 className="mt-3 text-3xl font-extrabold text-white leading-tight">{event.name}</h1>
             <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-violet-300">
               <CalendarDays className="size-3.5" />
@@ -153,12 +164,20 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             <Users className="size-5 text-violet-200" />
             Confirm Attendance
           </h2>
-          <p className="mt-2 text-sm font-semibold text-zinc-300">
-            {event.confirmed} Confirmed, {event.pending} Pending
-          </p>
-          <div className="mt-5">
-            <AttendanceToggle eventId={event.id} />
-          </div>
+          {event.approvalStatus === "pending" ? (
+            <p className="mt-2 text-sm font-semibold text-amber-100">
+              Attendance opens after this event is approved.
+            </p>
+          ) : (
+            <>
+              <p className="mt-2 text-sm font-semibold text-zinc-300">
+                {event.confirmed} Confirmed, {event.pending} Pending
+              </p>
+              <div className="mt-5">
+                <AttendanceToggle eventId={event.id} />
+              </div>
+            </>
+          )}
           <Card className="mt-6 p-4">
             <p className="font-mono text-[10px] font-bold uppercase text-zinc-400">Notes</p>
             <p className="mt-2 text-sm font-semibold text-zinc-300">Bring in-ear monitors and updated charts.</p>
