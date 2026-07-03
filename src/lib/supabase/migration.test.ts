@@ -46,6 +46,10 @@ const atomicTeamLifecycleMigration = readFileSync(
   join(process.cwd(), "supabase", "migrations", "20260703020000_atomic_team_workspace_lifecycle.sql"),
   "utf8",
 );
+const teamWorkspaceTemplateConflictMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260703030000_fix_create_team_workspace_template_conflict.sql"),
+  "utf8",
+);
 
 const requiredTables = [
   "profiles",
@@ -170,5 +174,12 @@ describe("Supabase migration", () => {
     expect(atomicTeamLifecycleMigration).toContain("create or replace function public.delete_team_workspace");
     expect(atomicTeamLifecycleMigration).toContain("delete from public.teams");
     expect(atomicTeamLifecycleMigration).toContain("grant execute on function public.create_team_workspace");
+  });
+
+  it("uses the service template constraint name during atomic workspace creation", () => {
+    expect(teamWorkspaceTemplateConflictMigration).toContain(
+      "on conflict on constraint service_templates_team_id_name_key do nothing",
+    );
+    expect(teamWorkspaceTemplateConflictMigration).not.toContain("on conflict (team_id, name) do nothing");
   });
 });
