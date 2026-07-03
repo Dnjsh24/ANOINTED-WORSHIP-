@@ -61,7 +61,7 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
   const [membershipResult, pendingRequestResult] = await Promise.all([
     supabase
       .from("team_members")
-      .select("id, team_id, role, status, teams (id, name, code)")
+      .select("id, team_id, role, status, teams!inner (id, name, code)")
       .eq("profile_id", user.id)
       .eq("status", "active")
       .order("created_at", { ascending: false })

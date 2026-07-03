@@ -59,6 +59,7 @@ function LeaveTeamSubmitButton({ disabled }: { disabled: boolean }) {
 }
 
 export function SettingsClientView({
+  teamId,
   teamName,
   teamCode,
   isAdmin,
@@ -67,6 +68,7 @@ export function SettingsClientView({
   defaultCallTime,
   defaultRehearsalTime,
 }: {
+  teamId: string;
   teamName: string;
   teamCode: string;
   isAdmin: boolean;
@@ -278,6 +280,7 @@ export function SettingsClientView({
                   </p>
                   <form action={deleteFormAction} className="space-y-3">
                     <ActionMessage state={deleteState} />
+                    <input type="hidden" name="teamId" value={teamId} />
                     <label className="block space-y-1.5">
                       <span className="text-xs font-bold text-zinc-300">
                         To confirm, type <span className="font-mono text-red-300 bg-red-950/30 px-1.5 py-0.5 rounded">DELETE TEAM</span> below:
@@ -312,6 +315,7 @@ export function SettingsClientView({
                   </p>
                   <form action={leaveFormAction} className="space-y-3">
                     <ActionMessage state={leaveState} />
+                    <input type="hidden" name="teamId" value={teamId} />
                     <label className="block space-y-1.5">
                       <span className="text-xs font-bold text-zinc-300">
                         To confirm, type <span className="font-mono text-amber-300 bg-amber-950/30 px-1.5 py-0.5 rounded">LEAVE TEAM</span> below:

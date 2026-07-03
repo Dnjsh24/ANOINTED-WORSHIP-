@@ -61,6 +61,7 @@ export default async function AdminSettingsPage() {
       </div>
 
       <SettingsClientView
+        teamId={teamContext.teamId}
         teamName={teamContext.teamName || "New Hope Worship"}
         teamCode={code}
         isAdmin={isAdmin}

@@ -45,7 +45,7 @@ function validationState(error: z.ZodError): ActionState {
   };
 }
 
-async function getMutationContext(permission?: Permission): Promise<
+async function getMutationContext(permission?: Permission, targetTeamId?: string): Promise<
   | {
       ok: true;
       supabase: Supabase;
@@ -69,13 +69,19 @@ async function getMutationContext(permission?: Permission): Promise<
     return { ok: false, state: authRequiredState };
   }
 
-  const { data: membership } = await supabase
+  let membershipQuery = supabase
     .from("team_members")
-    .select("id, team_id, role, status")
+    .select("id, team_id, role, status, teams!inner ( id )")
     .eq("profile_id", user.id)
     .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (targetTeamId) {
+    membershipQuery = membershipQuery.eq("team_id", targetTeamId);
+  }
+
+  const { data: membership } = await membershipQuery.maybeSingle();
 
   if (!membership) {
     return {
@@ -2121,7 +2127,8 @@ export async function deleteTeamAction(_previous: ActionState, formData: FormDat
     return { ok: false, message: "Type 'DELETE TEAM' exactly to confirm." };
   }
 
-  const context = await getMutationContext("team.manage");
+  const requestedTeamId = formString(formData, "teamId").trim();
+  const context = await getMutationContext("team.manage", requestedTeamId);
   if (!context.ok) {
     return { ...context.state, message: "Deleting a team requires being logged in." };
   }
@@ -2152,7 +2159,8 @@ export async function leaveTeamAction(_previous: ActionState, formData: FormData
     return { ok: false, message: "Type 'LEAVE TEAM' exactly to confirm." };
   }
 
-  const context = await getMutationContext();
+  const requestedTeamId = formString(formData, "teamId").trim();
+  const context = await getMutationContext(undefined, requestedTeamId);
   if (!context.ok) {
     return { ...context.state, message: "Leaving a team requires being logged in." };
   }
