@@ -147,6 +147,8 @@ export interface Event {
   type: EventType;
   date: string;
   time: string;
+  rehearsalDate?: string | null;
+  rehearsalStart?: string | null;
   location: string;
   assignedTeams: string[];
   confirmed: number;

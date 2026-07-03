@@ -360,6 +360,9 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
                         <div className="mt-2 flex flex-wrap items-center gap-4 text-xs font-semibold text-zinc-400">
                           <span className="flex items-center gap-1.5"><Clock className="size-3.5 text-violet-400" /> {event.time}</span>
                           <span className="flex items-center gap-1.5"><MapPin className="size-3.5 text-violet-400" /> {event.location}</span>
+                          {event.rehearsalDate && event.type === "service_rehearsal" && (
+                            <span className="flex items-center gap-1.5 text-amber-300"><CalendarDays className="size-3.5" /> Rehearsal: {event.rehearsalDate}{event.rehearsalStart ? ` ${event.rehearsalStart}` : ""}</span>
+                          )}
                         </div>
                       </div>
 

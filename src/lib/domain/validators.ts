@@ -117,6 +117,7 @@ export const eventInputSchema = z.object({
   endTime: z.string().trim().optional(),
   rehearsalStartTime: z.string().trim().optional(),
   rehearsalEndTime: z.string().trim().optional(),
+  rehearsalDate: z.string().trim().optional(),
   location: z.string().trim().min(1, "Location is required").max(160),
   assignedTeams: z.string().trim().max(500).optional(),
   linkedSetlistId: z.string().trim().optional(),

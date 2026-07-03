@@ -74,6 +74,8 @@ export default async function EventsPage() {
           type: e.type,
           date: e.event_date,
           time: timeStr,
+          rehearsalDate: e.rehearsal_date ?? null,
+          rehearsalStart: e.rehearsal_time ? e.rehearsal_time.slice(0, 5) : null,
           location: e.location ?? "Main Sanctuary",
           assignedTeams,
           confirmed,

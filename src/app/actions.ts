@@ -1632,6 +1632,7 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
     endTime: formString(formData, "endTime"),
     rehearsalStartTime: formString(formData, "rehearsalStartTime"),
     rehearsalEndTime: formString(formData, "rehearsalEndTime"),
+    rehearsalDate: formString(formData, "rehearsalDate"),
     location: formString(formData, "location"),
     assignedTeams: formString(formData, "assignedTeams"),
     linkedSetlistId: formString(formData, "linkedSetlistId"),
@@ -1668,6 +1669,10 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
 
   if (parsed.data.rehearsalEndTime) {
     insertData.rehearsal_end_time = parsed.data.rehearsalEndTime;
+  }
+
+  if (parsed.data.rehearsalDate) {
+    insertData.rehearsal_date = parsed.data.rehearsalDate;
   }
 
   const { data, error } = await context.supabase
@@ -2681,4 +2686,53 @@ export async function submitFeedbackAction(_previous: ActionState, formData: For
   }
 
   return { ok: true, message: "Report submitted. Thank you!" };
+}
+
+export async function deleteEventAction(formData: FormData): Promise<ActionState> {
+  const eventId = formData.get("eventId") as string;
+  if (!eventId) {
+    return { ok: false, message: "Event ID is required." };
+  }
+
+  const context = await getMutationContext("events.manage");
+  if (!context.ok) {
+    return context.state;
+  }
+
+  try {
+    const { data: event } = await context.supabase
+      .from("events")
+      .select("id")
+      .eq("id", eventId)
+      .maybeSingle();
+
+    if (!event) {
+      return { ok: false, message: "Event not found." };
+    }
+
+    await context.supabase.from("attendance").delete().eq("event_id", eventId);
+    await context.supabase.from("event_assignments").delete().eq("event_id", eventId);
+
+    const { data: linkedSetlist } = await context.supabase
+      .from("setlists")
+      .select("id")
+      .eq("event_id", eventId)
+      .maybeSingle();
+
+    if (linkedSetlist) {
+      await context.supabase.from("setlist_songs").delete().eq("setlist_id", linkedSetlist.id);
+      await context.supabase.from("setlists").delete().eq("id", linkedSetlist.id);
+    }
+
+    const { error } = await context.supabase.from("events").delete().eq("id", eventId);
+
+    if (error) {
+      return { ok: false, message: "Could not delete event: " + error.message };
+    }
+  } catch (e: any) {
+    return { ok: false, message: "Database deletion failed: " + (e.message || e) };
+  }
+
+  revalidatePath("/events");
+  redirect("/events");
 }

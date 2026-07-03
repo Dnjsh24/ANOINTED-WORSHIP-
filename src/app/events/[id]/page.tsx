@@ -2,13 +2,14 @@ import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
 import { notFound } from "next/navigation";
 import { AttendanceToggle } from "@/components/attendance-toggle";
 import { AppShell } from "@/components/app-shell";
+import { EventDeleteButton } from "@/components/event-delete-button";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
+import { can } from "@/lib/domain/rbac";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { can } from "@/lib/domain/rbac";
 
 export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,6 +21,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     type: "service",
     date: "July 12, 2026",
     time: "09:00 AM - 11:30 AM",
+    rehearsalDate: null,
+    rehearsalStart: null,
     location: "Main Sanctuary",
     assignedTeams: ["Worship Team"],
     confirmed: 0,
@@ -91,6 +94,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         type: dbEvent.type,
         date: dbEvent.event_date,
         time: timeStr,
+        rehearsalDate: dbEvent.rehearsal_date ?? null,
+        rehearsalStart: dbEvent.rehearsal_time ? dbEvent.rehearsal_time.slice(0, 5) : null,
         location: dbEvent.location ?? "Main Sanctuary",
         assignedTeams: assigned.length > 0 ? assigned : ["Worship Team"],
         confirmed,
@@ -136,6 +141,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <CalendarDays className="size-3.5" />
               {event.date}
             </p>
+            {event.rehearsalDate && event.type === "service_rehearsal" && (
+              <p className="mt-0.5 flex items-center gap-1.5 text-xs font-semibold text-amber-300">
+                <CalendarDays className="size-3.5" />
+                Rehearsal: {event.rehearsalDate}{event.rehearsalStart ? ` at ${event.rehearsalStart}` : ""}
+              </p>
+            )}
           </div>
           <div className="shrink-0 flex gap-3">
             {linkedSetlistId ? (
@@ -146,6 +157,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <ButtonLink href={`/setlists/new?eventId=${event.id}`} className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]">
                 Create Setlist
               </ButtonLink>
+            ) : null}
+            {can(teamContext.role, "events.manage") ? (
+              <EventDeleteButton eventId={event.id} />
             ) : null}
           </div>
         </div>

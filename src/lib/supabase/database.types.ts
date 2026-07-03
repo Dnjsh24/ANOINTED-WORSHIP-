@@ -318,6 +318,7 @@ export interface Database {
           call_time: string | null;
           rehearsal_time: string | null;
           rehearsal_end_time: string | null;
+          rehearsal_date: string | null;
           approval_status: EventApprovalStatus;
           created_by: string;
           created_at: string;
@@ -336,6 +337,7 @@ export interface Database {
           call_time?: string | null;
           rehearsal_time?: string | null;
           rehearsal_end_time?: string | null;
+          rehearsal_date?: string | null;
           approval_status?: EventApprovalStatus;
           created_by: string;
           created_at?: string;
@@ -352,6 +354,7 @@ export interface Database {
           call_time?: string | null;
           rehearsal_time?: string | null;
           rehearsal_end_time?: string | null;
+          rehearsal_date?: string | null;
           approval_status?: EventApprovalStatus;
           updated_at?: string;
         };

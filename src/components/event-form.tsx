@@ -122,6 +122,10 @@ export function EventForm({
                 <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-violet-300">Rehearsal</p>
                 <div className="grid grid-cols-2 gap-4">
                   <label className="block space-y-1.5">
+                    <span className="text-xs font-bold text-zinc-300">Rehearsal date *</span>
+                    <Input type="date" name="rehearsalDate" className="rounded-xl border-white/10" />
+                  </label>
+                  <label className="block space-y-1.5">
                     <span className="text-xs font-bold text-zinc-300">Rehearsal start time *</span>
                     <Input type="time" name="rehearsalStartTime" defaultValue="07:00" required className="rounded-xl border-white/10" />
                   </label>
