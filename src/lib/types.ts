@@ -14,7 +14,7 @@ export type TeamRole = (typeof teamRoles)[number];
 
 export type JoinRequestStatus = "pending" | "approved" | "rejected" | "canceled";
 export type AttendanceStatus = "available" | "maybe" | "unavailable" | "pending";
-export type EventType = "service" | "rehearsal" | "meeting" | "special_event";
+export type EventType = "service" | "rehearsal" | "meeting" | "special_event" | "service_rehearsal";
 export type EventApprovalStatus = "pending" | "approved" | "rejected";
 export type NoticePriority = "normal" | "important" | "urgent";
 export type ReminderRecurrence = "none" | "weekly" | "monthly";

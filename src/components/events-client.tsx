@@ -140,7 +140,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
 
   // Count event types
   const typeCounts = useMemo(() => {
-    const counts = { service: 0, rehearsal: 0, meeting: 0, special_event: 0 };
+    const counts = { service: 0, rehearsal: 0, service_rehearsal: 0, meeting: 0, special_event: 0 };
     officialEvents.forEach((e) => {
       if (e.type in counts) {
         counts[e.type as keyof typeof counts]++;
@@ -319,6 +319,8 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
               const badgeStyles =
                 event.type === "service"
                   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  : event.type === "service_rehearsal"
+                  ? "bg-violet-500/10 text-violet-400 border-violet-500/20"
                   : event.type === "rehearsal"
                   ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
                   : event.type === "meeting"
@@ -335,7 +337,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
 
                   {/* Bullet node on timeline */}
                   <div className="absolute left-[38px] top-3.5 z-10 flex size-2.5 items-center justify-center">
-                    <div className={cn("size-2 rounded-full border border-[#0d0c12] bg-zinc-600 transition-all group-hover:scale-125 group-hover:bg-violet-400", event.type === "service" && "bg-emerald-500", event.type === "rehearsal" && "bg-amber-500", event.type === "meeting" && "bg-blue-500")} />
+                    <div className={cn("size-2 rounded-full border border-[#0d0c12] bg-zinc-600 transition-all group-hover:scale-125 group-hover:bg-violet-400", event.type === "service" && "bg-emerald-500", event.type === "rehearsal" && "bg-amber-500", event.type === "service_rehearsal" && "bg-violet-500", event.type === "meeting" && "bg-blue-500")} />
                   </div>
 
                   {/* Details card */}

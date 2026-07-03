@@ -63,15 +63,27 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       const dbAttendance = attendanceResult.data;
       const totalMembers = activeMembersResult.count;
 
-      const assigned = dbEvent.event_assignments ? dbEvent.event_assignments.map((a: any) => a.assignment) : [];
+      const assignedFromDb = dbEvent.event_assignments ? dbEvent.event_assignments.map((a: any) => a.assignment) : [];
+      const assignedFromDescription = dbEvent.description
+        ? dbEvent.description.split(",").map((s: string) => s.trim()).filter(Boolean)
+        : [];
+      const assigned = assignedFromDb.length > 0 ? assignedFromDb : assignedFromDescription;
       const confirmed = (dbAttendance || []).filter((a: any) => a.status === "available").length;
       const respondedCount = (dbAttendance || []).length;
       const noResponseCount = Math.max(0, (totalMembers || 0) - respondedCount);
       const pending = (dbAttendance || []).filter((a: any) => a.status === "maybe").length + noResponseCount;
 
-      const timeStr = dbEvent.ends_at
+      let timeStr = dbEvent.ends_at
         ? `${dbEvent.starts_at.slice(0, 5)} - ${dbEvent.ends_at.slice(0, 5)}`
         : dbEvent.starts_at.slice(0, 5);
+
+      if (dbEvent.type === "service_rehearsal") {
+        const rehStart = dbEvent.rehearsal_time ? dbEvent.rehearsal_time.slice(0, 5) : "";
+        const rehEnd = dbEvent.rehearsal_end_time ? dbEvent.rehearsal_end_time.slice(0, 5) : "";
+        const rehTime = rehEnd ? `${rehStart} - ${rehEnd}` : rehStart;
+        const svcTime = dbEvent.ends_at ? `${dbEvent.starts_at.slice(0, 5)} - ${dbEvent.ends_at.slice(0, 5)}` : dbEvent.starts_at.slice(0, 5);
+        timeStr = `Rehearsal: ${rehTime} | Service: ${svcTime}`;
+      }
 
       event = {
         id: dbEvent.id,

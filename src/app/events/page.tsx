@@ -44,9 +44,17 @@ export default async function EventsPage() {
 
     if (dbEvents && dbEvents.length > 0) {
       eventsList = dbEvents.map((e: any) => {
-        const timeStr = e.ends_at
+        let timeStr = e.ends_at
           ? `${e.starts_at.slice(0, 5)} - ${e.ends_at.slice(0, 5)}`
           : e.starts_at.slice(0, 5);
+
+        if (e.type === "service_rehearsal") {
+          const rehStart = e.rehearsal_time ? e.rehearsal_time.slice(0, 5) : "";
+          const rehEnd = e.rehearsal_end_time ? e.rehearsal_end_time.slice(0, 5) : "";
+          const rehTime = rehEnd ? `${rehStart} - ${rehEnd}` : rehStart;
+          const svcTime = e.ends_at ? `${e.starts_at.slice(0, 5)} - ${e.ends_at.slice(0, 5)}` : e.starts_at.slice(0, 5);
+          timeStr = `Rehearsal: ${rehTime} | Service: ${svcTime}`;
+        }
 
         const assignedTeams = Array.from(
           new Set((e.event_assignments ?? []).map((ass: any) => ass.assignment))

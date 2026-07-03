@@ -4,7 +4,7 @@ type TeamRole = "owner" | "admin" | "pastor" | "worship_leader" | "band_leader" 
 type MemberStatus = "active" | "inactive";
 type JoinRequestStatus = "pending" | "approved" | "rejected" | "canceled";
 type AttendanceStatus = "available" | "maybe" | "unavailable" | "pending";
-type EventType = "service" | "rehearsal" | "meeting" | "special_event";
+type EventType = "service" | "rehearsal" | "meeting" | "special_event" | "service_rehearsal";
 type EventApprovalStatus = "pending" | "approved" | "rejected";
 type SongEditStatus = "pending" | "approved" | "rejected";
 type NoticePriority = "normal" | "important" | "urgent";
@@ -317,6 +317,7 @@ export interface Database {
           description: string | null;
           call_time: string | null;
           rehearsal_time: string | null;
+          rehearsal_end_time: string | null;
           approval_status: EventApprovalStatus;
           created_by: string;
           created_at: string;
@@ -334,6 +335,7 @@ export interface Database {
           description?: string | null;
           call_time?: string | null;
           rehearsal_time?: string | null;
+          rehearsal_end_time?: string | null;
           approval_status?: EventApprovalStatus;
           created_by: string;
           created_at?: string;
@@ -349,6 +351,7 @@ export interface Database {
           description?: string | null;
           call_time?: string | null;
           rehearsal_time?: string | null;
+          rehearsal_end_time?: string | null;
           approval_status?: EventApprovalStatus;
           updated_at?: string;
         };
