@@ -158,9 +158,6 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                 Create Setlist
               </ButtonLink>
             ) : null}
-            {can(teamContext.role, "events.manage") ? (
-              <EventDeleteButton eventId={event.id} />
-            ) : null}
           </div>
         </div>
       </div>
@@ -208,6 +205,11 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             <p className="font-mono text-[10px] font-bold uppercase text-zinc-400">Notes</p>
             <p className="mt-2 text-sm font-semibold text-zinc-300">Bring in-ear monitors and updated charts.</p>
           </Card>
+          {can(teamContext.role, "events.manage") ? (
+            <div className="mt-6">
+              <EventDeleteButton eventId={event.id} />
+            </div>
+          ) : null}
         </Panel>
       </section>
     </AppShell>
