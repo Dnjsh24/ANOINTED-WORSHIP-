@@ -2523,7 +2523,7 @@ export async function getTeamPreviewAction(code: string): Promise<{
       ok: true,
       team: {
         name: team.name,
-        location: settings?.default_service_location || "Austin, TX",
+        location: settings?.default_service_location || "Main Campus",
         members: count || 1,
         serviceTime: settings?.default_call_time 
           ? `Sundays at ${settings.default_call_time.substring(0, 5)}`

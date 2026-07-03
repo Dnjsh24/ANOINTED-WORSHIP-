@@ -56,21 +56,20 @@ export function PendingClient({
   const handleStatus = useCallback(
     (status: "active" | "pending" | "approved" | "rejected" | "canceled" | "none") => {
       if (status === "active" || status === "approved") {
-        router.replace("/dashboard");
-        router.refresh();
+        window.location.href = "/dashboard";
         return;
       }
 
       if (status === "rejected") {
-        router.replace("/teams/join?error=rejected");
+        window.location.href = "/teams/join?error=rejected";
         return;
       }
 
       if (status === "canceled" || status === "none") {
-        router.replace("/teams");
+        window.location.href = "/teams";
       }
     },
-    [router],
+    [],
   );
 
   const refreshStatus = useCallback(async () => {

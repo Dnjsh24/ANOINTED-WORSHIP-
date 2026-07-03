@@ -134,6 +134,9 @@ export function MembersClient({
       setStatus(result.message);
       if (result.ok) {
         setRoleValues((current) => ({ ...current, [memberId]: role }));
+        setMemberList((current) =>
+          current.map((m) => (m.id === memberId ? { ...m, role } : m))
+        );
       }
     });
   }
@@ -304,9 +307,9 @@ export function MembersClient({
                         ))}
                       </select>
                       <div className="flex items-center gap-2">
-                        <span className={cn("size-2 rounded-full", isOnline ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-red-500 shadow-[0_0_8px_#ef4444]")} />
-                        <span className={cn("text-[10px] font-bold capitalize", isOnline ? "text-emerald-400" : "text-red-400")}>
-                          {isOnline ? "Active" : "Inactive"}
+                        <span className={cn("size-2 rounded-full", isOnline ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-zinc-500")} />
+                        <span className={cn("text-[10px] font-bold capitalize", isOnline ? "text-emerald-400" : "text-zinc-500")}>
+                          {isOnline ? "Online" : "Offline"}
                         </span>
                       </div>
                       <span className="font-bold text-zinc-200 pl-4">{member.attendanceRate}%</span>
