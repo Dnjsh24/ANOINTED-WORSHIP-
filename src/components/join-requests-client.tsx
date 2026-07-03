@@ -8,7 +8,11 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { normalizeJoinRequest, type RawJoinRequest } from "@/lib/domain/join-requests";
+import {
+  joinRequestWithRequesterProfileSelect,
+  normalizeJoinRequest,
+  type RawJoinRequest,
+} from "@/lib/domain/join-requests";
 import { createClient } from "@/lib/supabase/client";
 import type { JoinRequestSummary } from "@/lib/types";
 
@@ -35,23 +39,17 @@ export function JoinRequestsClient({
     const activeTeamId = teamId;
     const supabase = createClient();
     async function refreshPendingRequests() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("join_requests")
-        .select(`
-          id,
-          profile_id,
-          requested_role,
-          created_at,
-          profiles (
-            id,
-            full_name,
-            email,
-            avatar_url
-          )
-        `)
+        .select(joinRequestWithRequesterProfileSelect)
         .eq("team_id", activeTeamId)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
+
+      if (error) {
+        setStatus("Pending requests could not refresh. Please try again.");
+        return;
+      }
 
       setRequests((data ?? []).map((request) => normalizeJoinRequest(request as RawJoinRequest)));
       router.refresh();

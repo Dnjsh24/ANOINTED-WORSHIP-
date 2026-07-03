@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { MembersClient } from "@/components/members-client";
-import { normalizeJoinRequest, type RawJoinRequest } from "@/lib/domain/join-requests";
+import {
+  joinRequestWithRequesterProfileSelect,
+  normalizeJoinRequest,
+  type RawJoinRequest,
+} from "@/lib/domain/join-requests";
 import {
   members as sampleMembers,
   pendingRequests as samplePendingRequests,
@@ -26,18 +30,7 @@ export default async function MembersPage() {
     const [{ data: dbPendingRequests }, { data: dbMembers }] = await Promise.all([
       supabase
         .from("join_requests")
-        .select(`
-          id,
-          profile_id,
-          requested_role,
-          created_at,
-          profiles (
-            id,
-            full_name,
-            email,
-            avatar_url
-          )
-        `)
+        .select(joinRequestWithRequesterProfileSelect)
         .eq("team_id", teamContext.teamId)
         .eq("status", "pending")
         .order("created_at", { ascending: false }),

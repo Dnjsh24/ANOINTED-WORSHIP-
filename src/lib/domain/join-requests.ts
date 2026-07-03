@@ -1,5 +1,18 @@
 import type { JoinRequestSummary, TeamRole } from "@/lib/types";
 
+export const joinRequestWithRequesterProfileSelect = `
+  id,
+  profile_id,
+  requested_role,
+  created_at,
+  profiles:profiles!join_requests_profile_id_fkey (
+    id,
+    full_name,
+    email,
+    avatar_url
+  )
+`;
+
 type RawJoinRequestProfile = {
   id?: string | null;
   full_name?: string | null;

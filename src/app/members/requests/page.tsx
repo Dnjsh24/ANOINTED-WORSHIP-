@@ -2,7 +2,11 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { JoinRequestsClient } from "@/components/join-requests-client";
 import { ButtonLink } from "@/components/ui/button";
-import { normalizeJoinRequest, type RawJoinRequest } from "@/lib/domain/join-requests";
+import {
+  joinRequestWithRequesterProfileSelect,
+  normalizeJoinRequest,
+  type RawJoinRequest,
+} from "@/lib/domain/join-requests";
 import { pendingRequests as samplePendingRequests } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -22,18 +26,7 @@ export default async function MemberRequestsPage() {
     const supabase = await createClient();
     const { data } = await supabase
       .from("join_requests")
-      .select(`
-        id,
-        profile_id,
-        requested_role,
-        created_at,
-        profiles (
-          id,
-          full_name,
-          email,
-          avatar_url
-        )
-      `)
+      .select(joinRequestWithRequesterProfileSelect)
       .eq("team_id", teamContext.teamId)
       .eq("status", "pending")
       .order("created_at", { ascending: false });

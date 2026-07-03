@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
+import { joinRequestWithRequesterProfileSelect } from "@/lib/domain/join-requests";
 import { members, pendingRequests } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -47,7 +48,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
     } else {
       const { data: dbRequest } = (await supabase
         .from("join_requests")
-        .select("id, requested_role, created_at, profiles ( full_name, email, avatar_url )")
+        .select(joinRequestWithRequesterProfileSelect)
         .eq("id", id)
         .eq("team_id", teamContext.teamId)
         .eq("status", "pending")
@@ -71,7 +72,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
       member = {
         id: dbRequest.id,
         profile: {
-          id: dbRequest.id,
+          id: dbRequest.profile_id ?? dbRequest.id,
           fullName: request.name,
           email: profile?.email ?? "",
           avatarUrl: profile?.avatar_url ?? undefined,
