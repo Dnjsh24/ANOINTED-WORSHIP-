@@ -1649,22 +1649,30 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
 
   const approvalStatus = can(context.role, "events.manage") ? "approved" : "pending";
 
+  const insertData: Record<string, unknown> = {
+    team_id: context.teamId,
+    name: parsed.data.title,
+    type: parsed.data.eventType,
+    event_date: parsed.data.date,
+    starts_at: parsed.data.startTime,
+    ends_at: parsed.data.endTime || null,
+    location: parsed.data.location,
+    description: parsed.data.notes || parsed.data.assignedTeams || null,
+    approval_status: approvalStatus,
+    created_by: context.userId,
+  };
+
+  if (parsed.data.rehearsalStartTime) {
+    insertData.rehearsal_time = parsed.data.rehearsalStartTime;
+  }
+
+  if (parsed.data.rehearsalEndTime) {
+    insertData.rehearsal_end_time = parsed.data.rehearsalEndTime;
+  }
+
   const { data, error } = await context.supabase
     .from("events")
-    .insert({
-      team_id: context.teamId,
-      name: parsed.data.title,
-      type: parsed.data.eventType,
-      event_date: parsed.data.date,
-      starts_at: parsed.data.startTime,
-      ends_at: parsed.data.endTime || null,
-      rehearsal_time: parsed.data.rehearsalStartTime || null,
-      rehearsal_end_time: parsed.data.rehearsalEndTime || null,
-      location: parsed.data.location,
-      description: parsed.data.notes || parsed.data.assignedTeams || null,
-      approval_status: approvalStatus,
-      created_by: context.userId,
-    })
+    .insert(insertData as any)
     .select("id")
     .single();
 
