@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { createDanceChartAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
@@ -101,7 +102,13 @@ export function DanceChartForm({
         </label>
       </div>
 
-      <div className="flex justify-end border-t border-white/10 pt-4">
+      <div className="flex justify-end items-center gap-3 border-t border-white/10 pt-4">
+        <Link
+          href="/dance"
+          className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-2.5 text-xs font-bold text-zinc-300 transition hover:bg-white/[0.08]"
+        >
+          Cancel
+        </Link>
         <SubmitButton>Save Dance Chart</SubmitButton>
       </div>
     </form>

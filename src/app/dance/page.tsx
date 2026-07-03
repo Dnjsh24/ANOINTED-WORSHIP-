@@ -1,4 +1,5 @@
 import { CalendarDays, Footprints, Music, Sparkles, Users } from "lucide-react";
+import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { DanceChartForm, type DanceChartOption } from "@/components/dance-chart-form";
 import { Badge } from "@/components/ui/badge";
@@ -57,10 +58,13 @@ const sampleCharts: DanceChart[] = [
   },
 ];
 
-export default async function DanceChartsPage() {
+export default async function DanceChartsPage({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
+  const { new: isNew } = await searchParams;
   const teamContext = await getRequiredTeamContext();
   const canManageDanceCharts = can(teamContext.role, "dance_notes.manage");
-  let charts: DanceChart[] = hasSupabaseEnv() ? [] : sampleCharts;
+  const showForm = isNew === "true" && canManageDanceCharts;
+
+  let charts: DanceChart[] = [];
   let songOptions: DanceChartOption[] = [];
   let eventOptions: DanceChartOption[] = [];
 
@@ -110,96 +114,119 @@ export default async function DanceChartsPage() {
     });
   }
 
+  const chartSectionsCard = (
+    <Card className="p-5">
+      <h2 className="text-lg font-bold text-white">Chart Sections</h2>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {[
+          { label: "Steps", icon: Footprints, text: "Counts and movement" },
+          { label: "Formation", icon: Users, text: "Placement and spacing" },
+          { label: "Props", icon: Sparkles, text: "Outfit and tambourine" },
+        ].map((item) => (
+          <div key={item.label} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+            <item.icon className="size-4 text-violet-300" />
+            <p className="mt-2 text-sm font-bold text-white">{item.label}</p>
+            <p className="mt-1 text-xs font-semibold text-zinc-500">{item.text}</p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+
   return (
     <AppShell active="Dance Charts" teamContext={teamContext}>
       <div className="animate-fade-up">
         <p className="font-mono text-xs font-bold uppercase tracking-widest text-violet-200">Dance Ministry</p>
         <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight">Dance Charts</h1>
-            <p className="mt-2 text-sm font-semibold text-zinc-400">Choreography, formation, and tambourine notes for the team.</p>
+            <h1 className="text-4xl font-extrabold tracking-tight">
+              {showForm ? "New Dance Chart" : "Dance Charts"}
+            </h1>
+            <p className="mt-2 text-sm font-semibold text-zinc-400">
+              {showForm ? "Create a choreography chart linked to songs or events." : "Choreography, formation, and tambourine notes for the team."}
+            </p>
           </div>
-          <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-zinc-300">
-            <Footprints className="size-4 text-violet-300" />
-            {charts.length} {charts.length === 1 ? "chart" : "charts"}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-zinc-300">
+              <Footprints className="size-4 text-violet-300" />
+              {charts.length} {charts.length === 1 ? "chart" : "charts"}
+            </div>
+            {canManageDanceCharts && (
+              showForm ? (
+                <Link
+                  href="/dance"
+                  className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 transition hover:bg-white/[0.08]"
+                >
+                  Back to Charts
+                </Link>
+              ) : (
+                <Link
+                  href="/dance?new=true"
+                  className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-violet-500 hover:shadow-[0_0_15px_rgba(139,92,246,0.4)] active:scale-[0.98]"
+                >
+                  + Add Dance Chart
+                </Link>
+              )
+            )}
           </div>
         </div>
       </div>
 
       <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <div className="space-y-5">
-          {canManageDanceCharts ? (
-            <DanceChartForm songs={songOptions} events={eventOptions} />
-          ) : (
-            <Card className="p-5">
-              <div className="flex items-start gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-300">
-                  <Users className="size-5" />
-                </span>
-                <div>
-                  <h2 className="text-lg font-bold text-white">Dance charts are managed by the dance team.</h2>
-                  <p className="mt-1 text-sm font-semibold text-zinc-400">Shared steps will appear here when they are ready.</p>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          <Card className="p-5">
-            <h2 className="text-lg font-bold text-white">Chart Sections</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {[
-                { label: "Steps", icon: Footprints, text: "Counts and movement" },
-                { label: "Formation", icon: Users, text: "Placement and spacing" },
-                { label: "Props", icon: Sparkles, text: "Outfit and tambourine" },
-              ].map((item) => (
-                <div key={item.label} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                  <item.icon className="size-4 text-violet-300" />
-                  <p className="mt-2 text-sm font-bold text-white">{item.label}</p>
-                  <p className="mt-1 text-xs font-semibold text-zinc-500">{item.text}</p>
-                </div>
-              ))}
+        {showForm ? (
+          <>
+            <div className="space-y-5">
+              <DanceChartForm songs={songOptions} events={eventOptions} />
             </div>
-          </Card>
-        </div>
-
-        <div className="space-y-4">
-          {charts.length > 0 ? (
-            charts.map((chart) => (
-              <Card key={chart.id} className="p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold text-white">{chart.title}</h2>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {chart.songTitle ? (
-                        <Badge className="inline-flex items-center gap-1">
-                          <Music className="size-3" />
-                          {chart.songTitle}
-                        </Badge>
-                      ) : null}
-                      {chart.eventName ? (
-                        <Badge className="inline-flex items-center gap-1">
-                          <CalendarDays className="size-3" />
-                          {chart.eventName}{chart.eventDate ? `, ${formatDate(chart.eventDate)}` : ""}
-                        </Badge>
-                      ) : null}
+            <div className="space-y-4">
+              {chartSectionsCard}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="space-y-5">
+              {chartSectionsCard}
+            </div>
+            <div className="space-y-4">
+              {charts.length > 0 ? (
+                charts.map((chart) => (
+                  <Card key={chart.id} className="p-5">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h2 className="text-xl font-bold text-white">{chart.title}</h2>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {chart.songTitle ? (
+                            <Badge className="inline-flex items-center gap-1">
+                              <Music className="size-3" />
+                              {chart.songTitle}
+                            </Badge>
+                          ) : null}
+                          {chart.eventName ? (
+                            <Badge className="inline-flex items-center gap-1">
+                              <CalendarDays className="size-3" />
+                              {chart.eventName}{chart.eventDate ? `, ${formatDate(chart.eventDate)}` : ""}
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-zinc-500">{formatDate(chart.createdAt)}</span>
                     </div>
-                  </div>
-                  <span className="text-xs font-bold text-zinc-500">{formatDate(chart.createdAt)}</span>
-                </div>
 
-                <DanceNoteBlock title="Dance / Tambourine Steps" body={chart.choreographyNotes} />
-                {chart.formationNotes ? <DanceNoteBlock title="Formation" body={chart.formationNotes} /> : null}
-                {chart.outfitNotes ? <DanceNoteBlock title="Outfit / Props" body={chart.outfitNotes} /> : null}
-              </Card>
-            ))
-          ) : (
-            <Card className="border-dashed p-10 text-center">
-              <Footprints className="mx-auto size-9 text-zinc-600" />
-              <h2 className="mt-4 text-xl font-bold text-white">No dance charts yet.</h2>
-              <p className="mt-2 text-sm font-semibold text-zinc-500">Dance and tambourine notes will appear here.</p>
-            </Card>
-          )}
-        </div>
+                    <DanceNoteBlock title="Dance / Tambourine Steps" body={chart.choreographyNotes} />
+                    {chart.formationNotes ? <DanceNoteBlock title="Formation" body={chart.formationNotes} /> : null}
+                    {chart.outfitNotes ? <DanceNoteBlock title="Outfit / Props" body={chart.outfitNotes} /> : null}
+                  </Card>
+                ))
+              ) : (
+                <Card className="border-dashed p-10 text-center">
+                  <Footprints className="mx-auto size-9 text-zinc-600" />
+                  <h2 className="mt-4 text-xl font-bold text-white">No dance charts yet.</h2>
+                  <p className="mt-2 text-sm font-semibold text-zinc-500">Dance and tambourine notes will appear here.</p>
+                </Card>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </AppShell>
   );

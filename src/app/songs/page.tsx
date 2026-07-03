@@ -51,9 +51,9 @@ export default async function SongsPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <div className="rounded-lg border border-white/10 bg-[#18171c] p-4 text-center">
-            <Badge>Total Songs</Badge>
-            <p className="mt-2 text-3xl font-bold">{totalSongsCount}</p>
+          <div className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-[#18171c] px-4 py-2.5 text-sm font-bold">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Total Songs</span>
+            <span className="text-white font-extrabold text-base">{totalSongsCount}</span>
           </div>
           {can(teamContext.role, "songs.create") && (
             <ButtonLink href="/songs/new">

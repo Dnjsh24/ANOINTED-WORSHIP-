@@ -80,7 +80,7 @@ export function MobileIconRail({
     ? makeTab("events", "Events", "/events")
     : makeTab("profile", "Profile", "/profile");
   if (activeLabel === "songs" || activeLabel === "files") {
-    fourthTab = { id: "songs", href: "/songs", label: "Songs", icon: Folder };
+    fourthTab = { id: "songs", href: "/songs", label: "Songs", icon: Music };
   } else if (activeLabel === "timeline" || activeLabel === "events") {
     fourthTab = makeTab("events", "Events", "/events");
   } else if (activeLabel === "dance charts" || activeLabel === "dance") {
@@ -96,7 +96,7 @@ export function MobileIconRail({
 
   // More menu links
   const moreMenuLinks = [
-    { href: "/songs", label: "Songs & Files", icon: Folder },
+    { href: "/songs", label: "Songs", icon: Music },
     { href: "/events", label: "Timeline Events", icon: CalendarDays },
     ...(canManageDance ? [{ href: "/dance", label: "Dance Charts", icon: Footprints }] : []),
     { href: "/profile", label: "My Profile", icon: User },

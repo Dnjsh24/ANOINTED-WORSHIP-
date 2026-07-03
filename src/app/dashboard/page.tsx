@@ -275,7 +275,7 @@ export default async function DashboardPage() {
     { href: "/messages", label: "Messages", sub: "Team communication", icon: MessageSquare },
     ...(teamContext.canManageMembers ? [{ href: "/members", label: "Members", sub: "Roster & availability", icon: Users }] : []),
     ...(canManageDanceCharts ? [{ href: "/dance", label: "Dance Charts", sub: "Steps & tambourine", icon: Footprints }] : []),
-    { href: "/songs", label: "Files", sub: "Shared documents", icon: Folder },
+    { href: "/songs", label: "Songs", sub: "Team song library", icon: Music },
     ...(teamContext.canManageMembers
       ? [
           { href: "/admin/settings", label: "Reports", sub: "Team insights", icon: BarChart3 },
