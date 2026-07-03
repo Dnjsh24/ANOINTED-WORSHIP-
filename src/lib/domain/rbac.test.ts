@@ -23,16 +23,20 @@ describe("rbac", () => {
     expect(visibleNavigation("owner")).toContain("members");
     expect(visibleNavigation("admin")).toContain("members");
     expect(visibleNavigation("band_member")).not.toContain("members");
+    expect(visibleNavigation("dancer")).not.toContain("members");
   });
 
-  it("orders the primary navigation with Home first and no song library tab", () => {
-    expect(visibleNavigation("owner")).toEqual(["home", "setlists", "events", "messages", "members", "profile"]);
+  it("orders the primary navigation with Home first and role-aware ministry tabs", () => {
+    expect(visibleNavigation("owner")).toEqual(["home", "setlists", "events", "dance", "messages", "members", "profile"]);
+    expect(visibleNavigation("dancer")).toEqual(["home", "setlists", "events", "dance", "messages", "profile"]);
     expect(visibleNavigation("member")).toEqual(["home", "setlists", "events", "messages", "profile"]);
   });
 
   it("exposes readable role helpers", () => {
     expect(canReviewJoinRequests("owner")).toBe(true);
     expect(canReviewJoinRequests("dancer")).toBe(false);
+    expect(can("dancer", "dance_notes.manage")).toBe(true);
+    expect(can("admin", "dance_notes.manage")).toBe(true);
     expect(canManageSetlists("band_leader")).toBe(true);
     expect(canManageSetlists("media")).toBe(false);
     expect(canReviewEventRequests("owner")).toBe(true);

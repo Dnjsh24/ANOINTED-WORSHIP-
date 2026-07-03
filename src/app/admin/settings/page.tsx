@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { SettingsClientView } from "@/components/settings-client-view";
 import { teamCode } from "@/lib/sample-data";
@@ -23,6 +24,11 @@ function formatTimeForInput(timeStr: string | null): string {
 
 export default async function AdminSettingsPage() {
   const teamContext = await getRequiredTeamContext();
+
+  if (!teamContext.canManageMembers) {
+    redirect("/dashboard");
+  }
+
   const code = teamContext.teamCode ?? teamCode;
   const isAdmin = teamContext.canManageMembers;
 

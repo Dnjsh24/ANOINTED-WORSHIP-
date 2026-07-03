@@ -2,7 +2,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 
 type TeamRole = "owner" | "admin" | "pastor" | "worship_leader" | "band_leader" | "band_member" | "dancer" | "media" | "member";
 type MemberStatus = "active" | "inactive";
-type JoinRequestStatus = "pending" | "approved" | "rejected";
+type JoinRequestStatus = "pending" | "approved" | "rejected" | "canceled";
 type AttendanceStatus = "available" | "maybe" | "unavailable" | "pending";
 type EventType = "service" | "rehearsal" | "meeting" | "special_event";
 type EventApprovalStatus = "pending" | "approved" | "rejected";
@@ -546,6 +546,44 @@ export interface Database {
           status?: AttendanceStatus;
           note?: string | null;
           responded_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      dance_notes: {
+        Row: {
+          id: string;
+          team_id: string;
+          song_id: string | null;
+          event_id: string | null;
+          title: string;
+          choreography_notes: string | null;
+          formation_notes: string | null;
+          outfit_notes: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          team_id: string;
+          song_id?: string | null;
+          event_id?: string | null;
+          title: string;
+          choreography_notes?: string | null;
+          formation_notes?: string | null;
+          outfit_notes?: string | null;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          song_id?: string | null;
+          event_id?: string | null;
+          title?: string;
+          choreography_notes?: string | null;
+          formation_notes?: string | null;
+          outfit_notes?: string | null;
           updated_at?: string;
         };
         Relationships: [];

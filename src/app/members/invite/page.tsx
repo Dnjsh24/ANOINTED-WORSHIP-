@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { InviteMemberForm } from "@/components/invite-member-form";
 import { Panel } from "@/components/ui/card";
@@ -5,6 +6,10 @@ import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 
 export default async function InviteMemberPage() {
   const teamContext = await getRequiredTeamContext();
+
+  if (!teamContext.canManageMembers) {
+    redirect("/dashboard");
+  }
 
   return (
     <AppShell active="Team Management" teamContext={teamContext}>

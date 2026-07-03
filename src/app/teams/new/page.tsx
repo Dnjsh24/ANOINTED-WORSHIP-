@@ -27,6 +27,14 @@ const TIMEZONES = [
 
 const DAYS = ["Sundays", "Saturdays", "Fridays", "Wednesdays"];
 const TIMES = ["8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "6:00 PM"];
+const ROLE_OPTIONS = [
+  { label: "Worship Leader", value: "worship_leader" },
+  { label: "Band Member", value: "band_member" },
+  { label: "Singer / Member", value: "member" },
+  { label: "Dance Ministry", value: "dancer" },
+  { label: "Media & Tech", value: "media" },
+  { label: "Pastor", value: "pastor" },
+];
 
 interface NewTeamPageProps {
   searchParams?: Promise<{ error?: string }>;
@@ -44,6 +52,7 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
   const [serviceDay, setServiceDay] = useState("Sundays");
   const [serviceTime, setServiceTime] = useState("9:00 AM");
   const [timezone, setTimezone] = useState("(UTC-8) Pacific Time (US & Canada)");
+  const [role, setRole] = useState("worship_leader");
 
   // Invite states
   const [emails, setEmails] = useState<string[]>([]);
@@ -173,6 +182,19 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
                       <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
                     </div>
                   </div>
+                  <div>
+                    <label className="mb-1.5 block font-mono text-[10px] font-bold uppercase tracking-widest text-zinc-500">Your Ministry Role</label>
+                    <div className="relative">
+                      <select
+                        value={role}
+                        onChange={e => setRole(e.target.value)}
+                        className="w-full appearance-none rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-semibold text-white focus:border-violet-400/50 focus:outline-none transition-all"
+                      >
+                        {ROLE_OPTIONS.map(option => <option key={option.value} value={option.value} className="bg-[#111014]">{option.label}</option>)}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
+                    </div>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setStep(1)}
@@ -272,6 +294,10 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
                       <span className="text-sm font-semibold text-zinc-300">{serviceDay} at {serviceTime}</span>
                     </div>
                     <div>
+                      <span className="block font-mono text-[9px] font-bold uppercase tracking-widest text-zinc-500">Your Ministry Role</span>
+                      <span className="text-sm font-semibold text-zinc-300">{ROLE_OPTIONS.find(option => option.value === role)?.label ?? "Member"}</span>
+                    </div>
+                    <div>
                       <span className="block font-mono text-[9px] font-bold uppercase tracking-widest text-zinc-500">Invited Members</span>
                       <span className="text-sm font-semibold text-zinc-300">
                         {emails.length === 0 ? "None (invite codes can be shared later)" : `${emails.length} member(s)`}
@@ -285,6 +311,7 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
                     <input type="hidden" name="serviceDay" value={serviceDay} />
                     <input type="hidden" name="serviceTime" value={serviceTime} />
                     <input type="hidden" name="timezone" value={timezone} />
+                    <input type="hidden" name="role" value={role} />
                     <div className="flex gap-3">
                       <button
                         type="button"

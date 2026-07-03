@@ -1,7 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { SongForm } from "@/components/song-form";
 import { Panel } from "@/components/ui/card";
+import { can } from "@/lib/domain/rbac";
 import { songs as sampleSongs } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -12,6 +13,10 @@ import type { Song } from "@/lib/types";
 export default async function EditSongPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
+
+  if (!can(teamContext.role, "songs.edit")) {
+    redirect(`/songs/${id}`);
+  }
 
   let song: Song | null = hasSupabaseEnv() ? null : sampleSongs.find((item) => item.id === id) ?? sampleSongs[0];
 

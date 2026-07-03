@@ -1,0 +1,223 @@
+import { CalendarDays, Footprints, Music, Sparkles, Users } from "lucide-react";
+import { AppShell } from "@/components/app-shell";
+import { DanceChartForm, type DanceChartOption } from "@/components/dance-chart-form";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { can } from "@/lib/domain/rbac";
+import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+
+type DanceChart = {
+  id: string;
+  title: string;
+  choreographyNotes: string;
+  formationNotes: string | null;
+  outfitNotes: string | null;
+  songTitle: string | null;
+  eventName: string | null;
+  eventDate: string | null;
+  createdAt: string;
+};
+
+type SongRow = {
+  id: string;
+  title: string;
+  artist: string;
+};
+
+type EventRow = {
+  id: string;
+  name: string;
+  event_date: string;
+};
+
+type DanceNoteRow = {
+  id: string;
+  title: string;
+  choreography_notes: string | null;
+  formation_notes: string | null;
+  outfit_notes: string | null;
+  song_id: string | null;
+  event_id: string | null;
+  created_at: string;
+};
+
+const sampleCharts: DanceChart[] = [
+  {
+    id: "sample-dance-chart",
+    title: "Sunday tambourine pattern",
+    choreographyNotes: "Intro: hold tambourine low. Verse: step right, tap left. Chorus: raise tambourine on counts 1 and 3.",
+    formationNotes: "Three dancers in a shallow V, lead dancer center.",
+    outfitNotes: "White top, purple sash, tambourine ribbons.",
+    songTitle: "Opening Song",
+    eventName: "Sunday Service",
+    eventDate: "2026-07-12",
+    createdAt: "2026-07-03T00:00:00.000Z",
+  },
+];
+
+export default async function DanceChartsPage() {
+  const teamContext = await getRequiredTeamContext();
+  const canManageDanceCharts = can(teamContext.role, "dance_notes.manage");
+  let charts: DanceChart[] = hasSupabaseEnv() ? [] : sampleCharts;
+  let songOptions: DanceChartOption[] = [];
+  let eventOptions: DanceChartOption[] = [];
+
+  if (hasSupabaseEnv() && teamContext.teamId) {
+    const supabase = await createClient();
+    const [notesResult, songsResult, eventsResult] = await Promise.all([
+      supabase
+        .from("dance_notes")
+        .select("id, title, choreography_notes, formation_notes, outfit_notes, song_id, event_id, created_at")
+        .eq("team_id", teamContext.teamId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("songs")
+        .select("id, title, artist")
+        .eq("team_id", teamContext.teamId)
+        .order("title", { ascending: true }),
+      supabase
+        .from("events")
+        .select("id, name, event_date")
+        .eq("team_id", teamContext.teamId)
+        .order("event_date", { ascending: true }),
+    ]);
+
+    const songs = (songsResult.data ?? []) as SongRow[];
+    const events = (eventsResult.data ?? []) as EventRow[];
+    const songById = new Map(songs.map((song) => [song.id, song]));
+    const eventById = new Map(events.map((event) => [event.id, event]));
+
+    songOptions = songs.map((song) => ({ id: song.id, label: `${song.title} - ${song.artist}` }));
+    eventOptions = events.map((event) => ({ id: event.id, label: `${event.name} - ${formatDate(event.event_date)}` }));
+
+    charts = ((notesResult.data ?? []) as DanceNoteRow[]).map((note) => {
+      const song = note.song_id ? songById.get(note.song_id) : null;
+      const event = note.event_id ? eventById.get(note.event_id) : null;
+
+      return {
+        id: note.id,
+        title: note.title,
+        choreographyNotes: note.choreography_notes ?? "",
+        formationNotes: note.formation_notes,
+        outfitNotes: note.outfit_notes,
+        songTitle: song?.title ?? null,
+        eventName: event?.name ?? null,
+        eventDate: event?.event_date ?? null,
+        createdAt: note.created_at,
+      };
+    });
+  }
+
+  return (
+    <AppShell active="Dance Charts" teamContext={teamContext}>
+      <div className="animate-fade-up">
+        <p className="font-mono text-xs font-bold uppercase tracking-widest text-violet-200">Dance Ministry</p>
+        <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-4xl font-extrabold tracking-tight">Dance Charts</h1>
+            <p className="mt-2 text-sm font-semibold text-zinc-400">Choreography, formation, and tambourine notes for the team.</p>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-zinc-300">
+            <Footprints className="size-4 text-violet-300" />
+            {charts.length} {charts.length === 1 ? "chart" : "charts"}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <div className="space-y-5">
+          {canManageDanceCharts ? (
+            <DanceChartForm songs={songOptions} events={eventOptions} />
+          ) : (
+            <Card className="p-5">
+              <div className="flex items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-300">
+                  <Users className="size-5" />
+                </span>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Dance charts are managed by the dance team.</h2>
+                  <p className="mt-1 text-sm font-semibold text-zinc-400">Shared steps will appear here when they are ready.</p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          <Card className="p-5">
+            <h2 className="text-lg font-bold text-white">Chart Sections</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {[
+                { label: "Steps", icon: Footprints, text: "Counts and movement" },
+                { label: "Formation", icon: Users, text: "Placement and spacing" },
+                { label: "Props", icon: Sparkles, text: "Outfit and tambourine" },
+              ].map((item) => (
+                <div key={item.label} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <item.icon className="size-4 text-violet-300" />
+                  <p className="mt-2 text-sm font-bold text-white">{item.label}</p>
+                  <p className="mt-1 text-xs font-semibold text-zinc-500">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          {charts.length > 0 ? (
+            charts.map((chart) => (
+              <Card key={chart.id} className="p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">{chart.title}</h2>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {chart.songTitle ? (
+                        <Badge className="inline-flex items-center gap-1">
+                          <Music className="size-3" />
+                          {chart.songTitle}
+                        </Badge>
+                      ) : null}
+                      {chart.eventName ? (
+                        <Badge className="inline-flex items-center gap-1">
+                          <CalendarDays className="size-3" />
+                          {chart.eventName}{chart.eventDate ? `, ${formatDate(chart.eventDate)}` : ""}
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-zinc-500">{formatDate(chart.createdAt)}</span>
+                </div>
+
+                <DanceNoteBlock title="Dance / Tambourine Steps" body={chart.choreographyNotes} />
+                {chart.formationNotes ? <DanceNoteBlock title="Formation" body={chart.formationNotes} /> : null}
+                {chart.outfitNotes ? <DanceNoteBlock title="Outfit / Props" body={chart.outfitNotes} /> : null}
+              </Card>
+            ))
+          ) : (
+            <Card className="border-dashed p-10 text-center">
+              <Footprints className="mx-auto size-9 text-zinc-600" />
+              <h2 className="mt-4 text-xl font-bold text-white">No dance charts yet.</h2>
+              <p className="mt-2 text-sm font-semibold text-zinc-500">Dance and tambourine notes will appear here.</p>
+            </Card>
+          )}
+        </div>
+      </div>
+    </AppShell>
+  );
+}
+
+function DanceNoteBlock({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="mt-5 border-t border-white/10 pt-4">
+      <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-violet-200">{title}</p>
+      <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-zinc-300">{body}</p>
+    </div>
+  );
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}

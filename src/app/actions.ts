@@ -11,6 +11,7 @@ import { toPostgresTime } from "@/lib/domain/time";
 import {
   announcementInputSchema,
   attendanceSchema,
+  danceChartInputSchema,
   eventInputSchema,
   inviteMemberSchema,
   joinCodeSchema,
@@ -31,6 +32,47 @@ import type { Permission } from "@/lib/domain/rbac";
 import type { ReminderRecurrence, SetlistChangeType, TeamRole } from "@/lib/types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+const joinableTeamRoles = ["member", "worship_leader", "band_member", "media", "dancer", "pastor"] as const;
+const profileAvatarUrlSchema = z
+  .string()
+  .trim()
+  .url()
+  .max(2048)
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      return url.pathname.includes("/storage/v1/object/public/profile-avatars/");
+    } catch {
+      return false;
+    }
+  }, "Use a profile avatar storage URL.");
+
+function normalizeJoinableRole(value: FormDataEntryValue | null): (typeof joinableTeamRoles)[number] {
+  const role = String(value ?? "");
+  return joinableTeamRoles.includes(role as (typeof joinableTeamRoles)[number])
+    ? (role as (typeof joinableTeamRoles)[number])
+    : "member";
+}
+
+function ministryLabelForRole(role: string) {
+  switch (role) {
+    case "band_member":
+      return "Band Member";
+    case "worship_leader":
+      return "Worship Leader";
+    case "media":
+      return "Media & Tech";
+    case "dancer":
+      return "Dance Ministry";
+    case "pastor":
+      return "Pastor";
+    case "member":
+      return "Singer / Member";
+    default:
+      return "Member";
+  }
+}
 
 const authRequiredState: ActionState = {
   ok: false,
@@ -130,6 +172,7 @@ function revalidateAppShell() {
   revalidatePath("/profile");
   revalidatePath("/admin/settings");
   revalidatePath("/songs");
+  revalidatePath("/dance");
 }
 
 type MutationContext = Extract<Awaited<ReturnType<typeof getMutationContext>>, { ok: true }>;
@@ -350,6 +393,8 @@ export async function createTeamAction(formData: FormData) {
   const name = teamNameSchema.parse(formData.get("name") ?? "Anointed Worship");
   const location = formData.get("location") as string || "";
   const serviceTime = formData.get("serviceTime") as string || "9:00 AM";
+  const ministryRole = normalizeJoinableRole(formData.get("role"));
+  const ministry = ministryLabelForRole(ministryRole);
 
   if (!hasSupabaseEnv()) {
     redirect("/login?error=config");
@@ -376,6 +421,7 @@ export async function createTeamAction(formData: FormData) {
   }
 
   let createdTeamId: string | null = null;
+  let createdTeamMemberId: string | null = null;
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const code = generateTeamCode(name, `${profileId}:${Date.now()}:${attempt}`);
@@ -391,6 +437,7 @@ export async function createTeamAction(formData: FormData) {
 
     if (!error && data) {
       createdTeamId = data.team_id;
+      createdTeamMemberId = data.team_member_id;
       break;
     }
 
@@ -402,6 +449,18 @@ export async function createTeamAction(formData: FormData) {
 
   if (!createdTeamId) {
     redirect("/teams/new?error=code");
+  }
+
+  if (createdTeamMemberId) {
+    const { error: ministryError } = await supabase
+      .from("team_members")
+      .update({ ministry })
+      .eq("id", createdTeamMemberId)
+      .eq("team_id", createdTeamId);
+
+    if (ministryError) {
+      console.warn("Owner ministry role could not be saved:", ministryError.message);
+    }
   }
 
   revalidatePath("/dashboard");
@@ -453,14 +512,26 @@ export async function joinTeamAction(formData: FormData) {
 
     if (!teamExists) {
       await supabase.from("team_members").delete().eq("id", membership.id);
+    } else {
+      redirect("/dashboard");
     }
   }
 
+  const { data: existingPendingRequest } = await supabase
+    .from("join_requests")
+    .select("id")
+    .eq("profile_id", profileId)
+    .eq("status", "pending")
+    .limit(1)
+    .maybeSingle();
+
+  if (existingPendingRequest) {
+    redirect("/pending");
+  }
+
   const code = joinCodeSchema.parse(formData.get("code"));
-  const roleInput = formData.get("role") as string;
-  const requestedRole = (["member", "worship_leader", "band_member", "media", "dancer", "pastor"].includes(roleInput)
-    ? roleInput
-    : "member") as TeamRole;
+  const roleInput = normalizeJoinableRole(formData.get("role"));
+  const requestedRole = roleInput as TeamRole;
 
   const normalizedCode = code.trim().toUpperCase();
   let team = null;
@@ -501,20 +572,7 @@ export async function joinTeamAction(formData: FormData) {
   const isMockTeam = ["DM-10001", "DM-10002", "DM-10003"].includes(normalizedCode);
 
   if (isMockTeam) {
-    let ministry = "Worship Leader";
-    if (roleInput === "band_member") {
-      ministry = "Electric Guitarist";
-    } else if (roleInput === "worship_leader") {
-      ministry = "Worship Leader";
-    } else if (roleInput === "media") {
-      ministry = "Media & Tech";
-    } else if (roleInput === "dancer") {
-      ministry = "Dance Ministry";
-    } else if (roleInput === "pastor") {
-      ministry = "Pastor";
-    } else if (roleInput === "member") {
-      ministry = "Backup Singer";
-    }
+    const ministry = ministryLabelForRole(roleInput);
 
     const { error: memberError } = await supabase.from("team_members").insert({
       team_id: team.id,
@@ -549,6 +607,107 @@ export async function joinTeamAction(formData: FormData) {
 
     redirect("/pending");
   }
+}
+
+export async function getPendingJoinRequestStatusAction(): Promise<{
+  status: "active" | "pending" | "approved" | "rejected" | "canceled" | "none";
+}> {
+  if (!hasSupabaseEnv()) {
+    return { status: "pending" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { status: "none" };
+  }
+
+  const { data: membership } = await supabase
+    .from("team_members")
+    .select("id, team_id")
+    .eq("profile_id", user.id)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (membership?.team_id) {
+    const { data: team } = await supabase.from("teams").select("id").eq("id", membership.team_id).maybeSingle();
+    if (team) {
+      return { status: "active" };
+    }
+  }
+
+  const { data: request } = await supabase
+    .from("join_requests")
+    .select("status")
+    .eq("profile_id", user.id)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return { status: request?.status ?? "none" };
+}
+
+export async function cancelJoinRequestAction(formData: FormData): Promise<ActionState> {
+  const parsed = z.object({ requestId: z.string().min(1) }).safeParse({
+    requestId: formData.get("requestId"),
+  });
+
+  if (!parsed.success) {
+    return validationState(parsed.error);
+  }
+
+  if (!hasSupabaseEnv()) {
+    return { ok: true, message: "Demo request canceled." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return authRequiredState;
+  }
+
+  const { data: request, error: requestError } = await supabase
+    .from("join_requests")
+    .select("id, status")
+    .eq("id", parsed.data.requestId)
+    .eq("profile_id", user.id)
+    .maybeSingle();
+
+  if (requestError || !request) {
+    return { ok: false, message: "Join request could not be found." };
+  }
+
+  if (request.status !== "pending") {
+    return { ok: false, message: "Only pending join requests can be canceled." };
+  }
+
+  const { error } = await supabase
+    .from("join_requests")
+    .update({ status: "canceled", reviewed_by: null, reviewed_at: new Date().toISOString() })
+    .eq("id", parsed.data.requestId)
+    .eq("profile_id", user.id)
+    .eq("status", "pending");
+
+  if (error) {
+    return { ok: false, message: "Join request could not be canceled." };
+  }
+
+  revalidatePath("/pending");
+  revalidatePath("/teams");
+  revalidatePath("/teams/join");
+  revalidatePath("/members");
+  revalidatePath("/members/requests");
+  revalidatePath("/dashboard");
+
+  return { ok: true, message: "Join request canceled." };
 }
 
 type ParsedSetlistInput = z.infer<typeof setlistInputSchema>;
@@ -1840,6 +1999,45 @@ export async function toggleSongFavoriteAction(formData: FormData): Promise<Acti
   return { ok: true, message: "Favorite removed." };
 }
 
+export async function createDanceChartAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = danceChartInputSchema.safeParse({
+    title: formString(formData, "title"),
+    songId: formString(formData, "songId"),
+    eventId: formString(formData, "eventId"),
+    choreographyNotes: formString(formData, "choreographyNotes"),
+    formationNotes: formString(formData, "formationNotes"),
+    outfitNotes: formString(formData, "outfitNotes"),
+  });
+
+  if (!parsed.success) {
+    return validationState(parsed.error);
+  }
+
+  const context = await getMutationContext("dance_notes.manage");
+  if (!context.ok) {
+    return context.state;
+  }
+
+  const { error } = await context.supabase.from("dance_notes").insert({
+    team_id: context.teamId,
+    song_id: parsed.data.songId ?? null,
+    event_id: parsed.data.eventId ?? null,
+    title: parsed.data.title,
+    choreography_notes: parsed.data.choreographyNotes,
+    formation_notes: parsed.data.formationNotes || null,
+    outfit_notes: parsed.data.outfitNotes || null,
+    created_by: context.userId,
+  });
+
+  if (error) {
+    return { ok: false, message: "Dance chart could not be saved." };
+  }
+
+  revalidatePath("/dance");
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Dance chart saved." };
+}
+
 export async function updateChannelPreferenceAction(formData: FormData): Promise<ActionState> {
   const channelId = formString(formData, "channelId");
   const muted = formString(formData, "muted") === "true";
@@ -1946,17 +2144,14 @@ export async function reviewJoinRequestWithStateAction(formData: FormData): Prom
     .select("team_id, profile_id, requested_role")
     .eq("id", parsed.data.requestId)
     .eq("team_id", context.teamId)
+    .eq("status", "pending")
     .maybeSingle();
 
-  const { error } = await context.supabase
-    .from("join_requests")
-    .update({ status: parsed.data.decision, reviewed_by: context.userId, reviewed_at: new Date().toISOString() })
-    .eq("id", parsed.data.requestId)
-    .eq("team_id", context.teamId);
-
-  if (error || !request) {
+  if (!request) {
     return { ok: false, message: "Join request could not be reviewed." };
   }
+
+  const reviewedAt = new Date().toISOString();
 
   if (parsed.data.decision === "approved") {
     const { data: approvedMember, error: memberError } = await context.supabase
@@ -1967,6 +2162,7 @@ export async function reviewJoinRequestWithStateAction(formData: FormData): Prom
           profile_id: request.profile_id,
           role: request.requested_role,
           status: "active",
+          ministry: ministryLabelForRole(request.requested_role),
         },
         { onConflict: "team_id,profile_id" },
       )
@@ -1998,10 +2194,22 @@ export async function reviewJoinRequestWithStateAction(formData: FormData): Prom
     }
   }
 
+  const { error } = await context.supabase
+    .from("join_requests")
+    .update({ status: parsed.data.decision, reviewed_by: context.userId, reviewed_at: reviewedAt })
+    .eq("id", parsed.data.requestId)
+    .eq("team_id", context.teamId)
+    .eq("status", "pending");
+
+  if (error) {
+    return { ok: false, message: "Join request could not be reviewed." };
+  }
+
   revalidatePath("/members");
   revalidatePath("/members/requests");
   revalidatePath("/dashboard");
   revalidatePath("/messages");
+  revalidatePath("/pending");
 
   return {
     ok: true,
@@ -2061,7 +2269,6 @@ export async function updateProfileAction(_previous: ActionState, formData: Form
   const parsed = profileInputSchema.safeParse({
     fullName: formString(formData, "fullName"),
     primaryRole: formString(formData, "primaryRole"),
-    avatarUrl: formString(formData, "avatarUrl"),
   });
 
   if (!parsed.success) {
@@ -2073,10 +2280,7 @@ export async function updateProfileAction(_previous: ActionState, formData: Form
     return { ...context.state, message: "Profile save requires sign-in." };
   }
 
-  const { error: profileError } = await context.supabase.from("profiles").update({ 
-    full_name: parsed.data.fullName,
-    avatar_url: parsed.data.avatarUrl || null
-  }).eq("id", context.userId);
+  const { error: profileError } = await context.supabase.from("profiles").update({ full_name: parsed.data.fullName }).eq("id", context.userId);
   const { error: memberError } = await context.supabase
     .from("team_members")
     .update({ ministry: parsed.data.primaryRole })
@@ -2089,6 +2293,36 @@ export async function updateProfileAction(_previous: ActionState, formData: Form
   revalidatePath("/profile");
   revalidatePath("/members");
   return { ok: true, message: "Profile saved." };
+}
+
+export async function updateProfilePhotoAction(formData: FormData): Promise<ActionState> {
+  const parsed = profileAvatarUrlSchema.safeParse(formData.get("avatarUrl"));
+
+  if (!parsed.success) {
+    return validationState(parsed.error);
+  }
+
+  const context = await getMutationContext();
+  if (!context.ok) {
+    return { ...context.state, message: "Profile photo upload requires sign-in." };
+  }
+
+  const { data, error } = await context.supabase
+    .from("profiles")
+    .update({ avatar_url: parsed.data })
+    .eq("id", context.userId)
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    return { ok: false, message: "Profile photo could not be saved." };
+  }
+
+  revalidatePath("/profile");
+  revalidatePath("/members");
+  revalidatePath("/messages");
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Profile photo updated." };
 }
 
 export async function updateTeamSettingsAction(_previous: ActionState, formData: FormData): Promise<ActionState> {

@@ -18,6 +18,16 @@ const mimeTypesByExtension = new Map([
   [".png", "image/png"],
 ]);
 const maxUploadBytes = 15 * 1024 * 1024;
+const allowedAvatarTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const allowedAvatarExtensions = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+const avatarExtensionByMimeType = new Map([
+  ["image/jpeg", ".jpg"],
+  ["image/png", ".png"],
+  ["image/webp", ".webp"],
+]);
+const maxAvatarBytes = 5 * 1024 * 1024;
+
+export const profileAvatarBucket = "profile-avatars";
 
 function extensionFor(filename: string) {
   return filename.toLowerCase().match(/\.[^.]+$/)?.[0] ?? "";
@@ -77,4 +87,27 @@ export function fileKindLabel(mimeType: string | null | undefined, filename: str
 export function storagePath(teamId: string, category: string, objectId: string, filename: string) {
   const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "-");
   return `${teamId}/${category}/${objectId}/${safeFilename}`;
+}
+
+export function validateProfileAvatar(file: Pick<File, "name" | "size" | "type">) {
+  const extension = extensionFor(file.name);
+
+  if (file.size > maxAvatarBytes) {
+    return { valid: false, reason: "Profile photos must be 5 MB or smaller." };
+  }
+
+  if (!allowedAvatarExtensions.has(extension)) {
+    return { valid: false, reason: "Use a JPG, PNG, or WebP image." };
+  }
+
+  if (file.type && !allowedAvatarTypes.has(file.type)) {
+    return { valid: false, reason: "Use a JPG, PNG, or WebP image." };
+  }
+
+  return { valid: true, reason: null };
+}
+
+export function profileAvatarStoragePath(userId: string, objectId: string, file: Pick<File, "name" | "type">) {
+  const extension = avatarExtensionByMimeType.get(file.type) || extensionFor(file.name) || ".jpg";
+  return `${userId}/${objectId}${extension === ".jpeg" ? ".jpg" : extension}`;
 }

@@ -12,7 +12,15 @@ const baseNotifications = [
   { title: "Attendance reminder", body: "Confirm availability before Friday.", href: "/reminders" },
 ];
 
-export function AppShellActions({ userId, teamId }: { userId: string | null; teamId: string | null }) {
+export function AppShellActions({
+  userId,
+  teamId,
+  canManageTeam = false,
+}: {
+  userId: string | null;
+  teamId: string | null;
+  canManageTeam?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [pendingRequestCount, setPendingRequestCount] = useState(0);
   const [unreadReminderCount, setUnreadReminderCount] = useState(0);
@@ -74,7 +82,7 @@ export function AppShellActions({ userId, teamId }: { userId: string | null; tea
   }, [userId, teamId]);
 
   useEffect(() => {
-    if (!teamId || !userId) return;
+    if (!teamId || !userId || !canManageTeam) return;
 
     const activeTeamId = teamId;
     const supabase = createClient();
@@ -109,7 +117,7 @@ export function AppShellActions({ userId, teamId }: { userId: string | null; tea
       active = false;
       supabase.removeChannel(channel);
     };
-  }, [teamId, userId]);
+  }, [teamId, userId, canManageTeam]);
 
   useEffect(() => {
     if (!teamId || !userId) return;
@@ -194,13 +202,15 @@ export function AppShellActions({ userId, teamId }: { userId: string | null; tea
           </Link>
         </div>
       )}
-      <Link
-        href="/admin/settings"
-        aria-label="Open settings"
-        className="inline-flex size-9 items-center justify-center rounded-md text-zinc-300 transition hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-violet-300"
-      >
-        <Settings className="size-5" />
-      </Link>
+      {canManageTeam ? (
+        <Link
+          href="/admin/settings"
+          aria-label="Open settings"
+          className="inline-flex size-9 items-center justify-center rounded-md text-zinc-300 transition hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-violet-300"
+        >
+          <Settings className="size-5" />
+        </Link>
+      ) : null}
     </div>
   );
 }

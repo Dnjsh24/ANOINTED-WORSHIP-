@@ -7,7 +7,7 @@ import { appName } from "@/lib/sample-data";
 export default async function PendingPage() {
   // If Supabase is not configured, render demo/static page
   if (!hasSupabaseEnv()) {
-    return <PendingClient userId="demo-user" initialTeamName={appName} />;
+    return <PendingClient userId="demo-user" requestId="demo-request" initialTeamName={appName} />;
   }
 
   const supabase = await createClient();
@@ -43,9 +43,10 @@ export default async function PendingPage() {
   // 2. Check if user has a pending join request
   const { data: request } = await supabase
     .from("join_requests")
-    .select("team_id")
+    .select("id, team_id, requested_role, created_at")
     .eq("profile_id", user.id)
     .eq("status", "pending")
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -57,12 +58,21 @@ export default async function PendingPage() {
   // 3. Fetch the team name
   const { data: team } = await supabase
     .from("teams")
-    .select("name")
+    .select("name, code")
     .eq("id", request.team_id)
     .limit(1)
     .maybeSingle();
 
   const teamName = team?.name ?? appName;
 
-  return <PendingClient userId={user.id} initialTeamName={teamName} />;
+  return (
+    <PendingClient
+      userId={user.id}
+      requestId={request.id}
+      initialTeamName={teamName}
+      requestedRole={request.requested_role}
+      requestedAt={request.created_at}
+      teamCode={team?.code ?? null}
+    />
+  );
 }

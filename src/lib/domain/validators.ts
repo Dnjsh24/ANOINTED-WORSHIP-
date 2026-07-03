@@ -23,6 +23,20 @@ export const songInputSchema = z.object({
   lyrics: z.string().trim().min(1).max(20000),
 });
 
+const optionalUuidSchema = z
+  .union([z.string().trim().uuid(), z.literal("")])
+  .optional()
+  .transform((value) => (value ? value : undefined));
+
+export const danceChartInputSchema = z.object({
+  title: z.string().trim().min(1, "Chart title is required").max(160),
+  songId: optionalUuidSchema,
+  eventId: optionalUuidSchema,
+  choreographyNotes: z.string().trim().min(1, "Dance or tambourine steps are required").max(6000),
+  formationNotes: z.string().trim().max(3000).optional(),
+  outfitNotes: z.string().trim().max(2000).optional(),
+});
+
 export const attendanceSchema = z.object({
   eventId: z.string().uuid().or(z.string().min(1)),
   status: z.enum(["available", "maybe", "unavailable"]),

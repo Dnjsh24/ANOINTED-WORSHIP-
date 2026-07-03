@@ -1,8 +1,22 @@
 import { Check, Music2, Users } from "lucide-react";
 import Link from "next/link";
-import { ButtonLink } from "@/components/ui/button";
+import { redirect } from "next/navigation";
+import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { getCurrentTeamContext } from "@/lib/supabase/team-context";
 
-export default function TeamsPage() {
+export default async function TeamsPage() {
+  if (hasSupabaseEnv()) {
+    const teamContext = await getCurrentTeamContext();
+
+    if (teamContext.teamId) {
+      redirect("/dashboard");
+    }
+
+    if (teamContext.hasPendingJoinRequest) {
+      redirect("/pending");
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#0d0c12] text-white relative overflow-hidden">
       {/* Background glow */}

@@ -3,6 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { SongLibraryGrid } from "@/components/song-library-grid";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
+import { can } from "@/lib/domain/rbac";
 import { songs as sampleSongs } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -54,7 +55,7 @@ export default async function SongsPage() {
             <Badge>Total Songs</Badge>
             <p className="mt-2 text-3xl font-bold">{totalSongsCount}</p>
           </div>
-          {teamContext.role !== "member" && (
+          {can(teamContext.role, "songs.create") && (
             <ButtonLink href="/songs/new">
               <Plus className="size-4" />
               Add New Song

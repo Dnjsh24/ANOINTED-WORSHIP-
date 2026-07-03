@@ -12,7 +12,7 @@ export const teamRoles = [
 
 export type TeamRole = (typeof teamRoles)[number];
 
-export type JoinRequestStatus = "pending" | "approved" | "rejected";
+export type JoinRequestStatus = "pending" | "approved" | "rejected" | "canceled";
 export type AttendanceStatus = "available" | "maybe" | "unavailable" | "pending";
 export type EventType = "service" | "rehearsal" | "meeting" | "special_event";
 export type EventApprovalStatus = "pending" | "approved" | "rejected";

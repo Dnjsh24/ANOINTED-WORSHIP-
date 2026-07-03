@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   announcementInputSchema,
+  danceChartInputSchema,
   eventInputSchema,
   inviteMemberSchema,
   joinCodeSchema,
@@ -32,6 +33,29 @@ describe("validators", () => {
         lyrics: "F\nSample lyric",
       }),
     ).toMatchObject({ bpm: 66 });
+  });
+
+  it("validates dance chart input for choreography notes", () => {
+    expect(
+      danceChartInputSchema.parse({
+        title: "Tambourine pattern",
+        songId: "",
+        eventId: "",
+        choreographyNotes: "Verse: step right, tap left. Chorus: tambourine up/down pattern.",
+        formationNotes: "Two rows, dancers 1 and 2 front.",
+      }),
+    ).toMatchObject({
+      title: "Tambourine pattern",
+      songId: undefined,
+      eventId: undefined,
+    });
+
+    expect(() =>
+      danceChartInputSchema.parse({
+        title: "Missing steps",
+        choreographyNotes: "",
+      }),
+    ).toThrow();
   });
 
   it("validates setlist forms with required ministry scheduling fields", () => {

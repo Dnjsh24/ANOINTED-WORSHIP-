@@ -1,5 +1,5 @@
 import { Mail, Music, Shield } from "lucide-react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,11 @@ import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 export default async function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
+
+  if (!teamContext.canManageMembers) {
+    redirect("/dashboard");
+  }
+
   let member =
     members.find((item) => item.id === id) ??
     members.find((item) => item.profile.fullName.toLowerCase().replaceAll(" ", "-").replaceAll(".", "") === id) ??

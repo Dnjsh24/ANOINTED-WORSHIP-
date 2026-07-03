@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock,
+  Footprints,
   Folder,
   Info,
   MapPin,
@@ -18,6 +19,7 @@ import {
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
+import { can } from "@/lib/domain/rbac";
 import { currentUser as sampleUser, events, setlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -260,6 +262,7 @@ export default async function DashboardPage() {
   }
 
   const isAdminOrOwner = teamContext.role === "owner" || teamContext.role === "admin";
+  const canManageDanceCharts = can(teamContext.role, "dance_notes.manage");
   const firstName = userFullName.split(" ")[0];
 
   const nextDateLabel = nextSetlist?.date
@@ -270,10 +273,15 @@ export default async function DashboardPage() {
     { href: "/setlists", label: "Setlists", sub: "View and manage", icon: Music },
     { href: "/events", label: "Timeline", sub: "Team schedule", icon: CalendarDays },
     { href: "/messages", label: "Messages", sub: "Team communication", icon: MessageSquare },
-    { href: "/members", label: "Members", sub: "Roster & availability", icon: Users },
+    ...(teamContext.canManageMembers ? [{ href: "/members", label: "Members", sub: "Roster & availability", icon: Users }] : []),
+    ...(canManageDanceCharts ? [{ href: "/dance", label: "Dance Charts", sub: "Steps & tambourine", icon: Footprints }] : []),
     { href: "/songs", label: "Files", sub: "Shared documents", icon: Folder },
-    { href: "/admin/settings", label: "Reports", sub: "Team insights", icon: BarChart3 },
-    { href: "/admin/settings", label: "Team Settings", sub: "Roles & permissions", icon: Settings },
+    ...(teamContext.canManageMembers
+      ? [
+          { href: "/admin/settings", label: "Reports", sub: "Team insights", icon: BarChart3 },
+          { href: "/admin/settings", label: "Team Settings", sub: "Roles & permissions", icon: Settings },
+        ]
+      : []),
   ];
 
   return (

@@ -87,7 +87,7 @@ export default async function ProfilePage() {
         <Panel>
           <h2 className="text-2xl font-bold">Profile Settings</h2>
           <div className="mt-6">
-            <ProfileForm fullName={fullName} email={email} primaryRole={primaryRole} avatarUrl={avatarUrl} />
+            <ProfileForm fullName={fullName} email={email} primaryRole={primaryRole} />
           </div>
         </Panel>
       </div>

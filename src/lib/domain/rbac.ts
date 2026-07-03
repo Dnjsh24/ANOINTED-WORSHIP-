@@ -43,6 +43,7 @@ const permissionsByRole: Record<TeamRole, Permission[]> = {
     "events.review",
     "songs.review",
     "setlists.manage",
+    "dance_notes.manage",
     "files.upload",
     "attendance.confirm",
     "messages.send",
@@ -102,10 +103,17 @@ export function canReviewEventRequests(role: TeamRole) {
 }
 
 export function visibleNavigation(role: TeamRole) {
-  const base = ["home", "setlists", "events", "messages", "profile"];
+  const base = [
+    "home",
+    "setlists",
+    "events",
+    ...(can(role, "dance_notes.manage") ? ["dance"] : []),
+    "messages",
+    "profile",
+  ];
 
   if (can(role, "members.manage")) {
-    return [...base.slice(0, 4), "members", ...base.slice(4)];
+    return [...base.slice(0, -1), "members", ...base.slice(-1)];
   }
 
   return base;

@@ -2,6 +2,7 @@
 
 import {
   CalendarDays,
+  Footprints,
   Folder,
   LayoutDashboard,
   MessageSquare,
@@ -22,25 +23,72 @@ export interface MobileNavigationItem {
   label: string;
 }
 
-export function MobileIconRail({ active, items }: { active: string; items: MobileNavigationItem[] }) {
+type MobileTab = {
+  id: string;
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+};
+
+export function MobileIconRail({
+  active,
+  items,
+  canManageTeam = false,
+  canManageDance = false,
+}: {
+  active: string;
+  items: MobileNavigationItem[];
+  canManageTeam?: boolean;
+  canManageDance?: boolean;
+}) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   // Determine active tab name
   const activeLabel = active.toLowerCase();
 
   // Define tab configuration
+  const iconById = {
+    home: LayoutDashboard,
+    setlists: Music,
+    events: CalendarDays,
+    dance: Footprints,
+    messages: MessageSquare,
+    members: Users,
+    profile: User,
+  } as const;
+
+  const itemById = new Map(items.map((item) => [item.id, item]));
+
+  const makeTab = (id: keyof typeof iconById, fallbackLabel: string, fallbackHref: string): MobileTab => {
+    const item = itemById.get(id);
+    return {
+      id,
+      href: item?.href ?? fallbackHref,
+      label: item?.label ?? fallbackLabel,
+      icon: iconById[id],
+    };
+  };
+
   const defaultTabs = [
-    { id: "home", href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "setlists", href: "/setlists", label: "Setlists", icon: Music },
-    { id: "messages", href: "/messages", label: "Messages", icon: MessageSquare },
+    makeTab("home", "Dashboard", "/dashboard"),
+    makeTab("setlists", "Setlists", "/setlists"),
+    makeTab("messages", "Messages", "/messages"),
   ];
 
   // Dynamically place the 4th tab based on context
-  let fourthTab = { id: "members", href: "/members", label: "Members", icon: Users };
+  let fourthTab: MobileTab = itemById.has("events")
+    ? makeTab("events", "Events", "/events")
+    : makeTab("profile", "Profile", "/profile");
   if (activeLabel === "songs" || activeLabel === "files") {
     fourthTab = { id: "songs", href: "/songs", label: "Songs", icon: Folder };
   } else if (activeLabel === "timeline" || activeLabel === "events") {
-    fourthTab = { id: "events", href: "/events", label: "Events", icon: CalendarDays };
+    fourthTab = makeTab("events", "Events", "/events");
+  } else if (activeLabel === "dance charts" || activeLabel === "dance") {
+    fourthTab = makeTab("dance", "Dance", "/dance");
+  } else if (itemById.has("members")) {
+    fourthTab = makeTab("members", "Members", "/members");
+  } else if (itemById.has("dance")) {
+    fourthTab = makeTab("dance", "Dance", "/dance");
   }
 
   // The 5th tab is "More"
@@ -50,8 +98,9 @@ export function MobileIconRail({ active, items }: { active: string; items: Mobil
   const moreMenuLinks = [
     { href: "/songs", label: "Songs & Files", icon: Folder },
     { href: "/events", label: "Timeline Events", icon: CalendarDays },
+    ...(canManageDance ? [{ href: "/dance", label: "Dance Charts", icon: Footprints }] : []),
     { href: "/profile", label: "My Profile", icon: User },
-    { href: "/admin/settings", label: "Team Settings", icon: Settings },
+    ...(canManageTeam ? [{ href: "/admin/settings", label: "Team Settings", icon: Settings }] : []),
   ];
 
   function toggleMoreMenu() {

@@ -22,12 +22,10 @@ export function ProfileForm({
   fullName,
   email,
   primaryRole,
-  avatarUrl,
 }: {
   fullName: string;
   email: string;
   primaryRole: string;
-  avatarUrl: string | null;
 }) {
   const [state, formAction] = useActionState(updateProfileAction, initialActionState);
   const [phone, setPhone] = useState("(555) 555-0123");
@@ -88,7 +86,6 @@ export function ProfileForm({
             </div>
           </label>
           <input type="hidden" name="primaryRole" value={primaryRole} />
-          <input type="hidden" name="avatarUrl" value={avatarUrl ?? ""} />
         </div>
       </div>
 

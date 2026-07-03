@@ -1,10 +1,16 @@
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { SongForm } from "@/components/song-form";
 import { Panel } from "@/components/ui/card";
+import { can } from "@/lib/domain/rbac";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 
 export default async function NewSongPage() {
   const teamContext = await getRequiredTeamContext();
+
+  if (!can(teamContext.role, "songs.create")) {
+    redirect("/songs");
+  }
 
   return (
     <AppShell active="Song Library" teamContext={teamContext}>

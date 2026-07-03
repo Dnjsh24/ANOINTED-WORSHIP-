@@ -54,6 +54,14 @@ const realtimeMessagesMigration = readFileSync(
   join(process.cwd(), "supabase", "migrations", "20260703040000_enable_realtime_messages.sql"),
   "utf8",
 );
+const profileAvatarStorageMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260704000000_profile_avatar_storage.sql"),
+  "utf8",
+);
+const cancelJoinRequestsMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260704010000_cancel_join_requests.sql"),
+  "utf8",
+);
 
 const requiredTables = [
   "profiles",
@@ -92,6 +100,13 @@ describe("Supabase migration", () => {
     expect(migration).toContain("private.has_team_role");
     expect(migration).toContain("storage.buckets");
     expect(migration).toContain("practice-files");
+  });
+
+  it("adds profile avatar storage with owner-scoped writes", () => {
+    expect(profileAvatarStorageMigration).toContain("profile-avatars");
+    expect(profileAvatarStorageMigration).toContain("Public can read profile avatars");
+    expect(profileAvatarStorageMigration).toContain("Users can upload own profile avatars");
+    expect(profileAvatarStorageMigration).toContain("(storage.foldername(name))[1] = (select auth.uid())::text");
   });
 
   it("indexes policy-critical membership columns", () => {
@@ -191,5 +206,15 @@ describe("Supabase migration", () => {
     expect(realtimeMessagesMigration).toContain("alter publication supabase_realtime add table public.messages");
     expect(realtimeMessagesMigration).toContain("alter publication supabase_realtime add table public.message_channel_members");
     expect(realtimeMessagesMigration).toContain("pg_publication_tables");
+  });
+
+  it("allows users to cancel their own pending join requests and notifies admins", () => {
+    expect(cancelJoinRequestsMigration).toContain("add value if not exists 'canceled'");
+    expect(cancelJoinRequestsMigration).toContain("Users can cancel own pending join requests");
+    expect(cancelJoinRequestsMigration).toContain("status::text = 'pending'");
+    expect(cancelJoinRequestsMigration).toContain("status::text = 'canceled'");
+    expect(cancelJoinRequestsMigration).toContain("notify_join_request_canceled");
+    expect(cancelJoinRequestsMigration).toContain("insert into public.notifications");
+    expect(cancelJoinRequestsMigration).toContain("'Join request canceled'");
   });
 });
