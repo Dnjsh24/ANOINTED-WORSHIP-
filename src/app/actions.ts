@@ -1600,19 +1600,30 @@ export async function sendMessageAction(formData: FormData): Promise<ActionState
     }
   }
 
-  const { error } = await context.supabase.from("messages").insert({
-    channel_id: parsed.data.channelId,
-    sender_member_id: context.memberId,
-    body: parsed.data.body,
-    attachment_file_id: attachmentFileId,
-  });
+  const { data, error } = await context.supabase
+    .from("messages")
+    .insert({
+      channel_id: parsed.data.channelId,
+      sender_member_id: context.memberId,
+      body: parsed.data.body,
+      attachment_file_id: attachmentFileId,
+    })
+    .select("id, created_at")
+    .single();
 
-  if (error) {
+  if (error || !data) {
     return { ok: false, message: "Message could not be sent." };
   }
 
   revalidatePath("/messages");
-  return { ok: true, message: "Message sent." };
+  return {
+    ok: true,
+    message: "Message sent.",
+    data: {
+      messageId: data.id,
+      createdAt: data.created_at,
+    },
+  };
 }
 export async function createChannelAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const name = z.string().trim().min(1).max(80).safeParse(formData.get("name"));

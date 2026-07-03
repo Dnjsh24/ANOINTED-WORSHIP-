@@ -50,6 +50,10 @@ const teamWorkspaceTemplateConflictMigration = readFileSync(
   join(process.cwd(), "supabase", "migrations", "20260703030000_fix_create_team_workspace_template_conflict.sql"),
   "utf8",
 );
+const realtimeMessagesMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260703040000_enable_realtime_messages.sql"),
+  "utf8",
+);
 
 const requiredTables = [
   "profiles",
@@ -181,5 +185,11 @@ describe("Supabase migration", () => {
       "on conflict on constraint service_templates_team_id_name_key do nothing",
     );
     expect(teamWorkspaceTemplateConflictMigration).not.toContain("on conflict (team_id, name) do nothing");
+  });
+
+  it("enables realtime delivery for message inserts and channel memberships", () => {
+    expect(realtimeMessagesMigration).toContain("alter publication supabase_realtime add table public.messages");
+    expect(realtimeMessagesMigration).toContain("alter publication supabase_realtime add table public.message_channel_members");
+    expect(realtimeMessagesMigration).toContain("pg_publication_tables");
   });
 });

@@ -2,6 +2,7 @@
 
 import { Download, FileText, Image as ImageIcon, Menu, MoreVertical, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { addChannelMemberAction, createChannelAction, getOrCreateDirectChannelAction, leaveChannelAction, removeChannelMemberAction, sendMessageAction, updateChannelPreferenceAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
@@ -70,6 +71,7 @@ export function MessagesClient({
   role: string;
   allChannelMemberships?: ChannelMembership[];
 }) {
+  const router = useRouter();
   const [activeChannelId, setActiveChannelId] = useState(channels[0]?.id || "");
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [channelList, setChannelList] = useState(channels);
@@ -153,6 +155,9 @@ export function MessagesClient({
   const teamMembersRef = useRef(teamMembers);
   useEffect(() => { teamMembersRef.current = teamMembers; }, [teamMembers]);
 
+  const channelListRef = useRef(channelList);
+  useEffect(() => { channelListRef.current = channelList; }, [channelList]);
+
   const currentMemberIdRef = useRef(currentMemberId);
   useEffect(() => { currentMemberIdRef.current = currentMemberId; }, [currentMemberId]);
 
@@ -175,15 +180,11 @@ export function MessagesClient({
             created_at: string;
           };
 
-          // Skip if I sent it (already added locally)
-          if (newMessage.sender_member_id === currentMemberIdRef.current) {
-            return;
-          }
-
           const sender = teamMembersRef.current.find(
             (m) => m.memberId === newMessage.sender_member_id
           );
-          const authorName = sender ? sender.fullName : "Unknown Member";
+          const mine = newMessage.sender_member_id === currentMemberIdRef.current;
+          const authorName = mine ? "You" : sender ? sender.fullName : "Unknown Member";
           let attachment: AttachmentDetails | undefined;
 
           if (newMessage.attachment_file_id) {
@@ -218,23 +219,32 @@ export function MessagesClient({
               hour: "numeric",
               minute: "2-digit",
             }),
-            mine: false,
+            mine,
             attachment,
           };
 
-          setChannelList((current) =>
-            current.map((chan) =>
-              chan.id === newMessage.channel_id
-                ? {
-                    ...chan,
-                    preview: `${authorName}: ${newMessage.body}`,
-                    messages: chan.messages.some((m) => m.id === formattedMessage.id)
-                      ? chan.messages
-                      : [...chan.messages, formattedMessage],
-                  }
-                : chan
-            )
+          const matchedChannel = channelListRef.current.some(
+            (chan) => chan.id === newMessage.channel_id
           );
+          setChannelList((current) =>
+            current.map((chan) => {
+              if (chan.id !== newMessage.channel_id) {
+                return chan;
+              }
+
+              return {
+                ...chan,
+                preview: `${authorName}: ${newMessage.body}`,
+                messages: chan.messages.some((m) => m.id === formattedMessage.id)
+                  ? chan.messages
+                  : [...chan.messages, formattedMessage],
+              };
+            })
+          );
+
+          if (!matchedChannel) {
+            router.refresh();
+          }
 
           // Scroll to bottom after state update
           setTimeout(() => {
@@ -245,14 +255,15 @@ export function MessagesClient({
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           console.log("[Realtime] Connected to messages channel");
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setStatus("Live messages disconnected. Reconnecting when the network is ready.");
         }
       });
 
     return () => {
       supabase.removeChannel(realtimeChannel);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dep array — subscribe once, use refs for fresh data
+  }, [router]);
 
   // Sync channel list when server re-fetches (e.g. navigation)
   useEffect(() => {
@@ -262,12 +273,14 @@ export function MessagesClient({
     }
   }, [channels]);
 
+  const activeChannel = channelList.find((channel) => channel.id === activeChannelId) ?? channelList[0] ?? { id: "", name: "No Channel", membersOnline: 0, preview: "", messages: [] };
+  const activeMessageCount = activeChannel.messages.length;
+
   // Auto-scroll to bottom when active channel or its messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeChannelId]);
+  }, [activeChannelId, activeMessageCount]);
 
-  const activeChannel = channelList.find((channel) => channel.id === activeChannelId) ?? channelList[0] ?? { id: "", name: "No Channel", membersOnline: 0, preview: "", messages: [] };
   const activeChannelFiles = useMemo(() => {
     const seen = new Set<string>();
     return (activeChannel.messages || [])
@@ -302,7 +315,9 @@ export function MessagesClient({
           ? {
               ...channel,
               preview: `${nextMessage.author}: ${nextMessage.body}`,
-              messages: [...channel.messages, nextMessage],
+              messages: channel.messages.some((message) => message.id === nextMessage.id)
+                ? channel.messages
+                : [...channel.messages, nextMessage],
             }
           : channel,
       ),
@@ -502,11 +517,18 @@ export function MessagesClient({
         return;
       }
 
+      const messageId = typeof result.data?.messageId === "string" ? result.data.messageId : `local-${Date.now()}`;
+      const createdAtValue = typeof result.data?.createdAt === "string" ? result.data.createdAt : null;
       updateChannelMessages({
-        id: `local-${Date.now()}`,
+        id: messageId,
         author: "You",
         body,
-        createdAt: "Now",
+        createdAt: createdAtValue
+          ? new Date(createdAtValue).toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+            })
+          : "Now",
         mine: true,
         attachment: uploadedAttachment,
       });
