@@ -168,6 +168,17 @@ export function SetlistSongPicker({
               />
             </div>
           </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold text-zinc-300">YouTube Link (Optional)</span>
+            <div className="relative">
+              <input
+                name="youtubeUrl"
+                placeholder="https://youtube.com/watch?v=..."
+                className="w-full rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-xs font-semibold text-white focus:border-violet-400/50 focus:outline-none"
+              />
+            </div>
+          </label>
         </div>
       )}
 

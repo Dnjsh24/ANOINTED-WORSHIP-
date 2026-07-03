@@ -107,6 +107,7 @@ export const setlistSongInputSchema = z.object({
   assignedKey: z.string().trim().min(1).max(3),
   bpm: z.coerce.number().int().min(40).max(240).optional(),
   lead: z.string().trim().max(160).optional(),
+  youtubeUrl: z.string().trim().max(500).optional(),
 });
 
 export const eventInputSchema = z.object({

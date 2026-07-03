@@ -483,6 +483,7 @@ export interface Database {
           assigned_key: string;
           lead_member_id: string | null;
           notes: string | null;
+          youtube_url: string | null;
           created_at: string;
         };
         Insert: {
@@ -493,6 +494,7 @@ export interface Database {
           assigned_key: string;
           lead_member_id?: string | null;
           notes?: string | null;
+          youtube_url?: string | null;
           created_at?: string;
         };
         Update: {
@@ -500,6 +502,7 @@ export interface Database {
           assigned_key?: string;
           lead_member_id?: string | null;
           notes?: string | null;
+          youtube_url?: string | null;
         };
         Relationships: [];
       };

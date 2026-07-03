@@ -83,6 +83,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           order: ss.song_order,
           assignedKey: ss.assigned_key,
           lead: leadVocal,
+          youtubeUrl: ss.youtube_url || null,
           song: {
             id: ss.song?.id,
             title: ss.song?.title || "Unknown Song",
@@ -443,6 +444,27 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             )}
           </Panel>
 
+          {setlist.songs.filter((s: any) => s.youtubeUrl).length > 0 && (
+            <Panel className="card-hover h-fit">
+              <h2 className="text-lg font-bold">Practice Tools</h2>
+              <div className="mt-4 space-y-4">
+                {setlist.songs.filter((s: any) => s.youtubeUrl).map((item: any) => (
+                  <div key={item.id}>
+                    <p className="mb-2 text-sm font-bold text-zinc-300">{item.order}. {item.song.title}</p>
+                    <div className="relative aspect-video overflow-hidden rounded-lg">
+                      <iframe
+                        src={`https://www.youtube.com/embed/${extractYoutubeId(item.youtubeUrl)}`}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="absolute inset-0 size-full"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          )}
+
           <Panel className="card-hover h-fit">
             <h2 className="text-2xl font-bold text-violet-100">Team</h2>
             {teamAssignmentsList.length === 0 ? (
@@ -506,6 +528,11 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
       </section>
     </AppShell>
   );
+}
+
+function extractYoutubeId(url: string): string {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+  return match ? match[1] : "";
 }
 
 function formatHistoryDate(value: string) {

@@ -1171,6 +1171,7 @@ export async function addSetlistSongAction(_previous: ActionState, formData: For
     assignedKey: formString(formData, "assignedKey"),
     bpm: formString(formData, "bpm"),
     lead: formString(formData, "lead"),
+    youtubeUrl: formString(formData, "youtubeUrl"),
   });
 
   if (!parsed.success) {
@@ -1212,6 +1213,7 @@ export async function addSetlistSongAction(_previous: ActionState, formData: For
     song_order: (count ?? 0) + 1,
     assigned_key: parsed.data.assignedKey,
     notes: parsed.data.lead ? `Lead: ${parsed.data.lead}` : null,
+    youtube_url: parsed.data.youtubeUrl || null,
   });
 
   if (error) {
@@ -1227,6 +1229,7 @@ export async function addSetlistSongAction(_previous: ActionState, formData: For
       songTitle: song?.title ?? null,
       assignedKey: parsed.data.assignedKey,
       lead: parsed.data.lead ?? "",
+      youtubeUrl: parsed.data.youtubeUrl ?? "",
       order: (count ?? 0) + 1,
     },
   });
