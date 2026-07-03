@@ -766,6 +766,30 @@ export interface Database {
         };
         Relationships: [];
       };
+      feedback_reports: {
+        Row: {
+          id: string;
+          team_id: string;
+          profile_id: string;
+          report_type: "bug" | "improvement";
+          title: string;
+          description: string;
+          page_url: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          team_id: string;
+          profile_id: string;
+          report_type: "bug" | "improvement";
+          title: string;
+          description?: string;
+          page_url?: string;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

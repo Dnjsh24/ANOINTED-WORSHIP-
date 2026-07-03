@@ -7,9 +7,12 @@ import Link from "next/link";
 import { SettingsForm } from "@/components/settings-form";
 import { Card, Panel } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { timeAgo } from "@/lib/utils";
 import { deleteTeamAction, leaveTeamAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { initialActionState } from "@/lib/action-state";
+import { can, type Permission } from "@/lib/domain/rbac";
+import { teamRoles, type TeamRole } from "@/lib/types";
 
 const TABS = [
   { id: "controls", label: "Team Controls", icon: LayoutGrid },
@@ -67,6 +70,9 @@ export function SettingsClientView({
   defaultServiceLocation,
   defaultCallTime,
   defaultRehearsalTime,
+  activityLog = [],
+  memberCountsByRole = {},
+  totalMembers = 0,
 }: {
   teamId: string;
   teamName: string;
@@ -76,6 +82,9 @@ export function SettingsClientView({
   defaultServiceLocation: string;
   defaultCallTime: string;
   defaultRehearsalTime: string;
+  activityLog?: Array<{ user: string; action: string; time: string; role: string }>;
+  memberCountsByRole?: Record<string, number>;
+  totalMembers?: number;
 }) {
   const [activeTab, setActiveTab] = useState("controls");
   const [copied, setCopied] = useState(false);
@@ -245,20 +254,24 @@ export function SettingsClientView({
               <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
                 <h3 className="text-sm font-bold text-white">Permissions Summary</h3>
                 <span className="rounded bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] font-bold text-zinc-400">
-                  4 Roles · 29 Members
+                  {Object.keys(memberCountsByRole).length || 4} Roles · {totalMembers || 29} Members
                 </span>
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
                 {[
-                  "Edit Setlists",
-                  "Manage Songs",
-                  "Manage Files",
-                  "Invite Members",
-                  "View Reports",
-                ].map((perm) => (
-                  <div key={perm} className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
-                    <Check className="size-4 text-emerald-400 shrink-0" />
-                    <span>{perm}</span>
+                  { label: "Edit Setlists", perm: "setlists.manage" as Permission },
+                  { label: "Manage Songs", perm: "songs.create" as Permission },
+                  { label: "Manage Files", perm: "files.upload" as Permission },
+                  { label: "Invite Members", perm: "members.manage" as Permission },
+                  { label: "Manage Events", perm: "events.manage" as Permission },
+                ].map(({ label, perm }) => (
+                  <div key={label} className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
+                    {role && can(role as TeamRole, perm) ? (
+                      <Check className="size-4 text-emerald-400 shrink-0" />
+                    ) : (
+                      <span className="size-4 shrink-0 rounded border border-zinc-700" />
+                    )}
+                    <span>{label}</span>
                   </div>
                 ))}
               </div>
@@ -479,10 +492,10 @@ export function SettingsClientView({
             <Panel className="bg-[#111014]/80 p-5">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-base font-bold text-white">Role-Based Access Control</h3>
-                <span className="rounded bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-violet-300">Custom Mode</span>
+                <span className="rounded bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-violet-300">Live</span>
               </div>
               <p className="text-xs text-zinc-400 font-semibold mb-6">
-                Map administrative privileges to specific roles in your ministry.
+                Permissions are enforced by the RBAC engine. The table below shows which roles have each capability.
               </p>
 
               <div className="overflow-x-auto rounded-xl border border-white/[0.06] bg-white/[0.01]">
@@ -492,48 +505,44 @@ export function SettingsClientView({
                       <th className="p-3">Permissions</th>
                       <th className="p-3 text-center">Owner</th>
                       <th className="p-3 text-center">Admin</th>
-                      <th className="p-3 text-center">Leader</th>
+                      <th className="p-3 text-center">Pastor</th>
+                      <th className="p-3 text-center">Worship Leader</th>
+                      <th className="p-3 text-center">Band Leader</th>
+                      <th className="p-3 text-center">Band Member</th>
+                      <th className="p-3 text-center">Dancer</th>
+                      <th className="p-3 text-center">Media</th>
                       <th className="p-3 text-center">Member</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04] text-zinc-300 font-medium">
                     {[
-                      { key: "setlists", label: "Create / Edit Setlists" },
-                      { key: "songs", label: "Add / Edit Songs & Chords" },
-                      { key: "files", label: "Manage Attachments & PDFs" },
-                      { key: "members", label: "Invite & Manage Members" },
-                      { key: "integrations", label: "Configure API Integrations" },
-                      { key: "billing", label: "Manage Plan & Billing" },
+                      { key: "setlists", label: "Create / Edit Setlists", perm: "setlists.manage" },
+                      { key: "songs", label: "Add / Edit Songs & Chords", perm: "songs.create" },
+                      { key: "files", label: "Manage Attachments & PDFs", perm: "files.upload" },
+                      { key: "members", label: "Invite & Manage Members", perm: "members.manage" },
+                      { key: "events", label: "Manage Events", perm: "events.manage" },
+                      { key: "team", label: "Manage Team & Billing", perm: "team.manage" },
                     ].map((row) => (
                       <tr key={row.key} className="hover:bg-white/[0.01] transition-colors">
                         <td className="p-3 font-bold text-white">{row.label}</td>
-                        <td className="p-3 text-center">
-                          <input type="checkbox" defaultChecked disabled className="accent-violet-500 size-4 rounded" />
-                        </td>
-                        <td className="p-3 text-center">
-                          <input type="checkbox" defaultChecked className="accent-violet-500 size-4 rounded" />
-                        </td>
-                        <td className="p-3 text-center">
-                          <input type="checkbox" defaultChecked={["setlists", "songs", "files"].includes(row.key)} className="accent-violet-500 size-4 rounded" />
-                        </td>
-                        <td className="p-3 text-center">
-                          <input type="checkbox" defaultChecked={false} className="accent-violet-500 size-4 rounded" />
-                        </td>
+                        {teamRoles.map((r) => (
+                          <td key={r} className="p-3 text-center">
+                            {can(r as TeamRole, row.perm as Permission) ? (
+                              <Check className="size-4 text-emerald-400 mx-auto" />
+                            ) : (
+                              <span className="inline-block size-4 rounded border border-zinc-700" />
+                            )}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/[0.04]">
-                <button
-                  type="button"
-                  onClick={() => showSettingsStatus("Permission changes are staged on this screen. Database-backed custom permissions need a future RBAC migration.")}
-                  className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500 transition-colors"
-                >
-                  Save Permissions
-                </button>
-              </div>
+              <p className="mt-4 text-[10px] font-semibold text-zinc-500">
+                Roles with members: {Object.entries(memberCountsByRole).filter(([, c]) => c > 0).map(([r, c]) => `${r.replace("_", " ")} (${c})`).join(", ") || "None yet"}
+              </p>
             </Panel>
           </div>
         )}

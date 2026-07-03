@@ -142,19 +142,16 @@ export function MembersClient({
   }
 
   const roleCounts = useMemo(() => {
-    const counts = { "Worship Leader": 0, "Vocals": 0, "Keys": 0, "Drums": 0, "Guitar": 0, "Bass": 0, "Other": 0 };
+    const counts: Record<string, number> = {};
+    teamRoles.forEach((role) => { counts[role] = 0; });
     memberList.forEach((member) => {
-      const mRole = member.ministry.toLowerCase() || member.role.toLowerCase();
-      if (mRole.includes("leader") || mRole.includes("owner")) counts["Worship Leader"]++;
-      else if (mRole.includes("vocal") || mRole.includes("singer")) counts["Vocals"]++;
-      else if (mRole.includes("key") || mRole.includes("piano")) counts["Keys"]++;
-      else if (mRole.includes("drum") || mRole.includes("percussion")) counts["Drums"]++;
-      else if (mRole.includes("guitar")) counts["Guitar"]++;
-      else if (mRole.includes("bass")) counts["Bass"]++;
-      else counts["Other"]++;
+      const key = teamRoles.includes(member.role) ? member.role : "member";
+      counts[key] = (counts[key] || 0) + 1;
     });
     return counts;
   }, [memberList]);
+
+  const maxRoleCount = useMemo(() => Math.max(...Object.values(roleCounts), 1), [roleCounts]);
 
   const requestPreview = requests.slice(0, 3);
   const hiddenRequestCount = Math.max(0, requests.length - requestPreview.length);
@@ -330,13 +327,13 @@ export function MembersClient({
           <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
             <h2 className="text-sm font-bold text-white mb-4">Role Distribution</h2>
             <div className="space-y-3.5">
-              {Object.entries(roleCounts).map(([label, value]) => (
-                <div key={label} className="grid grid-cols-[80px_1fr_20px] items-center gap-3 text-xs font-semibold text-zinc-400">
-                  <span>{label}</span>
+              {Object.entries(roleCounts).map(([role, count]) => (
+                <div key={role} className="grid grid-cols-[120px_1fr_24px] items-center gap-3 text-xs font-semibold text-zinc-400">
+                  <span className="capitalize truncate">{role.replace(/_/g, " ")}</span>
                   <span className="h-1.5 rounded-full bg-white/[0.06]">
-                    <span className="block h-full rounded-full bg-violet-400 transition-all duration-300" style={{ width: `${Math.min(value * 20, 100)}%` }} />
+                    <span className="block h-full rounded-full bg-violet-400 transition-all duration-300" style={{ width: `${(count / maxRoleCount) * 100}%` }} />
                   </span>
-                  <span className="text-right text-white font-bold">{value}</span>
+                  <span className="text-right text-white font-bold">{count}</span>
                 </div>
               ))}
             </div>

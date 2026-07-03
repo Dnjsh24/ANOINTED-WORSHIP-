@@ -13,6 +13,7 @@ import {
   attendanceSchema,
   danceChartInputSchema,
   eventInputSchema,
+  feedbackInputSchema,
   inviteMemberSchema,
   joinCodeSchema,
   memberRoleSchema,
@@ -1668,7 +1669,7 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
     .single();
 
   if (error || !data) {
-    return { ok: false, message: "Event could not be created." };
+    return { ok: false, message: error ? error.message : "Event could not be created." };
   }
 
   if (approvalStatus === "approved" && parsed.data.linkedSetlistId && can(context.role, "setlists.manage")) {
@@ -2638,4 +2639,38 @@ export async function updateSongAction(_previous: ActionState, formData: FormDat
   revalidatePath("/songs");
   revalidatePath(`/songs/${songId}`);
   return { ok: true, message: "Song saved." };
+}
+
+export async function submitFeedbackAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = feedbackInputSchema.safeParse({
+    reportType: formString(formData, "reportType"),
+    title: formString(formData, "title"),
+    description: formString(formData, "description"),
+  });
+
+  if (!parsed.success) {
+    return validationState(parsed.error);
+  }
+
+  const context = await getMutationContext();
+  if (!context.ok) {
+    return context.state;
+  }
+
+  const pageUrl = formString(formData, "pageUrl").slice(0, 500);
+
+  const { error } = await context.supabase.from("feedback_reports").insert({
+    team_id: context.teamId,
+    profile_id: context.userId,
+    report_type: parsed.data.reportType,
+    title: parsed.data.title,
+    description: parsed.data.description ?? "",
+    page_url: pageUrl,
+  });
+
+  if (error) {
+    return { ok: false, message: "Report could not be submitted." };
+  }
+
+  return { ok: true, message: "Report submitted. Thank you!" };
 }

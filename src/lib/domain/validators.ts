@@ -172,6 +172,12 @@ export const profileInputSchema = z.object({
   avatarUrl: z.string().trim().nullish().or(z.literal("")),
 });
 
+export const feedbackInputSchema = z.object({
+  reportType: z.enum(["bug", "improvement"]),
+  title: z.string().trim().min(1, "Title is required").max(160),
+  description: z.string().trim().max(3000).optional(),
+});
+
 export const teamSettingsSchema = z.object({
   teamName: teamNameSchema,
   notificationPreferences: z.array(z.string()).default([]),

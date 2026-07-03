@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { SettingsClientView } from "@/components/settings-client-view";
+import { can, type Permission } from "@/lib/domain/rbac";
 import { teamCode } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+import type { TeamRole, TeamMember, EventType } from "@/lib/types";
 
 function formatTimeForInput(timeStr: string | null): string {
   if (!timeStr) return "08:00";
@@ -22,6 +24,13 @@ function formatTimeForInput(timeStr: string | null): string {
   return timeStr.substring(0, 5);
 }
 
+interface ActivityEntry {
+  user: string;
+  action: string;
+  time: string;
+  role: string;
+}
+
 export default async function AdminSettingsPage() {
   const teamContext = await getRequiredTeamContext();
 
@@ -35,26 +44,89 @@ export default async function AdminSettingsPage() {
   let defaultServiceLocation = "Main Sanctuary";
   let defaultCallTime = "08:00";
   let defaultRehearsalTime = "08:15";
+  let activityLog: ActivityEntry[] = [];
+  let memberCountsByRole: Record<string, number> = {};
+  let totalMembers = 0;
 
   if (hasSupabaseEnv() && teamContext.teamId) {
     const supabase = await createClient();
-    const { data: settings } = await supabase
-      .from("team_settings")
-      .select("default_service_location, default_call_time, default_rehearsal_time")
-      .eq("team_id", teamContext.teamId)
-      .maybeSingle();
 
+    const [settingsResult, changesResult, eventsResult, teamMembersResult] = await Promise.all([
+      supabase
+        .from("team_settings")
+        .select("default_service_location, default_call_time, default_rehearsal_time")
+        .eq("team_id", teamContext.teamId)
+        .maybeSingle(),
+      supabase
+        .from("setlist_change_log")
+        .select("id, summary, changed_by, created_at")
+        .eq("team_id", teamContext.teamId)
+        .order("created_at", { ascending: false })
+        .limit(15),
+      supabase
+        .from("events")
+        .select("id, name, created_at, created_by")
+        .eq("team_id", teamContext.teamId)
+        .order("created_at", { ascending: false })
+        .limit(10),
+      supabase
+        .from("team_members")
+        .select("profile_id, role, profiles!inner(full_name)")
+        .eq("team_id", teamContext.teamId)
+        .eq("status", "active"),
+    ]);
+
+    const settings = settingsResult.data;
     if (settings) {
-      if (settings.default_service_location) {
-        defaultServiceLocation = settings.default_service_location;
-      }
-      if (settings.default_call_time) {
-        defaultCallTime = formatTimeForInput(settings.default_call_time);
-      }
-      if (settings.default_rehearsal_time) {
-        defaultRehearsalTime = formatTimeForInput(settings.default_rehearsal_time);
-      }
+      if (settings.default_service_location) defaultServiceLocation = settings.default_service_location;
+      if (settings.default_call_time) defaultCallTime = formatTimeForInput(settings.default_call_time);
+      if (settings.default_rehearsal_time) defaultRehearsalTime = formatTimeForInput(settings.default_rehearsal_time);
     }
+
+    // Build activity log from setlist changes and events
+    const activityEntries: ActivityEntry[] = [];
+
+    const userIds = new Set<string>();
+    (changesResult.data ?? []).forEach((c: any) => { if (c.changed_by) userIds.add(c.changed_by); });
+    (eventsResult.data ?? []).forEach((e: any) => { if (e.created_by) userIds.add(e.created_by); });
+
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", [...userIds]);
+
+    const profileNameMap = new Map((profiles ?? []).map((p: any) => [p.id, p.full_name]));
+
+    const teamMembers = teamMembersResult.data ?? [];
+    const roleByProfileId = new Map(teamMembers.map((m: any) => [m.profile_id, m.role ?? "member"]));
+
+    (changesResult.data ?? []).forEach((c: any) => {
+      activityEntries.push({
+        user: profileNameMap.get(c.changed_by) ?? "Team Member",
+        action: c.summary,
+        time: c.created_at,
+        role: roleByProfileId.get(c.changed_by) ?? "member",
+      });
+    });
+
+    (eventsResult.data ?? []).forEach((e: any) => {
+      activityEntries.push({
+        user: profileNameMap.get(e.created_by) ?? "Team Member",
+        action: `created event "${e.name}"`,
+        time: e.created_at,
+        role: roleByProfileId.get(e.created_by) ?? "member",
+      });
+    });
+
+    activityEntries.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+    activityLog = activityEntries.slice(0, 25);
+
+    // Compute member counts by role
+    totalMembers = teamMembers.length;
+    memberCountsByRole = (teamMembers as Array<{ profile_id: string; role: string }>).reduce((acc, m) => {
+      acc[m.role] = (acc[m.role] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
   }
 
   return (
@@ -75,6 +147,9 @@ export default async function AdminSettingsPage() {
         defaultServiceLocation={defaultServiceLocation}
         defaultCallTime={defaultCallTime}
         defaultRehearsalTime={defaultRehearsalTime}
+        activityLog={activityLog}
+        memberCountsByRole={memberCountsByRole}
+        totalMembers={totalMembers}
       />
     </AppShell>
   );

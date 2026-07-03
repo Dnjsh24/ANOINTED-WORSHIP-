@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AppShellActions } from "@/components/app-shell-actions";
+import { QuickReportButton } from "@/components/quick-report-button";
 import { MobileIconRail, type MobileNavigationItem } from "@/components/mobile-icon-rail";
 import { can, visibleNavigation } from "@/lib/domain/rbac";
 import { appName } from "@/lib/sample-data";
@@ -63,6 +64,7 @@ export async function AppShell({
       </header>
       <MobileIconRail active={active} items={mobileNavigation} canManageTeam={context.canManageMembers} canManageDance={can(context.role, "dance_notes.manage")} />
       <main className="mx-auto max-w-7xl px-4 py-6 pb-24 md:px-6 md:pb-8">{children}</main>
+      <QuickReportButton />
     </div>
   );
 }
