@@ -8,11 +8,11 @@ import { createTeamAction } from "@/app/actions";
 import { generateTeamCode } from "@/lib/domain/team-code";
 
 const createTeamErrors: Record<string, string> = {
-  create: "We could not create that workspace yet. Please try again.",
-  member: "The workspace was created, but we could not add you as owner. Please try again.",
+  create: "We could not create that workspace yet. Nothing was saved, so please try again.",
+  member: "We could not create the workspace with you as owner. Nothing was saved, so please try again.",
   code: "We could not generate a unique join code. Please try again.",
-  channel: "The workspace was created, but we could not create the team chat channel. Please try again.",
-  "channel-member": "The workspace was created, but we could not add you to the team chat channel. Please try again.",
+  channel: "We could not create the workspace chat channel. Nothing was saved, so please try again.",
+  "channel-member": "We could not add you to the workspace chat channel. Nothing was saved, so please try again.",
 };
 
 const STEPS = ["Team Details", "Invite Members", "Review & Create"];

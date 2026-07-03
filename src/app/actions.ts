@@ -371,70 +371,30 @@ export async function createTeamAction(formData: FormData) {
   let createdTeamId: string | null = null;
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const teamId = randomUUID();
-    const code = generateTeamCode(name, `${profileId}:${teamId}:${attempt}`);
-    const { error } = await supabase.from("teams").insert({ id: teamId, name, code, owner_id: profileId });
+    const code = generateTeamCode(name, `${profileId}:${Date.now()}:${attempt}`);
+    const { data, error } = await supabase
+      .rpc("create_team_workspace", {
+        p_name: name,
+        p_code: code,
+        p_default_service_location: location || "Main Sanctuary",
+        p_default_call_time: formatTime(serviceTime),
+        p_default_rehearsal_time: "08:15:00",
+      })
+      .single();
 
-    if (!error) {
-      createdTeamId = teamId;
+    if (!error && data) {
+      createdTeamId = data.team_id;
       break;
     }
 
-    if (error.code !== "23505") {
+    if (error?.code !== "23505") {
+      console.error("create_team_workspace failed:", error);
       redirect("/teams/new?error=create");
     }
   }
 
   if (!createdTeamId) {
     redirect("/teams/new?error=code");
-  }
-
-  const { data: ownerMember, error: memberError } = await supabase
-    .from("team_members")
-    .insert({
-      team_id: createdTeamId,
-      profile_id: profileId,
-      role: "owner",
-      status: "active",
-      ministry: "Worship Leader",
-    })
-    .select("id")
-    .single();
-
-  if (memberError || !ownerMember) {
-    redirect("/teams/new?error=member");
-  }
-
-  // Create default team settings
-  await supabase.from("team_settings").insert({
-    team_id: createdTeamId,
-    default_service_location: location || "Main Sanctuary",
-    default_call_time: serviceTime || "9:00 AM",
-    default_rehearsal_time: "8:15 AM",
-  });
-
-  const { data: defaultChannel, error: channelError } = await supabase
-    .from("message_channels")
-    .insert({
-      team_id: createdTeamId,
-      name: "Worship Team",
-      channel_type: "team",
-      created_by: profileId,
-    })
-    .select("id")
-    .single();
-
-  if (channelError || !defaultChannel) {
-    redirect("/teams/new?error=channel");
-  }
-
-  const { error: channelMemberError } = await supabase.from("message_channel_members").insert({
-    channel_id: defaultChannel.id,
-    team_member_id: ownerMember.id,
-  });
-
-  if (channelMemberError) {
-    redirect("/teams/new?error=channel-member");
   }
 
   revalidatePath("/dashboard");
@@ -2176,46 +2136,9 @@ export async function deleteTeamAction(_previous: ActionState, formData: FormDat
   }
 
   try {
-    // 1. Delete event attendance records
-    const { data: dbEvents } = await context.supabase.from("events").select("id").eq("team_id", context.teamId);
-    const eventIds = dbEvents?.map((e) => e.id) || [];
-    if (eventIds.length > 0) {
-      await context.supabase.from("attendance").delete().in("event_id", eventIds);
-    }
-
-    // 2. Delete member attendance records
-    const { data: dbMembers } = await context.supabase.from("team_members").select("id").eq("team_id", context.teamId);
-    const memberIds = dbMembers?.map((m) => m.id) || [];
-    if (memberIds.length > 0) {
-      await context.supabase.from("attendance").delete().in("team_member_id", memberIds);
-    }
-
-    // 3. Delete setlist songs
-    const { data: dbSetlists } = await context.supabase.from("setlists").select("id").eq("team_id", context.teamId);
-    const setlistIds = dbSetlists?.map((s) => s.id) || [];
-    if (setlistIds.length > 0) {
-      await context.supabase.from("setlist_songs").delete().in("setlist_id", setlistIds);
-    }
-
-    // 4. Delete parent associations and dependent tables
-    await context.supabase.from("team_settings").delete().eq("team_id", context.teamId);
-    await context.supabase.from("message_channels").delete().eq("team_id", context.teamId);
-    await context.supabase.from("announcements").delete().eq("team_id", context.teamId);
-    await context.supabase.from("monthly_schedules").delete().eq("team_id", context.teamId);
-    await context.supabase.from("dance_notes").delete().eq("team_id", context.teamId);
-    await context.supabase.from("practice_files").delete().eq("team_id", context.teamId);
-    await context.supabase.from("prayer_requests").delete().eq("team_id", context.teamId);
-    await context.supabase.from("songs").delete().eq("team_id", context.teamId);
-    await context.supabase.from("events").delete().eq("team_id", context.teamId);
-    await context.supabase.from("setlists").delete().eq("team_id", context.teamId);
-    await context.supabase.from("join_requests").delete().eq("team_id", context.teamId);
-    await context.supabase.from("team_members").delete().eq("team_id", context.teamId);
-
-    // 5. Delete the team itself
-    const { error } = await context.supabase
-      .from("teams")
-      .delete()
-      .eq("id", context.teamId);
+    const { error } = await context.supabase.rpc("delete_team_workspace", {
+      p_team_id: context.teamId,
+    });
 
     if (error) {
       return { ok: false, message: "Failed to delete team: " + error.message };

@@ -42,6 +42,10 @@ const defaultTeamChannelsBackfillMigration = readFileSync(
   join(process.cwd(), "supabase", "migrations", "20260703010000_backfill_default_team_channels.sql"),
   "utf8",
 );
+const atomicTeamLifecycleMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260703020000_atomic_team_workspace_lifecycle.sql"),
+  "utf8",
+);
 
 const requiredTables = [
   "profiles",
@@ -156,5 +160,15 @@ describe("Supabase migration", () => {
     expect(defaultTeamChannelsBackfillMigration).toContain("'Worship Team'");
     expect(defaultTeamChannelsBackfillMigration).toContain("tm.status = 'active'");
     expect(defaultTeamChannelsBackfillMigration).toContain("on conflict (channel_id, team_member_id) do nothing");
+  });
+
+  it("creates and deletes team workspaces atomically", () => {
+    expect(atomicTeamLifecycleMigration).toContain("create or replace function public.create_team_workspace");
+    expect(atomicTeamLifecycleMigration).toContain("insert into public.teams");
+    expect(atomicTeamLifecycleMigration).toContain("insert into public.team_members");
+    expect(atomicTeamLifecycleMigration).toContain("insert into public.message_channel_members");
+    expect(atomicTeamLifecycleMigration).toContain("create or replace function public.delete_team_workspace");
+    expect(atomicTeamLifecycleMigration).toContain("delete from public.teams");
+    expect(atomicTeamLifecycleMigration).toContain("grant execute on function public.create_team_workspace");
   });
 });

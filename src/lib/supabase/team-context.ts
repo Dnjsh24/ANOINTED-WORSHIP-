@@ -64,6 +64,7 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
       .select("id, team_id, role, status, teams (id, name, code)")
       .eq("profile_id", user.id)
       .eq("status", "active")
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase

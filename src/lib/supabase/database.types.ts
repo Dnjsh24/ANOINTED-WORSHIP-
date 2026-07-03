@@ -715,7 +715,28 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      create_team_workspace: {
+        Args: {
+          p_name: string;
+          p_code: string;
+          p_default_service_location?: string;
+          p_default_call_time?: string;
+          p_default_rehearsal_time?: string;
+        };
+        Returns: {
+          team_id: string;
+          team_member_id: string;
+          channel_id: string;
+        }[];
+      };
+      delete_team_workspace: {
+        Args: {
+          p_team_id: string;
+        };
+        Returns: undefined;
+      };
+    };
     Enums: {
       team_role: TeamRole;
       member_status: MemberStatus;
