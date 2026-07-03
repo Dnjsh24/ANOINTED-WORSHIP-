@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, SlidersHorizontal } from "lucide-react";
+import { Heart, Play, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toggleSongFavoriteAction } from "@/app/actions";
@@ -103,13 +103,19 @@ export function SongLibraryGrid({ songs }: { songs: Song[] }) {
                       </Badge>
                     ))}
                   </div>
-                  <div className="mt-6 border-t border-white/10 pt-4">
+                  <div className="mt-6 border-t border-white/10 pt-4 flex items-center gap-4">
                     <Link href={`/songs/${song.id}`} className="text-sm font-bold text-violet-200 hover:text-violet-100">
                       View Chords
                     </Link>
-                    <Link href={`/songs/${song.id}/edit`} className="ml-4 text-sm font-bold text-violet-200 hover:text-violet-100">
+                    <Link href={`/songs/${song.id}/edit`} className="text-sm font-bold text-violet-200 hover:text-violet-100">
                       Edit
                     </Link>
+                    {song.youtubeUrl && (
+                      <Link href={`/songs/${song.id}`} className="ml-auto flex items-center gap-1.5 rounded-lg bg-red-600/20 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-600/30">
+                        <Play className="size-3.5 fill-red-300" />
+                        Watch
+                      </Link>
+                    )}
                   </div>
                 </Card>
               ))}
