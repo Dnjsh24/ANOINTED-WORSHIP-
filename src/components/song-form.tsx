@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import { createSongAction, updateSongAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { ButtonLink } from "@/components/ui/button";
@@ -9,7 +9,8 @@ import { initialActionState } from "@/lib/action-state";
 import { formatSongToText } from "@/lib/domain/chords";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Key, Trash2 } from "lucide-react";
+import { Key, Mic, MicOff, Trash2 } from "lucide-react";
+import { PitchDetector, type PitchDetectorState } from "@/lib/pitch-detector";
 
 export function SongForm({ song }: { song?: Song }) {
   const [state, formAction] = useActionState(song ? updateSongAction : createSongAction, initialActionState);
@@ -19,30 +20,30 @@ export function SongForm({ song }: { song?: Song }) {
   const [songStatus, setSongStatus] = useState("");
   const lyricsRef = useRef<HTMLTextAreaElement>(null);
 
-  function updateLyricsFromToolbar(token: string) {
-    const textarea = lyricsRef.current;
-    if (!textarea) return;
+  const [detectorState, setDetectorState] = useState<PitchDetectorState>({ status: "idle" });
+  const detectorRef = useRef<PitchDetector | null>(null);
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selected = lyrics.slice(start, end);
-    const wrappers: Record<string, [string, string]> = {
-      B: ["**", "**"],
-      I: ["_", "_"],
-      U: ["<u>", "</u>"],
+  const handleDetect = useCallback(() => {
+    if (detectorRef.current) {
+      const result = detectorRef.current.stop();
+      const key = document.querySelector<HTMLSelectElement>("select[name=originalKey]");
+      if (result && key) {
+        key.value = result;
+      }
+      detectorRef.current = null;
+      setDetectorState({ status: "idle" });
+      return;
+    }
+    const detector = new PitchDetector((state) => setDetectorState(state));
+    detectorRef.current = detector;
+    detector.start();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      detectorRef.current?.cleanup();
     };
-    const [before, after] = wrappers[token] ?? ["", ""];
-    const insertion = wrappers[token] ? `${before}${selected || token}${after}` : ` ${token} `;
-    const nextLyrics = `${lyrics.slice(0, start)}${insertion}${lyrics.slice(end)}`;
-    setLyrics(nextLyrics);
-    setSongStatus(`${token} inserted.`);
-
-    window.requestAnimationFrame(() => {
-      textarea.focus();
-      const cursor = start + insertion.length;
-      textarea.setSelectionRange(cursor, cursor);
-    });
-  }
+  }, []);
 
   return (
     <form action={formAction} className="space-y-6 text-left animate-fade-in">
@@ -75,21 +76,49 @@ export function SongForm({ song }: { song?: Song }) {
           <div className="grid grid-cols-2 gap-4">
             <label className="block space-y-1.5">
               <span className="text-xs font-bold text-zinc-300">Default Key *</span>
-              <div className="relative">
-                <select
-                  name="originalKey"
-                  defaultValue={song?.originalKey ?? "C"}
-                  className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400"
-                  required
+              <div className="relative flex items-center gap-2">
+                <div className="relative flex-1">
+                  <select
+                    name="originalKey"
+                    defaultValue={song?.originalKey ?? "C"}
+                    className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400"
+                    required
+                  >
+                    {["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"].map((key) => (
+                      <option key={key} value={key} className="bg-[#111014]">{key}</option>
+                    ))}
+                  </select>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">
+                    <Key className="size-4 text-violet-400" />
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDetect}
+                  title="Detect key by singing/humming"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#17161b] hover:bg-violet-600/20 transition-colors"
                 >
-                  {["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"].map((key) => (
-                    <option key={key} value={key} className="bg-[#111014]">{key}</option>
-                  ))}
-                </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">
-                  <Key className="size-4 text-violet-400" />
-                </span>
+                  {detectorState.status === "listening" ? (
+                    <span className="relative flex items-center justify-center">
+                      <MicOff className="size-4 text-red-400" />
+                      <span className="absolute -top-1 -right-1 flex size-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                        <span className="relative inline-flex size-2 rounded-full bg-red-500" />
+                      </span>
+                    </span>
+                  ) : (
+                    <Mic className="size-4 text-zinc-400" />
+                  )}
+                </button>
               </div>
+              {detectorState.status === "listening" && (
+                <p className="mt-1 text-xs font-semibold text-violet-300">
+                  Detected: <span className="text-white">{detectorState.detected}</span> — tap mic again to set
+                </p>
+              )}
+              {detectorState.status === "error" && (
+                <p className="mt-1 text-xs font-semibold text-red-400">{detectorState.message}</p>
+              )}
             </label>
 
             <label className="block space-y-1.5">
