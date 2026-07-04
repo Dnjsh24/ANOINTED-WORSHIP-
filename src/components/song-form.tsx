@@ -42,8 +42,16 @@ export function SongForm({ song }: { song?: Song }) {
       detectorRef.current = detector;
       detector.start();
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Unknown error";
-      setDetectorState({ status: "error", message: `Microphone error: ${msg}` });
+      const err = e as DOMException;
+      let msg = "Could not access microphone.";
+      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+        msg = "Microphone blocked. Allow mic access in your browser settings (🔒 icon in address bar), then refresh and try again.";
+      } else if (err.name === "NotFoundError") {
+        msg = "No microphone found. Plug one in and try again.";
+      } else if (err.name === "NotSupportedError") {
+        msg = "Microphone not supported on this device or browser.";
+      }
+      setDetectorState({ status: "error", message: msg });
     }
   }, []);
 
