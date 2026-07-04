@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useCallback, useEffect, useRef, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { createSongAction, updateSongAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { ButtonLink } from "@/components/ui/button";
@@ -9,8 +9,8 @@ import { initialActionState } from "@/lib/action-state";
 import { formatSongToText } from "@/lib/domain/chords";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Key, Mic, MicOff, Trash2 } from "lucide-react";
-import { PitchDetector, type PitchDetectorState } from "@/lib/pitch-detector";
+import { Key, Music, Trash2 } from "lucide-react";
+import { detectKey, extractChordRoots } from "@/lib/detect-key-from-chords";
 
 export function SongForm({ song }: { song?: Song }) {
   const [state, formAction] = useActionState(song ? updateSongAction : createSongAction, initialActionState);
@@ -18,56 +18,27 @@ export function SongForm({ song }: { song?: Song }) {
   const [tags, setTags] = useState(song?.tags?.join(", ") ?? "Worship, Contemporary");
   const [lyrics, setLyrics] = useState(song ? formatSongToText(song) : "");
   const [songStatus, setSongStatus] = useState("");
+  const [detectMessage, setDetectMessage] = useState<string | null>(null);
   const lyricsRef = useRef<HTMLTextAreaElement>(null);
 
-  const [detectorState, setDetectorState] = useState<PitchDetectorState>({ status: "idle" });
-  const detectorRef = useRef<PitchDetector | null>(null);
-
-  const handleDetect = useCallback(async () => {
-    // Toggle off if already listening
-    if (detectorRef.current) {
-      const result = detectorRef.current.stop();
-      const key = document.querySelector<HTMLSelectElement>("select[name=originalKey]");
-      if (result && key) {
-        key.value = result;
-      }
-      detectorRef.current = null;
-      setDetectorState({ status: "idle" });
+  const handleDetectKeyFromChords = () => {
+    const roots = extractChordRoots(lyrics);
+    if (roots.length === 0) {
+      setDetectMessage("No chords found in the Chords/Lyrics tab.");
       return;
     }
-
-    // Platform checks (synchronous — no await before these)
-    const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    if (isStandalone && isIOS) {
-      setDetectorState({ status: "error", message: "Mic isn't available when added to home screen. Tap Share → Open in Safari, then try again." });
+    const result = detectKey(roots);
+    if (!result) {
+      setDetectMessage("Could not determine key.");
       return;
     }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setDetectorState({ status: "error", message: "Your browser doesn't support microphone access." });
-      return;
+    const select = document.querySelector<HTMLSelectElement>("select[name=originalKey]");
+    if (select) {
+      select.value = result.key;
     }
-
-    // Call getUserMedia FIRST — no await before it, keeps user gesture alive
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      // Got permission — now set up AudioContext and start detection
-      const ctx = new AudioContext();
-      await ctx.resume();
-      const detector = new PitchDetector(ctx, stream, (state) => setDetectorState(state));
-      detectorRef.current = detector;
-      detector.start();
-    } catch (e) {
-      const err = e as DOMException;
-      setDetectorState({ status: "error", message: `[${err.name}] ${err.message}` });
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      detectorRef.current?.cleanup();
-    };
-  }, []);
+    const matchPct = Math.round(result.score * 100);
+    setDetectMessage(`Detected ${result.key} (${result.matchCount}/${result.totalChords} chords match, ${matchPct}% confidence)`);
+  };
 
   return (
     <form action={formAction} className="space-y-6 text-left animate-fade-in">
@@ -118,48 +89,15 @@ export function SongForm({ song }: { song?: Song }) {
                 </div>
                 <button
                   type="button"
-                  onClick={handleDetect}
-                  title="Detect key by singing/humming"
+                  onClick={handleDetectKeyFromChords}
+                  title="Detect key from chords"
                   className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#17161b] hover:bg-violet-600/20 transition-colors"
                 >
-                  {detectorState.status === "listening" ? (
-                    <span className="relative flex items-center justify-center">
-                      <MicOff className="size-4 text-red-400" />
-                      <span className="absolute -top-1 -right-1 flex size-2">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex size-2 rounded-full bg-red-500" />
-                      </span>
-                    </span>
-                  ) : (
-                    <Mic className="size-4 text-zinc-400" />
-                  )}
+                  <Music className="size-4 text-zinc-400" />
                 </button>
               </div>
-              {detectorState.status === "listening" && (
-                <p className="mt-1 text-xs font-semibold text-violet-300">
-                  Detected: <span className="text-white">{detectorState.detected}</span> — tap mic again to set
-                </p>
-              )}
-              {detectorState.status === "error" && (
-                <>
-                  <p className="mt-1 text-xs font-semibold text-red-400">{detectorState.message}</p>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        s.getTracks().forEach((t) => t.stop());
-                        setDetectorState({ status: "idle" });
-                      } catch (e2) {
-                        const err2 = e2 as DOMException;
-                        setDetectorState({ status: "error", message: `[${err2.name}] ${err2.message}` });
-                      }
-                    }}
-                    className="mt-1 text-xs font-semibold text-violet-400 hover:text-violet-300 underline"
-                  >
-                    Test mic permission (no AudioContext)
-                  </button>
-                </>
+              {detectMessage && (
+                <p className="mt-1 text-xs font-semibold text-violet-300">{detectMessage}</p>
               )}
             </label>
 
