@@ -111,6 +111,11 @@ export function SongForm({ song }: { song?: Song }) {
             {/* hidden field to persist tags mapping */}
             <input type="hidden" name="tags" value={tags} />
           </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold text-zinc-300">YouTube Link (Optional)</span>
+            <Input name="youtubeUrl" defaultValue={song?.youtubeUrl} placeholder="https://youtube.com/watch?v=..." className="h-10 text-xs font-semibold" />
+          </label>
         </div>
 
         {/* Right Column: Edit Sheet */}

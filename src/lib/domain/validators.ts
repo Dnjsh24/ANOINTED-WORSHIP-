@@ -21,6 +21,7 @@ export const songInputSchema = z.object({
   bpm: z.coerce.number().int().min(40).max(240),
   timeSignature: z.string().trim().regex(/^\d{1,2}\/\d{1,2}$/),
   lyrics: z.string().trim().min(1).max(20000),
+  youtubeUrl: z.string().trim().max(500).optional(),
 });
 
 const optionalUuidSchema = z
