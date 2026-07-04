@@ -23,7 +23,7 @@ export function SongForm({ song }: { song?: Song }) {
   const [detectorState, setDetectorState] = useState<PitchDetectorState>({ status: "idle" });
   const detectorRef = useRef<PitchDetector | null>(null);
 
-  const handleDetect = useCallback(() => {
+  const handleDetect = useCallback(async () => {
     if (detectorRef.current) {
       const result = detectorRef.current.stop();
       const key = document.querySelector<HTMLSelectElement>("select[name=originalKey]");
@@ -34,11 +34,17 @@ export function SongForm({ song }: { song?: Song }) {
       setDetectorState({ status: "idle" });
       return;
     }
-    const ctx = new AudioContext();
-    ctx.resume();
-    const detector = new PitchDetector(ctx, (state) => setDetectorState(state));
-    detectorRef.current = detector;
-    detector.start();
+    try {
+      const ctx = new AudioContext();
+      await ctx.resume();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const detector = new PitchDetector(ctx, stream, (state) => setDetectorState(state));
+      detectorRef.current = detector;
+      detector.start();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Unknown error";
+      setDetectorState({ status: "error", message: `Microphone error: ${msg}` });
+    }
   }, []);
 
   useEffect(() => {

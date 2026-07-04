@@ -61,28 +61,28 @@ export type PitchListener = (state: PitchDetectorState) => void;
 export class PitchDetector {
   private audioCtx: AudioContext;
   private analyser: AnalyserNode | null = null;
-  private stream: MediaStream | null = null;
+  private stream: MediaStream;
   private animFrame: number | null = null;
   private listener: PitchListener;
   private stableCount = 0;
   private lastNote: string | null = null;
   private bestGuess: string | null = null;
 
-  constructor(audioCtx: AudioContext, listener: PitchListener) {
+  constructor(audioCtx: AudioContext, stream: MediaStream, listener: PitchListener) {
     this.audioCtx = audioCtx;
+    this.stream = stream;
     this.listener = listener;
   }
 
-  async start() {
+  start() {
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const source = this.audioCtx.createMediaStreamSource(this.stream);
       this.analyser = this.audioCtx.createAnalyser();
       this.analyser.fftSize = 2048;
       source.connect(this.analyser);
       this.poll();
     } catch {
-      this.listener({ status: "error", message: "Microphone access denied or unavailable." });
+      this.listener({ status: "error", message: "Could not start audio analysis." });
     }
   }
 
@@ -115,10 +115,9 @@ export class PitchDetector {
 
   stop(): string | null {
     if (this.animFrame) cancelAnimationFrame(this.animFrame);
-    if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
+    this.stream.getTracks().forEach((t) => t.stop());
     this.audioCtx.close();
     this.analyser = null;
-    this.stream = null;
     return this.bestGuess;
   }
 
