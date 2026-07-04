@@ -34,6 +34,12 @@ export function SongForm({ song }: { song?: Song }) {
       setDetectorState({ status: "idle" });
       return;
     }
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (isStandalone && isIOS) {
+      setDetectorState({ status: "error", message: "Mic isn't available when added to home screen. Tap Share → Open in Safari, then try again." });
+      return;
+    }
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setDetectorState({ status: "error", message: "Your browser doesn't support microphone access." });
@@ -54,9 +60,10 @@ export function SongForm({ song }: { song?: Song }) {
       const err = e as DOMException;
       let msg = `[${err.name}] ${err.message}`;
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-        if (isIOS) {
-          msg = "Open iPhone Settings → Safari (or the app name if installed) → Microphone → Allow. Then refresh.";
+        if (isIOS && isStandalone) {
+          msg = "Mic isn't available when added to home screen. Tap Share → Open in Safari, then try again.";
+        } else if (isIOS) {
+          msg = "Open iPhone Settings → Safari → Microphone → Allow. Then refresh.";
         } else {
           msg = "Allow mic access in your browser or OS settings for this site, then refresh.";
         }
