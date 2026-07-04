@@ -35,6 +35,10 @@ export function SongForm({ song }: { song?: Song }) {
       return;
     }
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setDetectorState({ status: "error", message: "Your browser doesn't support microphone access. Try Chrome, Safari, or Firefox on a laptop or phone." });
+        return;
+      }
       const ctx = new AudioContext();
       await ctx.resume();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -45,9 +49,17 @@ export function SongForm({ song }: { song?: Song }) {
       const err = e as DOMException;
       let msg = "Could not access microphone.";
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        msg = "Microphone blocked. Allow mic access in your browser settings (🔒 icon in address bar), then refresh and try again.";
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+        const isPWA = window.matchMedia("(display-mode: standalone)").matches;
+        if (isPWA) {
+          msg = "Microphone blocked in PWA mode. Open this site in your regular browser (Safari/Chrome), then: Settings → [Your Browser] → Microphone → Allow. Or if installed as an app, go to iPhone Settings → [App Name] → Microphone → ON.";
+        } else if (isIOS) {
+          msg = "Microphone blocked. Go to: iPhone Settings → Safari → Microphone → Allow (or tap the \"aA\" icon in Safari's address bar → Website Settings → Microphone → Allow). Then refresh.";
+        } else {
+          msg = "Microphone blocked. Click the lock/info icon (🔒 or ℹ️) left of the URL → Site Settings → Microphone → Allow. Then refresh and try again.";
+        }
       } else if (err.name === "NotFoundError") {
-        msg = "No microphone found. Plug one in and try again.";
+        msg = "No microphone found. Plug one in or check your device settings.";
       } else if (err.name === "NotSupportedError") {
         msg = "Microphone not supported on this device or browser.";
       }
