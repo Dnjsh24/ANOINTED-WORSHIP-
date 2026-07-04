@@ -76,8 +76,17 @@ export function SongForm({ song }: { song?: Song }) {
             <label className="block space-y-1.5">
               <span className="text-xs font-bold text-zinc-300">Default Key *</span>
               <div className="relative">
-                <Input name="originalKey" defaultValue={song?.originalKey ?? "C"} required className="pr-10" />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
+                <select
+                  name="originalKey"
+                  defaultValue={song?.originalKey ?? "C"}
+                  className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400"
+                  required
+                >
+                  {["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"].map((key) => (
+                    <option key={key} value={key} className="bg-[#111014]">{key}</option>
+                  ))}
+                </select>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">
                   <Key className="size-4 text-violet-400" />
                 </span>
               </div>
