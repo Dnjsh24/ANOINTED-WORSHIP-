@@ -34,7 +34,9 @@ export function SongForm({ song }: { song?: Song }) {
       setDetectorState({ status: "idle" });
       return;
     }
-    const detector = new PitchDetector((state) => setDetectorState(state));
+    const ctx = new AudioContext();
+    ctx.resume();
+    const detector = new PitchDetector(ctx, (state) => setDetectorState(state));
     detectorRef.current = detector;
     detector.start();
   }, []);

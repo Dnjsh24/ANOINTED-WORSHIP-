@@ -59,31 +59,27 @@ export type PitchDetectorState =
 export type PitchListener = (state: PitchDetectorState) => void;
 
 export class PitchDetector {
-  private audioCtx: AudioContext | null = null;
+  private audioCtx: AudioContext;
   private analyser: AnalyserNode | null = null;
   private stream: MediaStream | null = null;
   private animFrame: number | null = null;
   private listener: PitchListener;
-  private sampleRate = 44100;
   private stableCount = 0;
   private lastNote: string | null = null;
   private bestGuess: string | null = null;
 
-  constructor(listener: PitchListener) {
+  constructor(audioCtx: AudioContext, listener: PitchListener) {
+    this.audioCtx = audioCtx;
     this.listener = listener;
   }
 
   async start() {
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this.audioCtx = new AudioContext();
-      this.sampleRate = this.audioCtx.sampleRate;
-
       const source = this.audioCtx.createMediaStreamSource(this.stream);
       this.analyser = this.audioCtx.createAnalyser();
       this.analyser.fftSize = 2048;
       source.connect(this.analyser);
-
       this.poll();
     } catch {
       this.listener({ status: "error", message: "Microphone access denied or unavailable." });
@@ -96,7 +92,7 @@ export class PitchDetector {
     const buffer = new Float32Array(this.analyser.fftSize);
     this.analyser.getFloatTimeDomainData(buffer);
 
-    const freq = autocorrelation(buffer, this.sampleRate);
+    const freq = autocorrelation(buffer, this.audioCtx.sampleRate);
     if (freq) {
       const { note, cents } = freqToNote(freq);
       if (Math.abs(cents) < 30) {
@@ -120,9 +116,8 @@ export class PitchDetector {
   stop(): string | null {
     if (this.animFrame) cancelAnimationFrame(this.animFrame);
     if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
-    if (this.audioCtx) this.audioCtx.close();
+    this.audioCtx.close();
     this.analyser = null;
-    this.audioCtx = null;
     this.stream = null;
     return this.bestGuess;
   }
