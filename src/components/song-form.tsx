@@ -36,32 +36,30 @@ export function SongForm({ song }: { song?: Song }) {
     }
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setDetectorState({ status: "error", message: "Your browser doesn't support microphone access. Try Chrome, Safari, or Firefox on a laptop or phone." });
+        setDetectorState({ status: "error", message: "Your browser doesn't support microphone access." });
         return;
       }
       const ctx = new AudioContext();
       await ctx.resume();
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
       const detector = new PitchDetector(ctx, stream, (state) => setDetectorState(state));
       detectorRef.current = detector;
       detector.start();
     } catch (e) {
       const err = e as DOMException;
-      let msg = "Could not access microphone.";
+      let msg = `[${err.name}] ${err.message}`;
       if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-        const isPWA = window.matchMedia("(display-mode: standalone)").matches;
-        if (isPWA) {
-          msg = "Microphone blocked in PWA mode. Open this site in your regular browser (Safari/Chrome), then: Settings → [Your Browser] → Microphone → Allow. Or if installed as an app, go to iPhone Settings → [App Name] → Microphone → ON.";
-        } else if (isIOS) {
-          msg = "Microphone blocked. Go to: iPhone Settings → Safari → Microphone → Allow (or tap the \"aA\" icon in Safari's address bar → Website Settings → Microphone → Allow). Then refresh.";
+        if (isIOS) {
+          msg = "Open iPhone Settings → Safari (or the app name if installed) → Microphone → Allow. Then refresh.";
         } else {
-          msg = "Microphone blocked. Click the lock/info icon (🔒 or ℹ️) left of the URL → Site Settings → Microphone → Allow. Then refresh and try again.";
+          msg = "Allow mic access in your browser or OS settings for this site, then refresh.";
         }
-      } else if (err.name === "NotFoundError") {
-        msg = "No microphone found. Plug one in or check your device settings.";
-      } else if (err.name === "NotSupportedError") {
-        msg = "Microphone not supported on this device or browser.";
       }
       setDetectorState({ status: "error", message: msg });
     }
