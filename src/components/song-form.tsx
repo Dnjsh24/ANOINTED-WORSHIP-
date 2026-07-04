@@ -166,19 +166,6 @@ export function SongForm({ song }: { song?: Song }) {
             />
           </div>
 
-          {/* Toolbar at bottom of edit panel */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-white/[0.04]">
-            {["B", "I", "U", "Am", "F", "C", "+"].map((btn) => (
-              <button
-                key={btn}
-                type="button"
-                onClick={() => updateLyricsFromToolbar(btn)}
-                className="flex size-7 items-center justify-center rounded bg-white/[0.04] hover:bg-white/[0.08] text-xs font-bold text-zinc-300 border border-white/10"
-              >
-                {btn}
-              </button>
-            ))}
-          </div>
         </div>
 
       </div>
