@@ -24,6 +24,7 @@ export function SongForm({ song }: { song?: Song }) {
   const detectorRef = useRef<PitchDetector | null>(null);
 
   const handleDetect = useCallback(async () => {
+    // Toggle off if already listening
     if (detectorRef.current) {
       const result = detectorRef.current.stop();
       const key = document.querySelector<HTMLSelectElement>("select[name=originalKey]");
@@ -34,41 +35,31 @@ export function SongForm({ song }: { song?: Song }) {
       setDetectorState({ status: "idle" });
       return;
     }
+
+    // Platform checks (synchronous — no await before these)
     const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     if (isStandalone && isIOS) {
       setDetectorState({ status: "error", message: "Mic isn't available when added to home screen. Tap Share → Open in Safari, then try again." });
       return;
     }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setDetectorState({ status: "error", message: "Your browser doesn't support microphone access." });
+      return;
+    }
+
+    // Call getUserMedia FIRST — no await before it, keeps user gesture alive
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setDetectorState({ status: "error", message: "Your browser doesn't support microphone access." });
-        return;
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      // Got permission — now set up AudioContext and start detection
       const ctx = new AudioContext();
       await ctx.resume();
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      } catch {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
       const detector = new PitchDetector(ctx, stream, (state) => setDetectorState(state));
       detectorRef.current = detector;
       detector.start();
     } catch (e) {
       const err = e as DOMException;
-      let msg = `[${err.name}] ${err.message}`;
-      if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-        if (isIOS && isStandalone) {
-          msg = "Mic isn't available when added to home screen. Tap Share → Open in Safari, then try again.";
-        } else if (isIOS) {
-          msg = "Open iPhone Settings → Safari → Microphone → Allow. Then refresh.";
-        } else {
-          msg = "Allow mic access in your browser or OS settings for this site, then refresh.";
-        }
-      }
-      setDetectorState({ status: "error", message: msg });
+      setDetectorState({ status: "error", message: `[${err.name}] ${err.message}` });
     }
   }, []);
 
@@ -150,7 +141,25 @@ export function SongForm({ song }: { song?: Song }) {
                 </p>
               )}
               {detectorState.status === "error" && (
-                <p className="mt-1 text-xs font-semibold text-red-400">{detectorState.message}</p>
+                <>
+                  <p className="mt-1 text-xs font-semibold text-red-400">{detectorState.message}</p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        s.getTracks().forEach((t) => t.stop());
+                        setDetectorState({ status: "idle" });
+                      } catch (e2) {
+                        const err2 = e2 as DOMException;
+                        setDetectorState({ status: "error", message: `[${err2.name}] ${err2.message}` });
+                      }
+                    }}
+                    className="mt-1 text-xs font-semibold text-violet-400 hover:text-violet-300 underline"
+                  >
+                    Test mic permission (no AudioContext)
+                  </button>
+                </>
               )}
             </label>
 
