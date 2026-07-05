@@ -85,6 +85,12 @@ export function SongForm({ song }: { song?: Song }) {
       return;
     }
 
+    const userConfirmed = window.confirm("Allow microphone access for a 10-second acapella key scan?");
+    if (!userConfirmed) {
+      setDetectMessage("Microphone access cancelled.");
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const ctx = new AudioContext();
