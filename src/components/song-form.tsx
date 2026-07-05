@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { createSongAction, updateSongAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { ButtonLink } from "@/components/ui/button";
@@ -9,8 +9,9 @@ import { initialActionState } from "@/lib/action-state";
 import { formatSongToText } from "@/lib/domain/chords";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Key, Music, Trash2 } from "lucide-react";
+import { Key, Mic, MicOff, Music, Trash2 } from "lucide-react";
 import { detectKeyFromText } from "@/lib/detect-key-from-chords";
+import { VoiceKeyDetector } from "@/lib/voice-key-detector";
 
 export function SongForm({ song }: { song?: Song }) {
   const [state, formAction] = useActionState(song ? updateSongAction : createSongAction, initialActionState);
@@ -19,6 +20,8 @@ export function SongForm({ song }: { song?: Song }) {
   const [lyrics, setLyrics] = useState(song ? formatSongToText(song) : "");
   const [songStatus, setSongStatus] = useState("");
   const [detectMessage, setDetectMessage] = useState<string | null>(null);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const voiceDetectorRef = useRef<VoiceKeyDetector | null>(null);
   const lyricsRef = useRef<HTMLTextAreaElement>(null);
 
   const handleDetectKeyFromChords = () => {
@@ -36,6 +39,53 @@ export function SongForm({ song }: { song?: Song }) {
     const mode = result.mode === "minor" ? "minor" : "major";
     setDetectMessage(`Detected ${result.key} ${mode} (${result.matchCount}/${result.totalChords} chords fit, ${matchPct}% confidence)`);
   };
+
+  const handleDetectKeyFromVoice = async () => {
+    const select = document.querySelector<HTMLSelectElement>("select[name=originalKey]");
+
+    if (voiceDetectorRef.current) {
+      const result = voiceDetectorRef.current.stop();
+      voiceDetectorRef.current = null;
+      setVoiceListening(false);
+      if (result && select) {
+        select.value = result;
+        setDetectMessage(`Detected ${result} from your voice. (Hold the tonic note steadily for best results.)`);
+      } else {
+        setDetectMessage("Could not lock a stable note. Try again and hold one note for 2-3 seconds.");
+      }
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setDetectMessage("Microphone is not available in this browser.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ctx = new AudioContext();
+      await ctx.resume();
+
+      const detector = new VoiceKeyDetector(ctx, stream, (note, stableCount) => {
+        setDetectMessage(`Listening... ${note} (${stableCount} stable frames). Tap mic again to set.`);
+      });
+
+      voiceDetectorRef.current = detector;
+      setVoiceListening(true);
+      detector.start();
+    } catch (e) {
+      const err = e as DOMException;
+      setDetectMessage(`[${err.name}] ${err.message}`);
+      setVoiceListening(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      voiceDetectorRef.current?.cleanup();
+      voiceDetectorRef.current = null;
+    };
+  }, []);
 
   return (
     <form action={formAction} className="space-y-6 text-left animate-fade-in">
@@ -84,14 +134,24 @@ export function SongForm({ song }: { song?: Song }) {
                     <Key className="size-4 text-violet-400" />
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleDetectKeyFromChords}
-                  title="Detect key from chords"
-                  className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#17161b] hover:bg-violet-600/20 transition-colors"
-                >
-                  <Music className="size-4 text-zinc-400" />
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDetectKeyFromChords}
+                    title="Detect from chords"
+                    className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-[#17161b] hover:bg-violet-600/20 transition-colors"
+                  >
+                    <Music className="size-4 text-zinc-400" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDetectKeyFromVoice}
+                    title="Detect from voice (acapella)"
+                    className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-[#17161b] hover:bg-violet-600/20 transition-colors"
+                  >
+                    {voiceListening ? <MicOff className="size-4 text-red-400" /> : <Mic className="size-4 text-zinc-400" />}
+                  </button>
+                </div>
               </div>
               {detectMessage && (
                 <p className="mt-1 text-xs font-semibold text-violet-300">{detectMessage}</p>
