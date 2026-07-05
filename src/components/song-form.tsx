@@ -91,7 +91,7 @@ export function SongForm({ song }: { song?: Song }) {
       await ctx.resume();
 
       const detector = new VoiceKeyDetector(ctx, stream, (note, stableCount) => {
-        setDetectMessage(`Scanning voice${voiceSecondsLeft ? ` (${voiceSecondsLeft}s left)` : ""}... ${note} (${stableCount} stable frames).`);
+        setDetectMessage(`Scanning voice... ${note} (${stableCount} stable frames).`);
       });
 
       voiceDetectorRef.current = detector;
@@ -196,6 +196,9 @@ export function SongForm({ song }: { song?: Song }) {
               </div>
               {detectMessage && (
                 <p className="mt-1 text-xs font-semibold text-violet-300">{detectMessage}</p>
+              )}
+              {voiceListening && voiceSecondsLeft !== null && (
+                <p className="mt-1 text-xs font-semibold text-amber-300">Acapella scan: {voiceSecondsLeft}s remaining</p>
               )}
             </label>
 
