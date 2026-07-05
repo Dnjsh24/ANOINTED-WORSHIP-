@@ -48,8 +48,9 @@ export function SongForm({ song }: { song?: Song }) {
       voiceDetectorRef.current = null;
       setVoiceListening(false);
       if (result && select) {
-        select.value = result;
-        setDetectMessage(`Detected ${result} from your voice. (Hold the tonic note steadily for best results.)`);
+        select.value = result.key;
+        const pct = Math.round(result.confidence * 100);
+        setDetectMessage(`Detected ${result.key} ${result.mode} from voice (${pct}% confidence). Top sung note: ${result.topNote ?? "-"}.`);
       } else {
         setDetectMessage("Could not lock a stable note. Try again and hold one note for 2-3 seconds.");
       }
