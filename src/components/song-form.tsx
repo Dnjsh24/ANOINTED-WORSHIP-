@@ -22,6 +22,9 @@ export function SongForm({ song }: { song?: Song }) {
   const [detectMessage, setDetectMessage] = useState<string | null>(null);
   const [voiceListening, setVoiceListening] = useState(false);
   const voiceDetectorRef = useRef<VoiceKeyDetector | null>(null);
+  const voiceStopTimerRef = useRef<number | null>(null);
+  const voiceCountdownIntervalRef = useRef<number | null>(null);
+  const [voiceSecondsLeft, setVoiceSecondsLeft] = useState<number | null>(null);
   const lyricsRef = useRef<HTMLTextAreaElement>(null);
 
   const handleDetectKeyFromChords = () => {
@@ -43,17 +46,37 @@ export function SongForm({ song }: { song?: Song }) {
   const handleDetectKeyFromVoice = async () => {
     const select = document.querySelector<HTMLSelectElement>("select[name=originalKey]");
 
-    if (voiceDetectorRef.current) {
+    const clearVoiceTimers = () => {
+      if (voiceStopTimerRef.current) {
+        clearTimeout(voiceStopTimerRef.current);
+        voiceStopTimerRef.current = null;
+      }
+      if (voiceCountdownIntervalRef.current) {
+        clearInterval(voiceCountdownIntervalRef.current);
+        voiceCountdownIntervalRef.current = null;
+      }
+      setVoiceSecondsLeft(null);
+    };
+
+    const finishVoiceDetection = (isAutoStop: boolean) => {
+      if (!voiceDetectorRef.current) return;
       const result = voiceDetectorRef.current.stop();
       voiceDetectorRef.current = null;
+      clearVoiceTimers();
       setVoiceListening(false);
+
       if (result && select) {
         select.value = result.key;
         const pct = Math.round(result.confidence * 100);
-        setDetectMessage(`Detected ${result.key} ${result.mode} from voice (${pct}% confidence). Top sung note: ${result.topNote ?? "-"}.`);
+        const prefix = isAutoStop ? "10s scan complete." : "Voice scan stopped.";
+        setDetectMessage(`${prefix} Detected ${result.key} ${result.mode} (${pct}% confidence). Top sung note: ${result.topNote ?? "-"}.`);
       } else {
-        setDetectMessage("Could not lock a stable note. Try again and hold one note for 2-3 seconds.");
+        setDetectMessage("No clear key detected from the 10-second scan. Try again in a quieter room and sing a longer phrase.");
       }
+    };
+
+    if (voiceDetectorRef.current) {
+      finishVoiceDetection(false);
       return;
     }
 
@@ -68,14 +91,29 @@ export function SongForm({ song }: { song?: Song }) {
       await ctx.resume();
 
       const detector = new VoiceKeyDetector(ctx, stream, (note, stableCount) => {
-        setDetectMessage(`Listening... ${note} (${stableCount} stable frames). Tap mic again to set.`);
+        setDetectMessage(`Scanning voice${voiceSecondsLeft ? ` (${voiceSecondsLeft}s left)` : ""}... ${note} (${stableCount} stable frames).`);
       });
 
       voiceDetectorRef.current = detector;
       setVoiceListening(true);
+      setVoiceSecondsLeft(10);
+      setDetectMessage("Scanning voice for 10 seconds... sing your acapella phrase now.");
+
+      voiceStopTimerRef.current = window.setTimeout(() => {
+        finishVoiceDetection(true);
+      }, 10_000);
+
+      voiceCountdownIntervalRef.current = window.setInterval(() => {
+        setVoiceSecondsLeft((prev) => {
+          if (!prev || prev <= 1) return 1;
+          return prev - 1;
+        });
+      }, 1_000);
+
       detector.start();
     } catch (e) {
       const err = e as DOMException;
+      clearVoiceTimers();
       setDetectMessage(`[${err.name}] ${err.message}`);
       setVoiceListening(false);
     }
@@ -83,6 +121,8 @@ export function SongForm({ song }: { song?: Song }) {
 
   useEffect(() => {
     return () => {
+      if (voiceStopTimerRef.current) clearTimeout(voiceStopTimerRef.current);
+      if (voiceCountdownIntervalRef.current) clearInterval(voiceCountdownIntervalRef.current);
       voiceDetectorRef.current?.cleanup();
       voiceDetectorRef.current = null;
     };
