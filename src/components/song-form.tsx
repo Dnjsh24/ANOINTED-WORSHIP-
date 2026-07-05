@@ -10,7 +10,7 @@ import { formatSongToText } from "@/lib/domain/chords";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Key, Music, Trash2 } from "lucide-react";
-import { detectKey, extractChordRoots } from "@/lib/detect-key-from-chords";
+import { detectKeyFromText } from "@/lib/detect-key-from-chords";
 
 export function SongForm({ song }: { song?: Song }) {
   const [state, formAction] = useActionState(song ? updateSongAction : createSongAction, initialActionState);
@@ -22,22 +22,19 @@ export function SongForm({ song }: { song?: Song }) {
   const lyricsRef = useRef<HTMLTextAreaElement>(null);
 
   const handleDetectKeyFromChords = () => {
-    const roots = extractChordRoots(lyrics);
-    if (roots.length === 0) {
+    const result = detectKeyFromText(lyrics);
+    if (!result) {
       setDetectMessage("No chords found in the Chords/Lyrics tab.");
       return;
     }
-    const result = detectKey(roots);
-    if (!result) {
-      setDetectMessage("Could not determine key.");
-      return;
-    }
+
     const select = document.querySelector<HTMLSelectElement>("select[name=originalKey]");
     if (select) {
       select.value = result.key;
     }
     const matchPct = Math.round(result.score * 100);
-    setDetectMessage(`Detected ${result.key} (${result.matchCount}/${result.totalChords} chords match, ${matchPct}% confidence)`);
+    const mode = result.mode === "minor" ? "minor" : "major";
+    setDetectMessage(`Detected ${result.key} ${mode} (${result.matchCount}/${result.totalChords} chords fit, ${matchPct}% confidence)`);
   };
 
   return (
