@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarDays, CheckCircle2, Clock, History, MapPin, UserX, Users, Trash2 } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, Clock, History, MapPin, UserX, Users } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AttendanceToggle } from "@/components/attendance-toggle";
@@ -11,7 +11,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
 import { getSetlistTypeLabel } from "@/lib/domain/event-types";
 import { can } from "@/lib/domain/rbac";
-import { removeSetlistSongAction } from "@/app/actions";
+import { DeleteSongButton } from "@/components/delete-song-button";
 import {
   buildAssignmentConflicts,
   getMissingSetlistRoles,
@@ -425,23 +425,11 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
                           <Badge>{item.song.bpm} BPM</Badge>
                         </div>
                         {canManageSetlist && (
-                          <form
-                            action={async (formData) => {
-                              "use server";
-                              await removeSetlistSongAction(formData);
-                            }}
-                            className="inline-flex"
-                          >
-                            <input type="hidden" name="setlistId" value={setlist.id} />
-                            <input type="hidden" name="slotId" value={item.id} />
-                            <button
-                              type="submit"
-                              aria-label="Remove song"
-                              className="rounded-lg p-1.5 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition"
-                            >
-                              <Trash2 className="size-4" />
-                            </button>
-                          </form>
+                          <DeleteSongButton
+                            setlistId={setlist.id}
+                            slotId={item.id}
+                            songTitle={item.song.title}
+                          />
                         )}
                       </div>
                     </Card>
