@@ -1,4 +1,4 @@
-import { CalendarDays, Footprints, Music, Sparkles, Users } from "lucide-react";
+import { CalendarDays, Footprints } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { DanceChartForm, type DanceChartOption } from "@/components/dance-chart-form";
@@ -113,28 +113,9 @@ export default async function DanceChartsPage({ searchParams }: { searchParams: 
     });
   }
 
-  const chartSectionsCard = (
-    <Card className="p-5">
-      <h2 className="text-lg font-bold text-white">Chart Sections</h2>
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        {[
-          { label: "Steps", icon: Footprints, text: "Counts and movement" },
-          { label: "Formation", icon: Users, text: "Placement and spacing" },
-          { label: "Props", icon: Sparkles, text: "Outfit and tambourine" },
-        ].map((item) => (
-          <div key={item.label} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-            <item.icon className="size-4 text-violet-300" />
-            <p className="mt-2 text-sm font-bold text-white">{item.label}</p>
-            <p className="mt-1 text-xs font-semibold text-zinc-500">{item.text}</p>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-
   return (
     <AppShell active="Dance Charts" teamContext={teamContext}>
-      <div className="animate-fade-up">
+      <div className="animate-fade-up text-left">
         <p className="font-mono text-xs font-bold uppercase tracking-widest text-violet-200">Dance Ministry</p>
         <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -171,25 +152,11 @@ export default async function DanceChartsPage({ searchParams }: { searchParams: 
         </div>
       </div>
 
-      <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <div className="mt-7 max-w-4xl mx-auto text-left">
         {showForm ? (
-          <>
-            <div className="space-y-5">
-              <DanceChartForm songs={songOptions} events={eventOptions} />
-            </div>
-            <div className="space-y-4">
-              {chartSectionsCard}
-            </div>
-          </>
+          <DanceChartForm songs={songOptions} events={eventOptions} />
         ) : (
-          <>
-            <div className="space-y-5">
-              {chartSectionsCard}
-            </div>
-            <div className="space-y-4">
-              <DanceLibraryList charts={charts} />
-            </div>
-          </>
+          <DanceLibraryList charts={charts} />
         )}
       </div>
     </AppShell>
