@@ -33,6 +33,7 @@ const GUITAR_DATABASE: Record<string, GuitarShape> = {
   "Cmaj7": { frets: ["x", 3, 2, 0, 0, 0] },
   "Csus4": { frets: ["x", 3, 3, 0, 1, 1] },
   "C/F": { frets: [1, 3, 2, 0, 1, 0] },
+  "C/E": { frets: [0, 3, 2, 0, 1, 0] },
 
   "C#": { frets: ["x", 4, 6, 6, 6, 4], baseFret: 4 },
   "C#m": { frets: ["x", 4, 6, 6, 5, 4], baseFret: 4 },
@@ -45,6 +46,7 @@ const GUITAR_DATABASE: Record<string, GuitarShape> = {
   "Dmaj7": { frets: ["x", "x", 0, 2, 2, 2] },
   "Dsus4": { frets: ["x", "x", 0, 2, 3, 3] },
   "D/G": { frets: [3, "x", 0, 2, 3, 2] },
+  "D/F#": { frets: [2, 0, 0, 2, 3, 2] },
 
   "D#": { frets: ["x", 6, 8, 8, 8, 6], baseFret: 6 },
   "D#m": { frets: ["x", 6, 8, 8, 7, 6], baseFret: 6 },
@@ -76,6 +78,7 @@ const GUITAR_DATABASE: Record<string, GuitarShape> = {
   "Gsus4": { frets: [3, 3, 0, 0, 1, 3] },
   "G/B": { frets: ["x", 2, 0, 0, 0, 3] },
   "G/C": { frets: [3, 3, 2, 0, 1, 3] },
+  "G/D": { frets: ["x", "x", 0, 0, 0, 3] },
 
   "G#": { frets: [4, 6, 6, 5, 4, 4], baseFret: 4 },
   "G#m": { frets: [4, 6, 6, 4, 4, 4], baseFret: 4 },
@@ -87,6 +90,9 @@ const GUITAR_DATABASE: Record<string, GuitarShape> = {
   "Amaj7": { frets: ["x", 0, 2, 1, 2, 0] },
   "Asus4": { frets: ["x", 0, 2, 2, 3, 0] },
   "A/Db": { frets: ["x", 4, 2, 2, 2, 0] },
+  "A/C#": { frets: ["x", 4, 2, 2, 2, 0] },
+  "A/D": { frets: ["x", "x", 0, 2, 2, 0] },
+  "A/G": { frets: [3, 0, 2, 2, 2, 0] },
 
   "A#": { frets: ["x", 1, 3, 3, 3, 1] },
   "A#m": { frets: ["x", 1, 3, 3, 2, 1] },
@@ -135,22 +141,56 @@ const PIANO_INTERVALS: Record<string, number[]> = {
 };
 
 export function getGuitarChordShape(chord: string): GuitarShape {
-  // Strip slash notes (e.g. C/F -> C) for shape lookup if not found directly
-  const normalized = normalizeNoteName(chord.trim());
+  const normalized = chord.trim();
   if (GUITAR_DATABASE[normalized]) {
     return GUITAR_DATABASE[normalized];
   }
 
+  // 1. Try normalizing root and/or bass enharmonics for slash chords
   const slashIndex = normalized.indexOf("/");
   if (slashIndex > 0) {
-    const mainChord = normalized.substring(0, slashIndex);
-    if (GUITAR_DATABASE[mainChord]) {
-      return GUITAR_DATABASE[mainChord];
+    const root = normalized.substring(0, slashIndex);
+    const bass = normalized.substring(slashIndex + 1);
+
+    const normRoot = normalizeNoteName(root);
+    const normBass = normalizeNoteName(bass);
+
+    const getEnharmonicEquivalent = (note: string): string => {
+      const equivalents: Record<string, string> = {
+        "C#": "Db", "Db": "C#",
+        "D#": "Eb", "Eb": "D#",
+        "F#": "Gb", "Gb": "F#",
+        "G#": "Ab", "Ab": "G#",
+        "A#": "Bb", "Bb": "A#",
+      };
+      return equivalents[note] ?? note;
+    };
+
+    const variations = [
+      `${normRoot}/${normBass}`,
+      `${root}/${bass}`,
+      `${normRoot}/${getEnharmonicEquivalent(normBass)}`,
+      `${root}/${getEnharmonicEquivalent(bass)}`,
+    ];
+
+    for (const variant of variations) {
+      if (GUITAR_DATABASE[variant]) {
+        return GUITAR_DATABASE[variant];
+      }
+    }
+
+    // Fallback: use main chord shape
+    const normMainChord = normalizeNoteName(root);
+    if (GUITAR_DATABASE[normMainChord]) {
+      return GUITAR_DATABASE[normMainChord];
+    }
+    if (GUITAR_DATABASE[root]) {
+      return GUITAR_DATABASE[root];
     }
   }
 
   // Fallback: search main root + quality
-  const match = normalized.match(/^([A-G]#?|Bb|Eb|Ab|Db|Gb)?(.*)$/);
+  const match = normalizeNoteName(normalized).match(/^([A-G]#?|Bb|Eb|Ab|Db|Gb)?(.*)$/);
   if (match) {
     const [, root, suffix] = match;
     const baseChord = (root ?? "C") + (suffix ?? "");
