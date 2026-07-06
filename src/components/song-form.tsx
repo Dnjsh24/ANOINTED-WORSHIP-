@@ -21,6 +21,7 @@ export function SongForm({ song }: { song?: Song }) {
   const [songStatus, setSongStatus] = useState("");
   const [detectMessage, setDetectMessage] = useState<string | null>(null);
   const [voiceListening, setVoiceListening] = useState(false);
+  const [voiceLevel, setVoiceLevel] = useState(0);
   const voiceDetectorRef = useRef<VoiceKeyDetector | null>(null);
   const voiceStopTimerRef = useRef<number | null>(null);
   const voiceCountdownIntervalRef = useRef<number | null>(null);
@@ -64,14 +65,17 @@ export function SongForm({ song }: { song?: Song }) {
       voiceDetectorRef.current = null;
       clearVoiceTimers();
       setVoiceListening(false);
+      setVoiceLevel(0);
 
-      if (result && select) {
-        select.value = result.key;
+      if (result.status === "ok") {
+        if (select) {
+          select.value = result.key;
+        }
         const pct = Math.round(result.confidence * 100);
         const prefix = isAutoStop ? "10s scan complete." : "Voice scan stopped.";
         setDetectMessage(`${prefix} Detected ${result.key} ${result.mode} (${pct}% confidence). Top sung note: ${result.topNote ?? "-"}.`);
       } else {
-        setDetectMessage("No clear key detected from the 10-second scan. Try again in a quieter room and sing a longer phrase.");
+        setDetectMessage(`${result.message} Captured ${result.sampleCount} pitch frames across ${result.uniquePitchClasses} note classes.`);
       }
     };
 
@@ -98,6 +102,8 @@ export function SongForm({ song }: { song?: Song }) {
 
       const detector = new VoiceKeyDetector(ctx, stream, (note, stableCount) => {
         setDetectMessage(`Scanning voice... ${note} (${stableCount} stable frames).`);
+      }, (level) => {
+        setVoiceLevel(level);
       });
 
       voiceDetectorRef.current = detector;
@@ -122,6 +128,7 @@ export function SongForm({ song }: { song?: Song }) {
       clearVoiceTimers();
       setDetectMessage(`[${err.name}] ${err.message}`);
       setVoiceListening(false);
+      setVoiceLevel(0);
     }
   };
 
@@ -131,6 +138,7 @@ export function SongForm({ song }: { song?: Song }) {
       if (voiceCountdownIntervalRef.current) clearInterval(voiceCountdownIntervalRef.current);
       voiceDetectorRef.current?.cleanup();
       voiceDetectorRef.current = null;
+      setVoiceLevel(0);
     };
   }, []);
 
@@ -204,7 +212,25 @@ export function SongForm({ song }: { song?: Song }) {
                 <p className="mt-1 text-xs font-semibold text-violet-300">{detectMessage}</p>
               )}
               {voiceListening && voiceSecondsLeft !== null && (
-                <p className="mt-1 text-xs font-semibold text-amber-300">Acapella scan: {voiceSecondsLeft}s remaining</p>
+                <div className="mt-1 space-y-1">
+                  <p className="text-xs font-semibold text-amber-300">Acapella scan: {voiceSecondsLeft}s remaining</p>
+                  <div className="flex items-end gap-1" aria-hidden="true">
+                    {Array.from({ length: 10 }, (_, index) => {
+                      const threshold = (index + 1) / 10;
+                      const active = voiceLevel >= threshold;
+                      return (
+                        <span
+                          key={index}
+                          className={cn(
+                            "w-1.5 rounded-sm transition-all",
+                            active ? "bg-emerald-400" : "bg-white/10",
+                          )}
+                          style={{ height: `${8 + index * 2}px` }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </label>
 
