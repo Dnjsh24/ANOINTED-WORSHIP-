@@ -82,6 +82,7 @@ export interface Song {
   favorite: boolean;
   sections: SongSection[];
   youtubeUrl?: string;
+  album?: string;
 }
 
 export interface SetlistSong {

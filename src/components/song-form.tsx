@@ -169,6 +169,11 @@ export function SongForm({ song }: { song?: Song }) {
             <Input name="artist" defaultValue={song?.artist} placeholder="e.g., Brandon Lake" required />
           </label>
 
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold text-zinc-300">Album (Optional)</span>
+            <Input name="album" defaultValue={song?.album} placeholder="e.g., Coat of Many Colors" />
+          </label>
+
           {/* Key with picker icon next to it */}
           <div className="grid grid-cols-2 gap-4">
             <label className="block space-y-1.5">

@@ -205,7 +205,10 @@ export function SongViewer({ song }: { song: Song }) {
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-white">{song.title}</h1>
-          <p className="mt-1 text-sm font-semibold text-zinc-400">{song.artist}</p>
+          <p className="mt-1 text-sm font-semibold text-zinc-400">
+            {song.artist}
+            {song.album && <span className="text-zinc-500 font-normal italic ml-2">({song.album})</span>}
+          </p>
         </div>
         <div className="flex gap-2">
           <Link
@@ -356,10 +359,6 @@ export function SongViewer({ song }: { song: Song }) {
             <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 mb-4 pb-2 border-b border-white/[0.04]">Details</h3>
             <div className="space-y-3.5 text-xs font-semibold text-zinc-400">
               <div className="flex justify-between">
-                <span>Album</span>
-                <span className="text-white font-bold">Arriving</span>
-              </div>
-              <div className="flex justify-between">
                 <span>Genre</span>
                 <span className="text-white font-bold">Worship</span>
               </div>
@@ -367,6 +366,12 @@ export function SongViewer({ song }: { song: Song }) {
                 <span>Original Artist</span>
                 <span className="text-white font-bold">{song.artist}</span>
               </div>
+              {song.album && (
+                <div className="flex justify-between">
+                  <span>Album</span>
+                  <span className="text-white font-bold">{song.album}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Key</span>
                 <span className="text-white font-bold">{song.originalKey}</span>

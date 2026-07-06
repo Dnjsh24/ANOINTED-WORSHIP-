@@ -20,7 +20,7 @@ export default async function SongsPage() {
     const supabase = await createClient();
     const { data: dbSongs } = await supabase
       .from("songs")
-      .select("id, title, artist, original_key, bpm, time_signature, tags, youtube_url")
+      .select("id, title, artist, original_key, bpm, time_signature, tags, youtube_url, album")
       .eq("team_id", teamContext.teamId)
       .order("title");
 
@@ -37,6 +37,7 @@ export default async function SongsPage() {
         favorite: false,
         sections: [],
         youtubeUrl: s.youtube_url ?? undefined,
+        album: s.album ?? undefined,
       }));
       totalSongsCount = dbSongs.length;
     }

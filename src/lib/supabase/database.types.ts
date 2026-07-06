@@ -373,6 +373,7 @@ export interface Database {
           nashville_numbers: string | null;
           youtube_url: string | null;
           spotify_url: string | null;
+          album: string | null;
           tags: string[];
           status: SongEditStatus;
           created_by: string;
@@ -391,6 +392,7 @@ export interface Database {
           nashville_numbers?: string | null;
           youtube_url?: string | null;
           spotify_url?: string | null;
+          album?: string | null;
           tags?: string[];
           status?: SongEditStatus;
           created_by: string;
@@ -407,6 +409,7 @@ export interface Database {
           nashville_numbers?: string | null;
           youtube_url?: string | null;
           spotify_url?: string | null;
+          album?: string | null;
           tags?: string[];
           status?: SongEditStatus;
           updated_at?: string;

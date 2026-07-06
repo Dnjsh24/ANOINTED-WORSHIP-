@@ -41,6 +41,7 @@ export default async function EditSongPage({ params }: { params: Promise<{ id: s
         tags: dbSong.tags || [],
         favorite: false,
         sections: parseLyricsAndChords(dbSong.lyrics_chords),
+        album: dbSong.album ?? undefined,
       };
     }
   }

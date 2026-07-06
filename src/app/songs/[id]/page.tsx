@@ -38,6 +38,7 @@ export default async function SongPage({ params }: { params: Promise<{ id: strin
         favorite: false,
         sections: parseLyricsAndChords(dbSong.lyrics_chords),
         youtubeUrl: dbSong.youtube_url ?? undefined,
+        album: dbSong.album ?? undefined,
       };
     }
   }

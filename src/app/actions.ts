@@ -2640,6 +2640,7 @@ export async function createSongAction(_previous: ActionState, formData: FormDat
     timeSignature: formString(formData, "timeSignature") || "4/4",
     lyrics: formString(formData, "lyrics"),
     youtubeUrl: formString(formData, "youtubeUrl"),
+    album: formString(formData, "album"),
   });
 
   if (!parsed.success) {
@@ -2662,6 +2663,7 @@ export async function createSongAction(_previous: ActionState, formData: FormDat
       time_signature: parsed.data.timeSignature,
       lyrics_chords: parsed.data.lyrics,
       youtube_url: parsed.data.youtubeUrl || null,
+      album: parsed.data.album || null,
       tags: [],
       status: "approved",
       created_by: context.userId,
@@ -2687,6 +2689,7 @@ export async function updateSongAction(_previous: ActionState, formData: FormDat
     timeSignature: formString(formData, "timeSignature") || "4/4",
     lyrics: formString(formData, "lyrics"),
     youtubeUrl: formString(formData, "youtubeUrl"),
+    album: formString(formData, "album"),
   });
 
   if (!songId) {
@@ -2712,6 +2715,7 @@ export async function updateSongAction(_previous: ActionState, formData: FormDat
       time_signature: parsed.data.timeSignature,
       lyrics_chords: parsed.data.lyrics,
       youtube_url: parsed.data.youtubeUrl || null,
+      album: parsed.data.album || null,
     })
     .eq("id", songId)
     .eq("team_id", context.teamId);

@@ -80,6 +80,11 @@ export function SongLibraryGrid({ songs }: { songs: Song[] }) {
                         {song.title}
                       </Link>
                       <p className="mt-1 text-sm font-semibold text-zinc-300">{song.artist}</p>
+                      {song.album && (
+                        <p className="mt-0.5 text-xs font-semibold text-zinc-400 italic">
+                          Album: {song.album}
+                        </p>
+                      )}
                     </div>
                     <button
                       type="button"
