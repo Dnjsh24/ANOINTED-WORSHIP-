@@ -51,10 +51,32 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
+  let user = null;
   try {
-    await supabase.auth.getClaims();
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
   } catch (error) {
     console.warn("Supabase session update failed:", error);
+  }
+
+  const publicRoutes = ["/", "/login", "/auth"];
+  const isPublicRoute = publicRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+  const isAssetRoute = pathname.startsWith("/_next") || pathname.startsWith("/brand") || pathname.includes(".");
+
+  if (isAssetRoute) {
+    return supabaseResponse;
+  }
+
+  if (!user && !isPublicRoute) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    return NextResponse.redirect(loginUrl);
+  }
+
+  if (user && pathname === "/") {
+    const dashboardUrl = request.nextUrl.clone();
+    dashboardUrl.pathname = "/dashboard";
+    return NextResponse.redirect(dashboardUrl);
   }
 
   return supabaseResponse;
