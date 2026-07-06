@@ -156,7 +156,7 @@ export default async function DanceChartsPage({ searchParams }: { searchParams: 
         {showForm ? (
           <DanceChartForm songs={songOptions} events={eventOptions} />
         ) : (
-          <DanceLibraryList charts={charts} />
+          <DanceLibraryList charts={charts} canManage={canManageDanceCharts} />
         )}
       </div>
     </AppShell>
