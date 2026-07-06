@@ -14,7 +14,9 @@ const ENHARMONIC_MAP: Record<string, string> = {
 };
 
 export function normalizeNoteName(note: string): string {
-  return ENHARMONIC_MAP[note] ?? note;
+  if (!note) return "";
+  const capitalized = note.charAt(0).toUpperCase() + note.slice(1).toLowerCase();
+  return ENHARMONIC_MAP[capitalized] ?? capitalized;
 }
 
 // Represents guitar fret positions (string 1-6: E-low to E-high)
@@ -104,6 +106,20 @@ const GUITAR_DATABASE: Record<string, GuitarShape> = {
   "Bmaj7": { frets: ["x", 2, 4, 3, 4, 2], baseFret: 2 },
   "Bsus4": { frets: ["x", 2, 4, 4, 5, 2], baseFret: 2 },
   "Bbm": { frets: ["x", 1, 3, 3, 2, 1] },
+
+  // Added m7 chords
+  "Cm7": { frets: ["x", 3, 5, 3, 4, 3], baseFret: 3 },
+  "C#m7": { frets: ["x", 4, 6, 4, 5, 4], baseFret: 4 },
+  "Dm7": { frets: ["x", "x", 0, 2, 1, 1] },
+  "D#m7": { frets: ["x", 6, 8, 6, 7, 6], baseFret: 6 },
+  "Em7": { frets: [0, 2, 2, 0, 3, 0] },
+  "Fm7": { frets: [1, 3, 1, 1, 1, 1] },
+  "F#m7": { frets: [2, 4, 2, 2, 2, 2], baseFret: 2 },
+  "Gm7": { frets: [3, 5, 3, 3, 3, 3], baseFret: 3 },
+  "G#m7": { frets: [4, 6, 4, 4, 4, 4], baseFret: 4 },
+  "Am7": { frets: ["x", 0, 2, 0, 1, 0] },
+  "A#m7": { frets: ["x", 1, 3, 1, 2, 1] },
+  "Bm7": { frets: ["x", 2, 4, 2, 3, 2], baseFret: 2 },
 };
 
 // Represents bass fretboard root note positions (string 1-4: E, A, D, G)
@@ -244,18 +260,20 @@ export function getPianoKeys(chord: string): number[] {
   // Determine chord quality/intervals
   let intervals = PIANO_INTERVALS["major"];
   const cleanSuffix = suffix ?? "";
-  if (cleanSuffix.startsWith("m") && !cleanSuffix.startsWith("maj")) {
+  if (cleanSuffix.startsWith("maj7")) {
+    intervals = PIANO_INTERVALS["maj7"];
+  } else if (cleanSuffix.startsWith("m7")) {
+    intervals = PIANO_INTERVALS["m7"];
+  } else if (cleanSuffix.startsWith("m") && !cleanSuffix.startsWith("maj")) {
     intervals = PIANO_INTERVALS["m"];
   } else if (cleanSuffix.startsWith("sus4")) {
     intervals = PIANO_INTERVALS["sus4"];
   } else if (cleanSuffix.startsWith("7")) {
     intervals = PIANO_INTERVALS["7"];
-  } else if (cleanSuffix.startsWith("maj7")) {
-    intervals = PIANO_INTERVALS["maj7"];
-  } else if (cleanSuffix.startsWith("5")) {
-    intervals = PIANO_INTERVALS["5"];
   } else if (cleanSuffix.startsWith("add9")) {
     intervals = PIANO_INTERVALS["add9"];
+  } else if (cleanSuffix.startsWith("5")) {
+    intervals = PIANO_INTERVALS["5"];
   }
 
   // Calculate absolute keyboard note positions (0 to 23 for 2 octaves)

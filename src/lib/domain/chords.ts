@@ -8,10 +8,12 @@ const enharmonic: Record<string, string> = {
   Fb: "E",
 };
 
-const chordPattern = /^([A-G](?:#|b)?)(.*)$/;
+const chordPattern = /^([A-Ga-g](?:#|b)?)(.*)$/;
 
 export function normalizeRoot(root: string) {
-  return enharmonic[root] ?? root;
+  if (!root) return "";
+  const capitalized = root.charAt(0).toUpperCase() + root.slice(1).toLowerCase();
+  return enharmonic[capitalized] ?? capitalized;
 }
 
 export function transposeChord(chord: string, fromKey: string, toKey: string) {
@@ -125,7 +127,7 @@ export function parseLyricsAndChords(text: string): SongSection[] {
   let currentSection: SongSection | null = null;
   let pendingChords: string | undefined = undefined;
 
-  const chordWordRegex = /^[A-G](?:#|b)?(?:[a-zA-Z0-9#\/\+\-]*)$/;
+  const chordWordRegex = /^[A-Ga-g](?:#|b)?(?:[a-zA-Z0-9#\/\+\-]*)$/;
   function isChordsLine(line: string): boolean {
     const trimmed = line.trim();
     if (!trimmed) return false;
