@@ -57,7 +57,7 @@ export function DanceLibraryList({
       </div>
 
       {/* Grid of box-shaped cards */}
-      <div className="grid gap-5 md:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         {filteredCharts.length > 0 ? (
           filteredCharts.map((chart) => {
             return (

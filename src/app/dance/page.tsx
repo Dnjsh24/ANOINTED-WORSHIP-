@@ -152,9 +152,11 @@ export default async function DanceChartsPage({ searchParams }: { searchParams: 
         </div>
       </div>
 
-      <div className="mt-7 max-w-4xl mx-auto text-left">
+      <div className="mt-7 text-left">
         {showForm ? (
-          <DanceChartForm songs={songOptions} events={eventOptions} />
+          <div className="max-w-2xl mx-auto">
+            <DanceChartForm songs={songOptions} events={eventOptions} />
+          </div>
         ) : (
           <DanceLibraryList charts={charts} canManage={canManageDanceCharts} />
         )}
