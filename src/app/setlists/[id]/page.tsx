@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AttendanceToggle } from "@/components/attendance-toggle";
 import { AppShell } from "@/components/app-shell";
 import { ShareButton } from "@/components/share-button";
+import { LocalTime } from "@/components/local-time";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -524,7 +525,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
                   <div key={log.id} className="border-l border-violet-400/40 pl-3">
                     <p className="text-sm font-bold text-zinc-100">{log.summary}</p>
                     <p className="mt-1 text-xs font-semibold text-zinc-500">
-                      {log.changedBy ?? "Team member"} - {formatHistoryDate(log.createdAt)}
+                      {log.changedBy ?? "Team member"} - <LocalTime dateIso={log.createdAt} />
                     </p>
                   </div>
                 ))}
