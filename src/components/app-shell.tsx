@@ -1,6 +1,5 @@
 import {
   CalendarDays,
-  Footprints,
   LayoutDashboard,
   MessageSquare,
   Music,
@@ -12,7 +11,7 @@ import type { ReactNode } from "react";
 import { AppShellActions } from "@/components/app-shell-actions";
 import { QuickReportButton } from "@/components/quick-report-button";
 import { MobileIconRail, type MobileNavigationItem } from "@/components/mobile-icon-rail";
-import { can, visibleNavigation } from "@/lib/domain/rbac";
+import { visibleNavigation } from "@/lib/domain/rbac";
 import { appName } from "@/lib/sample-data";
 import { getCurrentTeamContext, type TeamContext } from "@/lib/supabase/team-context";
 import { cn } from "@/lib/utils";
@@ -22,7 +21,6 @@ const navItems = [
   { id: "home", href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { id: "setlists", href: "/setlists", label: "Setlists", icon: Music },
   { id: "events", href: "/events", label: "Timeline", icon: CalendarDays },
-  { id: "dance", href: "/dance", label: "Dance Charts", icon: Footprints },
   { id: "messages", href: "/messages", label: "Messages", icon: MessageSquare },
   { id: "members", href: "/members", label: "Team Management", icon: Users },
   { id: "profile", href: "/profile", label: "Profile", icon: User },
@@ -62,7 +60,7 @@ export async function AppShell({
           <AppShellActions userId={context.userId} teamId={context.teamId} canManageTeam={context.canManageMembers} />
         </div>
       </header>
-      <MobileIconRail active={active} items={mobileNavigation} canManageTeam={context.canManageMembers} canManageDance={can(context.role, "dance_notes.manage")} />
+      <MobileIconRail active={active} items={mobileNavigation} canManageTeam={context.canManageMembers} />
       <main className="mx-auto max-w-7xl px-4 py-6 pb-24 md:px-6 md:pb-8">{children}</main>
       <QuickReportButton />
     </div>

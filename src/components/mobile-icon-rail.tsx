@@ -2,7 +2,6 @@
 
 import {
   CalendarDays,
-  Footprints,
   Folder,
   LayoutDashboard,
   MessageSquare,
@@ -34,12 +33,10 @@ export function MobileIconRail({
   active,
   items,
   canManageTeam = false,
-  canManageDance = false,
 }: {
   active: string;
   items: MobileNavigationItem[];
   canManageTeam?: boolean;
-  canManageDance?: boolean;
 }) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
@@ -51,7 +48,6 @@ export function MobileIconRail({
     home: LayoutDashboard,
     setlists: Music,
     events: CalendarDays,
-    dance: Footprints,
     messages: MessageSquare,
     members: Users,
     profile: User,
@@ -83,12 +79,8 @@ export function MobileIconRail({
     fourthTab = { id: "songs", href: "/songs", label: "Songs", icon: Music };
   } else if (activeLabel === "timeline" || activeLabel === "events") {
     fourthTab = makeTab("events", "Events", "/events");
-  } else if (activeLabel === "dance charts" || activeLabel === "dance") {
-    fourthTab = makeTab("dance", "Dance", "/dance");
   } else if (itemById.has("members")) {
     fourthTab = makeTab("members", "Members", "/members");
-  } else if (itemById.has("dance")) {
-    fourthTab = makeTab("dance", "Dance", "/dance");
   }
 
   // The 5th tab is "More"
@@ -98,7 +90,6 @@ export function MobileIconRail({
   const moreMenuLinks = [
     { href: "/songs", label: "Songs", icon: Music },
     { href: "/events", label: "Timeline Events", icon: CalendarDays },
-    ...(canManageDance ? [{ href: "/dance", label: "Dance Charts", icon: Footprints }] : []),
     { href: "/profile", label: "My Profile", icon: User },
     ...(canManageTeam ? [{ href: "/admin/settings", label: "Team Settings", icon: Settings }] : []),
   ];

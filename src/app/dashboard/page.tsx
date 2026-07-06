@@ -5,7 +5,6 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock,
-  Footprints,
   Folder,
   Info,
   MapPin,
@@ -268,7 +267,6 @@ export default async function DashboardPage() {
   }
 
   const isAdminOrOwner = teamContext.role === "owner" || teamContext.role === "admin";
-  const canManageDanceCharts = can(teamContext.role, "dance_notes.manage");
   const firstName = userFullName.split(" ")[0];
   const nextSetlistTypeLabel = nextSetlist ? getSetlistTypeLabel(nextSetlist) : "";
 
@@ -281,7 +279,6 @@ export default async function DashboardPage() {
     { href: "/events", label: "Timeline", sub: "Team schedule", icon: CalendarDays },
     { href: "/messages", label: "Messages", sub: "Team communication", icon: MessageSquare },
     ...(teamContext.canManageMembers ? [{ href: "/members", label: "Members", sub: "Roster & availability", icon: Users }] : []),
-    ...(canManageDanceCharts ? [{ href: "/dance", label: "Dance Charts", sub: "Steps & tambourine", icon: Footprints }] : []),
     { href: "/songs", label: "Songs", sub: "Team song library", icon: Music },
     ...(teamContext.canManageMembers
       ? [

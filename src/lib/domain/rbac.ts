@@ -107,7 +107,6 @@ export function visibleNavigation(role: TeamRole) {
     "home",
     "setlists",
     "events",
-    ...(can(role, "dance_notes.manage") ? ["dance"] : []),
     "messages",
     "profile",
   ];
