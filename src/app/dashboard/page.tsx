@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clock,
   Folder,
+  Footprints,
   Info,
   MapPin,
   MessageSquare,
@@ -280,6 +281,7 @@ export default async function DashboardPage() {
     { href: "/messages", label: "Messages", sub: "Team communication", icon: MessageSquare },
     ...(teamContext.canManageMembers ? [{ href: "/members", label: "Members", sub: "Roster & availability", icon: Users }] : []),
     { href: "/songs", label: "Songs", sub: "Team song library", icon: Music },
+    { href: "/dance", label: "Dance", sub: "Choreography & steps", icon: Footprints },
     ...(teamContext.canManageMembers
       ? [
           { href: "/admin/settings", label: "Reports", sub: "Team insights", icon: BarChart3 },
@@ -547,7 +549,7 @@ export default async function DashboardPage() {
       {/* ── Quick Access ─────────────────────────── */}
       <section className="mt-8 animate-fade-up" style={{ animationDelay: "260ms" }}>
         <h2 className="mb-5 text-xl font-bold">Quick Access</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
           {quickLinks.map((item, i) => (
             <Link
               key={item.href + item.label}
