@@ -1,23 +1,8 @@
 import { CalendarDays, Library, MessageSquare, Rows3 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { hasSupabaseEnv } from "@/lib/supabase/env";
-import { createClient } from "@/lib/supabase/server";
-import { getPostLoginRedirectPath } from "@/lib/supabase/team-context";
 
-export default async function Home() {
-  if (hasSupabaseEnv()) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (user) {
-      redirect(await getPostLoginRedirectPath(supabase));
-    }
-  }
-
+export default function Home() {
   return (
     <main className="min-h-screen bg-[#0d0c12] text-white overflow-x-hidden">
       {/* Nav */}
