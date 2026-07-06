@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarDays, CheckCircle2, Clock, History, MapPin, UserX, Users } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, Clock, History, MapPin, UserX, Users, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AttendanceToggle } from "@/components/attendance-toggle";
@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
 import { getSetlistTypeLabel } from "@/lib/domain/event-types";
+import { can } from "@/lib/domain/rbac";
+import { removeSetlistSongAction } from "@/app/actions";
 import {
   buildAssignmentConflicts,
   getMissingSetlistRoles,
@@ -26,6 +28,7 @@ import type { SetlistChangeLog } from "@/lib/types";
 export default async function SetlistDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
+  const canManageSetlist = can(teamContext.role, "setlists.manage");
 
   let setlist: any = null;
   let teamAssignmentsList: Array<[string, string, string]> = [];
@@ -403,23 +406,46 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
                 </p>
               ) : (
                 setlist.songs.map((item: any) => (
-                  <Link key={item.id} href={`/songs/${item.song.id}`} className="block animate-scale-in">
-                    <Card className="grid grid-cols-[auto_1fr_auto] items-center gap-4 p-4 transition-all duration-200 hover:border-violet-400/60 hover:bg-white/[0.02]">
+                  <div key={item.id} className="block animate-scale-in">
+                    <Card className="grid grid-cols-[auto_1fr_auto] items-center gap-4 p-4 transition-all duration-200 hover:border-violet-400/30">
                       <span className="font-mono text-sm font-bold text-zinc-300">{item.order}</span>
-                      <div>
-                        <p className="font-bold">{item.song.title}</p>
+                      <Link href={`/songs/${item.song.id}`} className="flex-1 min-w-0 text-left group">
+                        <p className="font-bold text-white group-hover:text-violet-300 transition-colors">
+                          {item.song.title}
+                        </p>
                         {item.lead && (
                           <p className="mt-1 text-xs font-semibold text-zinc-400">
                             Lead Vocal ({item.lead})
                           </p>
                         )}
-                      </div>
-                      <div className="flex gap-2">
-                        <Badge>Key: {item.assignedKey}</Badge>
-                        <Badge>{item.song.bpm} BPM</Badge>
+                      </Link>
+                      <div className="flex items-center gap-3">
+                        <div className="flex gap-2">
+                          <Badge>Key: {item.assignedKey}</Badge>
+                          <Badge>{item.song.bpm} BPM</Badge>
+                        </div>
+                        {canManageSetlist && (
+                          <form
+                            action={async (formData) => {
+                              "use server";
+                              await removeSetlistSongAction(formData);
+                            }}
+                            className="inline-flex"
+                          >
+                            <input type="hidden" name="setlistId" value={setlist.id} />
+                            <input type="hidden" name="slotId" value={item.id} />
+                            <button
+                              type="submit"
+                              aria-label="Remove song"
+                              className="rounded-lg p-1.5 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </form>
+                        )}
                       </div>
                     </Card>
-                  </Link>
+                  </div>
                 ))
               )}
             </div>
