@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { CalendarDays, ChevronDown, ChevronUp, Footprints, Music, Sparkles, Users, Video, ExternalLink, Search } from "lucide-react";
+import Link from "next/link";
+import { CalendarDays, Footprints, Music, Search, Video, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,13 +22,6 @@ type DanceChart = {
   createdAt: string;
 };
 
-function getYoutubeEmbedUrl(url: string | null) {
-  if (!url) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  return match && match[2].length === 11 ? `https://www.youtube.com/embed/${match[2]}` : null;
-}
-
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("en-US", {
     month: "short",
@@ -38,7 +32,6 @@ function formatDate(value: string) {
 
 export function DanceLibraryList({ charts }: { charts: DanceChart[] }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const filteredCharts = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -51,10 +44,6 @@ export function DanceLibraryList({ charts }: { charts: DanceChart[] }) {
         (c.songVersion && c.songVersion.toLowerCase().includes(q))
     );
   }, [charts, searchQuery]);
-
-  function toggleExpand(id: string) {
-    setExpandedId((current) => (current === id ? null : id));
-  }
 
   return (
     <div className="space-y-4">
@@ -72,8 +61,6 @@ export function DanceLibraryList({ charts }: { charts: DanceChart[] }) {
       <div className="space-y-3">
         {filteredCharts.length > 0 ? (
           filteredCharts.map((chart) => {
-            const isExpanded = expandedId === chart.id;
-            const embedUrl = getYoutubeEmbedUrl(chart.videoUrl);
             const previewSnippet =
               chart.choreographyNotes.length > 90
                 ? `${chart.choreographyNotes.substring(0, 90)}...`
@@ -84,11 +71,10 @@ export function DanceLibraryList({ charts }: { charts: DanceChart[] }) {
                 key={chart.id}
                 className="overflow-hidden border border-white/[0.08] bg-[#111014]/60 hover:bg-[#111014]/80 transition duration-200"
               >
-                {/* Clickable Header Area */}
-                <button
-                  type="button"
-                  onClick={() => toggleExpand(chart.id)}
-                  className="w-full text-left p-5 flex items-start justify-between gap-4 cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-500/20"
+                {/* Link wrapper around the entire card header */}
+                <Link
+                  href={`/dance/${chart.id}`}
+                  className="block p-5 flex items-start justify-between gap-4 cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-500/20"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -135,92 +121,19 @@ export function DanceLibraryList({ charts }: { charts: DanceChart[] }) {
                       ) : null}
                     </div>
 
-                    {/* Preview text (shown only when collapsed) */}
-                    {!isExpanded && (
-                      <p className="mt-3 text-xs text-zinc-400 leading-relaxed italic bg-white/[0.02] p-2.5 rounded-lg border border-white/[0.03]">
-                        {previewSnippet}
-                      </p>
-                    )}
+                    {/* Preview text */}
+                    <p className="mt-3 text-xs text-zinc-400 leading-relaxed italic bg-white/[0.02] p-2.5 rounded-lg border border-white/[0.03]">
+                      {previewSnippet}
+                    </p>
                   </div>
 
                   <div className="flex flex-col items-end justify-between self-stretch shrink-0">
                     <span className="text-xs font-bold text-zinc-500">{formatDate(chart.createdAt)}</span>
-                    <span className="rounded-lg p-1.5 bg-white/[0.04] text-zinc-400">
-                      {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                    <span className="rounded-lg p-1.5 bg-white/[0.04] text-zinc-400 group-hover:text-white transition-colors">
+                      <ArrowRight className="size-4" />
                     </span>
                   </div>
-                </button>
-
-                {/* Expanded Details Section */}
-                {isExpanded && (
-                  <div className="border-t border-white/[0.08] bg-[#0e0d11]/40 p-5 space-y-5 animate-fade-in">
-                    {/* Choreography steps */}
-                    <div>
-                      <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-violet-300">
-                        Dance / Tambourine Steps
-                      </p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-zinc-200">
-                        {chart.choreographyNotes}
-                      </p>
-                    </div>
-
-                    {/* Formation notes */}
-                    {chart.formationNotes && (
-                      <div className="border-t border-white/[0.06] pt-4">
-                        <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-violet-300">
-                          Formation
-                        </p>
-                        <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-zinc-300">
-                          {chart.formationNotes}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Outfit & Props notes */}
-                    {chart.outfitNotes && (
-                      <div className="border-t border-white/[0.06] pt-4">
-                        <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-violet-300">
-                          Outfit / Props
-                        </p>
-                        <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-relaxed text-zinc-300">
-                          {chart.outfitNotes}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Video reference section */}
-                    {chart.videoUrl && (
-                      <div className="border-t border-white/[0.06] pt-4 space-y-3">
-                        <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-violet-300">
-                          Video Reference
-                        </p>
-                        
-                        {embedUrl ? (
-                          <div className="relative aspect-video w-full max-w-xl overflow-hidden rounded-xl border border-white/10 shadow-lg">
-                            <iframe
-                              src={embedUrl}
-                              title={`YouTube video for ${chart.title}`}
-                              className="absolute inset-0 h-full w-full"
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                            />
-                          </div>
-                        ) : (
-                          <a
-                            href={chart.videoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 rounded-lg bg-red-600/10 border border-red-500/20 px-3.5 py-2 text-xs font-bold text-red-400 hover:bg-red-600/20 transition-all"
-                          >
-                            <Video className="size-4" />
-                            Open Video Link
-                            <ExternalLink className="size-3" />
-                          </a>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+                </Link>
               </Card>
             );
           })

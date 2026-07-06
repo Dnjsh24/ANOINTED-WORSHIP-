@@ -2078,6 +2078,59 @@ export async function createDanceChartAction(_previous: ActionState, formData: F
   return { ok: true, message: "Dance chart saved." };
 }
 
+export async function updateDanceChartAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const chartId = formString(formData, "chartId");
+  const parsed = danceChartInputSchema.safeParse({
+    title: formString(formData, "title"),
+    songId: formString(formData, "songId"),
+    eventId: formString(formData, "eventId"),
+    choreographyNotes: formString(formData, "choreographyNotes"),
+    formationNotes: formString(formData, "formationNotes"),
+    outfitNotes: formString(formData, "outfitNotes"),
+    songTitle: formString(formData, "songTitle"),
+    songArtist: formString(formData, "songArtist"),
+    songVersion: formString(formData, "songVersion"),
+    videoUrl: formString(formData, "videoUrl"),
+  });
+
+  if (!parsed.success) {
+    return validationState(parsed.error);
+  }
+
+  const context = await getMutationContext("dance_notes.manage");
+  if (!context.ok) {
+    return context.state;
+  }
+
+  const { error } = await context.supabase
+    .from("dance_notes")
+    .update({
+      song_id: parsed.data.songId ?? null,
+      event_id: parsed.data.eventId ?? null,
+      title: parsed.data.title,
+      choreography_notes: parsed.data.choreographyNotes,
+      formation_notes: parsed.data.formationNotes || null,
+      outfit_notes: parsed.data.outfitNotes || null,
+      song_title: parsed.data.songTitle || null,
+      song_artist: parsed.data.songArtist || null,
+      song_version: parsed.data.songVersion || null,
+      video_url: parsed.data.videoUrl || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", chartId)
+    .eq("team_id", context.teamId);
+
+  if (error) {
+    console.error("Failed to update dance chart:", error);
+    return { ok: false, message: `Dance chart could not be saved: ${error.message}` };
+  }
+
+  revalidatePath("/dance");
+  revalidatePath(`/dance/${chartId}`);
+  revalidatePath("/dashboard");
+  return { ok: true, message: "Dance chart saved." };
+}
+
 export async function updateChannelPreferenceAction(formData: FormData): Promise<ActionState> {
   const channelId = formString(formData, "channelId");
   const muted = formString(formData, "muted") === "true";
