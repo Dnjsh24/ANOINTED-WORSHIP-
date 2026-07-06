@@ -7,7 +7,15 @@ import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { initialActionState } from "@/lib/action-state";
-import type { ServiceTemplate, Setlist, TeamMember } from "@/lib/types";
+import {
+  DEFAULT_SERVICE_TYPE,
+  EVENT_TYPE_OPTIONS,
+  SERVICE_TYPE_OPTIONS,
+  getPrimaryServiceType,
+  isServiceBasedEventType,
+  resolveSetlistEventType,
+} from "@/lib/domain/event-types";
+import type { EventType, ServiceTemplate, Setlist, TeamMember } from "@/lib/types";
 
 export interface SetlistAssignments {
   worshipLeader?: string;
@@ -34,12 +42,14 @@ export function SetlistForm({
   teamMembers = [],
   initialAssignments = {},
   eventId,
+  initialEventType,
   serviceTemplates = [],
 }: {
   setlist?: Setlist;
   teamMembers?: TeamMember[];
   initialAssignments?: SetlistAssignments;
   eventId?: string;
+  initialEventType?: EventType;
   serviceTemplates?: ServiceTemplate[];
 }) {
   const action = setlist ? updateSetlistAction : createSetlistAction;
@@ -47,7 +57,8 @@ export function SetlistForm({
   const nextRowId = useRef(0);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [serviceTitle, setServiceTitle] = useState(setlist?.name ?? "");
-  const [serviceType, setServiceType] = useState(setlist?.serviceTimes[0] ?? "Sunday Worship");
+  const [eventType, setEventType] = useState(() => resolveSetlistEventType(setlist?.eventType ?? initialEventType, setlist?.serviceTimes));
+  const [serviceType, setServiceType] = useState(() => getPrimaryServiceType(setlist?.serviceTimes) || DEFAULT_SERVICE_TYPE);
   const [location, setLocation] = useState(setlist?.location ?? "Main Sanctuary");
   const [callTime, setCallTime] = useState(toTimeValue(setlist?.callTime) ?? "09:00");
   const [rehearsalTime, setRehearsalTime] = useState(toTimeValue(setlist?.rehearsalTime) ?? "08:00");
@@ -104,7 +115,8 @@ export function SetlistForm({
       setServiceTitle(template.name);
     }
 
-    setServiceType(template.serviceType);
+    setEventType("service");
+    setServiceType(template.serviceType || DEFAULT_SERVICE_TYPE);
     setLocation(template.location);
     setCallTime(toTimeValue(template.callTime) ?? template.callTime);
     setRehearsalTime(toTimeValue(template.rehearsalTime) ?? template.rehearsalTime);
@@ -117,6 +129,16 @@ export function SetlistForm({
     setDancerRows(createAssignmentRows("dancer", nextAssignments.dancers, 3));
   }
 
+  const showServiceType = isServiceBasedEventType(eventType);
+
+  function handleEventTypeChange(value: string) {
+    setEventType(value as typeof eventType);
+
+    if ((value === "service" || value === "service_rehearsal") && !serviceType) {
+      setServiceType(DEFAULT_SERVICE_TYPE);
+    }
+  }
+
   return (
     <div className="animate-fade-in">
       <form action={formAction} className="space-y-6">
@@ -127,9 +149,9 @@ export function SetlistForm({
         {/* 2-Column Split Layout */}
         <div className="grid gap-6 md:grid-cols-[1.1fr_1fr]">
           
-          {/* Left Column: Service Information */}
+          {/* Left Column: Event Information */}
           <div className="space-y-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 text-left">
-            <h3 className="text-sm font-bold text-white mb-2 pb-2 border-b border-white/[0.04]">Service Information</h3>
+            <h3 className="text-sm font-bold text-white mb-2 pb-2 border-b border-white/[0.04]">Event Information</h3>
 
             {serviceTemplates.length > 0 && (
               <label className="block space-y-1.5">
@@ -151,7 +173,7 @@ export function SetlistForm({
             )}
             
             <label className="block space-y-1.5">
-              <span className="text-xs font-bold text-zinc-300">Service Title *</span>
+              <span className="text-xs font-bold text-zinc-300">Event Title *</span>
               <Input name="title" value={serviceTitle} onChange={(event) => setServiceTitle(event.target.value)} placeholder="e.g., Sunday Service" required />
             </label>
 
@@ -161,16 +183,29 @@ export function SetlistForm({
             </label>
 
             <label className="block space-y-1.5">
-              <span className="text-xs font-bold text-zinc-300">Service Type *</span>
+              <span className="text-xs font-bold text-zinc-300">Event Type *</span>
               <div className="relative">
-                <select name="serviceType" value={serviceType} onChange={(event) => setServiceType(event.target.value)} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400">
-                  <option value="Sunday Worship" className="bg-[#111014]">Sunday Worship</option>
-                  <option value="Midweek Rehearsal" className="bg-[#111014]">Midweek Rehearsal</option>
-                  <option value="Prayer Meeting" className="bg-[#111014]">Prayer Meeting</option>
-                  <option value="Special Event" className="bg-[#111014]">Special Event</option>
+                <select name="eventType" value={eventType} onChange={(event) => handleEventTypeChange(event.target.value)} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400">
+                  {EVENT_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value} className="bg-[#111014]">{option.label}</option>
+                  ))}
                 </select>
               </div>
             </label>
+
+            {showServiceType && (
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold text-zinc-300">Service Type *</span>
+                <div className="relative">
+                  <select name="serviceType" value={serviceType} onChange={(event) => setServiceType(event.target.value)} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400">
+                    {SERVICE_TYPE_OPTIONS.map((option) => (
+                      <option key={option} value={option} className="bg-[#111014]">{option}</option>
+                    ))}
+                  </select>
+                </div>
+              </label>
+            )}
+            {!showServiceType && <input type="hidden" name="serviceType" value="" />}
 
             <label className="block space-y-1.5">
               <span className="text-xs font-bold text-zinc-300">Location *</span>
@@ -194,7 +229,7 @@ export function SetlistForm({
               <textarea
                 name="notes"
                 defaultValue={setlist?.notes ?? ""}
-                placeholder="Add any notes about this service..."
+                placeholder="Add any notes about this event..."
                 className="min-h-24 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-xs text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400"
               />
             </label>

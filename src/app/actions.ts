@@ -8,6 +8,7 @@ import type { ActionState } from "@/lib/action-state";
 import { can } from "@/lib/domain/rbac";
 import { generateTeamCode } from "@/lib/domain/team-code";
 import { toPostgresTime } from "@/lib/domain/time";
+import { normalizeSetlistServiceTimes } from "@/lib/domain/event-types";
 import {
   announcementInputSchema,
   attendanceSchema,
@@ -763,6 +764,7 @@ function buildSetlistSnapshot(data: ParsedSetlistInput, assignments: Array<{ tea
   return {
     title: data.title,
     serviceDate: data.serviceDate,
+    eventType: data.eventType,
     serviceType: data.serviceType,
     location: data.location,
     callTime: data.callTime,
@@ -815,7 +817,8 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
   const parsed = setlistInputSchema.safeParse({
     title: formString(formData, "title"),
     serviceDate: formString(formData, "serviceDate"),
-    serviceType: formString(formData, "serviceType") || "Service",
+    eventType: formString(formData, "eventType") || "service",
+    serviceType: optionalFormString(formData, "serviceType"),
     location: formString(formData, "location"),
     callTime: formString(formData, "callTime"),
     rehearsalTime: formString(formData, "rehearsalTime"),
@@ -843,6 +846,8 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     return { ...context.state, message: context.state.message.replace("changes", "setlists") };
   }
 
+  const serviceTimes = normalizeSetlistServiceTimes(parsed.data.eventType, parsed.data.serviceType);
+
   // 1. Resolve or Create the associated event
   let resolvedEventId = formString(formData, "eventId");
 
@@ -850,6 +855,7 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     const { error: updateError } = await context.supabase
       .from("events")
       .update({
+        type: parsed.data.eventType,
         name: parsed.data.title,
         event_date: parsed.data.serviceDate,
         starts_at: toPostgresTime(parsed.data.callTime),
@@ -867,7 +873,7 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
       .from("events")
       .insert({
         team_id: context.teamId,
-        type: "service",
+        type: parsed.data.eventType,
         name: parsed.data.title,
         event_date: parsed.data.serviceDate,
         starts_at: toPostgresTime(parsed.data.callTime),
@@ -896,7 +902,7 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
       location: parsed.data.location,
       call_time: parsed.data.callTime,
       rehearsal_time: parsed.data.rehearsalTime,
-      service_times: [parsed.data.serviceType],
+      service_times: serviceTimes,
       leader_member_id: parsed.data.worshipLeader,
       notes: parsed.data.notes ?? null,
       created_by: context.userId,
@@ -935,7 +941,8 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
   const parsed = setlistInputSchema.safeParse({
     title: formString(formData, "title"),
     serviceDate: formString(formData, "serviceDate"),
-    serviceType: formString(formData, "serviceType") || "Service",
+    eventType: formString(formData, "eventType") || "service",
+    serviceType: optionalFormString(formData, "serviceType"),
     location: formString(formData, "location"),
     callTime: formString(formData, "callTime"),
     rehearsalTime: formString(formData, "rehearsalTime"),
@@ -962,6 +969,8 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
     return validationState(parsed.error);
   }
 
+  const serviceTimes = normalizeSetlistServiceTimes(parsed.data.eventType, parsed.data.serviceType);
+
   const context = await getMutationContext("setlists.manage");
   if (!context.ok) {
     return context.state;
@@ -982,7 +991,7 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
       .from("events")
       .insert({
         team_id: context.teamId,
-        type: "service",
+        type: parsed.data.eventType,
         name: parsed.data.title,
         event_date: parsed.data.serviceDate,
         starts_at: toPostgresTime(parsed.data.callTime),
@@ -1002,6 +1011,7 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
     await context.supabase
       .from("events")
       .update({
+        type: parsed.data.eventType,
         name: parsed.data.title,
         event_date: parsed.data.serviceDate,
         starts_at: toPostgresTime(parsed.data.callTime),
@@ -1021,7 +1031,7 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
       location: parsed.data.location,
       call_time: parsed.data.callTime,
       rehearsal_time: parsed.data.rehearsalTime,
-      service_times: [parsed.data.serviceType],
+      service_times: serviceTimes,
       leader_member_id: parsed.data.worshipLeader,
       notes: parsed.data.notes ?? null,
     })

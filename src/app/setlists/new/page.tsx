@@ -6,6 +6,7 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { members as sampleMembers } from "@/lib/sample-data";
+import type { EventType } from "@/lib/types";
 import type { ServiceTemplate, TeamMember, TeamRole } from "@/lib/types";
 
 export default async function NewSetlistPage({ searchParams }: { searchParams: Promise<{ eventId?: string }> }) {
@@ -13,6 +14,7 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
   const teamContext = await getRequiredTeamContext();
   let teamMembersList: TeamMember[] = [];
   let serviceTemplates: ServiceTemplate[] = fallbackServiceTemplates;
+  let initialEventType: EventType | undefined;
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
@@ -65,6 +67,17 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
     if (templateRows && templateRows.length > 0) {
       serviceTemplates = templateRows.map((row) => mapServiceTemplate(row as any));
     }
+
+    if (eventId) {
+      const { data: linkedEvent } = await supabase
+        .from("events")
+        .select("type")
+        .eq("id", eventId)
+        .eq("team_id", teamContext.teamId)
+        .maybeSingle();
+
+      initialEventType = linkedEvent?.type as EventType | undefined;
+    }
   } else if (!hasSupabaseEnv()) {
     // Demo fallback
     teamMembersList = sampleMembers as any[];
@@ -75,10 +88,10 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
       <div className="mb-6">
         <p className="font-mono text-xs font-bold uppercase text-violet-200">Setlists</p>
         <h1 className="mt-2 text-4xl font-bold">New Setlist</h1>
-        <p className="mt-2 text-sm font-semibold text-zinc-300">Create service details, scheduling, team assignments, and song order.</p>
+        <p className="mt-2 text-sm font-semibold text-zinc-300">Create event details, scheduling, team assignments, and song order.</p>
       </div>
       <Panel>
-        <SetlistForm teamMembers={teamMembersList} eventId={eventId} serviceTemplates={serviceTemplates} />
+        <SetlistForm teamMembers={teamMembersList} eventId={eventId} initialEventType={initialEventType} serviceTemplates={serviceTemplates} />
       </Panel>
     </AppShell>
   );

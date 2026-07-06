@@ -63,7 +63,8 @@ describe("validators", () => {
       setlistInputSchema.parse({
         title: "Sunday Worship",
         serviceDate: "2026-07-12",
-        serviceType: "Service",
+        eventType: "service",
+        serviceType: "Sunday Worship",
         location: "Main Sanctuary",
         callTime: "08:00",
         rehearsalTime: "08:15",
@@ -75,10 +76,37 @@ describe("validators", () => {
       setlistInputSchema.parse({
         title: "",
         serviceDate: "",
+        eventType: "service",
         location: "",
         callTime: "",
         rehearsalTime: "",
         worshipLeader: "",
+      }),
+    ).toThrow();
+  });
+
+  it("requires service type only for service-based setlists", () => {
+    expect(
+      setlistInputSchema.parse({
+        title: "Prayer Gathering Songs",
+        serviceDate: "2026-07-12",
+        eventType: "meeting",
+        location: "Prayer Room",
+        callTime: "08:00",
+        rehearsalTime: "08:15",
+        worshipLeader: "Alex Morgan",
+      }),
+    ).toMatchObject({ eventType: "meeting" });
+
+    expect(() =>
+      setlistInputSchema.parse({
+        title: "Sunday Worship",
+        serviceDate: "2026-07-12",
+        eventType: "service",
+        location: "Main Sanctuary",
+        callTime: "08:00",
+        rehearsalTime: "08:15",
+        worshipLeader: "Alex Morgan",
       }),
     ).toThrow();
   });

@@ -8,6 +8,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
+import { getSetlistTypeLabel } from "@/lib/domain/event-types";
 import {
   buildAssignmentConflicts,
   getMissingSetlistRoles,
@@ -44,6 +45,9 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
       .from("setlists")
       .select(`
         *,
+        events (
+          type
+        ),
         leader:team_members (
           id,
           profile_id,
@@ -268,6 +272,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
         callTime: dbSetlist.call_time?.slice(0, 5) || "09:00",
         rehearsalTime: dbSetlist.rehearsal_time?.slice(0, 5) || "08:00",
         serviceTimes: dbSetlist.service_times || ["Sunday Worship"],
+        eventType: dbSetlist.events?.type,
         leader: leaderName,
         songs: songsList,
         eventId: dbSetlist.event_id || id,
@@ -326,6 +331,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
         year: "numeric",
       })
     : "Sunday, July 12, 2026";
+  const setlistTypeLabel = getSetlistTypeLabel(setlist);
 
   return (
     <AppShell active="Setlists" teamContext={teamContext}>
@@ -337,6 +343,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             <CalendarDays className="size-4" />
             {displayDate}
           </p>
+          <p className="mt-2 text-sm font-semibold text-violet-300">{setlistTypeLabel}</p>
         </div>
         <div className="flex gap-3">
           <ButtonLink href={`/setlists/${setlist.id}/edit`} variant="secondary">

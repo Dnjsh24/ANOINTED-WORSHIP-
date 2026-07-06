@@ -61,7 +61,8 @@ export const messageSchema = z.object({
 export const setlistInputSchema = z.object({
   title: z.string().trim().min(1, "Setlist title is required").max(160),
   serviceDate: z.string().trim().min(1, "Service date is required"),
-  serviceType: z.string().trim().min(1).max(80).default("Service"),
+  eventType: z.enum(["service", "rehearsal", "meeting", "special_event", "service_rehearsal"]).default("service"),
+  serviceType: z.string().trim().max(80).optional(),
   location: z.string().trim().min(1, "Location is required").max(160),
   callTime: z.string().trim().min(1, "Call time is required"),
   rehearsalTime: z.string().trim().min(1, "Rehearsal time is required"),
@@ -79,7 +80,17 @@ export const setlistInputSchema = z.object({
   dancers: z.array(z.string().trim()).optional(),
   eventId: z.string().trim().optional(),
   templateId: z.string().trim().optional(),
-});
+ }).superRefine((value, context) => {
+  const requiresServiceType = value.eventType === "service" || value.eventType === "service_rehearsal";
+
+  if (requiresServiceType && !value.serviceType?.trim()) {
+    context.addIssue({
+      code: "custom",
+      path: ["serviceType"],
+      message: "Service type is required for service-based setlists.",
+    });
+  }
+ });
 
 export const serviceTemplateInputSchema = z.object({
   name: z.string().trim().min(1, "Template name is required").max(160),

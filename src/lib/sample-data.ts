@@ -187,7 +187,8 @@ export const setlists: Setlist[] = [
     location: "Main Sanctuary",
     callTime: "8:00 AM",
     rehearsalTime: "8:15 AM",
-    serviceTimes: ["9:00 AM", "11:00 AM"],
+    eventType: "service",
+    serviceTimes: ["Sunday Worship"],
     songs: ["opening-song", "reflection-song", "acoustic-response", "build-song", "response-song"].map(
       (songId, index) => {
         const song = songs.find((item) => item.id === songId)!;
@@ -210,7 +211,8 @@ export const setlists: Setlist[] = [
     location: "Youth Hall",
     callTime: "5:30 PM",
     rehearsalTime: "6:00 PM",
-    serviceTimes: ["7:00 PM"],
+    eventType: "special_event",
+    serviceTimes: [],
     songs: ["demo-song-one", "demo-song-two", "demo-song-three", "demo-song-four", "demo-song-five"].map((title, index) => {
       const song = songs[index % songs.length];
       return {
@@ -229,7 +231,8 @@ export const setlists: Setlist[] = [
     location: "Prayer Room",
     callTime: "6:30 PM",
     rehearsalTime: "6:45 PM",
-    serviceTimes: ["7:00 PM"],
+    eventType: "meeting",
+    serviceTimes: [],
     songs: ["prayer-song-one", "prayer-song-two", "prayer-song-three", "prayer-song-four", "prayer-song-five"].map((title, index) => {
       const song = songs[(index + 1) % songs.length];
       return {

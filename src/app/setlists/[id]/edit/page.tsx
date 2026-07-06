@@ -41,7 +41,12 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
     // 1. Fetch setlist details
     const { data: dbSetlist } = (await supabase
       .from("setlists")
-      .select("*")
+      .select(`
+        *,
+        events (
+          type
+        )
+      `)
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
       .maybeSingle()) as any;
@@ -55,6 +60,7 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
         callTime: dbSetlist.call_time?.slice(0, 5) || "09:00",
         rehearsalTime: dbSetlist.rehearsal_time?.slice(0, 5) || "08:00",
         serviceTimes: dbSetlist.service_times || ["Sunday Worship"],
+        eventType: dbSetlist.events?.type,
         leader: "",
         songs: [],
       };

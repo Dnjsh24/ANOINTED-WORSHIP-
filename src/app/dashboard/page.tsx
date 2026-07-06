@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
+import { getSetlistTypeLabel } from "@/lib/domain/event-types";
 import { can } from "@/lib/domain/rbac";
 import { currentUser as sampleUser, events, setlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -57,6 +58,7 @@ export default async function DashboardPage() {
     callTime: setlists[0].callTime,
     rehearsalTime: setlists[0].rehearsalTime,
     leader: setlists[0].leader,
+    eventType: setlists[0].eventType,
     serviceTimes: ["9:00 AM", "11:00 AM"],
   };
   let nextEvent = events[0];
@@ -112,6 +114,9 @@ export default async function DashboardPage() {
             .from("setlists")
             .select(`
               *,
+              events (
+                type
+              ),
               leader:team_members (
                 id,
                 profiles (
@@ -178,6 +183,7 @@ export default async function DashboardPage() {
           callTime: dbSetlist.call_time?.slice(0, 5) || "08:00",
           rehearsalTime: dbSetlist.rehearsal_time?.slice(0, 5) || "07:30",
           leader: leaderName,
+          eventType: dbSetlist.events?.type,
           serviceTimes: dbSetlist.service_times || ["9:00 AM", "11:00 AM"],
         };
       } else {
@@ -264,6 +270,7 @@ export default async function DashboardPage() {
   const isAdminOrOwner = teamContext.role === "owner" || teamContext.role === "admin";
   const canManageDanceCharts = can(teamContext.role, "dance_notes.manage");
   const firstName = userFullName.split(" ")[0];
+  const nextSetlistTypeLabel = nextSetlist ? getSetlistTypeLabel(nextSetlist) : "";
 
   const nextDateLabel = nextSetlist?.date
     ? new Date(nextSetlist.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
@@ -333,7 +340,7 @@ export default async function DashboardPage() {
                 <h2 className="text-3xl font-extrabold text-white leading-tight">{nextSetlist?.name ?? "No Service Scheduled"}</h2>
                 <p className="mt-1 text-sm font-semibold text-violet-300">
                   {nextDateLabel}
-                  {nextSetlist?.serviceTimes?.length ? ` - ${nextSetlist.serviceTimes.join(" & ")}` : ""}
+                  {nextSetlistTypeLabel ? ` - ${nextSetlistTypeLabel}` : ""}
                 </p>
 
                 <div className="mt-5 flex flex-wrap gap-5 text-sm text-zinc-300">

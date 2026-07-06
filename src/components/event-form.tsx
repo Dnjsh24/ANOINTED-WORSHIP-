@@ -165,14 +165,15 @@ export function EventForm({
 
             {canLinkSetlists ? (
               <label className="block space-y-1.5">
-                <span className="text-xs font-bold text-zinc-300">Linked setlist</span>
+                <span className="text-xs font-bold text-zinc-300">Setlist (optional)</span>
+                <span className="text-[11px] font-medium text-zinc-500">You can link a setlist for any event type, or leave it as no setlist.</span>
                 <div className="relative">
                   <select
                     name="linkedSetlistId"
                     defaultValue=""
                     className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20"
                   >
-                    <option value="" className="bg-[#111014] text-white">None (Not linked)</option>
+                    <option value="" className="bg-[#111014] text-white">No setlist</option>
                     {setlists.map((s) => (
                       <option key={s.id} value={s.id} className="bg-[#111014] text-white">
                         {s.name} ({s.date})

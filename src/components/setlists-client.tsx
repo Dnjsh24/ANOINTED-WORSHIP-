@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { getSetlistTypeLabel } from "@/lib/domain/event-types";
 import type { Setlist } from "@/lib/types";
 
 type DateFilter = "all" | "upcoming" | "past";
@@ -22,20 +23,21 @@ export function SetlistsClient({ setlists }: { setlists: Setlist[] }) {
   const today = "2026-06-30";
 
   const leaders = [...new Set(setlists.map((setlist) => setlist.leader))];
-  const serviceTypes = [...new Set(setlists.flatMap((setlist) => setlist.serviceTimes))];
+  const setlistTypeLabels = [...new Set(setlists.map((setlist) => getSetlistTypeLabel(setlist)))];
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
 
     return setlists.filter((setlist) => {
+      const typeLabel = getSetlistTypeLabel(setlist);
       const haystack = `${setlist.name} ${setlist.leader} ${setlist.date} ${setlist.location} ${setlist.serviceTimes.join(" ")} ${setlist.songs
         .map((item) => item.song.title)
-        .join(" ")}`.toLowerCase();
+        .join(" ")} ${typeLabel}`.toLowerCase();
       const matchesSearch = !normalized || haystack.includes(normalized);
       const matchesDate =
         dateFilter === "all" || (dateFilter === "upcoming" ? setlist.date >= today : setlist.date < today);
       const matchesLeader = leader === "all" || setlist.leader === leader;
-      const matchesType = serviceType === "all" || setlist.serviceTimes.includes(serviceType);
+      const matchesType = serviceType === "all" || typeLabel === serviceType;
 
       return matchesSearch && matchesDate && matchesLeader && matchesType;
     });
@@ -71,7 +73,7 @@ export function SetlistsClient({ setlists }: { setlists: Setlist[] }) {
       <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight">Setlists</h1>
-          <p className="mt-1.5 text-sm font-semibold text-zinc-400">Manage and plan your upcoming services.</p>
+          <p className="mt-1.5 text-sm font-semibold text-zinc-400">Manage and plan your upcoming setlists and linked events.</p>
         </div>
         <div className="flex flex-wrap gap-3">
           <div className="relative w-full sm:w-64">
@@ -124,11 +126,11 @@ export function SetlistsClient({ setlists }: { setlists: Setlist[] }) {
             </div>
           </label>
           <label className="space-y-1.5">
-            <span className="text-xs font-mono font-bold uppercase text-zinc-500 tracking-wider">Service Type</span>
+            <span className="text-xs font-mono font-bold uppercase text-zinc-500 tracking-wider">Setlist Type</span>
             <div className="relative">
               <select value={serviceType} onChange={(event) => setServiceType(event.target.value)} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white focus:border-violet-400/50 focus:outline-none transition-all">
-                <option value="all" className="bg-[#111014]">All service types</option>
-                {serviceTypes.map((item) => (
+                <option value="all" className="bg-[#111014]">All setlist types</option>
+                {setlistTypeLabels.map((item) => (
                   <option key={item} className="bg-[#111014]">{item}</option>
                 ))}
               </select>
@@ -143,7 +145,7 @@ export function SetlistsClient({ setlists }: { setlists: Setlist[] }) {
         {/* Upcoming Section */}
         {dateFilter !== "past" && upcomingSetlists.length > 0 && (
           <div className="space-y-4">
-            <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500">Upcoming Services</h2>
+            <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500">Upcoming Setlists</h2>
             <div className="space-y-4">
               {upcomingSetlists.map((setlist) => (
                 <SetlistRowCard key={setlist.id} setlist={setlist} getMonthDay={getMonthDay} getStatusLabel={getStatusLabel} router={router} />
@@ -155,7 +157,7 @@ export function SetlistsClient({ setlists }: { setlists: Setlist[] }) {
         {/* Past Section Header */}
         {dateFilter !== "upcoming" && pastSetlists.length > 0 && (
           <div className="space-y-4 pt-4 border-t border-white/[0.08]">
-            <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500">Past Services</h2>
+            <h2 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500">Past Setlists</h2>
             <div className="space-y-4">
               {pastSetlists.map((setlist) => (
                 <SetlistRowCard key={setlist.id} setlist={setlist} getMonthDay={getMonthDay} getStatusLabel={getStatusLabel} router={router} />
@@ -186,6 +188,7 @@ function SetlistRowCard({
   const status = getStatusLabel(setlist.date);
   const totalSongs = setlist.songs.length;
   const duration = Math.ceil(totalSongs * 5.6);
+  const setlistTypeLabel = getSetlistTypeLabel(setlist);
 
   return (
     <Card
@@ -210,7 +213,7 @@ function SetlistRowCard({
             <div className="mt-2 flex flex-wrap items-center gap-4 text-xs font-semibold text-zinc-400">
               <span className="flex items-center gap-1.5">
                 <Clock className="size-3.5 text-violet-400" />
-                {setlist.serviceTimes.join(" & ")}
+                {setlistTypeLabel}
               </span>
               <span className="flex items-center gap-1.5">
                 <MapPin className="size-3.5 text-violet-400" />

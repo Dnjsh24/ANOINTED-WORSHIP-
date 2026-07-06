@@ -105,6 +105,7 @@ export interface Setlist {
   songs: SetlistSong[];
   notes?: string;
   eventId?: string;
+  eventType?: EventType;
 }
 
 export interface ServiceTemplateRoles {

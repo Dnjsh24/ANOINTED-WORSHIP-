@@ -18,6 +18,9 @@ export default async function SetlistsPage() {
       .from("setlists")
       .select(`
         *,
+        events (
+          type
+        ),
         leader:team_members (
           id,
           profile_id,
@@ -64,6 +67,7 @@ export default async function SetlistsPage() {
         callTime: s.call_time?.slice(0, 5) || "09:00",
         rehearsalTime: s.rehearsal_time?.slice(0, 5) || "08:00",
         serviceTimes: s.service_times || ["Sunday Worship"],
+        eventType: s.events?.type,
         songs,
       };
     });
