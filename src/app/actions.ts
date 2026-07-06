@@ -2069,7 +2069,8 @@ export async function createDanceChartAction(_previous: ActionState, formData: F
   });
 
   if (error) {
-    return { ok: false, message: "Dance chart could not be saved." };
+    console.error("Failed to create dance chart:", error);
+    return { ok: false, message: `Dance chart could not be saved: ${error.message}` };
   }
 
   revalidatePath("/dance");
