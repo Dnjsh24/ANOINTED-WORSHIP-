@@ -4,7 +4,7 @@ import { Check, Copy, RefreshCw, UserPlus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, useEffect } from "react";
-import { regenerateTeamCodeAction, reviewJoinRequestAction, updateMemberRoleAction } from "@/app/actions";
+import { regenerateTeamCodeAction, reviewJoinRequestAction, updateMemberRoleAction, removeTeamMemberAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
@@ -141,6 +141,20 @@ export function MembersClient({
     });
   }
 
+  function kickMember(memberId: string) {
+    if (!window.confirm("Are you sure you want to remove this member from the team?")) return;
+    
+    const formData = new FormData();
+    formData.set("memberId", memberId);
+    startTransition(async () => {
+      const result = await removeTeamMemberAction(formData);
+      setStatus(result.message);
+      if (result.ok) {
+        setMemberList((current) => current.filter((m) => m.id !== memberId));
+      }
+    });
+  }
+
   const roleCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     teamRoles.forEach((role) => { counts[role] = 0; });
@@ -269,11 +283,12 @@ export function MembersClient({
             </div>
 
             <div className="mt-5 overflow-hidden rounded-xl border border-white/[0.08]">
-              <div className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1.2fr)] bg-white/[0.04] px-4 py-3 font-mono text-[9px] font-bold uppercase text-zinc-500 tracking-wider">
+              <div className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_32px] bg-white/[0.04] px-4 py-3 font-mono text-[9px] font-bold uppercase text-zinc-500 tracking-wider">
                 <span>Member</span>
                 <span>Role</span>
                 <span>Status</span>
                 <span>Attendance (30 Days)</span>
+                <span className="sr-only">Actions</span>
               </div>
               <div className="divide-y divide-white/[0.06]">
                 {filteredMembers.map((member) => {
@@ -282,7 +297,7 @@ export function MembersClient({
                     : (member.status === "active");
 
                   return (
-                    <div key={member.id} className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1.2fr)] items-center px-4 py-3 text-xs font-semibold">
+                    <div key={member.id} className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_32px] items-center px-4 py-3 text-xs font-semibold group">
                       <Link href={`/members/${member.id}`} className="flex items-center gap-3 hover:text-violet-300 transition-colors min-w-0">
                         <Avatar name={member.profile.fullName} src={member.profile.avatarUrl} className="size-8" />
                         <span className="min-w-0">
@@ -310,6 +325,16 @@ export function MembersClient({
                         </span>
                       </div>
                       <span className="font-bold text-zinc-200 pl-4">{member.attendanceRate}%</span>
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => kickMember(member.id)}
+                        className="flex size-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition ml-auto opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                        aria-label={`Remove ${member.profile.fullName}`}
+                        title="Kick member"
+                      >
+                        <X className="size-4" />
+                      </button>
                     </div>
                   );
                 })}

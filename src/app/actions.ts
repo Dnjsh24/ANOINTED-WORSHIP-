@@ -2339,6 +2339,31 @@ export async function updateMemberRoleAction(_previous: ActionState, formData: F
   return { ok: true, message: "Role updated." };
 }
 
+export async function removeTeamMemberAction(formData: FormData): Promise<ActionState> {
+  const memberId = formData.get("memberId") as string;
+  if (!memberId) {
+    return { ok: false, message: "Missing member ID." };
+  }
+
+  const context = await getMutationContext("members.manage");
+  if (!context.ok) {
+    return context.state;
+  }
+
+  const { error } = await context.supabase
+    .from("team_members")
+    .delete()
+    .eq("id", memberId)
+    .eq("team_id", context.teamId);
+
+  if (error) {
+    return { ok: false, message: "Could not remove member." };
+  }
+
+  revalidatePath("/members");
+  return { ok: true, message: "Member removed from team." };
+}
+
 export async function regenerateTeamCodeAction(): Promise<ActionState> {
   const context = await getMutationContext("members.manage");
   if (!context.ok) {
