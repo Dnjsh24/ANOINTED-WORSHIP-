@@ -603,7 +603,13 @@ export function MessagesClient({
                 "rounded-md p-2 text-violet-200 hover:bg-white/[0.06]",
                 !sidebarExpanded && "mx-auto lg:mx-0"
               )}
-              onClick={() => setComposeOpen((value) => !value)}
+              onClick={() => {
+                setComposeOpen((prev) => {
+                  const next = !prev;
+                  if (next) setSidebarExpanded(true);
+                  return next;
+                });
+              }}
             >
               <SquarePen className="size-5" />
             </button>
