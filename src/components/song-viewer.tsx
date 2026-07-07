@@ -509,19 +509,32 @@ export function SongViewer({ song }: { song: Song }) {
               </div>
 
               {/* Speed choices selector */}
-              <div className="space-y-1">
-                <span className="block text-[9px] text-zinc-500 font-bold uppercase">Scroll Speed</span>
-                <select
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="block text-[9px] text-zinc-500 font-bold uppercase">Scroll Speed</span>
+                  <span className="block text-[9px] font-bold text-violet-400">
+                    {scrollSpeed === 1 ? 'Very Slow' : 
+                     scrollSpeed === 2 ? 'Slow' : 
+                     scrollSpeed === 3 ? 'Medium' : 
+                     scrollSpeed === 4 ? 'Fast' : 'Very Fast'}
+                  </span>
+                </div>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="5" 
+                  step="1" 
                   value={scrollSpeed}
                   onChange={(e) => setScrollSpeed(parseInt(e.target.value))}
-                  className="h-8 w-full rounded-lg border border-white/10 bg-[#17161b] px-2 text-[10px] font-bold text-white outline-none focus:border-violet-400"
-                >
-                  <option value="1" className="bg-[#111014]">1 - Very Slow</option>
-                  <option value="2" className="bg-[#111014]">2 - Slow</option>
-                  <option value="3" className="bg-[#111014]">3 - Medium</option>
-                  <option value="4" className="bg-[#111014]">4 - Fast</option>
-                  <option value="5" className="bg-[#111014]">5 - Very Fast</option>
-                </select>
+                  className="w-full accent-violet-500 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                />
+                <div className="flex justify-between px-1">
+                  <span className="text-[8px] text-zinc-600 font-bold">1</span>
+                  <span className="text-[8px] text-zinc-600 font-bold">2</span>
+                  <span className="text-[8px] text-zinc-600 font-bold">3</span>
+                  <span className="text-[8px] text-zinc-600 font-bold">4</span>
+                  <span className="text-[8px] text-zinc-600 font-bold">5</span>
+                </div>
               </div>
             </div>
           </div>
