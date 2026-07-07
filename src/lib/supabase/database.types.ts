@@ -367,7 +367,7 @@ export interface Database {
           title: string;
           artist: string;
           original_key: string;
-          bpm: number;
+          bpm: number | null;
           time_signature: string;
           lyrics_chords: string;
           nashville_numbers: string | null;
@@ -386,7 +386,7 @@ export interface Database {
           title: string;
           artist: string;
           original_key: string;
-          bpm: number;
+          bpm?: number | null;
           time_signature?: string;
           lyrics_chords: string;
           nashville_numbers?: string | null;
@@ -403,7 +403,7 @@ export interface Database {
           title?: string;
           artist?: string;
           original_key?: string;
-          bpm?: number;
+          bpm?: number | null;
           time_signature?: string;
           lyrics_chords?: string;
           nashville_numbers?: string | null;

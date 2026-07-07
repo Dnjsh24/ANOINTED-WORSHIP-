@@ -85,7 +85,7 @@ export function SongViewer({ song }: { song: Song }) {
 
   // Metronome Sound Loop
   useEffect(() => {
-    if (!metronomePlaying) {
+    if (!metronomePlaying || !bpm) {
       return;
     }
 
@@ -143,7 +143,7 @@ export function SongViewer({ song }: { song: Song }) {
     song.sections.forEach((section) => {
       section.lines.forEach((line) => {
         if (line.chords) {
-          line.chords.split(/\s+/).forEach((chord) => {
+          line.chords.split(/[\s-]+/).forEach((chord) => {
             const trimmed = chord.trim();
             if (trimmed && trimmed !== "/") {
               const transposed = transposeProgression(trimmed, song.originalKey, selectedKey);
@@ -251,7 +251,7 @@ export function SongViewer({ song }: { song: Song }) {
         {/* BPM Display (Original, not changeable here) */}
         <div className="flex items-center justify-between border-r border-white/[0.06] px-4 md:px-6">
           <span className="text-xs font-bold text-zinc-500 tracking-wide uppercase">BPM</span>
-          <span className="font-mono text-base font-extrabold text-white mr-4">{song.bpm}</span>
+          <span className="font-mono text-base font-extrabold text-white mr-4">{song.bpm ?? '--'}</span>
         </div>
 
         {/* Time Signature */}
@@ -331,7 +331,9 @@ export function SongViewer({ song }: { song: Song }) {
 
               return (
                 <section key={section.label} className={sectionStyle}>
-                  <p className="mb-3 font-mono text-[9px] font-bold uppercase tracking-wider text-violet-400">{section.label}</p>
+                  {section.label.toLowerCase() !== "song" && (
+                    <p className="mb-3 font-mono text-[9px] font-bold uppercase tracking-wider text-violet-400">{section.label}</p>
+                  )}
                   <div className="space-y-3.5">
                     {section.lines.map((line, index) => (
                       <div key={`${line.lyric}-${index}`}>
@@ -378,7 +380,7 @@ export function SongViewer({ song }: { song: Song }) {
               </div>
               <div className="flex justify-between">
                 <span>BPM</span>
-                <span className="text-white font-bold">{song.bpm}</span>
+                <span className="text-white font-bold">{song.bpm ?? '--'}</span>
               </div>
               <div className="flex justify-between">
                 <span>Time Signature</span>
@@ -413,58 +415,62 @@ export function SongViewer({ song }: { song: Song }) {
             
             {/* Metronome Control block */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] font-bold text-white">Metronome</p>
-                  <p className="text-[9px] text-zinc-500 font-semibold">{bpm} BPM</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setMetronomePlaying((val) => !val)}
-                  className={cn(
-                    "flex size-8 items-center justify-center rounded-lg transition",
-                    metronomePlaying ? "bg-red-500 text-white" : "bg-violet-600 text-white hover:bg-violet-500"
-                  )}
-                >
-                  {metronomePlaying ? <Square className="size-3.5 fill-white" /> : <Play className="size-3.5 fill-white" />}
-                </button>
-              </div>
+              {bpm !== null && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-bold text-white">Metronome</p>
+                      <p className="text-[9px] text-zinc-500 font-semibold">{bpm} BPM</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMetronomePlaying((val) => !val)}
+                      className={cn(
+                        "flex size-8 items-center justify-center rounded-lg transition",
+                        metronomePlaying ? "bg-red-500 text-white" : "bg-violet-600 text-white hover:bg-violet-500"
+                      )}
+                    >
+                      {metronomePlaying ? <Square className="size-3.5 fill-white" /> : <Play className="size-3.5 fill-white" />}
+                    </button>
+                  </div>
 
-              {/* BPM Adjust Slider */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[9px] text-zinc-500 font-bold uppercase">
-                  <span>Tempo</span>
-                  <span>{bpm} BPM</span>
-                </div>
-                <input
-                  aria-label="Metronome tempo"
-                  type="range"
-                  min="40"
-                  max="250"
-                  step="1"
-                  value={bpm}
-                  onChange={(e) => setBpm(parseInt(e.target.value))}
-                  className="h-1.5 w-full appearance-none rounded-lg bg-white/[0.08] outline-none accent-violet-500"
-                />
-              </div>
+                  {/* BPM Adjust Slider */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[9px] text-zinc-500 font-bold uppercase">
+                      <span>Tempo</span>
+                      <span>{bpm} BPM</span>
+                    </div>
+                    <input
+                      aria-label="Metronome tempo"
+                      type="range"
+                      min="40"
+                      max="250"
+                      step="1"
+                      value={bpm}
+                      onChange={(e) => setBpm(parseInt(e.target.value))}
+                      className="h-1.5 w-full appearance-none rounded-lg bg-white/[0.08] outline-none accent-violet-500"
+                    />
+                  </div>
 
-              {/* Volume Slider */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-[9px] text-zinc-500 font-bold uppercase">
-                  <span>Volume</span>
-                  <span>{Math.round(metronomeVolume * 100)}%</span>
-                </div>
-                <input
-                  aria-label="Metronome volume"
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={metronomeVolume}
-                  onChange={(e) => setMetronomeVolume(parseFloat(e.target.value))}
-                  className="h-1.5 w-full appearance-none rounded-lg bg-white/[0.08] outline-none accent-violet-500"
-                />
-              </div>
+                  {/* Volume Slider */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[9px] text-zinc-500 font-bold uppercase">
+                      <span>Volume</span>
+                      <span>{Math.round(metronomeVolume * 100)}%</span>
+                    </div>
+                    <input
+                      aria-label="Metronome volume"
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={metronomeVolume}
+                      onChange={(e) => setMetronomeVolume(parseFloat(e.target.value))}
+                      className="h-1.5 w-full appearance-none rounded-lg bg-white/[0.08] outline-none accent-violet-500"
+                    />
+                  </div>
+                </>
+              )}
 
               {/* Tap Tempo Button */}
               <button

@@ -36,9 +36,9 @@ export function transposeChord(chord: string, fromKey: string, toKey: string) {
 
 export function transposeProgression(progression: string, fromKey: string, toKey: string) {
   return progression
-    .split(/(\s+|\/)/)
+    .split(/(\s+|\/|-)/)
     .map((part) => {
-      if (!part.trim() || part === "/") return part;
+      if (!part.trim() || part === "/" || part === "-") return part;
       return transposeChord(part, fromKey, toKey);
     })
     .join("");
@@ -70,9 +70,9 @@ export function chordToNashville(chord: string, key: string): string {
 
 export function progressionToNashville(progression: string, key: string) {
   return progression
-    .split(/(\s+|\/)/)
+    .split(/(\s+|\/|-)/)
     .map((part) => {
-      if (!part.trim() || part === "/") return part;
+      if (!part.trim() || part === "/" || part === "-") return part;
       return chordToNashville(part, key);
     })
     .join("");
@@ -136,8 +136,35 @@ export function parseLyricsAndChords(text: string): SongSection[] {
   }
 
   for (const line of lines) {
-    const trimmed = line.trim();
+    let lineToProcess = line;
+    let trimmed = lineToProcess.trim();
     
+    // Check for inline section header like "Intro: D-F#m7" or "Chorus:"
+    const inlineMatch = trimmed.match(/^([A-Za-z0-9\s\-_]+):\s*(.*)$/);
+    if (inlineMatch) {
+      const maybeLabel = inlineMatch[1].trim();
+      const rest = inlineMatch[2].trim();
+      const commonLabels = ["intro", "verse", "chorus", "bridge", "pre", "ending", "outro", "tag", "instrumental", "interlude", "solo", "vamp"];
+      
+      if (commonLabels.some(l => maybeLabel.toLowerCase().startsWith(l))) {
+        // Flush pending chords
+        if (currentSection && pendingChords) {
+          currentSection.lines.push({ chords: pendingChords, lyric: "" });
+          pendingChords = undefined;
+        }
+        // Start new section
+        currentSection = { label: maybeLabel, lines: [] };
+        sections.push(currentSection);
+        
+        if (rest) {
+          lineToProcess = rest;
+          trimmed = rest;
+        } else {
+          continue; // It was just "Intro:" on its own line
+        }
+      }
+    }
+
     // Check for section header: e.g. [Verse 1]
     if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
       // If we had pending chords, flush them first
@@ -158,12 +185,12 @@ export function parseLyricsAndChords(text: string): SongSection[] {
       sections.push(currentSection);
     }
 
-    if (isChordsLine(line)) {
+    if (isChordsLine(lineToProcess)) {
       if (pendingChords) {
         // If we already have pending chords, flush them
         currentSection.lines.push({ chords: pendingChords, lyric: "" });
       }
-      pendingChords = line; // Store as pending
+      pendingChords = lineToProcess; // Store as pending
     } else {
       if (trimmed === "") {
         // Empty line
@@ -175,7 +202,7 @@ export function parseLyricsAndChords(text: string): SongSection[] {
         // Lyrics line
         currentSection.lines.push({
           chords: pendingChords,
-          lyric: line,
+          lyric: lineToProcess,
         });
         pendingChords = undefined;
       }

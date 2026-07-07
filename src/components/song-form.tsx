@@ -240,8 +240,8 @@ export function SongForm({ song }: { song?: Song }) {
             </label>
 
             <label className="block space-y-1.5">
-              <span className="text-xs font-bold text-zinc-300">BPM *</span>
-              <Input type="number" name="bpm" min={40} max={240} defaultValue={song?.bpm ?? 72} required />
+              <span className="text-xs font-bold text-zinc-300">BPM (Optional)</span>
+              <Input type="number" name="bpm" min={40} max={240} defaultValue={song?.bpm ?? ""} />
             </label>
           </div>
 

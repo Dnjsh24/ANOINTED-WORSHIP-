@@ -76,7 +76,7 @@ export interface Song {
   artist: string;
   originalKey: string;
   currentKey: string;
-  bpm: number;
+  bpm: number | null;
   timeSignature: string;
   tags: string[];
   favorite: boolean;

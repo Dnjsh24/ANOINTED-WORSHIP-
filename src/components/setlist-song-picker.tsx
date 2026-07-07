@@ -154,7 +154,7 @@ export function SetlistSongPicker({
             </label>
             <label className="block space-y-1.5">
               <span className="text-xs font-bold text-zinc-300">BPM</span>
-              <Input type="number" name="bpm" defaultValue={selected.bpm} className="h-10 text-xs font-bold" />
+              <Input type="number" name="bpm" defaultValue={selected.bpm ?? ""} className="h-10 text-xs font-bold" />
             </label>
           </div>
 
