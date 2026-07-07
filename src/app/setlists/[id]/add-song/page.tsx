@@ -1,9 +1,7 @@
 import { notFound } from "next/navigation";
-import { addSetlistSongAction } from "@/app/actions";
 import { AppShell } from "@/components/app-shell";
 import { SetlistSongPicker } from "@/components/setlist-song-picker";
 import { Panel } from "@/components/ui/card";
-import { initialActionState } from "@/lib/action-state";
 import { setlists as sampleSetlists, songs as sampleSongs } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -77,12 +75,7 @@ export default async function AddSongToSetlistPage({ params }: { params: Promise
         <p className="mt-2 text-sm font-semibold text-zinc-300">Choose a library song, key, tempo, and optional lead assignment.</p>
       </div>
       <Panel>
-        <SetlistSongPicker
-          action={addSetlistSongAction}
-          initialState={initialActionState}
-          setlistId={setlist.id}
-          songs={songsList}
-        />
+        <SetlistSongPicker setlistId={setlist.id} songs={songsList} />
       </Panel>
     </AppShell>
   );

@@ -1248,6 +1248,66 @@ export async function addSetlistSongAction(_previous: ActionState, formData: For
   redirect(`/setlists/${parsed.data.setlistId}`);
 }
 
+export async function addMultipleSetlistSongsAction(
+  setlistId: string,
+  songsToAdd: { songId: string; assignedKey: string; type: "Worship" | "Praise" | "None" }[]
+): Promise<{ ok: boolean; message?: string }> {
+  if (!songsToAdd.length) return { ok: true };
+
+  const context = await getMutationContext("setlists.manage");
+  if (!context.ok) {
+    return { ok: false, message: context.state.message };
+  }
+
+  const { count } = await context.supabase
+    .from("setlist_songs")
+    .select("id", { count: "exact", head: true })
+    .eq("setlist_id", setlistId);
+
+  const { data: setlist } = await context.supabase
+    .from("setlists")
+    .select("id, team_id")
+    .eq("id", setlistId)
+    .eq("team_id", context.teamId)
+    .maybeSingle();
+
+  if (!setlist) {
+    return { ok: false, message: "Setlist could not be found." };
+  }
+
+  let orderCursor = (count ?? 0) + 1;
+  const inserts = songsToAdd.map((s) => {
+    const row = {
+      setlist_id: setlistId,
+      song_id: s.songId,
+      song_order: orderCursor,
+      assigned_key: s.assignedKey,
+      notes: s.type !== "None" ? `${s.type} Song` : null,
+    };
+    orderCursor++;
+    return row;
+  });
+
+  const { error } = await context.supabase.from("setlist_songs").insert(inserts);
+
+  if (error) {
+    return { ok: false, message: "Songs could not be added to the setlist." };
+  }
+
+  await logSetlistChange(context, {
+    setlistId: setlistId,
+    changeType: "song_added",
+    summary: `Added ${songsToAdd.length} songs to the setlist.`,
+    snapshot: {
+      addedCount: songsToAdd.length,
+    },
+  });
+
+  revalidatePath(`/setlists/${setlistId}`);
+  // We do not redirect here because it's called from a client component's custom transition
+  return { ok: true };
+}
+
 export async function removeSetlistSongAction(formData: FormData): Promise<ActionState> {
   const setlistId = formString(formData, "setlistId");
   const slotId = formString(formData, "slotId");

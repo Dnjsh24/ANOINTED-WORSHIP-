@@ -350,6 +350,9 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           <p className="mt-2 text-sm font-semibold text-violet-300">{setlistTypeLabel}</p>
         </div>
         <div className="flex gap-3">
+          <ButtonLink href={`/setlists/${setlist.id}/stage`} className="bg-violet-600 hover:bg-violet-500 text-white border-transparent">
+            Stage Mode
+          </ButtonLink>
           <ButtonLink href={`/setlists/${setlist.id}/edit`} variant="secondary">
             Edit Details
           </ButtonLink>
