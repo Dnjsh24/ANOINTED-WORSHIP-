@@ -24,6 +24,7 @@ export default async function EventsPage() {
             assignment
           ),
           attendance (
+            team_member_id,
             status
           ),
           setlists (
@@ -68,6 +69,12 @@ export default async function EventsPage() {
 
         const setlistId = e.setlists?.[0]?.id || null;
 
+        let myStatus: "available" | "maybe" | "unavailable" | "pending" | "no_response" = "no_response";
+        const myAttendance = eventAttendance.find((a: any) => a.team_member_id === teamContext.memberId);
+        if (myAttendance) {
+          myStatus = myAttendance.status;
+        }
+
         return {
           id: e.id,
           name: e.name,
@@ -83,6 +90,7 @@ export default async function EventsPage() {
           approvalStatus: e.approval_status ?? "approved",
           createdByMe: e.created_by === teamContext.userId,
           setlistId,
+          myStatus,
         };
       });
     }

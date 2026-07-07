@@ -149,6 +149,22 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
     return counts;
   }, [officialEvents]);
 
+  const availabilityCounts = useMemo(() => {
+    const counts = { available: 0, maybe: 0, unavailable: 0, no_response: 0 };
+    officialEvents.forEach((e) => {
+      if (e.date >= today) {
+        const status = e.myStatus || "no_response";
+        if (status in counts) {
+          counts[status as keyof typeof counts]++;
+        } else if (status === "pending") {
+          counts.no_response++;
+        }
+      }
+    });
+    return counts;
+  }, [officialEvents, today]);
+
+
   return (
     <div className="animate-fade-up">
       {/* Header row */}
@@ -463,22 +479,22 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
 
             {/* My Availability RSVP Summary */}
             <Panel className="bg-[#111014]/80">
-              <h2 className="text-sm font-bold text-white">My Availability (Jul 12 - Jul 18)</h2>
+              <h2 className="text-sm font-bold text-white">My Availability (Upcoming)</h2>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/5 p-3 text-center">
-                  <p className="text-xl font-extrabold text-emerald-400">18</p>
+                  <p className="text-xl font-extrabold text-emerald-400">{availabilityCounts.available}</p>
                   <p className="mt-0.5 text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Going</p>
                 </div>
                 <div className="rounded-xl border border-amber-500/10 bg-amber-500/5 p-3 text-center">
-                  <p className="text-xl font-extrabold text-amber-400">3</p>
+                  <p className="text-xl font-extrabold text-amber-400">{availabilityCounts.maybe}</p>
                   <p className="mt-0.5 text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Maybe</p>
                 </div>
                 <div className="rounded-xl border border-red-500/10 bg-red-500/5 p-3 text-center">
-                  <p className="text-xl font-extrabold text-red-400">2</p>
+                  <p className="text-xl font-extrabold text-red-400">{availabilityCounts.unavailable}</p>
                   <p className="mt-0.5 text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Unavailable</p>
                 </div>
                 <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-center">
-                  <p className="text-xl font-extrabold text-zinc-400">6</p>
+                  <p className="text-xl font-extrabold text-zinc-400">{availabilityCounts.no_response}</p>
                   <p className="mt-0.5 text-[9px] font-bold text-zinc-500 uppercase tracking-wide">No Response</p>
                 </div>
               </div>

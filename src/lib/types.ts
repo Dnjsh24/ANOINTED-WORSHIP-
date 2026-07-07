@@ -158,6 +158,7 @@ export interface Event {
   approvalStatus?: EventApprovalStatus;
   createdByMe?: boolean;
   setlistId?: string;
+  myStatus?: "available" | "maybe" | "unavailable" | "pending" | "no_response";
 }
 
 export interface Announcement {
