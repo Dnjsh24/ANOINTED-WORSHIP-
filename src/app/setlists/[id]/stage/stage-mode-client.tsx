@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, PenTool, Radio, Eraser, Type } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, PenTool, Radio, Eraser, Type, Guitar } from "lucide-react";
 import { parseLyricsAndChords, transposeProgression, capoSuggestion } from "@/lib/domain/chords";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -388,9 +388,10 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
            {/* Guitar Mode (Capo) */}
            <button 
              onClick={() => setGuitarMode(!guitarMode)}
-             className={cn("h-11 px-4 rounded-lg flex items-center justify-center font-bold text-sm transition border", guitarMode ? "bg-violet-600 border-violet-500 text-white" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white")}
+             className={cn("p-3 rounded-lg transition border", guitarMode ? "bg-violet-600/20 border-violet-500/50 text-violet-400" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white")}
+             title="Guitar Mode (Capo)"
            >
-             Guitar Mode
+             <Guitar className="size-5" />
            </button>
            
            {/* Metronome */}
@@ -513,8 +514,8 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
           onPointerCancel={stopDrawing}
           onPointerOut={stopDrawing}
           className={cn(
-            "absolute top-0 left-0 z-50 w-full h-full object-cover touch-none",
-            drawMode ? "pointer-events-auto" : "pointer-events-none"
+            "absolute top-0 left-0 w-full h-full z-10 touch-none",
+            drawMode ? "pointer-events-auto cursor-crosshair" : "pointer-events-none"
           )}
         />
         
