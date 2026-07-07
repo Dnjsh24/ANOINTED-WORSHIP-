@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, PenTool, Radio, Eraser } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, PenTool, Radio, Eraser, Type } from "lucide-react";
 import { parseLyricsAndChords, transposeProgression, capoSuggestion } from "@/lib/domain/chords";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -67,6 +67,8 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
   
   const [metronomePlaying, setMetronomePlaying] = useState(false);
   const [currentBeat, setCurrentBeat] = useState(0);
+
+  const [fontScale, setFontScale] = useState(1);
 
   // --- Phase 4: Band Leader Sync ---
   const [isBroadcasting, setIsBroadcasting] = useState(false);
@@ -347,10 +349,10 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
             <X className="size-6 text-zinc-400" />
           </Link>
           <div>
-            <h1 className="text-xl font-bold flex items-center gap-3">
-               {currentSong.title}
+            <h1 className="text-xl font-bold flex flex-wrap md:flex-nowrap items-center gap-3">
+               <span className="whitespace-nowrap">{currentSong.title}</span>
                {guitarMode && capoData && (
-                 <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-xs font-black tracking-widest uppercase border border-red-500/30">
+                 <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-xs font-black tracking-widest uppercase border border-red-500/30 whitespace-nowrap">
                    Capo {capoData.fret}
                  </span>
                )}
@@ -369,6 +371,17 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
              <span className="w-12 text-center font-bold text-lg">{selectedKey}</span>
              <button onClick={() => changeKey(1)} className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white">
                <Plus className="size-4" />
+             </button>
+           </div>
+
+           {/* Font Size */}
+           <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-1">
+             <button onClick={() => setFontScale(s => Math.max(0.6, s - 0.1))} className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white font-bold text-xs" title="Decrease Font">
+               A-
+             </button>
+             <span className="w-10 text-center font-bold text-sm">{Math.round(fontScale * 100)}%</span>
+             <button onClick={() => setFontScale(s => Math.min(1.8, s + 0.1))} className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white font-bold text-sm" title="Increase Font">
+               A+
              </button>
            </div>
            
@@ -516,12 +529,18 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
                 {section.lines.map((line, lIdx) => (
                   <div key={lIdx} className="leading-relaxed">
                     {line.chords && (
-                      <div className="font-mono text-xl font-bold text-violet-400 whitespace-pre">
+                      <div 
+                        className="font-mono font-bold text-violet-400 whitespace-pre leading-none"
+                        style={{ fontSize: `${1.25 * fontScale}rem` }}
+                      >
                         {line.chords}
                       </div>
                     )}
                     {line.lyric && (
-                      <div className="text-2xl font-semibold text-zinc-100 whitespace-pre-wrap">
+                      <div 
+                        className="font-semibold text-zinc-100 whitespace-pre-wrap leading-tight mt-1"
+                        style={{ fontSize: `${1.5 * fontScale}rem` }}
+                      >
                         {line.lyric}
                       </div>
                     )}
@@ -534,7 +553,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
       </div>
 
       {/* Arrangement Blocks (Mobile Right Panel) */}
-      <div className="md:hidden flex flex-col items-center gap-2 py-4 w-12 bg-zinc-900 border-l border-white/5 overflow-y-auto shrink-0 z-40">
+      <div className="md:hidden flex flex-col items-center gap-3 py-4 w-16 bg-zinc-900 border-l border-white/5 overflow-y-auto shrink-0 z-40">
         {transposedSections.map((section, idx) => {
           if (!section.label || section.label === "unknown") return null;
           
@@ -549,7 +568,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
             <button 
               key={idx}
               onClick={() => handleJumpToSection(idx)}
-              className={cn("w-10 py-2 rounded-md text-[10px] font-black uppercase tracking-tighter border transition hover:brightness-125", colorClass)}
+              className={cn("w-12 py-3 rounded-lg text-xs font-black uppercase tracking-tighter border transition hover:brightness-125 shadow-md", colorClass)}
               title={section.label}
             >
               {getAbbr(section.label)}
