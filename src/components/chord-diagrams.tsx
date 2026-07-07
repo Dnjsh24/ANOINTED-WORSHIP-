@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { getGuitarChordShape, getBassChordShape, getPianoKeys } from "@/lib/domain/chord-shapes";
+import { useMemo, useState } from "react";
+import { getGuitarChordShapes, getBassChordShape, getPianoKeys, GuitarShape } from "@/lib/domain/chord-shapes";
 import { chordToNashville } from "@/lib/domain/chords";
 
 interface ChordCardProps {
@@ -45,6 +45,8 @@ export function ChordDiagrams({
 }
 
 function ChordCard({ chord, instrument, showNumbers, selectedKey }: ChordCardProps) {
+  const [variationIndex, setVariationIndex] = useState(0);
+
   const displayLabel = useMemo(() => {
     if (showNumbers && selectedKey) {
       return chordToNashville(chord, selectedKey);
@@ -52,14 +54,44 @@ function ChordCard({ chord, instrument, showNumbers, selectedKey }: ChordCardPro
     return chord;
   }, [chord, showNumbers, selectedKey]);
 
+  const guitarShapes = useMemo(() => {
+    if (instrument !== "guitar") return [];
+    return getGuitarChordShapes(chord);
+  }, [chord, instrument]);
+
+  const currentShape = guitarShapes[variationIndex % guitarShapes.length];
+
   return (
-    <div className="flex flex-col items-center rounded-lg border border-white/10 bg-[#16151a] p-4 text-center hover:border-violet-400/40 transition">
+    <div className="flex flex-col items-center rounded-lg border border-white/10 bg-[#16151a] p-4 text-center hover:border-violet-400/40 transition relative group">
       <p className="text-base font-bold text-violet-200 mb-3">{displayLabel}</p>
-      <div className="w-full flex justify-center items-center h-28">
+      
+      <div className="w-full flex justify-center items-center h-28 relative">
         {instrument === "piano" && <PianoDiagram chord={chord} />}
-        {instrument === "guitar" && <GuitarDiagram chord={chord} />}
+        {instrument === "guitar" && currentShape && <GuitarDiagram shape={currentShape} />}
         {instrument === "bass" && <BassDiagram chord={chord} />}
       </div>
+
+      {instrument === "guitar" && guitarShapes.length > 1 && (
+        <div className="absolute bottom-2 left-0 right-0 flex justify-center items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button 
+            onClick={() => setVariationIndex((i) => (i - 1 + guitarShapes.length) % guitarShapes.length)}
+            className="w-5 h-5 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-violet-600 text-white text-xs"
+          >
+            ←
+          </button>
+          <div className="flex gap-1">
+            {guitarShapes.map((_, i) => (
+              <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === variationIndex ? 'bg-violet-400' : 'bg-zinc-600'}`} />
+            ))}
+          </div>
+          <button 
+            onClick={() => setVariationIndex((i) => (i + 1) % guitarShapes.length)}
+            className="w-5 h-5 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-violet-600 text-white text-xs"
+          >
+            →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -135,8 +167,7 @@ function PianoDiagram({ chord }: { chord: string }) {
 }
 
 // 2. Guitar Diagram Component
-function GuitarDiagram({ chord }: { chord: string }) {
-  const shape = useMemo(() => getGuitarChordShape(chord), [chord]);
+function GuitarDiagram({ shape }: { shape: GuitarShape }) {
   const strings = 6;
   const fretsCount = 4; // draw 4 frets
   

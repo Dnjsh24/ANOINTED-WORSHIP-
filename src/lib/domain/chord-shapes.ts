@@ -28,11 +28,27 @@ export interface GuitarShape {
 }
 
 // Mapping of normalized root + quality to guitar shapes
-const GUITAR_DATABASE: Record<string, GuitarShape> = {
-  "C": { frets: ["x", 3, 2, 0, 1, 0] },
-  "Cm": { frets: ["x", 3, 5, 5, 4, 3], baseFret: 3 },
-  "C7": { frets: ["x", 3, 2, 3, 1, 0] },
-  "Cmaj7": { frets: ["x", 3, 2, 0, 0, 0] },
+const GUITAR_DATABASE: Record<string, GuitarShape | GuitarShape[]> = {
+  "C": [
+    { frets: ["x", 3, 2, 0, 1, 0] },
+    { frets: ["x", 3, 5, 5, 5, 3], baseFret: 3 },
+    { frets: [8, 10, 10, 9, 8, 8], baseFret: 8 }
+  ],
+  "Cm": [
+    { frets: ["x", 3, 5, 5, 4, 3], baseFret: 3 },
+    { frets: [8, 10, 10, 8, 8, 8], baseFret: 8 },
+    { frets: ["x", "x", 10, 8, 8, 8], baseFret: 8 }
+  ],
+  "C7": [
+    { frets: ["x", 3, 2, 3, 1, 0] },
+    { frets: ["x", 3, 5, 3, 5, 3], baseFret: 3 },
+    { frets: [8, 10, 8, 9, 8, 8], baseFret: 8 }
+  ],
+  "Cmaj7": [
+    { frets: ["x", 3, 2, 0, 0, 0] },
+    { frets: ["x", 3, 5, 4, 5, 3], baseFret: 3 },
+    { frets: [8, "x", 9, 9, 8, "x"], baseFret: 8 }
+  ],
   "Csus4": { frets: ["x", 3, 3, 0, 1, 1] },
   "C/F": { frets: [1, 3, 2, 0, 1, 0] },
   "C/E": { frets: [0, 3, 2, 0, 1, 0] },
@@ -41,11 +57,26 @@ const GUITAR_DATABASE: Record<string, GuitarShape> = {
   "C#m": { frets: ["x", 4, 6, 6, 5, 4], baseFret: 4 },
   "C#7": { frets: ["x", 4, 6, 4, 6, 4], baseFret: 4 },
   "C#sus4": { frets: ["x", 4, 6, 6, 7, 4], baseFret: 4 },
-
-  "D": { frets: ["x", "x", 0, 2, 3, 2] },
-  "Dm": { frets: ["x", "x", 0, 2, 3, 1] },
-  "D7": { frets: ["x", "x", 0, 2, 1, 2] },
-  "Dmaj7": { frets: ["x", "x", 0, 2, 2, 2] },
+  "D": [
+    { frets: ["x", "x", 0, 2, 3, 2] },
+    { frets: ["x", 5, 7, 7, 7, 5], baseFret: 5 },
+    { frets: [10, 12, 12, 11, 10, 10], baseFret: 10 }
+  ],
+  "Dm": [
+    { frets: ["x", "x", 0, 2, 3, 1] },
+    { frets: ["x", 5, 7, 7, 6, 5], baseFret: 5 },
+    { frets: [10, 12, 12, 10, 10, 10], baseFret: 10 }
+  ],
+  "D7": [
+    { frets: ["x", "x", 0, 2, 1, 2] },
+    { frets: ["x", 5, 7, 5, 7, 5], baseFret: 5 },
+    { frets: [10, 12, 10, 11, 10, 10], baseFret: 10 }
+  ],
+  "Dmaj7": [
+    { frets: ["x", "x", 0, 2, 2, 2] },
+    { frets: ["x", 5, 7, 6, 7, 5], baseFret: 5 },
+    { frets: [10, "x", 11, 11, 10, "x"], baseFret: 10 }
+  ],
   "Dsus4": { frets: ["x", "x", 0, 2, 3, 3] },
   "D/G": { frets: [3, "x", 0, 2, 3, 2] },
   "D/F#": { frets: [2, 0, 0, 2, 3, 2] },
@@ -53,17 +84,47 @@ const GUITAR_DATABASE: Record<string, GuitarShape> = {
   "D#": { frets: ["x", 6, 8, 8, 8, 6], baseFret: 6 },
   "D#m": { frets: ["x", 6, 8, 8, 7, 6], baseFret: 6 },
   "D#sus4": { frets: ["x", 6, 8, 8, 9, 6], baseFret: 6 },
-
-  "E": { frets: [0, 2, 2, 1, 0, 0] },
-  "Em": { frets: [0, 2, 2, 0, 0, 0] },
-  "E7": { frets: [0, 2, 0, 1, 0, 0] },
-  "Emaj7": { frets: [0, 2, 1, 1, 0, 0] },
+  "E": [
+    { frets: [0, 2, 2, 1, 0, 0] },
+    { frets: ["x", 7, 9, 9, 9, 7], baseFret: 7 },
+    { frets: [12, 14, 14, 13, 12, 12], baseFret: 12 }
+  ],
+  "Em": [
+    { frets: [0, 2, 2, 0, 0, 0] },
+    { frets: ["x", 7, 9, 9, 8, 7], baseFret: 7 },
+    { frets: [12, 14, 14, 12, 12, 12], baseFret: 12 }
+  ],
+  "E7": [
+    { frets: [0, 2, 0, 1, 0, 0] },
+    { frets: ["x", 7, 9, 7, 9, 7], baseFret: 7 },
+    { frets: [12, 14, 12, 13, 12, 12], baseFret: 12 }
+  ],
+  "Emaj7": [
+    { frets: [0, 2, 1, 1, 0, 0] },
+    { frets: ["x", 7, 9, 8, 9, 7], baseFret: 7 },
+    { frets: [12, "x", 13, 13, 12, "x"], baseFret: 12 }
+  ],
   "Esus4": { frets: [0, 2, 2, 2, 0, 0] },
-
-  "F": { frets: [1, 3, 3, 2, 1, 1] },
-  "Fm": { frets: [1, 3, 3, 1, 1, 1] },
-  "F7": { frets: [1, 3, 1, 2, 1, 1] },
-  "Fmaj7": { frets: ["x", "x", 3, 2, 1, 0] },
+  "F": [
+    { frets: [1, 3, 3, 2, 1, 1] },
+    { frets: ["x", 8, 10, 10, 10, 8], baseFret: 8 },
+    { frets: ["x", "x", 3, 2, 1, 1] }
+  ],
+  "Fm": [
+    { frets: [1, 3, 3, 1, 1, 1] },
+    { frets: ["x", 8, 10, 10, 9, 8], baseFret: 8 },
+    { frets: ["x", "x", 3, 1, 1, 1] }
+  ],
+  "F7": [
+    { frets: [1, 3, 1, 2, 1, 1] },
+    { frets: ["x", 8, 10, 8, 10, 8], baseFret: 8 },
+    { frets: ["x", "x", 3, 5, 4, 5], baseFret: 3 }
+  ],
+  "Fmaj7": [
+    { frets: ["x", "x", 3, 2, 1, 0] },
+    { frets: [1, "x", 2, 2, 1, "x"] },
+    { frets: ["x", 8, 10, 9, 10, 8], baseFret: 8 }
+  ],
   "Fsus4": { frets: [1, 3, 3, 3, 1, 1] },
   "F/Bb": { frets: ["x", 1, 3, 2, 1, 1] },
   "F/C": { frets: [3, 3, 3, 2, 1, 1] },
@@ -72,11 +133,26 @@ const GUITAR_DATABASE: Record<string, GuitarShape> = {
   "F#m": { frets: [2, 4, 4, 2, 2, 2], baseFret: 2 },
   "F#7": { frets: [2, 4, 2, 3, 2, 2], baseFret: 2 },
   "F#sus4": { frets: [2, 4, 4, 4, 2, 2], baseFret: 2 },
-
-  "G": { frets: [3, 2, 0, 0, 0, 3] },
-  "Gm": { frets: [3, 5, 5, 3, 3, 3], baseFret: 3 },
-  "G7": { frets: [3, 2, 0, 0, 0, 1] },
-  "Gmaj7": { frets: [3, 2, 0, 0, 0, 2] },
+  "G": [
+    { frets: [3, 2, 0, 0, 0, 3] },
+    { frets: [3, 5, 5, 4, 3, 3], baseFret: 3 },
+    { frets: ["x", 10, 12, 12, 12, 10], baseFret: 10 }
+  ],
+  "Gm": [
+    { frets: [3, 5, 5, 3, 3, 3], baseFret: 3 },
+    { frets: ["x", 10, 12, 12, 11, 10], baseFret: 10 },
+    { frets: ["x", "x", 5, 3, 3, 3], baseFret: 3 }
+  ],
+  "G7": [
+    { frets: [3, 2, 0, 0, 0, 1] },
+    { frets: [3, 5, 3, 4, 3, 3], baseFret: 3 },
+    { frets: ["x", 10, 12, 10, 12, 10], baseFret: 10 }
+  ],
+  "Gmaj7": [
+    { frets: [3, 2, 0, 0, 0, 2] },
+    { frets: [3, "x", 4, 4, 3, "x"], baseFret: 3 },
+    { frets: ["x", 10, 12, 11, 12, 10], baseFret: 10 }
+  ],
   "Gsus4": { frets: [3, 3, 0, 0, 1, 3] },
   "G/B": { frets: ["x", 2, 0, 0, 0, 3] },
   "G/C": { frets: [3, 3, 2, 0, 1, 3] },
@@ -85,11 +161,26 @@ const GUITAR_DATABASE: Record<string, GuitarShape> = {
   "G#": { frets: [4, 6, 6, 5, 4, 4], baseFret: 4 },
   "G#m": { frets: [4, 6, 6, 4, 4, 4], baseFret: 4 },
   "G#sus4": { frets: [4, 6, 6, 6, 4, 4], baseFret: 4 },
-
-  "A": { frets: ["x", 0, 2, 2, 2, 0] },
-  "Am": { frets: ["x", 0, 2, 2, 1, 0] },
-  "A7": { frets: ["x", 0, 2, 0, 2, 0] },
-  "Amaj7": { frets: ["x", 0, 2, 1, 2, 0] },
+  "A": [
+    { frets: ["x", 0, 2, 2, 2, 0] },
+    { frets: [5, 7, 7, 6, 5, 5], baseFret: 5 },
+    { frets: ["x", 12, 14, 14, 14, 12], baseFret: 12 }
+  ],
+  "Am": [
+    { frets: ["x", 0, 2, 2, 1, 0] },
+    { frets: [5, 7, 7, 5, 5, 5], baseFret: 5 },
+    { frets: ["x", 12, 14, 14, 13, 12], baseFret: 12 }
+  ],
+  "A7": [
+    { frets: ["x", 0, 2, 0, 2, 0] },
+    { frets: [5, 7, 5, 6, 5, 5], baseFret: 5 },
+    { frets: ["x", 12, 14, 12, 14, 12], baseFret: 12 }
+  ],
+  "Amaj7": [
+    { frets: ["x", 0, 2, 1, 2, 0] },
+    { frets: [5, "x", 6, 6, 5, "x"], baseFret: 5 },
+    { frets: ["x", 12, 14, 13, 14, 12], baseFret: 12 }
+  ],
   "Asus4": { frets: ["x", 0, 2, 2, 3, 0] },
   "A/Db": { frets: ["x", 4, 2, 2, 2, 0] },
   "A/C#": { frets: ["x", 4, 2, 2, 2, 0] },
@@ -99,27 +190,70 @@ const GUITAR_DATABASE: Record<string, GuitarShape> = {
   "A#": { frets: ["x", 1, 3, 3, 3, 1] },
   "A#m": { frets: ["x", 1, 3, 3, 2, 1] },
   "A#sus4": { frets: ["x", 1, 3, 3, 4, 1] },
-
-  "B": { frets: ["x", 2, 4, 4, 4, 2], baseFret: 2 },
-  "Bm": { frets: ["x", 2, 4, 4, 3, 2], baseFret: 2 },
-  "B7": { frets: ["x", 2, 1, 2, 0, 2] },
-  "Bmaj7": { frets: ["x", 2, 4, 3, 4, 2], baseFret: 2 },
+  "B": [
+    { frets: ["x", 2, 4, 4, 4, 2], baseFret: 2 },
+    { frets: [7, 9, 9, 8, 7, 7], baseFret: 7 },
+    { frets: ["x", "x", 9, 11, 12, 11], baseFret: 9 }
+  ],
+  "Bm": [
+    { frets: ["x", 2, 4, 4, 3, 2], baseFret: 2 },
+    { frets: [7, 9, 9, 7, 7, 7], baseFret: 7 },
+    { frets: ["x", "x", 9, 7, 7, 7], baseFret: 7 }
+  ],
+  "B7": [
+    { frets: ["x", 2, 1, 2, 0, 2] },
+    { frets: ["x", 2, 4, 2, 4, 2], baseFret: 2 },
+    { frets: [7, 9, 7, 8, 7, 7], baseFret: 7 }
+  ],
+  "Bmaj7": [
+    { frets: ["x", 2, 4, 3, 4, 2], baseFret: 2 },
+    { frets: [7, "x", 8, 8, 7, "x"], baseFret: 7 },
+    { frets: ["x", "x", 9, 8, 7, 6], baseFret: 6 }
+  ],
   "Bsus4": { frets: ["x", 2, 4, 4, 5, 2], baseFret: 2 },
   "Bbm": { frets: ["x", 1, 3, 3, 2, 1] },
 
   // Added m7 chords
-  "Cm7": { frets: ["x", 3, 5, 3, 4, 3], baseFret: 3 },
+  "Cm7": [
+    { frets: ["x", 3, 5, 3, 4, 3], baseFret: 3 },
+    { frets: [8, 10, 8, 8, 8, 8], baseFret: 8 },
+    { frets: ["x", "x", 10, 8, 8, 8], baseFret: 8 }
+  ],
   "C#m7": { frets: ["x", 4, 6, 4, 5, 4], baseFret: 4 },
-  "Dm7": { frets: ["x", "x", 0, 2, 1, 1] },
+  "Dm7": [
+    { frets: ["x", "x", 0, 2, 1, 1] },
+    { frets: ["x", 5, 7, 5, 6, 5], baseFret: 5 },
+    { frets: [10, 12, 10, 10, 10, 10], baseFret: 10 }
+  ],
   "D#m7": { frets: ["x", 6, 8, 6, 7, 6], baseFret: 6 },
-  "Em7": { frets: [0, 2, 2, 0, 3, 0] },
-  "Fm7": { frets: [1, 3, 1, 1, 1, 1] },
+  "Em7": [
+    { frets: [0, 2, 2, 0, 3, 0] },
+    { frets: ["x", 7, 9, 7, 8, 7], baseFret: 7 },
+    { frets: [12, 14, 12, 12, 12, 12], baseFret: 12 }
+  ],
+  "Fm7": [
+    { frets: [1, 3, 1, 1, 1, 1] },
+    { frets: ["x", 8, 10, 8, 9, 8], baseFret: 8 },
+    { frets: ["x", "x", 3, 5, 4, 4], baseFret: 3 }
+  ],
   "F#m7": { frets: [2, 4, 2, 2, 2, 2], baseFret: 2 },
-  "Gm7": { frets: [3, 5, 3, 3, 3, 3], baseFret: 3 },
+  "Gm7": [
+    { frets: [3, 5, 3, 3, 3, 3], baseFret: 3 },
+    { frets: ["x", 10, 12, 10, 11, 10], baseFret: 10 },
+    { frets: ["x", "x", 5, 3, 3, 3], baseFret: 3 }
+  ],
   "G#m7": { frets: [4, 6, 4, 4, 4, 4], baseFret: 4 },
-  "Am7": { frets: ["x", 0, 2, 0, 1, 0] },
+  "Am7": [
+    { frets: ["x", 0, 2, 0, 1, 0] },
+    { frets: [5, 7, 5, 5, 5, 5], baseFret: 5 },
+    { frets: ["x", 12, 14, 12, 13, 12], baseFret: 12 }
+  ],
   "A#m7": { frets: ["x", 1, 3, 1, 2, 1] },
-  "Bm7": { frets: ["x", 2, 4, 2, 3, 2], baseFret: 2 },
+  "Bm7": [
+    { frets: ["x", 2, 4, 2, 3, 2], baseFret: 2 },
+    { frets: [7, 9, 7, 7, 7, 7], baseFret: 7 },
+    { frets: ["x", "x", 9, 7, 7, 7], baseFret: 7 }
+  ],
 
   // Advanced Chords
   "C6": { frets: [8,"x",8,9,8,"x"], baseFret: 8 },
@@ -362,11 +496,15 @@ const PIANO_INTERVALS: Record<string, number[]> = {
   "add9": [0, 4, 7, 14],
 };
 
-export function getGuitarChordShape(chord: string): GuitarShape {
+function toArray(shape: GuitarShape | GuitarShape[] | undefined): GuitarShape[] | undefined {
+  if (!shape) return undefined;
+  return Array.isArray(shape) ? shape : [shape];
+}
+
+export function getGuitarChordShapes(chord: string): GuitarShape[] {
   const normalized = chord.trim();
-  if (GUITAR_DATABASE[normalized]) {
-    return GUITAR_DATABASE[normalized];
-  }
+  const directMatch = toArray(GUITAR_DATABASE[normalized]);
+  if (directMatch) return directMatch;
 
   // 1. Try normalizing root and/or bass enharmonics for slash chords
   const slashIndex = normalized.indexOf("/");
@@ -396,19 +534,17 @@ export function getGuitarChordShape(chord: string): GuitarShape {
     ];
 
     for (const variant of variations) {
-      if (GUITAR_DATABASE[variant]) {
-        return GUITAR_DATABASE[variant];
-      }
+      const match = toArray(GUITAR_DATABASE[variant]);
+      if (match) return match;
     }
 
     // Fallback: use main chord shape
     const normMainChord = normalizeNoteName(root);
-    if (GUITAR_DATABASE[normMainChord]) {
-      return GUITAR_DATABASE[normMainChord];
-    }
-    if (GUITAR_DATABASE[root]) {
-      return GUITAR_DATABASE[root];
-    }
+    const fallback1 = toArray(GUITAR_DATABASE[normMainChord]);
+    if (fallback1) return fallback1;
+    
+    const fallback2 = toArray(GUITAR_DATABASE[root]);
+    if (fallback2) return fallback2;
   }
 
   // Fallback: search main root + quality
@@ -416,15 +552,14 @@ export function getGuitarChordShape(chord: string): GuitarShape {
   if (match) {
     const [, root, suffix] = match;
     const baseChord = (root ?? "C") + (suffix ?? "");
-    if (GUITAR_DATABASE[baseChord]) {
-      return GUITAR_DATABASE[baseChord];
-    }
-    if (GUITAR_DATABASE[root ?? "C"]) {
-      return GUITAR_DATABASE[root ?? "C"];
-    }
+    const fb1 = toArray(GUITAR_DATABASE[baseChord]);
+    if (fb1) return fb1;
+
+    const fb2 = toArray(GUITAR_DATABASE[root ?? "C"]);
+    if (fb2) return fb2;
   }
 
-  return { frets: [0, 0, 0, 0, 0, 0] }; // Empty fallback
+  return [{ frets: [0, 0, 0, 0, 0, 0] }]; // Empty fallback
 }
 
 export function getBassChordShape(chord: string): BassShape {

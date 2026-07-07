@@ -91,7 +91,9 @@ export function capoSuggestion(originalKey: string, targetKey: string) {
 }
 
 function rootIndex(root: string) {
-  const normalized = normalizeRoot(root);
+  const match = root.trim().match(/^([A-Ga-g](?:#|b)?)/);
+  if (!match) return -1;
+  const normalized = normalizeRoot(match[1]);
   const sharp = sharpScale.indexOf(normalized);
   if (sharp >= 0) return sharp;
   return flatScale.indexOf(normalized);
@@ -128,11 +130,12 @@ export function parseLyricsAndChords(text: string): SongSection[] {
   let pendingChords: string | undefined = undefined;
 
   const chordWordRegex = /^[A-Ga-g](?:#|b)?(?:[a-zA-Z0-9#\/\+\-]*)$/;
+  const instructionRegex = /^\(?(?:[1-9]x|x[1-9]|pause|stop|repeat)\)?$/i;
   function isChordsLine(line: string): boolean {
     const trimmed = line.trim();
     if (!trimmed) return false;
     const words = trimmed.split(/\s+/);
-    return words.every(word => word === "/" || chordWordRegex.test(word));
+    return words.every(word => word === "/" || chordWordRegex.test(word) || instructionRegex.test(word));
   }
 
   for (const line of lines) {

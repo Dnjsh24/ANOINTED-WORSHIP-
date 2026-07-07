@@ -9,7 +9,8 @@ import Link from "next/link";
 import { Play, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const keys = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+const MINOR_KEYS = ["Cm", "C#m", "Dm", "D#m", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
 
 function getYouTubeEmbedId(url?: string): string | null {
   if (!url) return null;
@@ -146,8 +147,11 @@ export function SongViewer({ song }: { song: Song }) {
           line.chords.split(/[\s-]+/).forEach((chord) => {
             const trimmed = chord.trim();
             if (trimmed && trimmed !== "/") {
-              const transposed = transposeProgression(trimmed, song.originalKey, selectedKey);
-              set.add(transposed);
+              // Ensure it's actually a chord before adding (starts with A-G)
+              if (/^[A-Ga-g]/.test(trimmed)) {
+                const transposed = transposeProgression(trimmed, song.originalKey, selectedKey);
+                set.add(transposed);
+              }
             }
           });
         }
@@ -156,9 +160,12 @@ export function SongViewer({ song }: { song: Song }) {
     return Array.from(set);
   }, [song, selectedKey]);
 
+  const isMinor = song.originalKey.endsWith("m");
+  const activeKeys = isMinor ? MINOR_KEYS : MAJOR_KEYS;
+
   // Handle Transpose / Key change
-  const originalKeyIndex = keys.indexOf(song.originalKey);
-  const selectedKeyIndex = keys.indexOf(selectedKey);
+  const originalKeyIndex = activeKeys.indexOf(song.originalKey);
+  const selectedKeyIndex = activeKeys.indexOf(selectedKey);
   
   const transposeOffset = useMemo(() => {
     if (originalKeyIndex === -1 || selectedKeyIndex === -1) return 0;
@@ -171,13 +178,13 @@ export function SongViewer({ song }: { song: Song }) {
   function changeKey(direction: number) {
     let nextIdx = (selectedKeyIndex + direction) % 12;
     if (nextIdx < 0) nextIdx += 12;
-    setSelectedKey(keys[nextIdx]);
+    setSelectedKey(activeKeys[nextIdx]);
   }
 
   function changeTranspose(direction: number) {
     let nextIdx = (selectedKeyIndex + direction) % 12;
     if (nextIdx < 0) nextIdx += 12;
-    setSelectedKey(keys[nextIdx]);
+    setSelectedKey(activeKeys[nextIdx]);
   }
 
   // Tap Tempo Handler
