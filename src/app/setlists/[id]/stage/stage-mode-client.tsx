@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, PenTool, Radio, Eraser, Type, Guitar } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, PenTool, Radio, Eraser, Type, Guitar, ChevronsDown } from "lucide-react";
 import { parseLyricsAndChords, transposeProgression, capoSuggestion } from "@/lib/domain/chords";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -54,6 +54,12 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isScrolling, setIsScrolling] = useState(false);
+  const [scrollSpeed, setScrollSpeedState] = useState(1.0);
+  const scrollSpeedRef = useRef(1.0);
+  const setScrollSpeed = (val: number) => {
+    setScrollSpeedState(val);
+    scrollSpeedRef.current = val;
+  };
   const scrollAnimationFrameRef = useRef<number | null>(null);
 
   const currentSetlistSong = setlist.songs[currentSongIndex];
@@ -203,23 +209,69 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
     saveScribbles();
   };
 
-  // Allow 1-finger drawing and 2-finger scrolling
+  const drawState = useRef({ isDrawing: false, tool: penTool, size: penSize });
+  const saveScribblesRef = useRef(saveScribbles);
+  
+  // Sync refs so native events get latest state
+  useEffect(() => {
+    drawState.current = { isDrawing, tool: penTool, size: penSize };
+    saveScribblesRef.current = saveScribbles;
+  }, [isDrawing, penTool, penSize, saveScribbles]);
+
+  // Touch logic: 1-finger draw, 2-finger scroll/zoom
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const preventScroll = (e: TouchEvent) => {
+    const handleTouchStart = (e: TouchEvent) => {
       if (drawMode && e.touches.length === 1) {
         e.preventDefault(); // Stop scrolling for 1-finger drawing
+        setIsDrawing(true);
+        drawState.current.isDrawing = true;
+        
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.beginPath();
+        const rect = canvas.getBoundingClientRect();
+        ctx.moveTo(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
       }
     };
 
-    canvas.addEventListener("touchstart", preventScroll, { passive: false });
-    canvas.addEventListener("touchmove", preventScroll, { passive: false });
+    const handleTouchMove = (e: TouchEvent) => {
+      if (drawMode && e.touches.length === 1 && drawState.current.isDrawing) {
+        e.preventDefault();
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        const rect = canvas.getBoundingClientRect();
+        ctx.lineTo(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
+        
+        const { tool, size } = drawState.current;
+        ctx.strokeStyle = tool === "pen" ? "rgba(250, 204, 21, 0.8)" : "rgba(0,0,0,1)";
+        ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
+        ctx.lineWidth = tool === "eraser" ? size * 4 : size;
+        ctx.lineCap = "round";
+        ctx.stroke();
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (drawState.current.isDrawing) {
+        setIsDrawing(false);
+        drawState.current.isDrawing = false;
+        saveScribblesRef.current();
+      }
+    };
+
+    canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
+    canvas.addEventListener("touchend", handleTouchEnd);
+    canvas.addEventListener("touchcancel", handleTouchEnd);
 
     return () => {
-      canvas.removeEventListener("touchstart", preventScroll);
-      canvas.removeEventListener("touchmove", preventScroll);
+      canvas.removeEventListener("touchstart", handleTouchStart);
+      canvas.removeEventListener("touchmove", handleTouchMove);
+      canvas.removeEventListener("touchend", handleTouchEnd);
+      canvas.removeEventListener("touchcancel", handleTouchEnd);
     };
   }, [drawMode]);
 
@@ -312,10 +364,10 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
       if (scrollAnimationFrameRef.current) cancelAnimationFrame(scrollAnimationFrameRef.current);
       setIsScrolling(false);
     } else {
-      const bpm = currentSong?.bpm || 70;
-      const pixelsPerFrame = (bpm / 60) * 0.3; 
       const scrollStep = () => {
         if (scrollRef.current) {
+          const bpm = currentSong?.bpm || 70;
+          const pixelsPerFrame = (bpm / 60) * 0.3 * scrollSpeedRef.current; 
           scrollRef.current.scrollBy(0, pixelsPerFrame);
           if (scrollRef.current.scrollTop + scrollRef.current.clientHeight >= scrollRef.current.scrollHeight - 2) {
             setIsScrolling(false);
@@ -425,9 +477,24 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
            <button 
              onClick={() => setMetronomePlaying(!metronomePlaying)}
              className={cn("p-3 rounded-lg transition border", metronomePlaying ? "bg-red-500/20 border-red-500/50 text-red-400" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white")}
+             title="Metronome"
            >
              {metronomePlaying ? <Square className="size-5" /> : <Play className="size-5" />}
            </button>
+           
+           {/* Auto Scroll Speed */}
+           <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-1" title="Auto Scroll (Spacebar)">
+             <button onClick={toggleAutoScroll} className={cn("p-2 rounded transition", isScrolling ? "bg-violet-600/20 text-violet-400" : "text-zinc-400 hover:text-white")}>
+               <ChevronsDown className="size-4" />
+             </button>
+             <input 
+               type="range" min="0.2" max="3" step="0.1" 
+               value={scrollSpeed} 
+               onChange={(e) => setScrollSpeed(parseFloat(e.target.value))} 
+               className="w-16 md:w-24 mx-2 accent-violet-500"
+               title="Scroll Speed"
+             />
+           </div>
            
            {/* Broadcast Sync */}
            <button 

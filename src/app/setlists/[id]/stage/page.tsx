@@ -4,6 +4,12 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import StageModeClient from "./stage-mode-client";
+import type { Viewport } from "next";
+
+export const viewport: Viewport = {
+  maximumScale: 5,
+  userScalable: true,
+};
 
 export default async function SetlistStagePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
