@@ -78,11 +78,22 @@ export class VoiceKeyDetector {
     this.onLevel = onLevel;
   }
 
-  start() {
+  start(useHighpass = false) {
     const source = this.audioCtx.createMediaStreamSource(this.stream);
+    
+    let targetNode: AudioNode = source;
+    if (useHighpass) {
+      const filter = this.audioCtx.createBiquadFilter();
+      filter.type = "highpass";
+      filter.frequency.value = 300;
+      source.connect(filter);
+      targetNode = filter;
+    }
+
     this.analyser = this.audioCtx.createAnalyser();
     this.analyser.fftSize = 4096;
-    source.connect(this.analyser);
+    targetNode.connect(this.analyser);
+    
     this.pitchDetector.clarityThreshold = CLARITY_THRESHOLD;
     this.pitchDetector.minVolumeAbsolute = RMS_THRESHOLD;
     this.startedAt = performance.now();
@@ -141,7 +152,15 @@ export class VoiceKeyDetector {
           if (Math.abs(cents) <= TUNING_TOLERANCE_CENTS) {
             this.acceptPitch(note, clarity);
           }
+        } else {
+          this.currentStableCount = 0;
+          this.currentStableNote = null;
+          this.onUpdate("", 0);
         }
+      } else {
+        this.currentStableCount = 0;
+        this.currentStableNote = null;
+        this.onUpdate("", 0);
       }
     }
 

@@ -28,6 +28,54 @@ export function SongForm({ song }: { song?: Song }) {
   const [voiceSecondsLeft, setVoiceSecondsLeft] = useState<number | null>(null);
   const lyricsRef = useRef<HTMLTextAreaElement>(null);
 
+  const [transcribingNotes, setTranscribingNotes] = useState(false);
+  const transcriptionDetectorRef = useRef<VoiceKeyDetector | null>(null);
+  const lastTranscribedNoteRef = useRef<string | null>(null);
+
+  const toggleTranscription = async () => {
+    if (transcribingNotes) {
+      if (transcriptionDetectorRef.current) {
+        transcriptionDetectorRef.current.stop();
+        transcriptionDetectorRef.current = null;
+      }
+      setTranscribingNotes(false);
+      setDetectMessage("Transcription stopped.");
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setDetectMessage("Microphone is not available in this browser.");
+      return;
+    }
+
+    const userConfirmed = window.confirm("Allow microphone access for real-time live note transcription?");
+    if (!userConfirmed) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ctx = new AudioContext();
+      
+      transcriptionDetectorRef.current = new VoiceKeyDetector(
+        ctx,
+        stream,
+        (note, stableCount) => {
+           if (stableCount === 3 && note !== lastTranscribedNoteRef.current && note !== "") {
+             setLyrics((prev) => prev + (prev.endsWith(" ") || prev.length === 0 || prev.endsWith("\n") ? "" : " ") + note + " ");
+             lastTranscribedNoteRef.current = note;
+           } else if (stableCount === 0) {
+             lastTranscribedNoteRef.current = null;
+           }
+        }
+      );
+      transcriptionDetectorRef.current.start(true);
+      setTranscribingNotes(true);
+      setDetectMessage("Transcribing... Play notes clearly. Highpass filter is active.");
+    } catch (e) {
+      console.error(e);
+      setDetectMessage("Could not access microphone.");
+    }
+  };
+
   const handleDetectKeyFromChords = () => {
     const result = detectKeyFromText(lyrics);
     if (!result) {
@@ -138,6 +186,8 @@ export function SongForm({ song }: { song?: Song }) {
       if (voiceCountdownIntervalRef.current) clearInterval(voiceCountdownIntervalRef.current);
       voiceDetectorRef.current?.cleanup();
       voiceDetectorRef.current = null;
+      transcriptionDetectorRef.current?.cleanup();
+      transcriptionDetectorRef.current = null;
       setVoiceLevel(0);
     };
   }, []);
@@ -277,26 +327,40 @@ export function SongForm({ song }: { song?: Song }) {
         {/* Right Column: Edit Sheet */}
         <div className="space-y-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 flex flex-col min-h-[380px]">
           {/* Tab selector */}
-          <div className="flex border-b border-white/[0.08] text-xs">
+          <div className="flex border-b border-white/[0.08] text-xs justify-between items-end">
+            <div className="flex">
+              <button
+                type="button"
+                onClick={() => setActiveTab("chords")}
+                className={cn(
+                  "px-5 py-2.5 font-bold transition border-b-2 -mb-px",
+                  activeTab === "chords" ? "border-violet-500 text-violet-300" : "border-transparent text-zinc-500 hover:text-white"
+                )}
+              >
+                Chords
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("lyrics")}
+                className={cn(
+                  "px-5 py-2.5 font-bold transition border-b-2 -mb-px",
+                  activeTab === "lyrics" ? "border-violet-500 text-violet-300" : "border-transparent text-zinc-500 hover:text-white"
+                )}
+              >
+                Lyrics
+              </button>
+            </div>
             <button
-              type="button"
-              onClick={() => setActiveTab("chords")}
-              className={cn(
-                "px-5 py-2.5 font-bold transition border-b-2 -mb-px",
-                activeTab === "chords" ? "border-violet-500 text-violet-300" : "border-transparent text-zinc-500 hover:text-white"
-              )}
+               type="button"
+               onClick={toggleTranscription}
+               title="Live Note Transcription"
+               className={cn(
+                 "flex items-center gap-1.5 px-3 py-1.5 rounded-t-lg text-[10px] font-bold transition uppercase tracking-wider mb-0 mr-1 border-b-2 -mb-px",
+                 transcribingNotes ? "border-red-500 text-red-400 hover:text-red-300 bg-red-500/10" : "border-transparent text-zinc-400 hover:text-white hover:bg-white/[0.04]"
+               )}
             >
-              Chords
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("lyrics")}
-              className={cn(
-                "px-5 py-2.5 font-bold transition border-b-2 -mb-px",
-                activeTab === "lyrics" ? "border-violet-500 text-violet-300" : "border-transparent text-zinc-500 hover:text-white"
-              )}
-            >
-              Lyrics
+               {transcribingNotes ? <MicOff className="size-3.5" /> : <Mic className="size-3.5" />}
+               {transcribingNotes ? "Stop" : "Mic Transcribe"}
             </button>
           </div>
 
