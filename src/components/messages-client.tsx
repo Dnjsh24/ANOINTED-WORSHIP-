@@ -587,8 +587,8 @@ export function MessagesClient({
     <div className="flex h-[calc(100vh-8rem)] min-h-[600px] overflow-hidden rounded-lg border border-white/10 bg-[#111014]">
       <aside
         className={cn(
-          "transition-all duration-300 bg-[#201f24] p-4 flex flex-col border-r border-white/10 shrink-0 h-full overflow-y-auto",
-          sidebarExpanded ? "w-64" : "w-16 lg:w-64"
+          "transition-all duration-300 bg-[#201f24] flex flex-col border-r border-white/10 shrink-0 h-full overflow-y-auto",
+          sidebarExpanded ? "w-72 p-4" : "w-20 p-3 lg:w-72 lg:p-4"
         )}
       >
         <div className="flex items-center justify-between">
