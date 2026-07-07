@@ -74,11 +74,16 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
   const channel = useRef<any>(null);
 
   useEffect(() => {
-    channel.current = supabase.channel(`setlist_stage_${setlist.id}`);
-    channel.current
+    channel.current = supabase.channel(`setlist_${setlist.id}`)
       .on("broadcast", { event: "sync_song" }, (payload: any) => {
         if (!isBroadcasting && typeof payload.payload.index === "number") {
-          setCurrentSongIndex(payload.payload.index);
+          setSyncedSongIndex(payload.payload.index);
+        }
+      })
+      .on("broadcast", { event: "sync_section" }, (payload: any) => {
+        if (!isBroadcasting && typeof payload.payload.sectionIndex === "number") {
+          const el = document.getElementById(`section-${payload.payload.sectionIndex}`);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       })
       .subscribe();
@@ -187,6 +192,15 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
     if (!isDrawing) return;
     setIsDrawing(false);
     saveScribbles();
+  };
+
+  const handleJumpToSection = (idx: number) => {
+    const el = document.getElementById(`section-${idx}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    
+    if (isBroadcasting && channel.current) {
+      channel.current.send({ type: "broadcast", event: "sync_section", payload: { sectionIndex: idx } });
+    }
   };
 
   // Reset when song changes
@@ -327,7 +341,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
     <div className={cn("fixed inset-0 h-[100dvh] bg-black text-white flex flex-col font-sans overflow-hidden transition-shadow duration-300 z-50", metronomePlaying && currentBeat === 1 ? "shadow-[inset_0_0_100px_rgba(255,255,255,0.1)]" : "")}>
       
       {/* Top Bar - Tools */}
-      <div className="flex items-center justify-between px-6 py-4 bg-zinc-950 border-b border-white/10 shrink-0">
+      <div className="flex items-center justify-between px-4 md:px-6 py-4 bg-zinc-950 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar gap-8">
         <div className="flex items-center gap-6">
           <Link href={`/setlists/${setlist.id}`} className="p-2 rounded-full hover:bg-white/10 transition">
             <X className="size-6 text-zinc-400" />
@@ -346,7 +360,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
         </div>
         
         {/* Stage Tools */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 md:gap-6 shrink-0">
            {/* Transpose */}
            <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-1">
              <button onClick={() => changeKey(-1)} className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white">
@@ -462,10 +476,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
           return (
             <button 
               key={idx}
-              onClick={() => {
-                const el = document.getElementById(`section-${idx}`);
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
+              onClick={() => handleJumpToSection(idx)}
               className={cn("px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider whitespace-nowrap border transition hover:brightness-125", colorClass)}
             >
               {section.label}
@@ -537,10 +548,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
           return (
             <button 
               key={idx}
-              onClick={() => {
-                const el = document.getElementById(`section-${idx}`);
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
+              onClick={() => handleJumpToSection(idx)}
               className={cn("w-10 py-2 rounded-md text-[10px] font-black uppercase tracking-tighter border transition hover:brightness-125", colorClass)}
               title={section.label}
             >
