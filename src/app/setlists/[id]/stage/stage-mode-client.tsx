@@ -598,7 +598,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
         <div 
           ref={scrollRef} 
           style={{ "--user-font-scale": fontScale } as any}
-          className={cn("flex-1 overflow-y-auto px-4 md:px-8 py-10 pb-64 relative", drawMode ? "touch-none" : "touch-pan-y")}
+          className="flex-1 overflow-y-auto px-4 md:px-8 py-10 pb-64 relative"
         >
         <canvas
           ref={canvasRef}
@@ -608,7 +608,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
           onPointerCancel={stopDrawing}
           onPointerOut={stopDrawing}
           className={cn(
-            "absolute top-0 left-0 z-10",
+            "absolute top-0 left-0 z-20",
             drawMode ? "pointer-events-auto cursor-crosshair" : "pointer-events-none"
           )}
         />
