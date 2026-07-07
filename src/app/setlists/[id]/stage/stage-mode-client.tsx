@@ -343,21 +343,21 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
     <div className={cn("fixed inset-0 h-[100dvh] bg-black text-white flex flex-col font-sans overflow-hidden transition-shadow duration-300 z-50", metronomePlaying && currentBeat === 1 ? "shadow-[inset_0_0_100px_rgba(255,255,255,0.1)]" : "")}>
       
       {/* Top Bar - Tools */}
-      <div className="flex items-center justify-between px-4 md:px-6 py-4 bg-zinc-950 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar gap-8">
-        <div className="flex items-center gap-6">
+      <div className="flex items-center justify-between px-2 md:px-6 py-3 md:py-4 bg-zinc-950 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar gap-4 md:gap-8">
+        <div className="flex items-center gap-2 md:gap-6 shrink-0">
           <Link href={`/setlists/${setlist.id}`} className="p-2 rounded-full hover:bg-white/10 transition">
-            <X className="size-6 text-zinc-400" />
+            <X className="size-5 md:size-6 text-zinc-400" />
           </Link>
-          <div>
-            <h1 className="text-xl font-bold flex flex-wrap md:flex-nowrap items-center gap-3">
-               <span className="whitespace-nowrap">{currentSong.title}</span>
+          <div className="flex flex-col justify-center">
+            <h1 className="text-base md:text-xl font-bold flex items-center gap-2">
+               <span className="truncate max-w-[120px] sm:max-w-[200px] md:max-w-none">{currentSong.title}</span>
                {guitarMode && capoData && (
-                 <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-xs font-black tracking-widest uppercase border border-red-500/30 whitespace-nowrap">
+                 <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] md:text-xs font-black tracking-widest uppercase border border-red-500/30 whitespace-nowrap">
                    Capo {capoData.fret}
                  </span>
                )}
             </h1>
-            <p className="text-sm text-zinc-500 font-semibold">{currentSong.bpm || 70} BPM</p>
+            <p className="text-xs md:text-sm text-zinc-500 font-semibold leading-none mt-1">{currentSong.bpm || 70} BPM</p>
           </div>
         </div>
         
@@ -460,15 +460,15 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
            <div className="w-px h-8 bg-white/10 mx-2" />
            
            {/* Navigation */}
-           <div className="flex items-center gap-2">
-             <button onClick={() => currentSongIndex > 0 && setSyncedSongIndex(i => i - 1)} disabled={currentSongIndex === 0} className="p-3 rounded-full bg-white/5 hover:bg-white/10 disabled:opacity-30 transition">
-               <ChevronLeft className="size-6" />
+           <div className="flex items-center gap-1 md:gap-2 shrink-0">
+             <button onClick={() => currentSongIndex > 0 && setSyncedSongIndex(i => i - 1)} disabled={currentSongIndex === 0} className="p-2 md:p-3 rounded-full bg-white/5 hover:bg-white/10 disabled:opacity-30 transition">
+               <ChevronLeft className="size-5 md:size-6" />
              </button>
-             <span className="text-sm font-bold text-zinc-500 w-12 text-center">
+             <span className="text-xs md:text-sm font-bold text-zinc-500 w-8 md:w-12 text-center">
                {currentSongIndex + 1} / {setlist.songs.length}
              </span>
-             <button onClick={() => currentSongIndex < setlist.songs.length - 1 && setSyncedSongIndex(i => i + 1)} disabled={currentSongIndex === setlist.songs.length - 1} className="p-3 rounded-full bg-white/5 hover:bg-white/10 disabled:opacity-30 transition">
-               <ChevronRight className="size-6" />
+             <button onClick={() => currentSongIndex < setlist.songs.length - 1 && setSyncedSongIndex(i => i + 1)} disabled={currentSongIndex === setlist.songs.length - 1} className="p-2 md:p-3 rounded-full bg-white/5 hover:bg-white/10 disabled:opacity-30 transition">
+               <ChevronRight className="size-5 md:size-6" />
              </button>
            </div>
         </div>
