@@ -146,19 +146,26 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
   useEffect(() => {
     const handleResize = () => {
       if (canvasRef.current && scrollRef.current) {
-         // Save current drawing
          const current = canvasRef.current.toDataURL();
+         // Match the exact scroll dimensions of the lyrics content
          canvasRef.current.width = scrollRef.current.scrollWidth;
          canvasRef.current.height = scrollRef.current.scrollHeight;
-         // Restore
+         // Restore drawing after resize
          const img = new Image();
          img.onload = () => canvasRef.current?.getContext("2d")?.drawImage(img, 0, 0);
          img.src = current;
       }
     };
+
+    // Need a tiny timeout to allow the DOM (lyrics) to finish rendering so scrollHeight is accurate
+    const timer = setTimeout(handleResize, 100);
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [currentSongIndex, fontScale, drawMode]);
 
   const saveScribbles = () => {
     if (canvasRef.current && currentSong?.id) {
@@ -514,7 +521,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
           onPointerCancel={stopDrawing}
           onPointerOut={stopDrawing}
           className={cn(
-            "absolute top-0 left-0 w-full h-full z-10 touch-none",
+            "absolute top-0 left-0 z-10 touch-none",
             drawMode ? "pointer-events-auto cursor-crosshair" : "pointer-events-none"
           )}
         />
