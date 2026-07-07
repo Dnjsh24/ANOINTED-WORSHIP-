@@ -502,6 +502,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
         {/* Chord Chart Area */}
         <div 
           ref={scrollRef} 
+          style={{ "--user-font-scale": fontScale } as any}
           className={cn("flex-1 overflow-y-auto px-4 md:px-8 py-10 pb-64 relative", drawMode ? "touch-none" : "touch-pan-y")}
         >
         <canvas
@@ -530,16 +531,14 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
                   <div key={lIdx} className="leading-relaxed">
                     {line.chords && (
                       <div 
-                        className="font-mono font-bold text-violet-400 whitespace-pre leading-none"
-                        style={{ fontSize: `${1.25 * fontScale}rem` }}
+                        className="font-mono font-bold text-violet-400 whitespace-pre leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]"
                       >
                         {line.chords}
                       </div>
                     )}
                     {line.lyric && (
                       <div 
-                        className="font-semibold text-zinc-100 whitespace-pre-wrap leading-tight mt-1"
-                        style={{ fontSize: `${1.5 * fontScale}rem` }}
+                        className="font-semibold text-zinc-100 whitespace-pre-wrap leading-tight mt-1 text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]"
                       >
                         {line.lyric}
                       </div>
