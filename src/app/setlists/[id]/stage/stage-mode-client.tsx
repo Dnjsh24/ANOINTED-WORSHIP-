@@ -203,6 +203,26 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
     saveScribbles();
   };
 
+  // Allow 1-finger drawing and 2-finger scrolling
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const preventScroll = (e: TouchEvent) => {
+      if (drawMode && e.touches.length === 1) {
+        e.preventDefault(); // Stop scrolling for 1-finger drawing
+      }
+    };
+
+    canvas.addEventListener("touchstart", preventScroll, { passive: false });
+    canvas.addEventListener("touchmove", preventScroll, { passive: false });
+
+    return () => {
+      canvas.removeEventListener("touchstart", preventScroll);
+      canvas.removeEventListener("touchmove", preventScroll);
+    };
+  }, [drawMode]);
+
   const handleJumpToSection = (idx: number) => {
     const el = document.getElementById(`section-${idx}`);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -521,7 +541,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
           onPointerCancel={stopDrawing}
           onPointerOut={stopDrawing}
           className={cn(
-            "absolute top-0 left-0 z-10 touch-none",
+            "absolute top-0 left-0 z-10",
             drawMode ? "pointer-events-auto cursor-crosshair" : "pointer-events-none"
           )}
         />
