@@ -827,7 +827,7 @@ export function MessagesClient({
           </div>
         ) : (
           <>
-            <div className="flex-1 space-y-6 overflow-y-auto p-6">
+            <div className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden p-6">
               <div className="flex items-center gap-4 text-center font-mono text-[10px] font-bold text-zinc-500">
                 <span className="h-px flex-1 bg-white/10" />
                 Today
@@ -845,7 +845,7 @@ export function MessagesClient({
                   {!message.mine && <Avatar name={message.author} src={message.avatarUrl} />}
                   <div className={cn("max-w-xl rounded-lg px-4 py-3 relative", message.mine ? "bg-violet-500 text-white" : "bg-white/[0.12]")}>
                     {!message.mine && <p className="mb-2 text-xs font-bold text-violet-200">{message.author}</p>}
-                    <p className="text-sm font-semibold leading-6">{message.body}</p>
+                    <p className="text-sm font-semibold leading-6 break-words whitespace-pre-wrap">{message.body}</p>
                     {message.attachment && (
                       <a
                         href={attachmentHref(message.attachment)}
@@ -1002,6 +1002,7 @@ export function MessagesClient({
                 <Input
                   ref={inputRef}
                   name="body"
+                  className="flex-1 min-w-0"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={(event) => {
