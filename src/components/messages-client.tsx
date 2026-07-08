@@ -573,7 +573,6 @@ export function MessagesClient({
     formData.set("muted", String(muted));
     const result = await updateChannelPreferenceAction(formData);
     setStatus(result.message);
-    setOptionsOpen(false);
   }
 
   async function leaveChannel() {
