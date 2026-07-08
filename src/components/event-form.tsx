@@ -106,7 +106,7 @@ export function EventForm({
           <div className="space-y-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 text-left">
             <h3 className="text-sm font-bold text-white mb-2 pb-2 border-b border-white/[0.04]">Logistics & Teams</h3>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="block space-y-1.5">
                 <span className="text-xs font-bold text-zinc-300">{isServiceRehearsal ? "Service start time" : "Start time"} *</span>
                 <Input type="time" name="startTime" defaultValue="09:00" required className="rounded-xl border-white/10" />
@@ -120,7 +120,7 @@ export function EventForm({
             {isServiceRehearsal && (
               <div className="space-y-3 rounded-xl border border-violet-400/20 bg-violet-500/5 p-3">
                 <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-violet-300">Rehearsal</p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <label className="block space-y-1.5">
                     <span className="text-xs font-bold text-zinc-300">Rehearsal date *</span>
                     <Input type="date" name="rehearsalDate" className="rounded-xl border-white/10" />

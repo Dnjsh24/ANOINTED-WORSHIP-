@@ -225,7 +225,7 @@ export function SongForm({ song }: { song?: Song }) {
           </label>
 
           {/* Key with picker icon next to it */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block space-y-1.5">
               <span className="text-xs font-bold text-zinc-300">Default Key *</span>
               <div className="relative flex items-center gap-2">

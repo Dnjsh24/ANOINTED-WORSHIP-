@@ -583,11 +583,11 @@ export function MessagesClient({
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-[600px] overflow-hidden rounded-lg border border-white/10 bg-[#111014]">
+    <div className="flex h-[calc(100dvh-8rem)] min-h-[600px] overflow-hidden rounded-lg border border-white/10 bg-[#111014]">
       <aside
         className={cn(
-          "transition-all duration-300 bg-[#201f24] flex flex-col border-r border-white/10 shrink-0 h-full overflow-y-auto",
-          sidebarExpanded ? "w-72 p-4" : "w-20 p-3 lg:w-72 lg:p-4"
+          "transition-all duration-300 bg-[#201f24] flex flex-col border-r border-white/10 shrink-0 h-full overflow-y-auto absolute z-20 md:static md:translate-x-0",
+          sidebarExpanded ? "w-72 p-4 translate-x-0 shadow-2xl" : "-translate-x-full w-72 md:w-20 md:p-3 lg:w-72 lg:p-4"
         )}
       >
         <div className="flex items-center justify-between">

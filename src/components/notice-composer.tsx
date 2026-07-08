@@ -50,7 +50,7 @@ export function NoticeComposer({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg border border-white/10 bg-[#151419] shadow-2xl shadow-black/50"
+        className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg border border-white/10 bg-[#151419] shadow-2xl shadow-black/50"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/[0.08] bg-[#151419] px-5 py-4">
           <div>

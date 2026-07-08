@@ -430,7 +430,7 @@ export default async function DashboardPage() {
         <div className="flex h-full flex-col gap-5">
 
           {/* 3 stat cards in a horizontal row */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {isAdminOrOwner ? (
               <>
                 <MiniStatCard

@@ -36,7 +36,7 @@ export default function Loading() {
             </div>
           </div>
           <div className="space-y-5">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {Array.from({ length: 3 }).map((_, index) => (
                 <div key={index} className="h-32 animate-pulse rounded-2xl border border-white/10 bg-white/[0.05]" />
               ))}

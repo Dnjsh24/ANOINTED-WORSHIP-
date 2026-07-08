@@ -213,7 +213,7 @@ export function SetlistForm({
             </label>
 
             {/* Call Time & Rehearsal Time row */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="block space-y-1.5">
                 <span className="text-xs font-bold text-zinc-300">Call Time *</span>
                 <Input type="time" name="callTime" value={callTime} onChange={(event) => setCallTime(event.target.value)} required />

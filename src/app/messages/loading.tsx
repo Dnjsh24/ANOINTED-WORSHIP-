@@ -23,7 +23,7 @@ export default function MessagesLoading() {
 
       {/* Content Skeleton */}
       <section className="mx-auto max-w-7xl px-4 py-8 pb-24 md:px-6">
-        <div className="grid gap-6 md:grid-cols-[280px_1fr] h-[calc(100vh-200px)] min-h-[500px]">
+        <div className="grid gap-6 md:grid-cols-[280px_1fr] h-[calc(100dvh-200px)] min-h-[500px]">
           {/* Channels Sidebar List */}
           <div className="rounded-2xl border border-white/10 bg-[#111014]/80 p-4 flex flex-col gap-4 animate-pulse">
             <div className="h-6 w-32 rounded bg-white/10" />
