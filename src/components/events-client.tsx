@@ -253,7 +253,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
           </div>
 
           {/* Days grid */}
-          <div className="grid grid-cols-7 gap-2 auto-rows-[110px]">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 md:auto-rows-[110px]">
             {calendarDays.map((cell, idx) => {
               const dayEvents = visibleEvents.filter((e) => {
                 const matchesDate = e.date === cell.dateStr;
@@ -268,7 +268,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
                   type="button"
                   onClick={() => router.push(`/events/new?date=${cell.dateStr}`)}
                   className={cn(
-                    "flex flex-col items-stretch p-2.5 rounded-xl border text-left transition-all duration-150 relative group overflow-hidden",
+                    "flex flex-col items-center md:items-stretch p-1 md:p-2.5 rounded-xl border text-left transition-all duration-150 relative group overflow-hidden aspect-square md:aspect-auto",
                     cell.isCurrentMonth
                       ? "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.05] hover:border-violet-500/30"
                       : "bg-black/20 border-white/[0.02] opacity-30 hover:opacity-50"
@@ -298,17 +298,17 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
                         <div
                           key={evt.id}
                           onClick={(e) => {
-                            e.stopPropagation(); // prevent clicking cell redirect
+                            e.stopPropagation();
                             router.push(`/events/${evt.id}`);
                           }}
                           className={cn(
-                            "rounded px-1.5 py-0.5 text-[10px] font-bold border truncate hover:scale-[1.02] transition-transform",
-                            pillStyle
+                            "rounded-sm border md:px-1.5 py-0.5 text-[9px] font-bold md:truncate transition-all hover:opacity-80 flex items-center justify-center md:justify-start",
+                            pillStyle,
+                            "size-2 md:w-full md:h-auto mx-auto md:mx-0 rounded-full md:rounded-sm shrink-0"
                           )}
-                          title={`${evt.name} (${evt.time})`}
+                          title={evt.name}
                         >
-                          {isPending ? "Pending: " : ""}
-                          {evt.name}
+                          <span className="hidden md:block truncate">{isPending ? `⏳ ${evt.name}` : evt.name}</span>
                         </div>
                       );
                     })}

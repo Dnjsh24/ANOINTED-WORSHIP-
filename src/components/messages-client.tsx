@@ -249,7 +249,7 @@ export function MessagesClient({
 
           // Scroll to bottom after state update
           setTimeout(() => {
-            bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+            bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
           }, 50);
         }
       )
@@ -279,7 +279,7 @@ export function MessagesClient({
 
   // Auto-scroll to bottom when active channel or its messages change
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [activeChannelId, activeMessageCount]);
 
   const activeChannelFiles = useMemo(() => {
@@ -583,7 +583,7 @@ export function MessagesClient({
   }
 
   return (
-    <div className="flex h-[calc(100dvh-8rem)] min-h-[600px] overflow-hidden rounded-lg border border-white/10 bg-[#111014]">
+    <div className="relative flex h-[calc(100dvh-120px-env(safe-area-inset-bottom))] md:h-[calc(100dvh-8rem)] min-h-[400px] md:min-h-[600px] overflow-hidden rounded-lg border border-white/10 bg-[#111014]">
       <aside
         className={cn(
           "transition-all duration-300 bg-[#201f24] flex flex-col border-r border-white/10 shrink-0 h-full overflow-y-auto absolute z-20 md:static md:translate-x-0",
@@ -712,7 +712,16 @@ export function MessagesClient({
         )}
       </aside>
 
-      <section aria-label={`${activeChannel.name} conversation`} className="flex flex-1 flex-col h-full overflow-hidden bg-[#111014]">
+      {/* Mobile overlay to close sidebar when clicking outside */}
+      {sidebarExpanded && (
+        <div 
+          className="absolute inset-0 z-10 bg-black/20 md:hidden backdrop-blur-sm" 
+          onClick={() => setSidebarExpanded(false)} 
+          aria-hidden="true"
+        />
+      )}
+
+      <section aria-label={`${activeChannel.name} conversation`} className="flex flex-1 flex-col h-full overflow-hidden bg-[#111014] relative z-0">
         <header className="flex h-16 items-center justify-between border-b border-white/10 bg-[#1d1b20] px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <button
