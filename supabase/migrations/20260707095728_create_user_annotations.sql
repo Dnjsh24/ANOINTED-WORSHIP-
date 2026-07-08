@@ -11,22 +11,26 @@ create table if not exists public.user_annotations (
 -- RLS
 alter table public.user_annotations enable row level security;
 
+drop policy if exists "Users can view their own annotations" on public.user_annotations;
 create policy "Users can view their own annotations"
   on public.user_annotations
   for select
   using ( auth.uid() = profile_id );
 
+drop policy if exists "Users can insert their own annotations" on public.user_annotations;
 create policy "Users can insert their own annotations"
   on public.user_annotations
   for insert
   with check ( auth.uid() = profile_id );
 
+drop policy if exists "Users can update their own annotations" on public.user_annotations;
 create policy "Users can update their own annotations"
   on public.user_annotations
   for update
   using ( auth.uid() = profile_id )
   with check ( auth.uid() = profile_id );
 
+drop policy if exists "Users can delete their own annotations" on public.user_annotations;
 create policy "Users can delete their own annotations"
   on public.user_annotations
   for delete

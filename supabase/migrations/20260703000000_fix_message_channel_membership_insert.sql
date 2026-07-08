@@ -1,5 +1,6 @@
 drop policy if exists "Leaders can create channels" on public.message_channels;
 
+drop policy if exists "Approved members can create message channels" on public.message_channels;
 create policy "Approved members can create message channels"
 on public.message_channels for insert to authenticated
 with check (
@@ -11,6 +12,7 @@ with check (
   )
 );
 
+drop policy if exists "Authorized members can add channel members" on public.message_channel_members;
 create policy "Authorized members can add channel members"
 on public.message_channel_members for insert to authenticated
 with check (

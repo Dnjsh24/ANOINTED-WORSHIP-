@@ -1,10 +1,7 @@
 "use client";
 
-import { Mail, Music2 } from "lucide-react";
+import { Music2 } from "lucide-react";
 import { use } from "react";
-import { signInWithEmail } from "@/app/actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage({
@@ -67,38 +64,7 @@ export default function LoginPage({
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="my-5 flex items-center gap-3">
-            <span className="h-px flex-1 bg-white/[0.07]" />
-            <span className="font-mono text-[10px] font-bold text-zinc-600">OR</span>
-            <span className="h-px flex-1 bg-white/[0.07]" />
-          </div>
-
-          {/* Email */}
-          <form action={signInWithEmail} className="space-y-3">
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
-              <Input
-                type="email"
-                name="email"
-                placeholder="you@example.com"
-                required
-                className="pl-9"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full rounded-xl bg-violet-600 py-3 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] active:scale-[0.98]"
-            >
-              Continue with Email
-            </button>
-          </form>
-
           <LoginStatus params={params} />
-
-          <p className="mt-5 text-center font-mono text-[10px] leading-5 text-zinc-600">
-            We'll send you a magic link.
-          </p>
         </div>
 
         <p className="mt-6 text-center font-mono text-[10px] text-zinc-600">
@@ -110,13 +76,6 @@ export default function LoginPage({
 }
 
 function LoginStatus({ params }: { params: { sent?: string; error?: string } }) {
-  if (params.sent) {
-    return (
-      <p className="mt-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-center text-xs font-semibold text-emerald-300">
-        ✓ Check your email for a magic link.
-      </p>
-    );
-  }
   if (params.error) {
     const message =
       params.error === "config"

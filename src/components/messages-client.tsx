@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, FileText, Image as ImageIcon, Menu, MoreVertical, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X } from "lucide-react";
+import { Download, FileText, Image as ImageIcon, Menu, MoreVertical, MoreHorizontal, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X, Info } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -81,10 +81,11 @@ export function MessagesClient({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [attachmentOpen, setAttachmentOpen] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState<PendingAttachment | null>(null);
-  const [optionsOpen, setOptionsOpen] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [managePanelOpen, setManagePanelOpen] = useState(false);
   const [managingChannelId, setManagingChannelId] = useState<string | null>(null);
+  const [infoPanelOpen, setInfoPanelOpen] = useState(false);
+  const [messageOptionsOpenId, setMessageOptionsOpenId] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -580,7 +581,6 @@ export function MessagesClient({
     formData.set("channelId", activeChannel.id);
     const result = await leaveChannelAction(formData);
     setStatus(result.message);
-    setOptionsOpen(false);
   }
 
   return (
@@ -744,40 +744,14 @@ export function MessagesClient({
             >
               <Search className="size-5" />
             </button>
-            {(role === "owner" || role === "admin") && (
-              <button
-                type="button"
-                aria-label="Manage channel members"
-                className={cn("rounded-md p-2 hover:bg-white/[0.06] transition", managePanelOpen && managingChannelId === activeChannel.id ? "text-violet-400" : "")}
-                onClick={() => {
-                  if (managePanelOpen && managingChannelId === activeChannel.id) {
-                    setManagePanelOpen(false);
-                    setManagingChannelId(null);
-                  } else {
-                    setManagingChannelId(activeChannel.id);
-                    setManagePanelOpen(true);
-                  }
-                }}
-              >
-                <Settings2 className="size-5" />
-              </button>
-            )}
-            <button type="button" aria-label="Open channel options" className="rounded-md p-2 hover:bg-white/[0.06]" onClick={() => setOptionsOpen((value) => !value)}>
-              <MoreVertical className="size-5" />
+            <button
+              type="button"
+              aria-label="Channel info"
+              className={cn("rounded-md p-2 hover:bg-white/[0.06] transition", infoPanelOpen ? "text-violet-400" : "")}
+              onClick={() => setInfoPanelOpen((value) => !value)}
+            >
+              <Info className="size-5" />
             </button>
-            {optionsOpen && (
-              <div role="menu" aria-label="Channel options" className="absolute right-0 top-11 z-20 w-52 rounded-lg border border-white/10 bg-[#18171c] p-2 shadow-2xl shadow-black/40">
-                <button type="button" role="menuitem" className="block w-full rounded-md px-3 py-2 text-left text-sm font-bold hover:bg-white/[0.06]" onClick={() => setStatus(`${activeChannel.name}: ${activeChannel.membersOnline} members`)}>
-                  View members
-                </button>
-                <button type="button" role="menuitem" className="block w-full rounded-md px-3 py-2 text-left text-sm font-bold hover:bg-white/[0.06]" onClick={() => toggleMute(true)}>
-                  Mute channel
-                </button>
-                <button type="button" role="menuitem" className="block w-full rounded-md px-3 py-2 text-left text-sm font-bold hover:bg-white/[0.06]" onClick={leaveChannel}>
-                  Leave channel
-                </button>
-              </div>
-            )}
           </div>
         </header>
 
@@ -852,9 +826,16 @@ export function MessagesClient({
                 <span className="h-px flex-1 bg-white/10" />
               </div>
               {visibleMessages.map((message) => (
-                <div key={message.id} className={cn("msg-in flex gap-3", message.mine && "justify-end")}>
+                <div 
+                  key={message.id} 
+                  className={cn("group msg-in flex gap-3 relative", message.mine && "justify-end")}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setMessageOptionsOpenId(messageOptionsOpenId === message.id ? null : message.id);
+                  }}
+                >
                   {!message.mine && <Avatar name={message.author} src={message.avatarUrl} />}
-                  <div className={cn("max-w-xl rounded-lg px-4 py-3", message.mine ? "bg-violet-500 text-white" : "bg-white/[0.12]")}>
+                  <div className={cn("max-w-xl rounded-lg px-4 py-3 relative", message.mine ? "bg-violet-500 text-white" : "bg-white/[0.12]")}>
                     {!message.mine && <p className="mb-2 text-xs font-bold text-violet-200">{message.author}</p>}
                     <p className="text-sm font-semibold leading-6">{message.body}</p>
                     {message.attachment && (
@@ -881,6 +862,40 @@ export function MessagesClient({
                       </a>
                     )}
                     <p className="mt-2 text-right font-mono text-[10px] text-zinc-400">{message.createdAt}</p>
+                  </div>
+                  
+                  {/* Options Button & Dropdown */}
+                  <div className={cn(
+                    "absolute top-2 z-10 flex items-center transition-opacity",
+                    message.mine ? "right-[calc(100%+0.5rem)] sm:-left-12 sm:right-auto" : "left-[calc(100%+0.5rem)] sm:-right-12 sm:left-auto",
+                    messageOptionsOpenId === message.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                  )}>
+                    <button
+                      type="button"
+                      className="rounded-full p-1.5 text-zinc-400 hover:bg-white/[0.1] hover:text-white transition"
+                      onClick={() => setMessageOptionsOpenId(messageOptionsOpenId === message.id ? null : message.id)}
+                    >
+                      <MoreHorizontal className="size-4" />
+                    </button>
+                    
+                    {messageOptionsOpenId === message.id && (
+                      <div className={cn(
+                        "absolute top-8 z-20 w-32 rounded-lg border border-white/10 bg-[#18171c] p-1.5 shadow-xl shadow-black/50",
+                        message.mine ? "right-0 sm:left-0 sm:right-auto" : "left-0 sm:right-0 sm:left-auto"
+                      )}>
+                        <button type="button" className="w-full text-left rounded-md px-2 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/[0.08]" onClick={() => { setStatus("Replying to message..."); setMessageOptionsOpenId(null); }}>
+                          Reply
+                        </button>
+                        <button type="button" className="w-full text-left rounded-md px-2 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/[0.08]" onClick={() => { setStatus("Forwarding message..."); setMessageOptionsOpenId(null); }}>
+                          Forward
+                        </button>
+                        {(role === "owner" || role === "admin") && (
+                          <button type="button" className="w-full text-left rounded-md px-2 py-1.5 text-xs font-bold text-violet-300 hover:bg-white/[0.08]" onClick={() => { setStatus("Message pinned."); setMessageOptionsOpenId(null); }}>
+                            Pin
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -999,11 +1014,11 @@ export function MessagesClient({
       </section>
 
       {/* ── Details Sidebar on the right ── */}
-      <aside className="hidden xl:flex w-72 flex-col bg-[#16151a]/85 p-5 border-l border-white/10 overflow-y-auto shrink-0 animate-fade-in text-left">
+      <aside className={cn("w-72 flex-col bg-[#16151a]/95 backdrop-blur-md p-5 border-l border-white/10 overflow-y-auto shrink-0 animate-fade-in text-left z-20 absolute right-0 h-full md:relative md:bg-[#16151a]/85 transition-transform", infoPanelOpen ? "flex" : "hidden")}>
         <div className="flex flex-col items-center text-center mt-4">
           <Avatar name={activeChannel.name} src={activeChannel.avatarUrl} className="size-16 rounded-2xl text-xl shrink-0" />
           <h3 className="mt-4 text-base font-extrabold text-white">{activeChannel.name}</h3>
-          <p className="mt-1 text-xs font-semibold text-zinc-500 capitalize">{(activeChannel.type || "Group")} Channel</p>
+          <button type="button" className="mt-1 text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors">Change Group Photo</button>
         </div>
 
         <div className="mt-8 border-t border-white/[0.06] pt-5">
@@ -1025,6 +1040,33 @@ export function MessagesClient({
           <p className="mt-2 text-xs font-semibold text-zinc-400 leading-relaxed">
             Communication for the worship team.
           </p>
+        </div>
+
+        <div className="mt-6 border-t border-white/[0.06] pt-5 space-y-2">
+          {(role === "owner" || role === "admin") && (
+            <button
+              type="button"
+              onClick={() => {
+                if (managePanelOpen && managingChannelId === activeChannel.id) {
+                  setManagePanelOpen(false);
+                  setManagingChannelId(null);
+                } else {
+                  setManagingChannelId(activeChannel.id);
+                  setManagePanelOpen(true);
+                }
+              }}
+              className="w-full rounded-md bg-white/[0.04] p-2.5 text-center text-xs font-bold text-white hover:bg-white/[0.08] transition"
+            >
+              Manage Members
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={leaveChannel}
+            className="w-full rounded-md border border-red-500/40 bg-red-500/10 p-2.5 text-center text-xs font-bold text-red-400 hover:bg-red-500/20 transition"
+          >
+            Leave Channel
+          </button>
         </div>
 
         <div className="mt-6 border-t border-white/[0.06] pt-5">
