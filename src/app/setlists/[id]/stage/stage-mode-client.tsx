@@ -62,6 +62,10 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
   };
   const scrollAnimationFrameRef = useRef<number | null>(null);
 
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const minSwipeDistance = 50;
+
   const currentSetlistSong = setlist.songs[currentSongIndex];
   const currentSong = currentSetlistSong?.song;
   const rawLyrics = currentSong?.lyricsChords || "";
@@ -416,6 +420,29 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [currentSongIndex, setlist.songs.length, isScrolling, currentSong?.bpm]);
 
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEndX(null);
+    setTouchStartX(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEndX(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStartX || !touchEndX) return;
+    const distance = touchStartX - touchEndX;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe && currentSongIndex < setlist.songs.length - 1) {
+      setSyncedSongIndex(i => i + 1);
+    }
+    if (isRightSwipe && currentSongIndex > 0) {
+      setSyncedSongIndex(i => i - 1);
+    }
+  };
+
   if (!currentSong) return null;
 
   return (
@@ -598,7 +625,10 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
         <div 
           ref={scrollRef} 
           style={{ "--user-font-scale": fontScale } as any}
-          className="flex-1 overflow-y-auto px-4 md:px-8 py-10 pb-64 relative"
+          className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-10 pb-64 relative"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
         >
         <canvas
           ref={canvasRef}
