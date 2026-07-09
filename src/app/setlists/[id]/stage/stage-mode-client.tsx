@@ -656,7 +656,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
                   <div key={lIdx} className="leading-relaxed">
                     {line.chords && (
                       <div 
-                        className="font-mono font-bold text-violet-400 whitespace-pre leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]"
+                        className="font-mono font-bold text-violet-400 whitespace-pre-wrap leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]"
                       >
                         {line.chords}
                       </div>
