@@ -64,7 +64,9 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
 
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
-  const minSwipeDistance = 50;
+  const [touchStartTime, setTouchStartTime] = useState<number>(0);
+  const minSwipeDistance = 60;
+  const maxSwipeTime = 300;
 
   const currentSetlistSong = setlist.songs[currentSongIndex];
   const currentSong = currentSetlistSong?.song;
@@ -423,6 +425,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
   const onTouchStart = (e: React.TouchEvent) => {
     setTouchEndX(null);
     setTouchStartX(e.targetTouches[0].clientX);
+    setTouchStartTime(Date.now());
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
@@ -432,14 +435,18 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
   const onTouchEnd = () => {
     if (!touchStartX || !touchEndX) return;
     const distance = touchStartX - touchEndX;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
+    const time = Date.now() - touchStartTime;
     
-    if (isLeftSwipe && currentSongIndex < setlist.songs.length - 1) {
-      setSyncedSongIndex(i => i + 1);
-    }
-    if (isRightSwipe && currentSongIndex > 0) {
-      setSyncedSongIndex(i => i - 1);
+    if (time < maxSwipeTime) {
+      const isLeftSwipe = distance > minSwipeDistance;
+      const isRightSwipe = distance < -minSwipeDistance;
+      
+      if (isLeftSwipe && currentSongIndex < setlist.songs.length - 1) {
+        setSyncedSongIndex(i => i + 1);
+      }
+      if (isRightSwipe && currentSongIndex > 0) {
+        setSyncedSongIndex(i => i - 1);
+      }
     }
   };
 
@@ -653,10 +660,10 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
               )}
               <div className="space-y-4">
                 {section.lines.map((line, lIdx) => (
-                  <div key={lIdx} className="leading-relaxed">
+                  <div key={lIdx} className="leading-relaxed max-w-full overflow-x-auto no-scrollbar">
                     {line.chords && (
                       <div 
-                        className="font-mono font-bold text-violet-400 whitespace-pre-wrap leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]"
+                        className="font-mono font-bold text-violet-400 whitespace-pre leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]"
                       >
                         {line.chords}
                       </div>
