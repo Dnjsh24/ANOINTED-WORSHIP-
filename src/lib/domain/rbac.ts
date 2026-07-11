@@ -41,6 +41,8 @@ const permissionsByRole: Record<TeamRole, Permission[]> = {
     "announcements.create",
     "events.manage",
     "events.review",
+    "songs.create",
+    "songs.edit",
     "songs.review",
     "setlists.manage",
     "dance_notes.manage",
