@@ -68,6 +68,20 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
     }
   };
 
+  const getExitClass = () => {
+    switch (settings.exitAnimation) {
+      case "Disappear": return "opacity-0";
+      case "Fade Out": return "animate-fade-out";
+      case "Slide Out Up": return "animate-fade-out-up";
+      case "Slide Out Down": return "animate-fade-out-down";
+      case "Slide Out Left": return "animate-slide-out-left";
+      case "Slide Out Right": return "animate-slide-out-right";
+      case "Mask Out Up": return "animate-fade-out-up";
+      case "None": return "";
+      default: return "";
+    }
+  };
+
   const getAlignmentClass = () => {
     switch (settings.align) {
       case "left": return "items-start text-left";
@@ -101,6 +115,9 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
     );
   }
 
+  const entranceClass = getEntranceClass();
+  const exitClass = getExitClass();
+
   return (
     <div 
       className="fixed inset-0 flex flex-col justify-center p-8 sm:p-16 overflow-hidden transition-colors duration-300" 
@@ -112,30 +129,37 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
             <div
               key={block.id}
               className={cn(
-                "absolute whitespace-nowrap fill-mode-both",
-                settings.entranceAnimation === "Fade In" && "animate-fade-in",
-                settings.entranceAnimation === "Slide In Up" && "animate-fade-up",
-                settings.entranceAnimation === "Slide In Down" && "animate-fade-down",
-                settings.entranceAnimation === "Slide In Left" && "animate-slide-right",
-                settings.entranceAnimation === "Slide In Right" && "animate-slide-left",
-                settings.entranceAnimation === "Mask In Up" && "animate-fade-up"
+                "absolute whitespace-nowrap",
+                entranceClass && "fill-mode-both",
+                entranceClass
               )}
               style={{
                 left: `${block.x}%`,
                 top: `${block.y}%`,
                 transform: "translate(-50%, -50%)",
-                animationDelay: `${block.startTime}s`,
-                animationDuration: "0.5s",
-                fontFamily: settings.fontFamily,
-                color: settings.color,
-                fontWeight: settings.bold ? "bold" : "normal",
-                fontStyle: settings.italic ? "italic" : "normal",
-                textDecoration: settings.underline ? "underline" : "none",
-                fontSize: `${settings.fontSize}pt`,
-                textShadow: settings.showShadow ? "0 4px 12px rgba(0,0,0,0.8)" : "none"
+                animationDelay: entranceClass ? `${block.startTime}s` : undefined,
+                animationDuration: entranceClass ? "0.5s" : undefined
               }}
             >
-              {block.text}
+              <div
+                className={cn(
+                  exitClass && "fill-mode-forwards",
+                  exitClass
+                )}
+                style={{
+                  fontFamily: settings.fontFamily,
+                  color: settings.color,
+                  fontWeight: settings.bold ? "bold" : "normal",
+                  fontStyle: settings.italic ? "italic" : "normal",
+                  textDecoration: settings.underline ? "underline" : "none",
+                  fontSize: `${settings.fontSize}pt`,
+                  textShadow: settings.showShadow ? "0 4px 12px rgba(0,0,0,0.8)" : "none",
+                  animationDelay: exitClass ? `${block.startTime + block.duration}s` : undefined,
+                  animationDuration: exitClass ? "0.5s" : undefined
+                }}
+              >
+                {block.text}
+              </div>
             </div>
           ))}
         </div>

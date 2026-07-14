@@ -80,11 +80,28 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
       case "Slide In Left": return "animate-slide-right";
       case "Slide In Right": return "animate-slide-left";
       case "Mask In Up": return "animate-fade-up";
-      default: return "animate-fade-in"; // Fallback so we always have an animation to respect the delay
+      case "Appear": return ""; // If explicitly "Appear", no class
+      case "None": return "";
+      default: return "animate-fade-in";
+    }
+  };
+
+  const getExitClass = () => {
+    switch (settings.exitAnimation) {
+      case "Disappear": return "opacity-0"; // Instantly hide
+      case "Fade Out": return "animate-fade-out";
+      case "Slide Out Up": return "animate-fade-out-up";
+      case "Slide Out Down": return "animate-fade-out-down";
+      case "Slide Out Left": return "animate-slide-out-left";
+      case "Slide Out Right": return "animate-slide-out-right";
+      case "Mask Out Up": return "animate-fade-out-up";
+      case "None": return "";
+      default: return "";
     }
   };
 
   const animClass = getAnimationClass();
+  const exitClass = getExitClass();
 
   return (
     <div 
@@ -101,25 +118,39 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
           className={cn(
             "absolute cursor-move select-none p-2 border border-transparent hover:border-white/20 rounded whitespace-nowrap",
             draggingBlock === block.id && "border-amber-400 z-10 bg-white/5",
-            isCurrentlyPlaying && "fill-mode-both",
+            isCurrentlyPlaying && animClass && "fill-mode-both",
             isCurrentlyPlaying && animClass
           )}
           style={{
             left: `${block.x}%`,
             top: `${block.y}%`,
             transform: "translate(-50%, -50%)",
-            fontFamily: settings.fontFamily,
-            fontSize: `${settings.fontSize * 0.4}pt`, // Scale down for editor
-            color: settings.color,
-            fontWeight: settings.bold ? "bold" : "normal",
-            fontStyle: settings.italic ? "italic" : "normal",
-            textDecoration: settings.underline ? "underline" : "none",
-            textShadow: settings.showShadow ? "0 2px 4px rgba(0,0,0,0.5)" : "none",
-            animationDelay: isCurrentlyPlaying ? `${block.startTime}s` : undefined,
-            animationDuration: isCurrentlyPlaying ? "0.5s" : undefined
+            animationDelay: isCurrentlyPlaying && animClass ? `${block.startTime}s` : undefined,
+            animationDuration: isCurrentlyPlaying && animClass ? "0.5s" : undefined
           }}
           onPointerDown={(e) => handlePointerDown(e, block)}
         >
+          {/* Inner div for exit animation */}
+          <div
+             className={cn(
+               isCurrentlyPlaying && exitClass && "fill-mode-forwards",
+               isCurrentlyPlaying && exitClass
+             )}
+             style={{
+               fontFamily: settings.fontFamily,
+               fontSize: `${settings.fontSize * 0.4}pt`, // Scale down for editor
+               color: settings.color,
+               fontWeight: settings.bold ? "bold" : "normal",
+               fontStyle: settings.italic ? "italic" : "normal",
+               textDecoration: settings.underline ? "underline" : "none",
+               textShadow: settings.showShadow ? "0 2px 4px rgba(0,0,0,0.5)" : "none",
+               animationDelay: isCurrentlyPlaying && exitClass ? `${block.startTime + block.duration}s` : undefined,
+               animationDuration: isCurrentlyPlaying && exitClass ? "0.5s" : undefined
+             }}
+          >
+            {block.text}
+          </div>
+
           {/* Anchor handles */}
           {draggingBlock === block.id && (
             <>
@@ -127,7 +158,6 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
               <div className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-white border border-black rounded-sm" />
             </>
           )}
-          {block.text}
         </div>
       ))}
       
@@ -137,18 +167,30 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
             key={`unchopped-${playKey}`}
             className={cn(
               "flex flex-col space-y-4 w-full text-center",
-              isCurrentlyPlaying && "fill-mode-both",
+              isCurrentlyPlaying && animClass && "fill-mode-both",
               isCurrentlyPlaying && animClass
             )}
             style={{
-              fontFamily: settings.fontFamily,
-              color: settings.color,
-              fontWeight: settings.bold ? "bold" : "normal",
-              fontStyle: settings.italic ? "italic" : "normal",
-              textDecoration: settings.underline ? "underline" : "none",
-              animationDuration: isCurrentlyPlaying ? "0.5s" : undefined
+              animationDelay: isCurrentlyPlaying && animClass ? "0s" : undefined,
+              animationDuration: isCurrentlyPlaying && animClass ? "0.5s" : undefined
             }}
           >
+            <div
+              className={cn(
+                "flex flex-col space-y-4",
+                isCurrentlyPlaying && exitClass && "fill-mode-forwards",
+                isCurrentlyPlaying && exitClass
+              )}
+              style={{
+                fontFamily: settings.fontFamily,
+                color: settings.color,
+                fontWeight: settings.bold ? "bold" : "normal",
+                fontStyle: settings.italic ? "italic" : "normal",
+                textDecoration: settings.underline ? "underline" : "none",
+                animationDelay: isCurrentlyPlaying && exitClass ? "5s" : undefined, // fallback duration
+                animationDuration: isCurrentlyPlaying && exitClass ? "0.5s" : undefined
+              }}
+            >
             {slide.content.map((line, idx) => (
               <p 
                 key={idx} 
@@ -161,6 +203,7 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
                 {line}
               </p>
             ))}
+            </div>
           </div>
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 pointer-events-auto">
              <p className="text-zinc-400 font-bold text-sm mb-4">Default Slide View</p>
