@@ -73,9 +73,19 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
     });
   };
 
+  const updateLinesPerSlide = (num: number) => {
+    setLinesPerSlide(num);
+    if (isServerActive) {
+      channel.send({
+        type: "broadcast",
+        event: "settings_sync",
+        payload: { linesPerSlide: num },
+      });
+    }
+  };
+
   const jumpToSection = (label: string) => {
     if (!label) return;
-    // Find the first slide with this section label
     const targetSlide = songSlides.find(s => s.sectionLabel === label);
     if (targetSlide) {
       sendSlide(targetSlide);
@@ -95,9 +105,6 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
       sendSlide(songSlides[newIndex]);
     }
   };
-
-  // Keyboard shortcut mapping for sections (Q, W, E, R, T, Y...)
-  const shortcutKeys = ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"];
 
   return (
     <div className="fixed inset-0 h-[100dvh] bg-[#111111] text-zinc-300 flex flex-col font-sans overflow-hidden">
@@ -225,79 +232,82 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
 
         {/* Middle Column: Controls */}
         <div className="w-[320px] border-r border-white/10 flex flex-col bg-[#111] shrink-0">
-          <div className="h-16 shrink-0 bg-[#111] border-b border-white/10 flex flex-col items-center justify-center px-4 text-center">
-             <h3 className="font-bold text-white text-base leading-tight truncate w-full">{activeSong?.song.title || "No Song"}</h3>
-             <p className="text-xs font-semibold text-zinc-500 truncate w-full">Worship Leader</p>
-          </div>
-          
-          {/* Quick Controls */}
-          <div className="grid grid-cols-2 gap-px bg-white/5 border-b border-white/10 shrink-0">
-            <div className="bg-[#111] p-3 flex flex-col items-center gap-1.5">
-              <span className="text-[9px] font-bold uppercase text-zinc-500 tracking-wider">Key</span>
-              <div className="flex items-center gap-1 bg-[#1a1a1a] p-1 rounded-full border border-white/5 w-full">
-                <button className="p-1 hover:bg-white/5 rounded-full text-zinc-400"><Minus className="size-3" /></button>
-                <span className="flex-1 text-center font-bold text-xs text-white">{activeSong?.song.originalKey || "C"}</span>
-                <button className="p-1 hover:bg-white/5 rounded-full text-zinc-400"><Plus className="size-3" /></button>
-              </div>
-            </div>
-            <div className="bg-[#111] p-3 flex flex-col items-center gap-1.5">
-              <span className="text-[9px] font-bold uppercase text-zinc-500 tracking-wider">BPM</span>
-              <div className="flex items-center gap-1 bg-[#1a1a1a] p-1 rounded-full border border-white/5 w-full">
-                <button className="p-1 hover:bg-white/5 rounded-full text-zinc-400"><Play className="size-3" /></button>
-                <span className="flex-1 text-center font-bold text-xs text-white">{activeSong?.song.bpm || "70"} BPM</span>
-                <button className="p-1 hover:bg-white/5 rounded-full text-zinc-600"><Circle className="size-3 fill-current" /></button>
-              </div>
-            </div>
+          <div className="h-16 shrink-0 bg-[#111] border-b border-white/10 flex items-center justify-between px-4">
+             <div className="flex flex-col min-w-0 pr-2">
+               <h3 className="font-black text-white text-base leading-tight truncate uppercase">{activeSong?.song.title || "No Song"}</h3>
+               <p className="text-xs font-semibold text-zinc-500 truncate">Lyrics Reflow</p>
+             </div>
+             
+             <div className="flex bg-[#0a0a0a] rounded p-1 border border-white/10 shrink-0 gap-0.5">
+               {[1, 2, 4, 8].map(num => (
+                 <button
+                   key={num}
+                   onClick={() => updateLinesPerSlide(num)}
+                   className={cn(
+                     "px-2.5 py-1 rounded text-[11px] font-bold transition",
+                     linesPerSlide === num ? "bg-[#3b82f6] text-white" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                   )}
+                 >
+                   {num}
+                 </button>
+               ))}
+             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-[#111]">
-             {/* Dynamic Slide Buttons based on current song */}
-             <button 
-                onClick={() => jumpToSection("Title")}
-                className="w-full flex items-center gap-3 bg-[#1a1a1a] hover:bg-[#222] border border-white/5 rounded-lg p-2 transition group text-left"
-              >
-                <div className="w-8 h-8 rounded bg-white/5 flex items-center justify-center text-xs font-bold text-zinc-400 shrink-0 group-hover:text-white">Q</div>
-                <div className="flex-1 flex flex-col min-w-0 pr-2">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 mb-0.5">Title</span>
-                  <span className="font-bold text-sm text-zinc-300 group-hover:text-white truncate block w-full">{activeSong?.song.title || "Unknown"}</span>
-                </div>
-              </button>
-              
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#111]">
              {songSlides.map((slide: PresentationSlide, idx: number) => {
-                const key = shortcutKeys[(idx + 1) % shortcutKeys.length];
                 const isActive = activeSlide?.id === slide.id;
+                const label = slide.sectionLabel || "Unknown";
+                const initial = label.charAt(0).toUpperCase();
+                
+                // Colors based on section label (matching the requested image style)
+                let colorClass = "text-[#3b82f6]"; 
+                let bgClass = "bg-[#3b82f6]";
+                let borderClass = "border-[#10b981]"; // Default to green border
+                
+                const lowerLabel = label.toLowerCase();
+                if (lowerLabel.includes("verse")) {
+                  borderClass = "border-[#10b981]"; // Green
+                } else if (lowerLabel.includes("chorus")) {
+                  borderClass = "border-[#3b82f6]"; // Blue
+                } else if (lowerLabel.includes("intro") || lowerLabel.includes("instrumental") || lowerLabel.includes("intrumental")) {
+                  borderClass = "border-[#8b5cf6]"; // Purple
+                } else if (lowerLabel.includes("bridge")) {
+                  borderClass = "border-[#eab308]"; // Yellow
+                }
                 
                 return (
                   <button 
                     key={slide.id}
                     onClick={() => sendSlide(slide)}
                     className={cn(
-                      "w-full flex items-center gap-3 border rounded-lg p-2 transition group text-left",
+                      "w-full flex flex-col rounded-lg overflow-hidden transition text-left border bg-[#18181b]",
                       isActive 
-                        ? "bg-amber-400/10 border-amber-400/50" 
-                        : "bg-[#1a1a1a] hover:bg-[#222] border-white/5"
+                        ? "ring-2 ring-white/30" 
+                        : "hover:brightness-110",
+                      borderClass
                     )}
                   >
-                    <div className={cn(
-                      "w-8 h-8 rounded flex items-center justify-center text-xs font-bold shrink-0",
-                      isActive ? "bg-amber-400/20 text-amber-400" : "bg-white/5 text-zinc-400 group-hover:text-white"
-                    )}>{key}</div>
+                    {/* Card Header */}
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 w-full border-b border-white/5">
+                      <div className={cn("size-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white", bgClass)}>
+                        {initial}
+                      </div>
+                      <span className={cn("text-xs font-bold tracking-wide", colorClass)}>
+                        {label}
+                      </span>
+                    </div>
                     
-                    <div className="flex-1 flex flex-col min-w-0 pr-2">
-                       {slide.sectionLabel && (
-                         <span className={cn(
-                           "text-[9px] font-bold uppercase tracking-wider mb-0.5",
-                           isActive ? "text-amber-500/80" : "text-zinc-500"
+                    {/* Card Body */}
+                    <div className="p-3 w-full">
+                       {slide.content.map((line, lIdx) => (
+                         <span key={lIdx} className={cn(
+                           "text-sm font-bold block w-full leading-snug",
+                           isActive ? "text-white" : "text-zinc-200"
                          )}>
-                           {slide.sectionLabel}
+                           {line || "(Instrumental)"}
                          </span>
-                       )}
-                       <span className={cn(
-                         "text-sm font-bold truncate block w-full",
-                         isActive ? "text-amber-400" : "text-zinc-300 group-hover:text-white"
-                       )}>
-                         {slide.content.join(" ")}
-                       </span>
+                       ))}
                     </div>
                   </button>
                 )
