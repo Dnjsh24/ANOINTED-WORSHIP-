@@ -254,9 +254,25 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
         {/* Lyrics Reflow (Slides) */}
         {activeItemIndex !== -1 && (
            <div className="w-64 border-r border-white/5 bg-[#121212] flex flex-col shrink-0">
-              <div className="h-14 border-b border-white/5 flex flex-col justify-center px-4 shrink-0 bg-[#18181b]">
-                 <span className="text-xs font-bold text-white truncate">{activeItem?.song.title}</span>
-                 <span className="text-[10px] font-semibold text-zinc-500">Lyrics Reflow</span>
+              <div className="h-14 border-b border-white/5 flex items-center justify-between px-4 shrink-0 bg-[#18181b]">
+                 <div className="flex flex-col justify-center min-w-0">
+                   <span className="text-xs font-bold text-white truncate">{activeItem?.song.title}</span>
+                   <span className="text-[10px] font-semibold text-zinc-500">Lyrics Reflow</span>
+                 </div>
+                 <div className="flex bg-black/50 rounded p-0.5 border border-white/10 shrink-0">
+                    {[1, 2, 4, 8].map(num => (
+                      <button
+                        key={num}
+                        onClick={() => setLinesPerSlide(num)}
+                        className={cn(
+                          "px-1.5 py-0.5 rounded text-[10px] font-bold transition",
+                          linesPerSlide === num ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
+                        )}
+                      >
+                        {num}
+                      </button>
+                    ))}
+                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                  {slides.map((slide) => {
@@ -341,11 +357,12 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
             <>
                {/* Center Canvas Area */}
                <div className="flex-1 flex items-center justify-center p-8 overflow-hidden relative">
-                  {activeSlideId ? (
+                  {activeSlideId && activeSlide ? (
                      <KineticCanvas 
                        blocks={activeBlocks} 
                        settings={settings} 
-                       onUpdateBlock={handleUpdateBlock} 
+                       onUpdateBlock={handleUpdateBlock}
+                       slide={activeSlide}
                      />
                   ) : (
                      <div className="text-zinc-600 font-bold">Select a slide to edit</div>

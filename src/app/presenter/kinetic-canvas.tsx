@@ -1,16 +1,17 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import type { SlideBlock, PresentationSettings } from "@/lib/domain/presentation";
+import type { SlideBlock, PresentationSettings, PresentationSlide } from "@/lib/domain/presentation";
 import { cn } from "@/lib/utils";
 
 interface KineticCanvasProps {
   blocks: SlideBlock[];
   settings: PresentationSettings;
+  slide: PresentationSlide;
   onUpdateBlock: (blockId: string, updates: Partial<SlideBlock>) => void;
 }
 
-export default function KineticCanvas({ blocks, settings, onUpdateBlock }: KineticCanvasProps) {
+export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock }: KineticCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [draggingBlock, setDraggingBlock] = useState<string | null>(null);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
@@ -99,8 +100,37 @@ export default function KineticCanvas({ blocks, settings, onUpdateBlock }: Kinet
       ))}
       
       {blocks.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <p className="text-zinc-600 font-bold text-sm">Click "Chop to Words" to edit</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-8 pointer-events-none">
+          <div 
+            className="flex flex-col space-y-4 w-full text-center"
+            style={{
+              fontFamily: settings.fontFamily,
+              color: settings.color,
+              fontWeight: settings.bold ? "bold" : "normal",
+              fontStyle: settings.italic ? "italic" : "normal",
+              textDecoration: settings.underline ? "underline" : "none",
+            }}
+          >
+            {slide.content.map((line, idx) => (
+              <p 
+                key={idx} 
+                className={cn(
+                  "leading-tight",
+                  settings.showShadow && "drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
+                )}
+                style={{ 
+                  fontSize: `${settings.fontSize * 0.4}pt`, // scaled down
+                  textWrap: 'balance' 
+                }}
+              >
+                {line}
+              </p>
+            ))}
+          </div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 pointer-events-auto">
+             <p className="text-zinc-400 font-bold text-sm mb-4">Default Slide View</p>
+             <p className="text-zinc-500 text-xs">Click "Chop to Words" below to enable the kinetic editor</p>
+          </div>
         </div>
       )}
     </div>
