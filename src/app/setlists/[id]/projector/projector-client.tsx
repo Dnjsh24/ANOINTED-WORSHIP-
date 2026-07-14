@@ -55,21 +55,22 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
     };
   }, [setlistId, supabase]);
 
-  const getEntranceClass = () => {
-    switch (settings.entranceAnimation) {
+  const getEntranceClass = (effect: string) => {
+    switch (effect) {
+      case "Appear": return "animate-appear";
       case "Fade In": return "animate-fade-in";
-      case "Slide In Up": return "animate-fade-up";
-      case "Slide In Down": return "animate-fade-down";
-      case "Slide In Left": return "animate-slide-right";
-      case "Slide In Right": return "animate-slide-left";
-      case "Mask In Up": return "animate-fade-up";
-      case "Appear": return "";
+      case "Slide In Up": return "animate-slide-in-up";
+      case "Slide In Down": return "animate-slide-in-down";
+      case "Slide In Left": return "animate-slide-in-left";
+      case "Slide In Right": return "animate-slide-in-right";
+      case "Mask In Up": return "animate-fade-in-up";
+      case "None": return "";
       default: return "";
     }
   };
 
-  const getExitClass = () => {
-    switch (settings.exitAnimation) {
+  const getExitClass = (effect: string) => {
+    switch (effect) {
       case "Disappear": return "opacity-0";
       case "Fade Out": return "animate-fade-out";
       case "Slide Out Up": return "animate-fade-out-up";
@@ -79,6 +80,16 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
       case "Mask Out Up": return "animate-fade-out-up";
       case "None": return "";
       default: return "";
+    }
+  };
+
+  const getCurveValue = (curve: string) => {
+    switch (curve) {
+      case "Ease In": return "ease-in";
+      case "Ease Out": return "ease-out";
+      case "Ease In Out": return "ease-in-out";
+      case "Linear": return "linear";
+      default: return "ease-out";
     }
   };
 
@@ -108,15 +119,12 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
           <img 
              src={(activeSlide as any).mediaUrl} 
              alt="Slide Media" 
-             className={cn("w-full h-full object-contain", getEntranceClass())}
+             className={cn("w-full h-full object-contain", getEntranceClass(settings.entranceAnimation))}
              key={activeSlide.id}
           />
        </div>
     );
   }
-
-  const entranceClass = getEntranceClass();
-  const exitClass = getExitClass();
 
   return (
     <div 
@@ -136,12 +144,39 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
       )}
       {activeSlide.blocks && activeSlide.blocks.length > 0 ? (
         <div className="relative w-full h-full">
-          {activeSlide.blocks.map(block => {
+          {activeSlide.blocks.map((block, index) => {
             const effectiveFontFamily = block.fontFamily || settings.fontFamily;
             const effectiveFontSize = block.fontSize || settings.fontSize;
             const effectiveBold = block.bold ?? settings.bold;
             const effectiveItalic = block.italic ?? settings.italic;
             const effectiveUnderline = block.underline ?? settings.underline;
+
+            // Effective Animations
+            const effEntAnim = block.entranceAnimation ?? settings.entranceAnimation;
+            const effEntDuration = block.entranceDuration ?? (settings.entranceDuration || 1.0);
+            let effEntDelay = block.entranceDelay ?? (settings.entranceDelay || 0);
+            const effEntCurve = block.entranceCurve ?? (settings.entranceCurve || "Ease Out");
+            
+            const effExtAnim = block.exitAnimation ?? settings.exitAnimation;
+            const effExtDuration = block.exitDuration ?? (settings.exitDuration || 1.0);
+            const effExtDelay = block.exitDelay ?? (settings.exitDelay || 0);
+            const effExtCurve = block.exitCurve ?? (settings.exitCurve || "Ease Out");
+
+            // Apply kinetic stagger delay if Word by Word mode is active globally
+            if (settings.kineticMode === "Word by Word") {
+               const stagger = settings.kineticStaggerDelay || 0.1;
+               // If forward order
+               if (settings.kineticAnimationOrder === "Forward" || !settings.kineticAnimationOrder) {
+                  effEntDelay += (index * stagger);
+               }
+            }
+
+            const entranceClass = getEntranceClass(effEntAnim);
+            const exitClass = getExitClass(effExtAnim);
+            const entCurveVal = getCurveValue(effEntCurve);
+            const extCurveVal = getCurveValue(effExtCurve);
+
+            const exitStartTime = block.startTime + block.duration + effExtDelay;
 
             return (
               <div
@@ -155,8 +190,9 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
                   left: `${block.x}%`,
                   top: `${block.y}%`,
                   transform: "translate(-50%, -50%)",
-                  animationDelay: entranceClass ? `${block.startTime}s` : undefined,
-                  animationDuration: entranceClass ? "0.5s" : undefined
+                  animationDelay: entranceClass ? `${block.startTime + effEntDelay}s` : undefined,
+                  animationDuration: entranceClass ? `${effEntDuration}s` : undefined,
+                  animationTimingFunction: entranceClass ? entCurveVal : undefined,
                 }}
               >
                 <div
@@ -172,8 +208,9 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
                     textDecoration: effectiveUnderline ? "underline" : "none",
                     fontSize: `${effectiveFontSize}pt`,
                     textShadow: settings.showShadow ? "0 4px 12px rgba(0,0,0,0.8)" : "none",
-                    animationDelay: exitClass ? `${block.startTime + block.duration}s` : undefined,
-                    animationDuration: exitClass ? "0.5s" : undefined
+                    animationDelay: exitClass ? `${exitStartTime}s` : undefined,
+                    animationDuration: exitClass ? `${effExtDuration}s` : undefined,
+                    animationTimingFunction: exitClass ? extCurveVal : undefined,
                   }}
                 >
                   {block.text}
@@ -185,7 +222,7 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
       ) : (
         <div 
           key={activeSlide.id} 
-          className={cn("w-full flex flex-col space-y-4 sm:space-y-8", getAlignmentClass(), getEntranceClass())}
+          className={cn("w-full flex flex-col space-y-4 sm:space-y-8", getAlignmentClass())}
           style={{
             fontFamily: settings.fontFamily,
             color: settings.color,
@@ -195,19 +232,26 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
           }}
         >
           {activeSlide.content.map((line, idx) => (
-            <p 
-              key={idx} 
-              className={cn(
-                "leading-tight",
-                settings.showShadow && "drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
-              )}
-              style={{ 
-                fontSize: `${settings.fontSize}pt`,
-                textWrap: 'balance' 
-              }}
+            <div key={idx} className={cn(getEntranceClass(settings.entranceAnimation), getEntranceClass(settings.entranceAnimation) && "fill-mode-both")}
+               style={{
+                  animationDuration: getEntranceClass(settings.entranceAnimation) ? `${settings.entranceDuration || 1}s` : undefined,
+                  animationDelay: getEntranceClass(settings.entranceAnimation) ? `${(settings.entranceDelay || 0) + (settings.kineticMode === "Line by Line" ? idx * (settings.kineticStaggerDelay || 0.1) : 0)}s` : undefined,
+                  animationTimingFunction: getEntranceClass(settings.entranceAnimation) ? getCurveValue(settings.entranceCurve || "Ease Out") : undefined,
+               }}
             >
-              {line}
-            </p>
+               <p 
+                 className={cn(
+                   "text-[length:inherit] leading-tight",
+                   settings.showShadow && "drop-shadow-2xl"
+                 )}
+                 style={{ 
+                   fontSize: `${settings.fontSize}pt`,
+                   textShadow: settings.showShadow ? "0 4px 12px rgba(0,0,0,0.8)" : "none",
+                 }}
+               >
+                 {line}
+               </p>
+            </div>
           ))}
         </div>
       )}

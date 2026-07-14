@@ -12,6 +12,14 @@ export interface SlideBlock {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
+  entranceAnimation?: string;
+  entranceDuration?: number;
+  entranceDelay?: number;
+  entranceCurve?: string;
+  exitAnimation?: string;
+  exitDuration?: number;
+  exitDelay?: number;
+  exitCurve?: string;
 }
 
 export interface PresentationSlide {

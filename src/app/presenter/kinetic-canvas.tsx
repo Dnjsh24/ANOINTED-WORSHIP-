@@ -88,22 +88,22 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
     setStartBlockPos({ x: block.x, y: block.y });
   };
 
-  const getAnimationClass = () => {
-    switch (settings.entranceAnimation) {
+  const getAnimationClass = (effect: string) => {
+    switch (effect) {
+      case "Appear": return "animate-appear";
       case "Fade In": return "animate-fade-in";
-      case "Slide In Up": return "animate-fade-up";
-      case "Slide In Down": return "animate-fade-down";
-      case "Slide In Left": return "animate-slide-right";
-      case "Slide In Right": return "animate-slide-left";
-      case "Mask In Up": return "animate-fade-up";
-      case "Appear": return ""; // If explicitly "Appear", no class
+      case "Slide In Up": return "animate-slide-in-up";
+      case "Slide In Down": return "animate-slide-in-down";
+      case "Slide In Left": return "animate-slide-in-left";
+      case "Slide In Right": return "animate-slide-in-right";
+      case "Mask In Up": return "animate-fade-in-up";
       case "None": return "";
-      default: return "animate-fade-in";
+      default: return "";
     }
   };
 
-  const getExitClass = () => {
-    switch (settings.exitAnimation) {
+  const getExitClass = (effect: string) => {
+    switch (effect) {
       case "Disappear": return "opacity-0"; // Instantly hide
       case "Fade Out": return "animate-fade-out";
       case "Slide Out Up": return "animate-fade-out-up";
@@ -116,8 +116,15 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
     }
   };
 
-  const animClass = getAnimationClass();
-  const exitClass = getExitClass();
+  const getCurveValue = (curve: string) => {
+    switch (curve) {
+      case "Ease In": return "ease-in";
+      case "Ease Out": return "ease-out";
+      case "Ease In Out": return "ease-in-out";
+      case "Linear": return "linear";
+      default: return "ease-out";
+    }
+  };
 
   return (
     <div 
@@ -145,13 +152,42 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
       {/* Click outside to deselect */}
       <div className="absolute inset-0 z-0" onClick={() => onSelectBlock?.(null)} />
 
-      {blocks.map(block => {
+      {blocks.map((block, index) => {
         // Compute effective styles (block overrides or global settings)
         const effectiveFontFamily = block.fontFamily || settings.fontFamily;
         const effectiveFontSize = block.fontSize || settings.fontSize;
         const effectiveBold = block.bold ?? settings.bold;
         const effectiveItalic = block.italic ?? settings.italic;
         const effectiveUnderline = block.underline ?? settings.underline;
+
+        // Effective Animations
+        const effEntAnim = block.entranceAnimation ?? settings.entranceAnimation;
+        const effEntDuration = block.entranceDuration ?? (settings.entranceDuration || 1.0);
+        let effEntDelay = block.entranceDelay ?? (settings.entranceDelay || 0);
+        const effEntCurve = block.entranceCurve ?? (settings.entranceCurve || "Ease Out");
+        
+        const effExtAnim = block.exitAnimation ?? settings.exitAnimation;
+        const effExtDuration = block.exitDuration ?? (settings.exitDuration || 1.0);
+        const effExtDelay = block.exitDelay ?? (settings.exitDelay || 0); // User-defined explicit exit delay override
+        const effExtCurve = block.exitCurve ?? (settings.exitCurve || "Ease Out");
+
+        // Apply kinetic stagger delay if Word by Word mode is active globally
+        if (settings.kineticMode === "Word by Word") {
+           const stagger = settings.kineticStaggerDelay || 0.1;
+           // If forward order
+           if (settings.kineticAnimationOrder === "Forward" || !settings.kineticAnimationOrder) {
+              effEntDelay += (index * stagger);
+           }
+        }
+
+        const animClass = getAnimationClass(effEntAnim);
+        const exitClass = getExitClass(effExtAnim);
+        const entCurveVal = getCurveValue(effEntCurve);
+        const extCurveVal = getCurveValue(effExtCurve);
+
+        // Exit usually happens at block.startTime + block.duration unless explicitly overridden
+        // But since this is standard presenter behavior, we respect the block duration.
+        const exitStartTime = block.startTime + block.duration + effExtDelay;
 
         return (
           <div
@@ -167,8 +203,9 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
               left: `${block.x}%`,
               top: `${block.y}%`,
               transform: "translate(-50%, -50%)",
-              animationDelay: isCurrentlyPlaying && animClass ? `${block.startTime}s` : undefined,
-              animationDuration: isCurrentlyPlaying && animClass ? "0.5s" : undefined
+              animationDelay: isCurrentlyPlaying && animClass ? `${block.startTime + effEntDelay}s` : undefined,
+              animationDuration: isCurrentlyPlaying && animClass ? `${effEntDuration}s` : undefined,
+              animationTimingFunction: isCurrentlyPlaying && animClass ? entCurveVal : undefined,
             }}
             onPointerDown={(e) => {
               handlePointerDown(e, block);
@@ -189,8 +226,9 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
                  fontStyle: effectiveItalic ? "italic" : "normal",
                  textDecoration: effectiveUnderline ? "underline" : "none",
                  textShadow: settings.showShadow ? "0 2px 4px rgba(0,0,0,0.5)" : "none",
-                 animationDelay: isCurrentlyPlaying && exitClass ? `${block.startTime + block.duration}s` : undefined,
-                 animationDuration: isCurrentlyPlaying && exitClass ? "0.5s" : undefined
+                 animationDelay: isCurrentlyPlaying && exitClass ? `${exitStartTime}s` : undefined,
+                 animationDuration: isCurrentlyPlaying && exitClass ? `${effExtDuration}s` : undefined,
+                 animationTimingFunction: isCurrentlyPlaying && exitClass ? extCurveVal : undefined,
                }}
             >
               {block.text}
@@ -209,48 +247,56 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
     
     {blocks.length === 0 && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-8 pointer-events-none">
-          <div 
-            key={`unchopped-${playKey}`}
-            className={cn(
-              "flex flex-col space-y-4 w-full text-center",
-              isCurrentlyPlaying && animClass && "fill-mode-both",
-              isCurrentlyPlaying && animClass
-            )}
-            style={{
-              animationDelay: isCurrentlyPlaying && animClass ? "0s" : undefined,
-              animationDuration: isCurrentlyPlaying && animClass ? "0.5s" : undefined
-            }}
-          >
-            <div
-              className={cn(
-                "flex flex-col space-y-4",
-                isCurrentlyPlaying && exitClass && "fill-mode-forwards",
-                isCurrentlyPlaying && exitClass
-              )}
-              style={{
-                fontFamily: settings.fontFamily,
-                color: settings.color,
-                fontWeight: settings.bold ? "bold" : "normal",
-                fontStyle: settings.italic ? "italic" : "normal",
-                textDecoration: settings.underline ? "underline" : "none",
-                animationDelay: isCurrentlyPlaying && exitClass ? "5s" : undefined, // fallback duration
-                animationDuration: isCurrentlyPlaying && exitClass ? "0.5s" : undefined
-              }}
-            >
-            {slide.content.map((line, idx) => (
-              <p 
-                key={idx} 
+          {(() => {
+            const globalAnimClass = getAnimationClass(settings.entranceAnimation);
+            const globalExitClass = getExitClass(settings.exitAnimation);
+            const entCurveVal = getCurveValue(settings.entranceCurve || "Ease Out");
+            const extCurveVal = getCurveValue(settings.exitCurve || "Ease Out");
+            const entDuration = settings.entranceDuration || 1.0;
+            const extDuration = settings.exitDuration || 1.0;
+            const entDelay = settings.entranceDelay || 0;
+            const extDelay = settings.exitDelay || 0;
+
+            return (
+              <div 
+                key={`unchopped-${playKey}`}
                 className={cn(
-                  "leading-tight",
-                  settings.showShadow && "drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
+                  "flex flex-col space-y-4 w-full text-center",
+                  isCurrentlyPlaying && globalAnimClass && "fill-mode-both",
+                  isCurrentlyPlaying && globalAnimClass
                 )}
-                style={{ fontSize: `${settings.fontSize * 0.4}pt` }}
+                style={{
+                  animationDelay: isCurrentlyPlaying && globalAnimClass ? `${entDelay}s` : undefined,
+                  animationDuration: isCurrentlyPlaying && globalAnimClass ? `${entDuration}s` : undefined,
+                  animationTimingFunction: isCurrentlyPlaying && globalAnimClass ? entCurveVal : undefined,
+                }}
               >
-                {line}
-              </p>
-            ))}
-            </div>
-          </div>
+                <div
+                  className={cn(
+                    "flex flex-col space-y-4",
+                    isCurrentlyPlaying && globalExitClass && "fill-mode-forwards",
+                    isCurrentlyPlaying && globalExitClass
+                  )}
+                  style={{
+                    fontFamily: settings.fontFamily,
+                    color: settings.color,
+                    fontWeight: settings.bold ? "bold" : "normal",
+                    fontStyle: settings.italic ? "italic" : "normal",
+                    textDecoration: settings.underline ? "underline" : "none",
+                    fontSize: `${settings.fontSize * 0.4}pt`, // Scale down for editor
+                    textShadow: settings.showShadow ? "0 2px 4px rgba(0,0,0,0.5)" : "none",
+                    animationDelay: isCurrentlyPlaying && globalExitClass ? `${10 + extDelay}s` : undefined, // Fake exit time for unchopped
+                    animationDuration: isCurrentlyPlaying && globalExitClass ? `${extDuration}s` : undefined,
+                    animationTimingFunction: isCurrentlyPlaying && globalExitClass ? extCurveVal : undefined,
+                  }}
+                >
+                  {slide.content.map((line, idx) => (
+                    <p key={idx} className="leading-tight">{line}</p>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 pointer-events-auto">
              <p className="text-zinc-400 font-bold text-sm mb-4">Default Slide View</p>
              <p className="text-zinc-500 text-xs">Click "Chop to Words" below to enable the kinetic editor</p>

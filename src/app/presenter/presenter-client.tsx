@@ -734,8 +734,11 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        <p className="text-xs text-zinc-400 font-semibold">Effect</p>
                        <select 
                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
-                         value={settings.entranceAnimation}
-                         onChange={(e) => setSettings({...settings, entranceAnimation: e.target.value as any})}
+                         value={selectedBlock?.entranceAnimation ?? settings.entranceAnimation}
+                         onChange={(e) => {
+                           if (selectedBlock) handleUpdateSelectedBlock({ entranceAnimation: e.target.value });
+                           else setSettings({...settings, entranceAnimation: e.target.value as any});
+                         }}
                        >
                          <option value="None">None</option>
                          <option value="Appear">Appear</option>
@@ -749,21 +752,27 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                      </div>
 
                      <div className="space-y-1">
-                       <p className="text-xs text-zinc-400 font-semibold">Duration: {settings.entranceDuration}s</p>
+                       <p className="text-xs text-zinc-400 font-semibold">Duration: {selectedBlock?.entranceDuration ?? settings.entranceDuration}s</p>
                        <input 
                          type="range" min="0" max="5" step="0.1"
-                         value={settings.entranceDuration}
-                         onChange={(e) => setSettings({...settings, entranceDuration: Number(e.target.value)})}
+                         value={selectedBlock?.entranceDuration ?? settings.entranceDuration}
+                         onChange={(e) => {
+                           if (selectedBlock) handleUpdateSelectedBlock({ entranceDuration: Number(e.target.value) });
+                           else setSettings({...settings, entranceDuration: Number(e.target.value)});
+                         }}
                          className="w-full accent-white"
                        />
                      </div>
 
                      <div className="space-y-1">
-                       <p className="text-xs text-zinc-400 font-semibold">Delay: {settings.entranceDelay}s</p>
+                       <p className="text-xs text-zinc-400 font-semibold">Delay: {selectedBlock?.entranceDelay ?? settings.entranceDelay}s</p>
                        <input 
                          type="range" min="0" max="5" step="0.1"
-                         value={settings.entranceDelay}
-                         onChange={(e) => setSettings({...settings, entranceDelay: Number(e.target.value)})}
+                         value={selectedBlock?.entranceDelay ?? settings.entranceDelay}
+                         onChange={(e) => {
+                           if (selectedBlock) handleUpdateSelectedBlock({ entranceDelay: Number(e.target.value) });
+                           else setSettings({...settings, entranceDelay: Number(e.target.value)});
+                         }}
                          className="w-full accent-white"
                        />
                      </div>
@@ -772,8 +781,11 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        <p className="text-xs text-zinc-400 font-semibold">Easing Curve</p>
                        <select 
                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
-                         value={settings.entranceCurve}
-                         onChange={(e) => setSettings({...settings, entranceCurve: e.target.value})}
+                         value={selectedBlock?.entranceCurve ?? settings.entranceCurve}
+                         onChange={(e) => {
+                           if (selectedBlock) handleUpdateSelectedBlock({ entranceCurve: e.target.value });
+                           else setSettings({...settings, entranceCurve: e.target.value});
+                         }}
                        >
                          <option value="Ease Out">Ease Out</option>
                          <option value="Ease In">Ease In</option>
@@ -782,7 +794,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        </select>
                        <div className="h-8 mt-2 w-full border-b border-l border-white/10 relative overflow-hidden">
                          <svg className="w-full h-full absolute inset-0" preserveAspectRatio="none" viewBox="0 0 100 100">
-                           <path d={settings.entranceCurve === "Ease Out" ? "M0,100 Q20,10 100,0" : "M0,100 L100,0"} fill="none" stroke="#60a5fa" strokeWidth="3" vectorEffect="non-scaling-stroke"/>
+                           <path d={(selectedBlock?.entranceCurve ?? settings.entranceCurve) === "Ease Out" ? "M0,100 Q20,10 100,0" : "M0,100 L100,0"} fill="none" stroke="#60a5fa" strokeWidth="3" vectorEffect="non-scaling-stroke"/>
                          </svg>
                        </div>
                      </div>
@@ -798,8 +810,11 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        <p className="text-xs text-zinc-400 font-semibold">Effect</p>
                        <select 
                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
-                         value={settings.exitAnimation}
-                         onChange={(e) => setSettings({...settings, exitAnimation: e.target.value as any})}
+                         value={selectedBlock?.exitAnimation ?? settings.exitAnimation}
+                         onChange={(e) => {
+                           if (selectedBlock) handleUpdateSelectedBlock({ exitAnimation: e.target.value });
+                           else setSettings({...settings, exitAnimation: e.target.value as any});
+                         }}
                        >
                          <option value="None">None</option>
                          <option value="Disappear">Disappear</option>
@@ -813,21 +828,27 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                      </div>
 
                      <div className="space-y-1">
-                       <p className="text-xs text-zinc-400 font-semibold">Duration: {settings.exitDuration}s</p>
+                       <p className="text-xs text-zinc-400 font-semibold">Duration: {selectedBlock?.exitDuration ?? settings.exitDuration}s</p>
                        <input 
                          type="range" min="0" max="5" step="0.1"
-                         value={settings.exitDuration}
-                         onChange={(e) => setSettings({...settings, exitDuration: Number(e.target.value)})}
+                         value={selectedBlock?.exitDuration ?? settings.exitDuration}
+                         onChange={(e) => {
+                           if (selectedBlock) handleUpdateSelectedBlock({ exitDuration: Number(e.target.value) });
+                           else setSettings({...settings, exitDuration: Number(e.target.value)});
+                         }}
                          className="w-full accent-white"
                        />
                      </div>
 
                      <div className="space-y-1">
-                       <p className="text-xs text-zinc-400 font-semibold">Delay: {settings.exitDelay}s</p>
+                       <p className="text-xs text-zinc-400 font-semibold">Delay: {selectedBlock?.exitDelay ?? settings.exitDelay}s</p>
                        <input 
                          type="range" min="0" max="10" step="0.1"
-                         value={settings.exitDelay}
-                         onChange={(e) => setSettings({...settings, exitDelay: Number(e.target.value)})}
+                         value={selectedBlock?.exitDelay ?? settings.exitDelay}
+                         onChange={(e) => {
+                           if (selectedBlock) handleUpdateSelectedBlock({ exitDelay: Number(e.target.value) });
+                           else setSettings({...settings, exitDelay: Number(e.target.value)});
+                         }}
                          className="w-full accent-white"
                        />
                      </div>
@@ -836,8 +857,11 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        <p className="text-xs text-zinc-400 font-semibold">Easing Curve</p>
                        <select 
                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
-                         value={settings.exitCurve}
-                         onChange={(e) => setSettings({...settings, exitCurve: e.target.value})}
+                         value={selectedBlock?.exitCurve ?? settings.exitCurve}
+                         onChange={(e) => {
+                           if (selectedBlock) handleUpdateSelectedBlock({ exitCurve: e.target.value });
+                           else setSettings({...settings, exitCurve: e.target.value});
+                         }}
                        >
                          <option value="Ease Out">Ease Out</option>
                          <option value="Ease In">Ease In</option>
@@ -846,7 +870,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        </select>
                        <div className="h-8 mt-2 w-full border-b border-l border-white/10 relative overflow-hidden">
                          <svg className="w-full h-full absolute inset-0" preserveAspectRatio="none" viewBox="0 0 100 100">
-                           <path d={settings.exitCurve === "Ease Out" ? "M0,100 Q20,10 100,0" : "M0,100 L100,0"} fill="none" stroke="#60a5fa" strokeWidth="3" vectorEffect="non-scaling-stroke"/>
+                           <path d={(selectedBlock?.exitCurve ?? settings.exitCurve) === "Ease Out" ? "M0,100 Q20,10 100,0" : "M0,100 L100,0"} fill="none" stroke="#60a5fa" strokeWidth="3" vectorEffect="non-scaling-stroke"/>
                          </svg>
                        </div>
                      </div>
