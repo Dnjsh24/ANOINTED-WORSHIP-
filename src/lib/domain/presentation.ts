@@ -7,6 +7,11 @@ export interface SlideBlock {
   y: number; // 0-100 percentage based on canvas height
   startTime: number; // in seconds relative to slide start
   duration: number; // in seconds
+  fontFamily?: string;
+  fontSize?: number;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
 }
 
 export interface PresentationSlide {
@@ -33,6 +38,7 @@ export interface PresentationSettings {
   exitAnimation: "None" | "Disappear" | "Fade Out" | "Slide Out Up" | "Slide Out Down" | "Slide Out Left" | "Slide Out Right" | "Mask Out Up";
   backgroundMediaUrl?: string;
   backgroundMediaType?: "image" | "video";
+  slideDurations?: Record<string, number>;
 }
 
 export const defaultPresentationSettings: PresentationSettings = {

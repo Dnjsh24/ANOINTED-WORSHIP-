@@ -117,7 +117,21 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
 
   const activeSlide = useMemo(() => slides.find(s => s.id === activeSlideId), [slides, activeSlideId]);
   const activeBlocks = activeSlideId ? slideOverrides[activeSlideId] || [] : [];
+  const selectedBlock = useMemo(() => {
+    if (!selectedBlockId || !activeBlocks) return null;
+    return activeBlocks.find(b => b.id === selectedBlockId) || null;
+  }, [selectedBlockId, activeBlocks]);
 
+  const handleUpdateSelectedBlock = (updates: Partial<SlideBlock>) => {
+    if (!selectedBlockId || !activeSlideId) return;
+    setSlideOverrides(prev => {
+      const currentBlocks = prev[activeSlideId] || [];
+      return {
+        ...prev,
+        [activeSlideId]: currentBlocks.map(b => b.id === selectedBlockId ? { ...b, ...updates } : b)
+      };
+    });
+  };
   const handleUpdateBlock = (blockId: string, updates: Partial<SlideBlock>) => {
     if (!activeSlideId) return;
     setSlideOverrides(prev => {
@@ -180,6 +194,51 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
       delete next[activeSlideId];
       return next;
     });
+  };
+
+  const handleDuplicateBlock = (blockId: string) => {
+    if (!activeSlideId) return;
+    setSlideOverrides(prev => {
+      const currentBlocks = prev[activeSlideId] || [];
+      const blockToCopy = currentBlocks.find(b => b.id === blockId);
+      if (!blockToCopy) return prev;
+      
+      const newBlock: SlideBlock = {
+        ...blockToCopy,
+        id: `block-${Date.now()}`,
+        startTime: blockToCopy.startTime + 0.5,
+        x: blockToCopy.x + 2,
+        y: blockToCopy.y + 2
+      };
+      
+      return {
+        ...prev,
+        [activeSlideId]: [...currentBlocks, newBlock]
+      };
+    });
+  };
+
+  const handleDeleteBlock = (blockId: string) => {
+    if (!activeSlideId) return;
+    setSlideOverrides(prev => {
+      const currentBlocks = prev[activeSlideId] || [];
+      return {
+        ...prev,
+        [activeSlideId]: currentBlocks.filter(b => b.id !== blockId)
+      };
+    });
+    if (selectedBlockId === blockId) setSelectedBlockId(null);
+  };
+
+  const handleUpdateDuration = (duration: number) => {
+    if (!activeSlideId) return;
+    setSettings(prev => ({
+      ...prev,
+      slideDurations: {
+        ...(prev.slideDurations || {}),
+        [activeSlideId]: duration
+      }
+    }));
   };
 
   if (!setlist) {
@@ -436,6 +495,8 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        onUpdateBlock={handleUpdateBlock}
                        slide={activeSlide}
                        playKey={playKey}
+                       selectedBlockId={selectedBlockId}
+                       onSelectBlock={setSelectedBlockId}
                      />
                   ) : (
                      <div className="text-zinc-600 font-bold">Select a slide to edit</div>
@@ -455,6 +516,12 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                  onReset={handleResetBlocks}
                  onPlay={() => setPlayKey(Date.now())}
                  playKey={playKey}
+                 selectedBlockId={selectedBlockId}
+                 onSelectBlock={setSelectedBlockId}
+                 onDuplicateBlock={handleDuplicateBlock}
+                 onDeleteBlock={handleDeleteBlock}
+                 totalDuration={activeSlideId ? (settings.slideDurations?.[activeSlideId] || 10) : 10}
+                 onUpdateDuration={handleUpdateDuration}
                />
             </>
           )}
@@ -503,13 +570,27 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
 
                   {/* Character Properties */}
                   <div className="space-y-4">
-                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Character</p>
+                     <p className="text-[10px] flex items-center justify-between font-bold text-zinc-500 uppercase tracking-wider">
+                       Character {selectedBlock && <span className="text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded">Block Override</span>}
+                     </p>
                      
                      <div className="space-y-2">
+                       {selectedBlock && (
+                         <input 
+                           type="text" 
+                           value={selectedBlock.text}
+                           onChange={(e) => handleUpdateSelectedBlock({ text: e.target.value })}
+                           className="w-full bg-zinc-900 border border-emerald-500/50 rounded px-2 py-2 text-sm text-white focus:outline-none focus:border-emerald-500 mb-2"
+                           placeholder="Edit text..."
+                         />
+                       )}
                        <select 
                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
-                         value={settings.fontFamily}
-                         onChange={(e) => setSettings({...settings, fontFamily: e.target.value})}
+                         value={selectedBlock?.fontFamily || settings.fontFamily}
+                         onChange={(e) => {
+                           if (selectedBlock) handleUpdateSelectedBlock({ fontFamily: e.target.value });
+                           else setSettings({...settings, fontFamily: e.target.value});
+                         }}
                        >
                          <option value="Arial">Arial</option>
                          <option value="Arial Black">Arial Black</option>
@@ -524,8 +605,11 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                          <div className="flex-1 flex items-center bg-[#1a1a1a] border border-white/10 rounded px-2">
                             <input 
                               type="number" 
-                              value={settings.fontSize} 
-                              onChange={(e) => setSettings({...settings, fontSize: Number(e.target.value)})}
+                              value={selectedBlock?.fontSize || settings.fontSize} 
+                              onChange={(e) => {
+                                if (selectedBlock) handleUpdateSelectedBlock({ fontSize: Number(e.target.value) });
+                                else setSettings({...settings, fontSize: Number(e.target.value)});
+                              }}
                               className="w-full bg-transparent text-white text-sm py-1.5 focus:outline-none"
                             />
                             <span className="text-xs text-zinc-500 font-bold ml-2">pt</span>
@@ -533,9 +617,18 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        </div>
 
                        <div className="flex rounded bg-[#1a1a1a] border border-white/10 overflow-hidden mt-2">
-                         <button onClick={() => setSettings({...settings, bold: !settings.bold})} className={cn("flex-1 py-1.5 flex items-center justify-center hover:bg-white/5 transition border-r border-white/5", settings.bold && "bg-white/10 text-white")}><Bold className="size-4" /></button>
-                         <button onClick={() => setSettings({...settings, italic: !settings.italic})} className={cn("flex-1 py-1.5 flex items-center justify-center border-r border-white/5 hover:bg-white/5 transition", settings.italic && "bg-white/10 text-white")}><Italic className="size-4" /></button>
-                         <button onClick={() => setSettings({...settings, underline: !settings.underline})} className={cn("flex-1 py-1.5 flex items-center justify-center hover:bg-white/5 transition", settings.underline && "bg-white/10 text-white")}><Underline className="size-4" /></button>
+                         <button onClick={() => {
+                           if (selectedBlock) handleUpdateSelectedBlock({ bold: !(selectedBlock.bold ?? settings.bold) });
+                           else setSettings({...settings, bold: !settings.bold});
+                         }} className={cn("flex-1 py-1.5 flex items-center justify-center hover:bg-white/5 transition border-r border-white/5", (selectedBlock?.bold ?? settings.bold) && "bg-white/10 text-white")}><Bold className="size-4" /></button>
+                         <button onClick={() => {
+                           if (selectedBlock) handleUpdateSelectedBlock({ italic: !(selectedBlock.italic ?? settings.italic) });
+                           else setSettings({...settings, italic: !settings.italic});
+                         }} className={cn("flex-1 py-1.5 flex items-center justify-center border-r border-white/5 hover:bg-white/5 transition", (selectedBlock?.italic ?? settings.italic) && "bg-white/10 text-white")}><Italic className="size-4" /></button>
+                         <button onClick={() => {
+                           if (selectedBlock) handleUpdateSelectedBlock({ underline: !(selectedBlock.underline ?? settings.underline) });
+                           else setSettings({...settings, underline: !settings.underline});
+                         }} className={cn("flex-1 py-1.5 flex items-center justify-center hover:bg-white/5 transition", (selectedBlock?.underline ?? settings.underline) && "bg-white/10 text-white")}><Underline className="size-4" /></button>
                        </div>
                      </div>
                   </div>

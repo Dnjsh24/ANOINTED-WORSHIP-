@@ -136,43 +136,51 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
       )}
       {activeSlide.blocks && activeSlide.blocks.length > 0 ? (
         <div className="relative w-full h-full">
-          {activeSlide.blocks.map(block => (
-            <div
-              key={block.id}
-              className={cn(
-                "absolute whitespace-nowrap",
-                entranceClass && "fill-mode-both",
-                entranceClass
-              )}
-              style={{
-                left: `${block.x}%`,
-                top: `${block.y}%`,
-                transform: "translate(-50%, -50%)",
-                animationDelay: entranceClass ? `${block.startTime}s` : undefined,
-                animationDuration: entranceClass ? "0.5s" : undefined
-              }}
-            >
+          {activeSlide.blocks.map(block => {
+            const effectiveFontFamily = block.fontFamily || settings.fontFamily;
+            const effectiveFontSize = block.fontSize || settings.fontSize;
+            const effectiveBold = block.bold ?? settings.bold;
+            const effectiveItalic = block.italic ?? settings.italic;
+            const effectiveUnderline = block.underline ?? settings.underline;
+
+            return (
               <div
+                key={block.id}
                 className={cn(
-                  exitClass && "fill-mode-forwards",
-                  exitClass
+                  "absolute whitespace-nowrap",
+                  entranceClass && "fill-mode-both",
+                  entranceClass
                 )}
                 style={{
-                  fontFamily: settings.fontFamily,
-                  color: settings.color,
-                  fontWeight: settings.bold ? "bold" : "normal",
-                  fontStyle: settings.italic ? "italic" : "normal",
-                  textDecoration: settings.underline ? "underline" : "none",
-                  fontSize: `${settings.fontSize}pt`,
-                  textShadow: settings.showShadow ? "0 4px 12px rgba(0,0,0,0.8)" : "none",
-                  animationDelay: exitClass ? `${block.startTime + block.duration}s` : undefined,
-                  animationDuration: exitClass ? "0.5s" : undefined
+                  left: `${block.x}%`,
+                  top: `${block.y}%`,
+                  transform: "translate(-50%, -50%)",
+                  animationDelay: entranceClass ? `${block.startTime}s` : undefined,
+                  animationDuration: entranceClass ? "0.5s" : undefined
                 }}
               >
-                {block.text}
+                <div
+                  className={cn(
+                    exitClass && "fill-mode-forwards",
+                    exitClass
+                  )}
+                  style={{
+                    fontFamily: effectiveFontFamily,
+                    color: settings.color,
+                    fontWeight: effectiveBold ? "bold" : "normal",
+                    fontStyle: effectiveItalic ? "italic" : "normal",
+                    textDecoration: effectiveUnderline ? "underline" : "none",
+                    fontSize: `${effectiveFontSize}pt`,
+                    textShadow: settings.showShadow ? "0 4px 12px rgba(0,0,0,0.8)" : "none",
+                    animationDelay: exitClass ? `${block.startTime + block.duration}s` : undefined,
+                    animationDuration: exitClass ? "0.5s" : undefined
+                  }}
+                >
+                  {block.text}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div 

@@ -12,10 +12,19 @@ interface TimelineEditorProps {
   onReset: () => void;
   onPlay: () => void;
   playKey?: number;
+  totalDuration?: number;
+  onUpdateDuration?: (duration: number) => void;
+  selectedBlockId?: string | null;
+  onSelectBlock?: (id: string | null) => void;
+  onDuplicateBlock?: (id: string) => void;
+  onDeleteBlock?: (id: string) => void;
 }
 
-export default function TimelineEditor({ blocks, onUpdateBlock, onChopToWords, onReset, onPlay, playKey = 0 }: TimelineEditorProps) {
-  const TOTAL_DURATION_SEC = 10; // Fixed 10s timeline for simplicity
+export default function TimelineEditor({ 
+  blocks, onUpdateBlock, onChopToWords, onReset, onPlay, playKey = 0,
+  totalDuration = 10, onUpdateDuration, selectedBlockId, onSelectBlock, onDuplicateBlock, onDeleteBlock
+}: TimelineEditorProps) {
+  const TOTAL_DURATION_SEC = totalDuration;
   const timelineRef = useRef<HTMLDivElement>(null);
   const [draggingBlock, setDraggingBlock] = useState<string | null>(null);
   const [startMouseX, setStartMouseX] = useState(0);
@@ -90,8 +99,34 @@ export default function TimelineEditor({ blocks, onUpdateBlock, onChopToWords, o
       <div className="h-10 border-b border-white/5 flex items-center justify-between px-4">
         <div className="flex items-center gap-4">
           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Timeline</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-zinc-500">Duration (s)</span>
+            <input 
+              type="number" 
+              value={TOTAL_DURATION_SEC}
+              onChange={(e) => onUpdateDuration?.(Math.max(1, Number(e.target.value)))}
+              className="w-12 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-violet-500"
+            />
+          </div>
         </div>
         <div className="flex items-center gap-2">
+          {selectedBlockId && (
+            <>
+              <button 
+                onClick={() => onDuplicateBlock?.(selectedBlockId)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-[10px] font-bold text-blue-400 transition"
+              >
+                Duplicate
+              </button>
+              <button 
+                onClick={() => onDeleteBlock?.(selectedBlockId)}
+                className="flex items-center gap-1.5 px-3 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-[10px] font-bold text-red-400 transition"
+              >
+                Delete
+              </button>
+              <div className="w-px h-4 bg-white/10 mx-1" />
+            </>
+          )}
           <button 
             onClick={onPlay}
             className="flex items-center gap-1.5 px-3 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-[10px] font-bold text-amber-500 transition border border-amber-500/20"
@@ -103,11 +138,6 @@ export default function TimelineEditor({ blocks, onUpdateBlock, onChopToWords, o
             className="flex items-center gap-1.5 px-3 py-1 rounded bg-white/5 hover:bg-white/10 text-[10px] font-bold text-zinc-300 transition"
           >
             <Scissors className="size-3" /> Chop to Words
-          </button>
-          <button 
-            className="flex items-center gap-1.5 px-3 py-1 rounded bg-white/5 hover:bg-white/10 text-[10px] font-bold text-zinc-300 transition opacity-50 cursor-not-allowed"
-          >
-            <Merge className="size-3" /> Merge Selected
           </button>
           <button 
             onClick={onReset}
@@ -123,8 +153,20 @@ export default function TimelineEditor({ blocks, onUpdateBlock, onChopToWords, o
         {/* Track labels (Left) */}
         <div className="w-24 border-r border-white/5 bg-[#121212] overflow-y-auto hidden sm:block z-10">
           {blocks.map((block, i) => (
-            <div key={block.id} className="h-8 flex items-center px-2 border-b border-white/5">
-              <span className="text-[10px] text-zinc-500 font-semibold truncate">{block.text}</span>
+            <div 
+              key={block.id} 
+              className={cn(
+                "h-8 flex items-center px-2 border-b border-white/5 cursor-pointer transition-colors",
+                selectedBlockId === block.id ? "bg-blue-500/20 border-l-2 border-l-blue-500" : "hover:bg-white/5"
+              )}
+              onClick={() => onSelectBlock?.(block.id)}
+            >
+              <span className={cn(
+                "text-[10px] font-semibold truncate",
+                selectedBlockId === block.id ? "text-blue-200" : "text-zinc-500"
+              )}>
+                {block.text}
+              </span>
             </div>
           ))}
         </div>

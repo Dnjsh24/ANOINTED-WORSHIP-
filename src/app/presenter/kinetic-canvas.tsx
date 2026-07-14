@@ -10,26 +10,42 @@ interface KineticCanvasProps {
   slide: PresentationSlide;
   onUpdateBlock: (blockId: string, updates: Partial<SlideBlock>) => void;
   playKey?: number;
+  selectedBlockId?: string | null;
+  onSelectBlock?: (id: string | null) => void;
 }
 
-export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, playKey = 0 }: KineticCanvasProps) {
+export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, playKey = 0, selectedBlockId, onSelectBlock }: KineticCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [draggingBlock, setDraggingBlock] = useState<string | null>(null);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
   const [startBlockPos, setStartBlockPos] = useState({ x: 0, y: 0 });
   const [isCurrentlyPlaying, setIsCurrentlyPlaying] = useState(false);
 
+  // Sync background video play/pause with timeline
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isCurrentlyPlaying) {
+        videoRef.current.currentTime = 0;
+        videoRef.current.play().catch(e => console.error("Video play failed:", e));
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }, [isCurrentlyPlaying]);
+
   useEffect(() => {
     if (playKey > 0) {
       setIsCurrentlyPlaying(true);
+      const totalDuration = settings.slideDurations?.[slide.id] || 10;
       const timer = setTimeout(() => {
         setIsCurrentlyPlaying(false);
-      }, 10000); // Reset to edit mode after 10s timeline
+      }, totalDuration * 1000); // Reset to edit mode after timeline ends
       return () => clearTimeout(timer);
     } else {
       setIsCurrentlyPlaying(false);
     }
-  }, [playKey]);
+  }, [playKey, settings.slideDurations, slide.id]);
 
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
@@ -118,7 +134,7 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
       {settings.backgroundMediaUrl && (
         <div className="absolute inset-0 overflow-hidden">
           {settings.backgroundMediaType === "video" ? (
-            <video src={settings.backgroundMediaUrl} className="w-full h-full object-cover opacity-60" autoPlay loop muted playsInline />
+            <video ref={videoRef} src={settings.backgroundMediaUrl} className="w-full h-full object-cover opacity-60" autoPlay loop muted playsInline />
           ) : (
              // eslint-disable-next-line @next/next/no-img-element
             <img src={settings.backgroundMediaUrl} className="w-full h-full object-cover opacity-60" alt="Background" />
@@ -126,44 +142,59 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
         </div>
       )}
       
-      {blocks.map(block => (
-        <div
-          key={`${block.id}-${playKey}`}
-          className={cn(
-            "absolute cursor-move select-none p-2 border border-transparent hover:border-white/20 rounded whitespace-nowrap",
-            draggingBlock === block.id && "border-amber-400 z-10 bg-white/5",
-            isCurrentlyPlaying && animClass && "fill-mode-both",
-            isCurrentlyPlaying && animClass
-          )}
-          style={{
-            left: `${block.x}%`,
-            top: `${block.y}%`,
-            transform: "translate(-50%, -50%)",
-            animationDelay: isCurrentlyPlaying && animClass ? `${block.startTime}s` : undefined,
-            animationDuration: isCurrentlyPlaying && animClass ? "0.5s" : undefined
-          }}
-          onPointerDown={(e) => handlePointerDown(e, block)}
-        >
-          {/* Inner div for exit animation */}
+      {/* Click outside to deselect */}
+      <div className="absolute inset-0 z-0" onClick={() => onSelectBlock?.(null)} />
+
+      {blocks.map(block => {
+        // Compute effective styles (block overrides or global settings)
+        const effectiveFontFamily = block.fontFamily || settings.fontFamily;
+        const effectiveFontSize = block.fontSize || settings.fontSize;
+        const effectiveBold = block.bold ?? settings.bold;
+        const effectiveItalic = block.italic ?? settings.italic;
+        const effectiveUnderline = block.underline ?? settings.underline;
+
+        return (
           <div
-             className={cn(
-               isCurrentlyPlaying && exitClass && "fill-mode-forwards",
-               isCurrentlyPlaying && exitClass
-             )}
-             style={{
-               fontFamily: settings.fontFamily,
-               fontSize: `${settings.fontSize * 0.4}pt`, // Scale down for editor
-               color: settings.color,
-               fontWeight: settings.bold ? "bold" : "normal",
-               fontStyle: settings.italic ? "italic" : "normal",
-               textDecoration: settings.underline ? "underline" : "none",
-               textShadow: settings.showShadow ? "0 2px 4px rgba(0,0,0,0.5)" : "none",
-               animationDelay: isCurrentlyPlaying && exitClass ? `${block.startTime + block.duration}s` : undefined,
-               animationDuration: isCurrentlyPlaying && exitClass ? "0.5s" : undefined
-             }}
+            key={`${block.id}-${playKey}`}
+            className={cn(
+              "absolute cursor-move select-none p-2 border border-transparent hover:border-white/20 rounded whitespace-nowrap z-10",
+              draggingBlock === block.id && "z-20 bg-white/5",
+              selectedBlockId === block.id && "ring-2 ring-blue-500 bg-blue-500/10",
+              isCurrentlyPlaying && animClass && "fill-mode-both",
+              isCurrentlyPlaying && animClass
+            )}
+            style={{
+              left: `${block.x}%`,
+              top: `${block.y}%`,
+              transform: "translate(-50%, -50%)",
+              animationDelay: isCurrentlyPlaying && animClass ? `${block.startTime}s` : undefined,
+              animationDuration: isCurrentlyPlaying && animClass ? "0.5s" : undefined
+            }}
+            onPointerDown={(e) => {
+              handlePointerDown(e, block);
+              onSelectBlock?.(block.id);
+            }}
           >
-            {block.text}
-          </div>
+            {/* Inner div for exit animation */}
+            <div
+               className={cn(
+                 isCurrentlyPlaying && exitClass && "fill-mode-forwards",
+                 isCurrentlyPlaying && exitClass
+               )}
+               style={{
+                 fontFamily: effectiveFontFamily,
+                 fontSize: `${effectiveFontSize * 0.4}pt`, // Scale down for editor
+                 color: settings.color,
+                 fontWeight: effectiveBold ? "bold" : "normal",
+                 fontStyle: effectiveItalic ? "italic" : "normal",
+                 textDecoration: effectiveUnderline ? "underline" : "none",
+                 textShadow: settings.showShadow ? "0 2px 4px rgba(0,0,0,0.5)" : "none",
+                 animationDelay: isCurrentlyPlaying && exitClass ? `${block.startTime + block.duration}s` : undefined,
+                 animationDuration: isCurrentlyPlaying && exitClass ? "0.5s" : undefined
+               }}
+            >
+              {block.text}
+            </div>
 
           {/* Anchor handles */}
           {draggingBlock === block.id && (
