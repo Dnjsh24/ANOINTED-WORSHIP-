@@ -9,15 +9,27 @@ interface KineticCanvasProps {
   settings: PresentationSettings;
   slide: PresentationSlide;
   onUpdateBlock: (blockId: string, updates: Partial<SlideBlock>) => void;
-  isPlaying?: boolean;
-  onPlayComplete?: () => void;
+  playKey?: number;
 }
 
-export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, isPlaying, onPlayComplete }: KineticCanvasProps) {
+export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, playKey = 0 }: KineticCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [draggingBlock, setDraggingBlock] = useState<string | null>(null);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
   const [startBlockPos, setStartBlockPos] = useState({ x: 0, y: 0 });
+  const [isCurrentlyPlaying, setIsCurrentlyPlaying] = useState(false);
+
+  useEffect(() => {
+    if (playKey > 0) {
+      setIsCurrentlyPlaying(true);
+      const timer = setTimeout(() => {
+        setIsCurrentlyPlaying(false);
+      }, 10000); // Reset to edit mode after 10s timeline
+      return () => clearTimeout(timer);
+    } else {
+      setIsCurrentlyPlaying(false);
+    }
+  }, [playKey]);
 
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
@@ -30,10 +42,10 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
       const dxPercent = (dx / rect.width) * 100;
       const dyPercent = (dy / rect.height) * 100;
       
-      const newX = Math.max(0, Math.min(100, startBlockPos.x + dxPercent));
-      const newY = Math.max(0, Math.min(100, startBlockPos.y + dyPercent));
-      
-      onUpdateBlock(draggingBlock, { x: newX, y: newY });
+      onUpdateBlock(draggingBlock, {
+        x: startBlockPos.x + dxPercent,
+        y: startBlockPos.y + dyPercent
+      });
     };
 
     const handlePointerUp = () => {
@@ -60,14 +72,19 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
     setStartBlockPos({ x: block.x, y: block.y });
   };
 
-  useEffect(() => {
-    if (isPlaying && onPlayComplete) {
-      const timer = setTimeout(() => {
-        onPlayComplete();
-      }, 10000);
-      return () => clearTimeout(timer);
+  const getAnimationClass = () => {
+    switch (settings.entranceAnimation) {
+      case "Fade In": return "animate-fade-in";
+      case "Slide In Up": return "animate-fade-up";
+      case "Slide In Down": return "animate-fade-down";
+      case "Slide In Left": return "animate-slide-right";
+      case "Slide In Right": return "animate-slide-left";
+      case "Mask In Up": return "animate-fade-up";
+      default: return "animate-fade-in"; // Fallback so we always have an animation to respect the delay
     }
-  }, [isPlaying, onPlayComplete]);
+  };
+
+  const animClass = getAnimationClass();
 
   return (
     <div 
@@ -80,17 +97,12 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
       
       {blocks.map(block => (
         <div
-          key={`${block.id}-${isPlaying ? 'play' : 'edit'}`}
+          key={`${block.id}-${playKey}`}
           className={cn(
             "absolute cursor-move select-none p-2 border border-transparent hover:border-white/20 rounded whitespace-nowrap",
             draggingBlock === block.id && "border-amber-400 z-10 bg-white/5",
-            isPlaying && "fill-mode-both",
-            isPlaying && settings.entranceAnimation === "Fade In" && "animate-fade-in",
-            isPlaying && settings.entranceAnimation === "Slide In Up" && "animate-fade-up",
-            isPlaying && settings.entranceAnimation === "Slide In Down" && "animate-fade-down",
-            isPlaying && settings.entranceAnimation === "Slide In Left" && "animate-slide-right",
-            isPlaying && settings.entranceAnimation === "Slide In Right" && "animate-slide-left",
-            isPlaying && settings.entranceAnimation === "Mask In Up" && "animate-fade-up"
+            isCurrentlyPlaying && "fill-mode-both",
+            isCurrentlyPlaying && animClass
           )}
           style={{
             left: `${block.x}%`,
@@ -103,8 +115,8 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
             fontStyle: settings.italic ? "italic" : "normal",
             textDecoration: settings.underline ? "underline" : "none",
             textShadow: settings.showShadow ? "0 2px 4px rgba(0,0,0,0.5)" : "none",
-            animationDelay: isPlaying ? `${block.startTime}s` : undefined,
-            animationDuration: isPlaying ? "0.5s" : undefined
+            animationDelay: isCurrentlyPlaying ? `${block.startTime}s` : undefined,
+            animationDuration: isCurrentlyPlaying ? "0.5s" : undefined
           }}
           onPointerDown={(e) => handlePointerDown(e, block)}
         >
@@ -122,13 +134,19 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
       {blocks.length === 0 && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-8 pointer-events-none">
           <div 
-            className="flex flex-col space-y-4 w-full text-center"
+            key={`unchopped-${playKey}`}
+            className={cn(
+              "flex flex-col space-y-4 w-full text-center",
+              isCurrentlyPlaying && "fill-mode-both",
+              isCurrentlyPlaying && animClass
+            )}
             style={{
               fontFamily: settings.fontFamily,
               color: settings.color,
               fontWeight: settings.bold ? "bold" : "normal",
               fontStyle: settings.italic ? "italic" : "normal",
               textDecoration: settings.underline ? "underline" : "none",
+              animationDuration: isCurrentlyPlaying ? "0.5s" : undefined
             }}
           >
             {slide.content.map((line, idx) => (
@@ -138,10 +156,7 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
                   "leading-tight",
                   settings.showShadow && "drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
                 )}
-                style={{ 
-                  fontSize: `${settings.fontSize * 0.4}pt`, // scaled down
-                  textWrap: 'balance' 
-                }}
+                style={{ fontSize: `${settings.fontSize * 0.4}pt` }}
               >
                 {line}
               </p>

@@ -16,7 +16,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const [mediaUrl, setMediaUrl] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"Property" | "Layers" | "Motion">("Property");
   const [isSaving, setIsSaving] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [playKey, setPlayKey] = useState<number>(0);
   
   const setlist = useMemo(() => setlists.find(s => s.id === selectedSetlistId) || setlists[0], [selectedSetlistId, setlists]);
   
@@ -422,8 +422,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        settings={settings} 
                        onUpdateBlock={handleUpdateBlock}
                        slide={activeSlide}
-                       isPlaying={isPlaying}
-                       onPlayComplete={() => setIsPlaying(false)}
+                       playKey={playKey}
                      />
                   ) : (
                      <div className="text-zinc-600 font-bold">Select a slide to edit</div>
@@ -441,7 +440,8 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                  onUpdateBlock={handleUpdateBlock}
                  onChopToWords={handleChopToWords}
                  onReset={handleResetBlocks}
-                 onPlay={() => setIsPlaying(true)}
+                 onPlay={() => setPlayKey(Date.now())}
+                 playKey={playKey}
                />
             </>
           )}

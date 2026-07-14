@@ -11,14 +11,38 @@ interface TimelineEditorProps {
   onChopToWords: () => void;
   onReset: () => void;
   onPlay: () => void;
+  playKey?: number;
 }
 
-export default function TimelineEditor({ blocks, onUpdateBlock, onChopToWords, onReset, onPlay }: TimelineEditorProps) {
+export default function TimelineEditor({ blocks, onUpdateBlock, onChopToWords, onReset, onPlay, playKey = 0 }: TimelineEditorProps) {
   const TOTAL_DURATION_SEC = 10; // Fixed 10s timeline for simplicity
   const timelineRef = useRef<HTMLDivElement>(null);
   const [draggingBlock, setDraggingBlock] = useState<string | null>(null);
   const [startMouseX, setStartMouseX] = useState(0);
   const [startBlockTime, setStartBlockTime] = useState(0);
+  const [playProgress, setPlayProgress] = useState(0);
+
+  useEffect(() => {
+    if (playKey > 0) {
+      setPlayProgress(0);
+      const startTime = Date.now();
+      
+      const updateProgress = () => {
+        const elapsed = (Date.now() - startTime) / 1000; // in seconds
+        if (elapsed >= TOTAL_DURATION_SEC) {
+          setPlayProgress(0);
+        } else {
+          setPlayProgress((elapsed / TOTAL_DURATION_SEC) * 100);
+          requestAnimationFrame(updateProgress);
+        }
+      };
+      
+      const frameId = requestAnimationFrame(updateProgress);
+      return () => cancelAnimationFrame(frameId);
+    } else {
+      setPlayProgress(0);
+    }
+  }, [playKey, TOTAL_DURATION_SEC]);
 
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
@@ -97,7 +121,7 @@ export default function TimelineEditor({ blocks, onUpdateBlock, onChopToWords, o
       {/* Tracks Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Track labels (Left) */}
-        <div className="w-24 border-r border-white/5 bg-[#121212] overflow-y-auto hidden sm:block">
+        <div className="w-24 border-r border-white/5 bg-[#121212] overflow-y-auto hidden sm:block z-10">
           {blocks.map((block, i) => (
             <div key={block.id} className="h-8 flex items-center px-2 border-b border-white/5">
               <span className="text-[10px] text-zinc-500 font-semibold truncate">{block.text}</span>
@@ -140,6 +164,16 @@ export default function TimelineEditor({ blocks, onUpdateBlock, onChopToWords, o
               );
             })}
           </div>
+
+          {/* Scrubber Line */}
+          {playProgress > 0 && (
+            <div 
+              className="absolute top-0 bottom-0 w-px bg-amber-400 z-20 pointer-events-none"
+              style={{ left: `${playProgress}%` }}
+            >
+              <div className="absolute top-0 -translate-x-1/2 w-2 h-2 bg-amber-400 rounded-full" />
+            </div>
+          )}
         </div>
       </div>
     </div>
