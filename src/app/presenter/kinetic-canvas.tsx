@@ -204,9 +204,10 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
             </>
           )}
         </div>
-      ))}
-      
-      {blocks.length === 0 && (
+      );
+    })}
+    
+    {blocks.length === 0 && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-8 pointer-events-none">
           <div 
             key={`unchopped-${playKey}`}

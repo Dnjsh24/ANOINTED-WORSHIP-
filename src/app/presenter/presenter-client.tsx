@@ -14,6 +14,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const [selectedSetlistId, setSelectedSetlistId] = useState<string>(setlists[0]?.id || "");
   const [activeItemIndex, setActiveItemIndex] = useState<number>(0);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"Property" | "Layers" | "Motion">("Property");
   const [isSaving, setIsSaving] = useState(false);
@@ -721,48 +722,225 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
               {activeTab === "Motion" && (
                 <div className="p-4 space-y-6">
                   <div className="flex justify-between items-center mb-2">
-                     <p className="text-[10px] font-bold uppercase text-zinc-500">Global Song Animation</p>
-                     <button className="text-[10px] font-bold text-rose-500 hover:text-rose-400">Reset to Default</button>
+                     <p className="text-xs font-bold text-blue-500">{selectedBlock ? "Layer Override" : "Global Animation"}</p>
+                     <button onClick={() => setSettings(defaultPresentationSettings)} className="text-[10px] font-bold text-zinc-400 hover:text-white transition">Reset to Global</button>
                   </div>
 
+                  {/* ENTRANCE ANIMATION */}
                   <div className="space-y-3">
-                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Entrance Animation</p>
-                     <p className="text-xs text-zinc-500">Effect</p>
-                     <select 
-                       className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
-                       value={settings.entranceAnimation}
-                       onChange={(e) => setSettings({...settings, entranceAnimation: e.target.value as any})}
-                     >
-                       <option value="None">None</option>
-                       <option value="Appear">Appear</option>
-                       <option value="Fade In">Fade In</option>
-                       <option value="Slide In Up">Slide In Up</option>
-                       <option value="Slide In Down">Slide In Down</option>
-                       <option value="Slide In Left">Slide In Left</option>
-                       <option value="Slide In Right">Slide In Right</option>
-                       <option value="Mask In Up">Mask In Up</option>
-                     </select>
+                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Entrance Animation</p>
+                     
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Effect</p>
+                       <select 
+                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                         value={settings.entranceAnimation}
+                         onChange={(e) => setSettings({...settings, entranceAnimation: e.target.value as any})}
+                       >
+                         <option value="None">None</option>
+                         <option value="Appear">Appear</option>
+                         <option value="Fade In">Fade In</option>
+                         <option value="Slide In Up">Slide In Up</option>
+                         <option value="Slide In Down">Slide In Down</option>
+                         <option value="Slide In Left">Slide In Left</option>
+                         <option value="Slide In Right">Slide In Right</option>
+                         <option value="Mask In Up">Mask In Up</option>
+                       </select>
+                     </div>
+
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Duration: {settings.entranceDuration}s</p>
+                       <input 
+                         type="range" min="0" max="5" step="0.1"
+                         value={settings.entranceDuration}
+                         onChange={(e) => setSettings({...settings, entranceDuration: Number(e.target.value)})}
+                         className="w-full accent-white"
+                       />
+                     </div>
+
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Delay: {settings.entranceDelay}s</p>
+                       <input 
+                         type="range" min="0" max="5" step="0.1"
+                         value={settings.entranceDelay}
+                         onChange={(e) => setSettings({...settings, entranceDelay: Number(e.target.value)})}
+                         className="w-full accent-white"
+                       />
+                     </div>
+
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Easing Curve</p>
+                       <select 
+                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                         value={settings.entranceCurve}
+                         onChange={(e) => setSettings({...settings, entranceCurve: e.target.value})}
+                       >
+                         <option value="Ease Out">Ease Out</option>
+                         <option value="Ease In">Ease In</option>
+                         <option value="Ease In Out">Ease In Out</option>
+                         <option value="Linear">Linear</option>
+                       </select>
+                       <div className="h-8 mt-2 w-full border-b border-l border-white/10 relative overflow-hidden">
+                         <svg className="w-full h-full absolute inset-0" preserveAspectRatio="none" viewBox="0 0 100 100">
+                           <path d={settings.entranceCurve === "Ease Out" ? "M0,100 Q20,10 100,0" : "M0,100 L100,0"} fill="none" stroke="#60a5fa" strokeWidth="3" vectorEffect="non-scaling-stroke"/>
+                         </svg>
+                       </div>
+                     </div>
                   </div>
 
                   <hr className="border-white/5" />
 
+                  {/* EXIT ANIMATION */}
                   <div className="space-y-3">
-                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Exit Animation</p>
-                     <p className="text-xs text-zinc-500">Effect</p>
-                     <select 
-                       className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
-                       value={settings.exitAnimation}
-                       onChange={(e) => setSettings({...settings, exitAnimation: e.target.value as any})}
-                     >
-                       <option value="None">None</option>
-                       <option value="Disappear">Disappear</option>
-                       <option value="Fade Out">Fade Out</option>
-                       <option value="Slide Out Up">Slide Out Up</option>
-                       <option value="Slide Out Down">Slide Out Down</option>
-                       <option value="Slide Out Left">Slide Out Left</option>
-                       <option value="Slide Out Right">Slide Out Right</option>
-                       <option value="Mask Out Up">Mask Out Up</option>
-                     </select>
+                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Exit Animation</p>
+                     
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Effect</p>
+                       <select 
+                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                         value={settings.exitAnimation}
+                         onChange={(e) => setSettings({...settings, exitAnimation: e.target.value as any})}
+                       >
+                         <option value="None">None</option>
+                         <option value="Disappear">Disappear</option>
+                         <option value="Fade Out">Fade Out</option>
+                         <option value="Slide Out Up">Slide Out Up</option>
+                         <option value="Slide Out Down">Slide Out Down</option>
+                         <option value="Slide Out Left">Slide Out Left</option>
+                         <option value="Slide Out Right">Slide Out Right</option>
+                         <option value="Mask Out Up">Mask Out Up</option>
+                       </select>
+                     </div>
+
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Duration: {settings.exitDuration}s</p>
+                       <input 
+                         type="range" min="0" max="5" step="0.1"
+                         value={settings.exitDuration}
+                         onChange={(e) => setSettings({...settings, exitDuration: Number(e.target.value)})}
+                         className="w-full accent-white"
+                       />
+                     </div>
+
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Delay: {settings.exitDelay}s</p>
+                       <input 
+                         type="range" min="0" max="10" step="0.1"
+                         value={settings.exitDelay}
+                         onChange={(e) => setSettings({...settings, exitDelay: Number(e.target.value)})}
+                         className="w-full accent-white"
+                       />
+                     </div>
+
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Easing Curve</p>
+                       <select 
+                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                         value={settings.exitCurve}
+                         onChange={(e) => setSettings({...settings, exitCurve: e.target.value})}
+                       >
+                         <option value="Ease Out">Ease Out</option>
+                         <option value="Ease In">Ease In</option>
+                         <option value="Ease In Out">Ease In Out</option>
+                         <option value="Linear">Linear</option>
+                       </select>
+                       <div className="h-8 mt-2 w-full border-b border-l border-white/10 relative overflow-hidden">
+                         <svg className="w-full h-full absolute inset-0" preserveAspectRatio="none" viewBox="0 0 100 100">
+                           <path d={settings.exitCurve === "Ease Out" ? "M0,100 Q20,10 100,0" : "M0,100 L100,0"} fill="none" stroke="#60a5fa" strokeWidth="3" vectorEffect="non-scaling-stroke"/>
+                         </svg>
+                       </div>
+                     </div>
+                  </div>
+
+                  <hr className="border-white/5" />
+
+                  {/* KINETIC TEXT */}
+                  <div className="space-y-3 pb-8">
+                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Kinetic Text</p>
+                     
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Kinetic Mode</p>
+                       <select 
+                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                         value={settings.kineticMode}
+                         onChange={(e) => setSettings({...settings, kineticMode: e.target.value})}
+                       >
+                         <option value="Word by Word">Word by Word</option>
+                         <option value="Line by Line">Line by Line</option>
+                         <option value="Character">Character</option>
+                       </select>
+                     </div>
+
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Animation Order</p>
+                       <select 
+                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                         value={settings.kineticAnimationOrder}
+                         onChange={(e) => setSettings({...settings, kineticAnimationOrder: e.target.value})}
+                       >
+                         <option value="Forward">Forward</option>
+                         <option value="Backward">Backward</option>
+                         <option value="Random">Random</option>
+                       </select>
+                     </div>
+
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Stagger Delay: {settings.kineticStaggerDelay}s</p>
+                       <input 
+                         type="range" min="0" max="1" step="0.05"
+                         value={settings.kineticStaggerDelay}
+                         onChange={(e) => setSettings({...settings, kineticStaggerDelay: Number(e.target.value)})}
+                         className="w-full accent-white"
+                       />
+                     </div>
+
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Smoothing Curve</p>
+                       <select 
+                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                         value={settings.kineticSmoothingCurve}
+                         onChange={(e) => setSettings({...settings, kineticSmoothingCurve: e.target.value})}
+                       >
+                         <option value="Smooth">Smooth</option>
+                         <option value="Linear">Linear</option>
+                         <option value="Spring">Spring</option>
+                       </select>
+                     </div>
+
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Direction</p>
+                       <select 
+                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                         value={settings.kineticDirection}
+                         onChange={(e) => setSettings({...settings, kineticDirection: e.target.value})}
+                       >
+                         <option value="Fly Up">Fly Up</option>
+                         <option value="Fly Down">Fly Down</option>
+                         <option value="Fly Left">Fly Left</option>
+                         <option value="Fly Right">Fly Right</option>
+                       </select>
+                     </div>
+
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Travel Distance: {settings.kineticTravelDistance} px</p>
+                       <input 
+                         type="range" min="0" max="200" step="1"
+                         value={settings.kineticTravelDistance}
+                         onChange={(e) => setSettings({...settings, kineticTravelDistance: Number(e.target.value)})}
+                         className="w-full accent-white"
+                       />
+                     </div>
+
+                     <div className="space-y-1">
+                       <p className="text-xs text-zinc-400 font-semibold">Segment Duration: {settings.kineticSegmentDuration}s</p>
+                       <input 
+                         type="range" min="0" max="2" step="0.05"
+                         value={settings.kineticSegmentDuration}
+                         onChange={(e) => setSettings({...settings, kineticSegmentDuration: Number(e.target.value)})}
+                         className="w-full accent-white"
+                       />
+                     </div>
+
                   </div>
                 </div>
               )}

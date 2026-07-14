@@ -35,7 +35,20 @@ export interface PresentationSettings {
   backgroundColor: string;
   showShadow: boolean;
   entranceAnimation: "None" | "Appear" | "Fade In" | "Slide In Up" | "Slide In Down" | "Slide In Left" | "Slide In Right" | "Mask In Up";
+  entranceDuration: number;
+  entranceDelay: number;
+  entranceCurve: string;
   exitAnimation: "None" | "Disappear" | "Fade Out" | "Slide Out Up" | "Slide Out Down" | "Slide Out Left" | "Slide Out Right" | "Mask Out Up";
+  exitDuration: number;
+  exitDelay: number;
+  exitCurve: string;
+  kineticMode: string;
+  kineticAnimationOrder: string;
+  kineticStaggerDelay: number;
+  kineticSmoothingCurve: string;
+  kineticDirection: string;
+  kineticTravelDistance: number;
+  kineticSegmentDuration: number;
   backgroundMediaUrl?: string;
   backgroundMediaType?: "image" | "video";
   slideDurations?: Record<string, number>;
@@ -52,7 +65,20 @@ export const defaultPresentationSettings: PresentationSettings = {
   backgroundColor: "#000000",
   showShadow: true,
   entranceAnimation: "None",
+  entranceDuration: 1.0,
+  entranceDelay: 0.2,
+  entranceCurve: "Ease Out",
   exitAnimation: "None",
+  exitDuration: 1.2,
+  exitDelay: 4.2,
+  exitCurve: "Ease Out",
+  kineticMode: "Word by Word",
+  kineticAnimationOrder: "Forward",
+  kineticStaggerDelay: 0.10,
+  kineticSmoothingCurve: "Smooth",
+  kineticDirection: "Fly Up",
+  kineticTravelDistance: 20,
+  kineticSegmentDuration: 0.50,
 };
 
 export interface PresentationBlock {
