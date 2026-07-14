@@ -69,8 +69,9 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
       type: "broadcast",
       event: "projector_sync",
       payload: { 
-        settings, 
-        slide: activeSlidePayload
+        settings,
+        // Omit slide here so we don't accidentally push the editor's slide to the live projector
+        // when the user is just tweaking styling properties.
       },
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
