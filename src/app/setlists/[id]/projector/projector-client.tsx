@@ -57,13 +57,13 @@ export default function ProjectorClient({ setlistId }: { setlistId: string }) {
 
   const getEntranceClass = () => {
     switch (settings.entranceAnimation) {
-      case "Fade In": return "animate-in fade-in duration-500";
-      case "Slide In Up": return "animate-in slide-in-from-bottom-16 fade-in duration-500";
-      case "Slide In Down": return "animate-in slide-in-from-top-16 fade-in duration-500";
-      case "Slide In Left": return "animate-in slide-in-from-right-16 fade-in duration-500";
-      case "Slide In Right": return "animate-in slide-in-from-left-16 fade-in duration-500";
-      case "Mask In Up": return "animate-in slide-in-from-bottom-4 zoom-in-95 fade-in duration-500";
-      case "Appear": return "animate-in fade-in duration-200";
+      case "Fade In": return "animate-fade-in";
+      case "Slide In Up": return "animate-fade-up";
+      case "Slide In Down": return "animate-fade-down";
+      case "Slide In Left": return "animate-slide-right";
+      case "Slide In Right": return "animate-slide-left";
+      case "Mask In Up": return "animate-fade-up";
+      case "Appear": return "";
       default: return "";
     }
   };
@@ -112,12 +112,13 @@ export default function ProjectorClient({ setlistId }: { setlistId: string }) {
             <div
               key={block.id}
               className={cn(
-                "absolute whitespace-nowrap animate-in fade-in fill-mode-both",
-                settings.entranceAnimation === "Slide In Up" && "slide-in-from-bottom-16",
-                settings.entranceAnimation === "Slide In Down" && "slide-in-from-top-16",
-                settings.entranceAnimation === "Slide In Left" && "slide-in-from-right-16",
-                settings.entranceAnimation === "Slide In Right" && "slide-in-from-left-16",
-                settings.entranceAnimation === "Mask In Up" && "slide-in-from-bottom-4 zoom-in-95"
+                "absolute whitespace-nowrap fill-mode-both",
+                settings.entranceAnimation === "Fade In" && "animate-fade-in",
+                settings.entranceAnimation === "Slide In Up" && "animate-fade-up",
+                settings.entranceAnimation === "Slide In Down" && "animate-fade-down",
+                settings.entranceAnimation === "Slide In Left" && "animate-slide-right",
+                settings.entranceAnimation === "Slide In Right" && "animate-slide-left",
+                settings.entranceAnimation === "Mask In Up" && "animate-fade-up"
               )}
               style={{
                 left: `${block.x}%`,
