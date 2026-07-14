@@ -150,20 +150,66 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
                  </div>
                  {sections.map((section: any, idx: number) => {
                     if (section.label === "unknown" && section.lines.length === 0) return null;
+                    
+                    const validLines = section.lines.filter((l: any) => (l.lyric && l.lyric.trim()) || (l.chords && l.chords.trim()));
+                    const chunks = [];
+                    let currentChunk = [];
+                    let lyricCount = 0;
+                    
+                    for (const line of validLines) {
+                      currentChunk.push(line);
+                      if (line.lyric && line.lyric.trim()) {
+                        lyricCount++;
+                      }
+                      if (lyricCount === linesPerSlide) {
+                        chunks.push(currentChunk);
+                        currentChunk = [];
+                        lyricCount = 0;
+                      }
+                    }
+                    if (currentChunk.length > 0) {
+                      chunks.push(currentChunk);
+                    }
+
                     return (
-                      <div key={idx} className="space-y-2">
+                      <div key={idx} className="space-y-2 mb-6">
                         {section.label && section.label !== "unknown" && (
                           <span className="inline-block px-2 py-1 rounded bg-white/10 text-[10px] font-bold uppercase tracking-wider text-zinc-300">
                             {section.label}
                           </span>
                         )}
-                        <div className="space-y-3">
-                           {section.lines.map((line: any, lIdx: number) => (
-                             <div key={lIdx} className="leading-tight">
-                                {line.chords && <div className="text-[#3b82f6] font-mono font-bold text-sm whitespace-pre">{line.chords}</div>}
-                                {line.lyric && <div className="text-zinc-400 font-semibold text-base">{line.lyric}</div>}
-                             </div>
-                           ))}
+                        <div className="space-y-1">
+                           {chunks.map((chunk, cIdx) => {
+                             const firstLyric = chunk.find((l: any) => l.lyric?.trim())?.lyric?.trim();
+                             const targetSlide = firstLyric ? songSlides.find(s => s.content[0] === firstLyric) : null;
+                             const isActive = targetSlide && activeSlide?.id === targetSlide.id;
+
+                             return (
+                               <button 
+                                 key={cIdx} 
+                                 onClick={() => {
+                                   if (targetSlide) {
+                                     sendSlide(targetSlide);
+                                   } else {
+                                     sendSlide({ id: `blank-${idx}-${cIdx}`, type: "blank", content: [] });
+                                   }
+                                 }}
+                                 className={cn(
+                                   "w-full text-left p-3 rounded-lg transition-colors border",
+                                   isActive 
+                                     ? "bg-amber-400/10 border-amber-400/50" 
+                                     : "bg-transparent border-transparent hover:bg-white/5 hover:border-white/10"
+                                 )}
+                               >
+                                 {chunk.map((line: any, lIdx: number) => (
+                                   <div key={lIdx} className="leading-tight mb-1 last:mb-0">
+                                      {line.chords && <div className="text-[#3b82f6] font-mono font-bold text-sm whitespace-pre">{line.chords}</div>}
+                                      {line.lyric && <div className="text-zinc-300 font-semibold text-base">{line.lyric}</div>}
+                                   </div>
+                                 ))}
+                               </button>
+                             );
+                           })}
                         </div>
                       </div>
                     );
