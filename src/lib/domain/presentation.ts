@@ -31,6 +31,8 @@ export interface PresentationSettings {
   showShadow: boolean;
   entranceAnimation: "None" | "Appear" | "Fade In" | "Slide In Up" | "Slide In Down" | "Slide In Left" | "Slide In Right" | "Mask In Up";
   exitAnimation: "None" | "Disappear" | "Fade Out" | "Slide Out Up" | "Slide Out Down" | "Slide Out Left" | "Slide Out Right" | "Mask Out Up";
+  backgroundMediaUrl?: string;
+  backgroundMediaType?: "image" | "video";
 }
 
 export const defaultPresentationSettings: PresentationSettings = {

@@ -109,8 +109,22 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
       className="relative w-full aspect-video bg-[#050505] overflow-hidden border border-white/5 rounded-lg shadow-2xl"
       style={{ backgroundColor: settings.backgroundColor }}
     >
-      {/* Grid background */}
-      <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
+      {/* Grid background (fallback) */}
+      {!settings.backgroundMediaUrl && (
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
+      )}
+      
+      {/* Uploaded Background Media */}
+      {settings.backgroundMediaUrl && (
+        <div className="absolute inset-0 overflow-hidden">
+          {settings.backgroundMediaType === "video" ? (
+            <video src={settings.backgroundMediaUrl} className="w-full h-full object-cover opacity-60" autoPlay loop muted playsInline />
+          ) : (
+             // eslint-disable-next-line @next/next/no-img-element
+            <img src={settings.backgroundMediaUrl} className="w-full h-full object-cover opacity-60" alt="Background" />
+          )}
+        </div>
+      )}
       
       {blocks.map(block => (
         <div

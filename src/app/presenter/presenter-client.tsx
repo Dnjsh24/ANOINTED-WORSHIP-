@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { generateSongSlides, defaultPresentationSettings, type PresentationSlide, type PresentationSettings, type SlideBlock } from "@/lib/domain/presentation";
 import KineticCanvas from "./kinetic-canvas";
 import TimelineEditor from "./timeline-editor";
+import { MediaUploader } from "@/components/media-uploader";
 
 export default function GlobalPresenterClient({ setlists }: { setlists: any[] }) {
   const [selectedSetlistId, setSelectedSetlistId] = useState<string>(setlists[0]?.id || "");
@@ -583,6 +584,15 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                            />
                          ))}
                        </div>
+                     </div>
+                     
+                     <div className="pt-2">
+                       <MediaUploader
+                         currentUrl={settings.backgroundMediaUrl}
+                         currentType={settings.backgroundMediaType}
+                         onUpload={(url, type) => setSettings({ ...settings, backgroundMediaUrl: url, backgroundMediaType: type })}
+                         onClear={() => setSettings({ ...settings, backgroundMediaUrl: undefined, backgroundMediaType: undefined })}
+                       />
                      </div>
 
                      <div className="flex items-center justify-between pt-2">

@@ -123,6 +123,17 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
       className="fixed inset-0 flex flex-col justify-center p-8 sm:p-16 overflow-hidden transition-colors duration-300" 
       style={{ backgroundColor: settings.backgroundColor }}
     >
+      {/* Uploaded Background Media */}
+      {settings.backgroundMediaUrl && (
+        <div className="absolute inset-0 overflow-hidden -z-10">
+          {settings.backgroundMediaType === "video" ? (
+            <video src={settings.backgroundMediaUrl} className="w-full h-full object-cover opacity-80" autoPlay loop muted playsInline />
+          ) : (
+             // eslint-disable-next-line @next/next/no-img-element
+            <img src={settings.backgroundMediaUrl} className="w-full h-full object-cover opacity-80" alt="Background" />
+          )}
+        </div>
+      )}
       {activeSlide.blocks && activeSlide.blocks.length > 0 ? (
         <div className="relative w-full h-full">
           {activeSlide.blocks.map(block => (
