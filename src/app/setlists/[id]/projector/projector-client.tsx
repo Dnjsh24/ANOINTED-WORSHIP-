@@ -121,7 +121,7 @@ export default function ProjectorClient({ setlistId }: { setlistId: string }) {
               settings.showShadow && "drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
             )}
             style={{ 
-              fontSize: \`\${settings.fontSize}pt\`,
+              fontSize: `${settings.fontSize}pt`,
               textWrap: 'balance' 
             }}
           >
