@@ -36,9 +36,9 @@ export function transposeChord(chord: string, fromKey: string, toKey: string) {
 
 export function transposeProgression(progression: string, fromKey: string, toKey: string) {
   return progression
-    .split(/(\s+|\/|-)/)
+    .split(/(\s+|\/|-|–|—|\|)/)
     .map((part) => {
-      if (!part.trim() || part === "/" || part === "-") return part;
+      if (!part.trim() || ["/", "-", "–", "—", "|"].includes(part)) return part;
       return transposeChord(part, fromKey, toKey);
     })
     .join("");
@@ -70,9 +70,9 @@ export function chordToNashville(chord: string, key: string): string {
 
 export function progressionToNashville(progression: string, key: string) {
   return progression
-    .split(/(\s+|\/|-)/)
+    .split(/(\s+|\/|-|–|—|\|)/)
     .map((part) => {
-      if (!part.trim() || part === "/" || part === "-") return part;
+      if (!part.trim() || ["/", "-", "–", "—", "|"].includes(part)) return part;
       return chordToNashville(part, key);
     })
     .join("");
@@ -135,7 +135,12 @@ export function parseLyricsAndChords(text: string): SongSection[] {
     const trimmed = line.trim();
     if (!trimmed) return false;
     const words = trimmed.split(/\s+/);
-    return words.every(word => word === "/" || chordWordRegex.test(word) || instructionRegex.test(word));
+    const separators = ["/", "-", "–", "—", "|", "||"];
+    return words.every(word => 
+      separators.includes(word) || 
+      chordWordRegex.test(word) || 
+      instructionRegex.test(word)
+    );
   }
 
   for (const line of lines) {

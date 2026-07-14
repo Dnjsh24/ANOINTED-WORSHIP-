@@ -12,6 +12,9 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
   const [isServerActive, setIsServerActive] = useState(false);
   const [activeSlide, setActiveSlide] = useState<PresentationSlide | null>(null);
   
+  // Settings sync
+  const [linesPerSlide, setLinesPerSlide] = useState<number>(setlist?.presentation_settings?.linesPerSlide || 4);
+  
   // State for the currently viewed song on the remote
   const [activeSongIndex, setActiveSongIndex] = useState(0);
   const activeSong = setlist.songs[activeSongIndex];
@@ -22,8 +25,8 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
   // Derived slides for the active song
   const songSlides = useMemo(() => {
     if (!activeSong) return [];
-    return generateSongSlides(activeSong.song.lyricsChords, 4);
-  }, [activeSong]);
+    return generateSongSlides(activeSong.song.lyricsChords, linesPerSlide);
+  }, [activeSong, linesPerSlide]);
 
   // Derived sections for the left and middle column
   const sections = useMemo(() => {
@@ -37,6 +40,11 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
       channel
         .on("broadcast", { event: "projector_sync" }, (payload: any) => {
           setActiveSlide(payload.payload.slide || null);
+        })
+        .on("broadcast", { event: "settings_sync" }, (payload: any) => {
+          if (payload.payload.linesPerSlide) {
+            setLinesPerSlide(payload.payload.linesPerSlide);
+          }
         })
         .subscribe((status) => {
           setIsConnected(status === 'SUBSCRIBED');

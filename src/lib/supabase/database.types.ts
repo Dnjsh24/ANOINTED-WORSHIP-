@@ -443,6 +443,7 @@ export interface Database {
           service_times: string[];
           leader_member_id: string | null;
           notes: string | null;
+          presentation_settings: Json | null;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -459,11 +460,14 @@ export interface Database {
           service_times?: string[];
           leader_member_id?: string | null;
           notes?: string | null;
+          presentation_settings?: Json | null;
           created_by: string;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
+          id?: string;
+          team_id?: string;
           event_id?: string | null;
           name?: string;
           setlist_date?: string;
@@ -473,6 +477,7 @@ export interface Database {
           service_times?: string[];
           leader_member_id?: string | null;
           notes?: string | null;
+          presentation_settings?: Json | null;
           updated_at?: string;
         };
         Relationships: [];

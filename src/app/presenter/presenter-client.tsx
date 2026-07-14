@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { X, Play, Music, LayoutTemplate, MonitorUp, EyeOff, Settings, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Smartphone, Type } from "lucide-react";
+import { Loader2, Save, X, Play, Music, LayoutTemplate, MonitorUp, EyeOff, Settings, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Smartphone, Type } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { generateSongSlides, defaultPresentationSettings, type PresentationSlide, type PresentationSettings, type SlideBlock } from "@/lib/domain/presentation";
@@ -12,18 +12,26 @@ import TimelineEditor from "./timeline-editor";
 export default function GlobalPresenterClient({ setlists }: { setlists: any[] }) {
   const [selectedSetlistId, setSelectedSetlistId] = useState<string>(setlists[0]?.id || "");
   const [activeItemIndex, setActiveItemIndex] = useState<number>(0);
-  const [linesPerSlide, setLinesPerSlide] = useState<number>(4);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"Property" | "Layers" | "Motion">("Property");
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const setlist = useMemo(() => setlists.find(s => s.id === selectedSetlistId) || setlists[0], [selectedSetlistId, setlists]);
   
   // Presentation Settings
-  const [settings, setSettings] = useState<PresentationSettings>(defaultPresentationSettings);
-  
-  // Store customized blocks for slides (Slide ID -> Array of Blocks)
-  const [slideOverrides, setSlideOverrides] = useState<Record<string, SlideBlock[]>>({});
+  const [settings, setSettings] = useState<PresentationSettings>(setlist?.presentationSettings?.settings || defaultPresentationSettings);
+  const [linesPerSlide, setLinesPerSlide] = useState<number>(setlist?.presentationSettings?.linesPerSlide || 4);
+  const [slideOverrides, setSlideOverrides] = useState<Record<string, SlideBlock[]>>(setlist?.presentationSettings?.slideOverrides || {});
 
-  const setlist = useMemo(() => setlists.find(s => s.id === selectedSetlistId) || setlists[0], [selectedSetlistId, setlists]);
+  // Update local state when setlist changes
+  useEffect(() => {
+    if (setlist?.presentationSettings) {
+      if (setlist.presentationSettings.settings) setSettings(setlist.presentationSettings.settings);
+      if (setlist.presentationSettings.linesPerSlide) setLinesPerSlide(setlist.presentationSettings.linesPerSlide);
+      if (setlist.presentationSettings.slideOverrides) setSlideOverrides(setlist.presentationSettings.slideOverrides);
+    }
+  }, [setlist]);
   
   const supabase = useMemo(() => createClient(), []);
   const channel = useMemo(() => supabase.channel(`setlist_${setlist?.id}`), [setlist?.id, supabase]);
@@ -48,6 +56,16 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     
     channel.send({
       type: "broadcast",
+      event: "settings_sync",
+      payload: { 
+        settings, 
+        linesPerSlide,
+        slide: activeSlidePayload
+      },
+    });
+    
+    channel.send({
+      type: "broadcast",
       event: "projector_sync",
       payload: { 
         settings, 
@@ -55,7 +73,22 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
       },
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings, channel, slideOverrides]); // Adding slideOverrides so block drags sync in real-time
+  }, [settings, linesPerSlide, channel, slideOverrides]); // Sync blocks and settings
+
+  const handleSaveSettings = async () => {
+    if (!setlist) return;
+    setIsSaving(true);
+    const payload = { settings, linesPerSlide, slideOverrides };
+    const { error } = await supabase
+      .from("setlists")
+      .update({ presentation_settings: payload as any })
+      .eq("id", setlist.id);
+    setIsSaving(false);
+    if (error) {
+      console.error("Failed to save settings:", error);
+      alert("Failed to save settings.");
+    }
+  };
 
   const pushToProjector = (slide: PresentationSlide | null) => {
     setActiveSlideId(slide?.id || null);
@@ -410,7 +443,10 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                   <div className="space-y-3">
                     <div className="flex justify-between items-center mb-2">
                        <p className="text-[10px] font-bold uppercase text-zinc-500">Global Song Properties</p>
-                       <button className="text-[10px] font-bold text-rose-500 hover:text-rose-400">Reset to Default</button>
+                       <button onClick={handleSaveSettings} disabled={isSaving} className="text-[10px] font-bold bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-white flex items-center gap-1 transition">
+                         {isSaving ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />}
+                         Save for Setlist
+                       </button>
                     </div>
                     <Link 
                       href={`/setlists/${setlist.id}/projector`}

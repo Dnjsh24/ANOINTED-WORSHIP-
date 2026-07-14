@@ -61,6 +61,7 @@ export default async function GlobalPresenterPage() {
           date: dbSetlist.setlist_date,
           type: dbSetlist.events?.type || "sunday_service",
           songs: songsList,
+          presentationSettings: dbSetlist.presentation_settings,
         };
       });
 
