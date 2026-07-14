@@ -1,9 +1,19 @@
 import { parseLyricsAndChords, type SongSection } from "./chords";
 
+export interface SlideBlock {
+  id: string;
+  text: string;
+  x: number; // 0-100 percentage based on canvas width
+  y: number; // 0-100 percentage based on canvas height
+  startTime: number; // in seconds relative to slide start
+  duration: number; // in seconds
+}
+
 export interface PresentationSlide {
   id: string;
   type: "lyrics" | "teaching" | "blank";
   content: string[]; // Array of lines to display
+  blocks?: SlideBlock[]; // Independent word/line blocks for kinetic typography
   sectionLabel?: string;
   notes?: string;
   mediaUrl?: string; // For teaching/image slides
@@ -19,8 +29,8 @@ export interface PresentationSettings {
   color: string;
   backgroundColor: string;
   showShadow: boolean;
-  entranceAnimation: "none" | "fade" | "slide-up" | "zoom-in";
-  exitAnimation: "none" | "fade" | "slide-down" | "zoom-out";
+  entranceAnimation: "None" | "Appear" | "Fade In" | "Slide In Up" | "Slide In Down" | "Slide In Left" | "Slide In Right" | "Mask In Up";
+  exitAnimation: "None" | "Disappear" | "Fade Out" | "Slide Out Up" | "Slide Out Down" | "Slide Out Left" | "Slide Out Right" | "Mask Out Up";
 }
 
 export const defaultPresentationSettings: PresentationSettings = {
@@ -33,8 +43,8 @@ export const defaultPresentationSettings: PresentationSettings = {
   color: "#ffffff",
   backgroundColor: "#000000",
   showShadow: true,
-  entranceAnimation: "none",
-  exitAnimation: "none",
+  entranceAnimation: "None",
+  exitAnimation: "None",
 };
 
 export interface PresentationBlock {

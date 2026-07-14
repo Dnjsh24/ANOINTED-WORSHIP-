@@ -57,9 +57,13 @@ export default function ProjectorClient({ setlistId }: { setlistId: string }) {
 
   const getEntranceClass = () => {
     switch (settings.entranceAnimation) {
-      case "fade": return "animate-in fade-in duration-500";
-      case "slide-up": return "animate-in slide-in-from-bottom-8 fade-in duration-500";
-      case "zoom-in": return "animate-in zoom-in-95 fade-in duration-500";
+      case "Fade In": return "animate-in fade-in duration-500";
+      case "Slide In Up": return "animate-in slide-in-from-bottom-16 fade-in duration-500";
+      case "Slide In Down": return "animate-in slide-in-from-top-16 fade-in duration-500";
+      case "Slide In Left": return "animate-in slide-in-from-right-16 fade-in duration-500";
+      case "Slide In Right": return "animate-in slide-in-from-left-16 fade-in duration-500";
+      case "Mask In Up": return "animate-in slide-in-from-bottom-4 zoom-in-95 fade-in duration-500";
+      case "Appear": return "animate-in fade-in duration-200";
       default: return "";
     }
   };
@@ -102,33 +106,67 @@ export default function ProjectorClient({ setlistId }: { setlistId: string }) {
       className="fixed inset-0 flex flex-col justify-center p-8 sm:p-16 overflow-hidden transition-colors duration-300" 
       style={{ backgroundColor: settings.backgroundColor }}
     >
-      <div 
-        key={activeSlide.id} 
-        className={cn("w-full flex flex-col space-y-4 sm:space-y-8", getAlignmentClass(), getEntranceClass())}
-        style={{
-          fontFamily: settings.fontFamily,
-          color: settings.color,
-          fontWeight: settings.bold ? "bold" : "normal",
-          fontStyle: settings.italic ? "italic" : "normal",
-          textDecoration: settings.underline ? "underline" : "none",
-        }}
-      >
-        {activeSlide.content.map((line, idx) => (
-          <p 
-            key={idx} 
-            className={cn(
-              "leading-tight",
-              settings.showShadow && "drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
-            )}
-            style={{ 
-              fontSize: `${settings.fontSize}pt`,
-              textWrap: 'balance' 
-            }}
-          >
-            {line}
-          </p>
-        ))}
-      </div>
+      {activeSlide.blocks && activeSlide.blocks.length > 0 ? (
+        <div className="relative w-full h-full">
+          {activeSlide.blocks.map(block => (
+            <div
+              key={block.id}
+              className={cn(
+                "absolute whitespace-nowrap animate-in fade-in fill-mode-both",
+                settings.entranceAnimation === "Slide In Up" && "slide-in-from-bottom-16",
+                settings.entranceAnimation === "Slide In Down" && "slide-in-from-top-16",
+                settings.entranceAnimation === "Slide In Left" && "slide-in-from-right-16",
+                settings.entranceAnimation === "Slide In Right" && "slide-in-from-left-16",
+                settings.entranceAnimation === "Mask In Up" && "slide-in-from-bottom-4 zoom-in-95"
+              )}
+              style={{
+                left: `${block.x}%`,
+                top: `${block.y}%`,
+                transform: "translate(-50%, -50%)",
+                animationDelay: `${block.startTime}s`,
+                animationDuration: "0.5s",
+                fontFamily: settings.fontFamily,
+                color: settings.color,
+                fontWeight: settings.bold ? "bold" : "normal",
+                fontStyle: settings.italic ? "italic" : "normal",
+                textDecoration: settings.underline ? "underline" : "none",
+                fontSize: `${settings.fontSize}pt`,
+                textShadow: settings.showShadow ? "0 4px 12px rgba(0,0,0,0.8)" : "none"
+              }}
+            >
+              {block.text}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div 
+          key={activeSlide.id} 
+          className={cn("w-full flex flex-col space-y-4 sm:space-y-8", getAlignmentClass(), getEntranceClass())}
+          style={{
+            fontFamily: settings.fontFamily,
+            color: settings.color,
+            fontWeight: settings.bold ? "bold" : "normal",
+            fontStyle: settings.italic ? "italic" : "normal",
+            textDecoration: settings.underline ? "underline" : "none",
+          }}
+        >
+          {activeSlide.content.map((line, idx) => (
+            <p 
+              key={idx} 
+              className={cn(
+                "leading-tight",
+                settings.showShadow && "drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
+              )}
+              style={{ 
+                fontSize: `${settings.fontSize}pt`,
+                textWrap: 'balance' 
+              }}
+            >
+              {line}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

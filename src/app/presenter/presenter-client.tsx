@@ -2,10 +2,12 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { X, Play, Music, LayoutTemplate, MonitorUp, EyeOff, Settings, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Smartphone } from "lucide-react";
+import { X, Play, Music, LayoutTemplate, MonitorUp, EyeOff, Settings, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Smartphone, Type } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { generateSongSlides, defaultPresentationSettings, type PresentationSlide, type PresentationSettings } from "@/lib/domain/presentation";
+import { generateSongSlides, defaultPresentationSettings, type PresentationSlide, type PresentationSettings, type SlideBlock } from "@/lib/domain/presentation";
+import KineticCanvas from "./kinetic-canvas";
+import TimelineEditor from "./timeline-editor";
 
 export default function GlobalPresenterClient({ setlists }: { setlists: any[] }) {
   const [selectedSetlistId, setSelectedSetlistId] = useState<string>(setlists[0]?.id || "");
@@ -17,6 +19,9 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   
   // Presentation Settings
   const [settings, setSettings] = useState<PresentationSettings>(defaultPresentationSettings);
+  
+  // Store customized blocks for slides (Slide ID -> Array of Blocks)
+  const [slideOverrides, setSlideOverrides] = useState<Record<string, SlideBlock[]>>({});
 
   const setlist = useMemo(() => setlists.find(s => s.id === selectedSetlistId) || setlists[0], [selectedSetlistId, setlists]);
   
@@ -34,19 +39,32 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   // Sync settings when they change, even if slide doesn't change
   useEffect(() => {
     if (!setlist) return;
+    
+    // Construct the active slide payload including any block overrides
+    const activeSlidePayload = activeSlideId ? { 
+      id: activeSlideId,
+      blocks: slideOverrides[activeSlideId]
+    } : null;
+    
     channel.send({
       type: "broadcast",
       event: "projector_sync",
       payload: { 
         settings, 
-        slide: activeSlideId ? { id: activeSlideId } : null // We might need full slide object here, but projector keeps active slide state hopefully. Wait, projector just replaces state. We need to pass the full active slide. Let's rely on pushToProjector for slide changes, and here just push settings. 
+        slide: activeSlidePayload
       },
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings, channel]);
+  }, [settings, channel, slideOverrides]); // Adding slideOverrides so block drags sync in real-time
 
   const pushToProjector = (slide: PresentationSlide | null) => {
     setActiveSlideId(slide?.id || null);
+    
+    if (slide) {
+       // Attach any existing block overrides to the payload
+       slide.blocks = slideOverrides[slide.id];
+    }
+    
     channel.send({
       type: "broadcast",
       event: "projector_sync",
@@ -60,6 +78,62 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     if (!activeItem) return [];
     return generateSongSlides(activeItem.song.lyricsChords, linesPerSlide);
   }, [activeItem, linesPerSlide]);
+
+  const activeSlide = useMemo(() => slides.find(s => s.id === activeSlideId), [slides, activeSlideId]);
+  const activeBlocks = activeSlideId ? slideOverrides[activeSlideId] || [] : [];
+
+  const handleUpdateBlock = (blockId: string, updates: Partial<SlideBlock>) => {
+    if (!activeSlideId) return;
+    setSlideOverrides(prev => {
+      const currentBlocks = prev[activeSlideId] || [];
+      return {
+        ...prev,
+        [activeSlideId]: currentBlocks.map(b => b.id === blockId ? { ...b, ...updates } : b)
+      };
+    });
+  };
+
+  const handleChopToWords = () => {
+    if (!activeSlide) return;
+    
+    // If we already have blocks, skip
+    if (activeBlocks.length > 0) return;
+    
+    // Split lyrics into words
+    const allWords = activeSlide.content.join(" ").split(/\s+/).filter(Boolean);
+    
+    const newBlocks: SlideBlock[] = allWords.map((word, idx) => {
+      // Scatter randomly or grid layout. Let's do a simple scattered layout
+      const x = 20 + Math.random() * 60; // 20% to 80%
+      const y = 20 + Math.random() * 60; // 20% to 80%
+      
+      // Sequential start times, 0.5s apart
+      const startTime = idx * 0.5;
+      
+      return {
+        id: `block-${idx}-${Date.now()}`,
+        text: word,
+        x,
+        y,
+        startTime,
+        duration: 2 // 2s duration default
+      };
+    });
+    
+    setSlideOverrides(prev => ({
+      ...prev,
+      [activeSlide.id]: newBlocks
+    }));
+  };
+
+  const handleResetBlocks = () => {
+    if (!activeSlideId) return;
+    setSlideOverrides(prev => {
+      const next = { ...prev };
+      delete next[activeSlideId];
+      return next;
+    });
+  };
 
   if (!setlist) {
     return <div className="p-8 text-white">No upcoming setlists found.</div>;
@@ -111,11 +185,26 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar: Line up */}
-        <div className="w-64 border-r border-white/10 bg-[#121212] flex flex-col shrink-0">
-          <div className="p-4 border-b border-white/5 flex items-center justify-between">
-            <h2 className="text-xs font-black uppercase tracking-widest text-zinc-500">Line Up</h2>
+        
+        {/* Far Left Nav (Icons) */}
+        <div className="w-14 border-r border-white/5 bg-[#0a0a0a] flex flex-col items-center py-4 gap-4 shrink-0 z-10">
+           <button className="p-2 rounded-lg bg-violet-600/20 text-violet-400"><LayoutTemplate className="size-5" /></button>
+           <button className="p-2 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-zinc-300"><Music className="size-5" /></button>
+           <button className="p-2 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-zinc-300"><Settings className="size-5" /></button>
+        </div>
+
+        {/* Keynotes Sidebar: Line up */}
+        <div className="w-64 border-r border-white/5 bg-[#121212] flex flex-col shrink-0">
+          <div className="px-4 pt-4 border-b border-white/5 flex gap-4 shrink-0">
+             <button className="text-xs font-bold pb-2 border-b-2 text-white border-white">Line up</button>
+             <button className="text-xs font-bold pb-2 border-b-2 text-zinc-600 border-transparent hover:text-zinc-400">Notes</button>
           </div>
+          
+          <div className="p-2 flex gap-2 border-b border-white/5 bg-[#0a0a0a]">
+             <button className="flex-1 flex items-center justify-center gap-2 py-1.5 bg-[#18181b] border border-white/10 rounded text-xs font-bold text-zinc-300"><Music className="size-3"/> Song</button>
+             <button className="flex-1 flex items-center justify-center gap-2 py-1.5 hover:bg-white/5 border border-transparent rounded text-xs font-bold text-zinc-500 hover:text-zinc-300"><LayoutTemplate className="size-3"/> Worship</button>
+          </div>
+
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {setlist.songs.map((item: any, idx: number) => (
               <button
@@ -128,7 +217,10 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                     : "hover:bg-white/5 text-zinc-400 border border-transparent"
                 )}
               >
-                <Music className="size-4 shrink-0" />
+                {/* Thumbnail placeholder */}
+                <div className="size-8 rounded bg-white/10 flex items-center justify-center shrink-0">
+                   <Music className="size-4" />
+                </div>
                 <div className="min-w-0">
                   <p className="font-bold text-sm truncate text-white">{item.song.title}</p>
                   <p className="text-xs font-semibold opacity-70 truncate">{item.song.originalKey}</p>
@@ -147,7 +239,9 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                       : "hover:bg-white/5 text-zinc-400 border border-transparent"
                   )}
                >
-                  <LayoutTemplate className="size-4 shrink-0" />
+                  <div className="size-8 rounded bg-white/10 flex items-center justify-center shrink-0">
+                     <LayoutTemplate className="size-4" />
+                  </div>
                   <div className="min-w-0">
                     <p className="font-bold text-sm truncate text-white">Media Viewer</p>
                     <p className="text-xs font-semibold opacity-70 truncate">PDF / Image</p>
@@ -157,7 +251,56 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
           </div>
         </div>
 
-        {/* Center: Slide Grid or Media Viewer */}
+        {/* Lyrics Reflow (Slides) */}
+        {activeItemIndex !== -1 && (
+           <div className="w-64 border-r border-white/5 bg-[#121212] flex flex-col shrink-0">
+              <div className="h-14 border-b border-white/5 flex flex-col justify-center px-4 shrink-0 bg-[#18181b]">
+                 <span className="text-xs font-bold text-white truncate">{activeItem?.song.title}</span>
+                 <span className="text-[10px] font-semibold text-zinc-500">Lyrics Reflow</span>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                 {slides.map((slide) => {
+                    const isActive = activeSlideId === slide.id;
+                    
+                    let borderColorClass = "border-white/10";
+                    const lbl = (slide.sectionLabel || "").toLowerCase();
+                    if (lbl.includes("chorus")) borderColorClass = "border-blue-500/40";
+                    else if (lbl.includes("verse")) borderColorClass = "border-emerald-500/40";
+                    else if (lbl.includes("bridge")) borderColorClass = "border-rose-500/40";
+                    
+                    return (
+                      <button
+                        key={slide.id}
+                        onClick={() => pushToProjector(slide)}
+                        className={cn(
+                          "w-full relative rounded-lg overflow-hidden flex flex-col text-left transition-all duration-200 group bg-zinc-900 border-2",
+                          isActive ? "border-amber-400 ring-2 ring-amber-400/20" : borderColorClass,
+                          !isActive && "hover:border-zinc-500"
+                        )}
+                      >
+                        {slide.sectionLabel && (
+                          <div className="bg-black/40 px-2 py-1 border-b border-white/5 flex items-center gap-2">
+                             <div className="size-4 rounded-full bg-blue-500 flex items-center justify-center text-[8px] text-white font-bold">{slide.sectionLabel.charAt(0)}</div>
+                            <span className="text-[10px] font-bold text-blue-400 truncate">
+                              {slide.sectionLabel}
+                            </span>
+                          </div>
+                        )}
+                        <div className="p-3">
+                          {slide.content.map((line, i) => (
+                            <p key={i} className="text-[11px] font-semibold text-zinc-300 leading-tight">
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })}
+              </div>
+           </div>
+        )}
+
+        {/* Center: Canvas & Timeline */}
         <div className="flex-1 flex flex-col bg-[#0f0f11] overflow-hidden">
           {activeItemIndex === -1 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
@@ -165,7 +308,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                  <LayoutTemplate className="size-16 text-emerald-500/50 mx-auto" />
                  <h2 className="text-2xl font-bold text-white">Media & Teaching</h2>
                  <p className="text-sm text-zinc-400">
-                   Paste a URL to an image or PDF to display it on the projector. For PowerPoint (PPT), please export your slides to PDF first.
+                   Paste a URL to an image or PDF to display it on the projector.
                  </p>
                  <div className="flex flex-col gap-3">
                    <input 
@@ -196,79 +339,31 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
             </div>
           ) : (
             <>
-              {/* Editor Header */}
-              <div className="h-14 border-b border-white/5 flex items-center justify-between px-6 shrink-0 bg-[#18181b]">
-                <div className="flex items-center gap-3">
-                  <h2 className="font-bold text-white">{activeItem?.song.title}</h2>
-                  <span className="text-xs font-semibold text-zinc-500 bg-black/50 px-2 py-1 rounded">
-                    {slides.length} Slides
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-bold text-zinc-500">Lines per Slide:</span>
-                  <div className="flex bg-black/50 rounded-lg p-1 border border-white/10">
-                    {[2, 4, 6].map(num => (
-                      <button
-                        key={num}
-                        onClick={() => setLinesPerSlide(num)}
-                        className={cn(
-                          "px-3 py-1 rounded text-xs font-bold transition",
-                          linesPerSlide === num ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
-                        )}
-                      >
-                        {num}
-                      </button>
-                    ))}
+               {/* Center Canvas Area */}
+               <div className="flex-1 flex items-center justify-center p-8 overflow-hidden relative">
+                  {activeSlideId ? (
+                     <KineticCanvas 
+                       blocks={activeBlocks} 
+                       settings={settings} 
+                       onUpdateBlock={handleUpdateBlock} 
+                     />
+                  ) : (
+                     <div className="text-zinc-600 font-bold">Select a slide to edit</div>
+                  )}
+                  
+                  {/* Floating properties quick toggle (optional) */}
+                  <div className="absolute top-4 left-4 flex gap-2">
+                     <button className="bg-black/50 border border-white/10 p-2 rounded hover:bg-white/10 transition"><MonitorUp className="size-4 text-zinc-400"/></button>
                   </div>
-                </div>
-              </div>
+               </div>
 
-              {/* Slides */}
-              <div className="flex-1 overflow-y-auto p-6">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {slides.map((slide) => {
-                    const isActive = activeSlideId === slide.id;
-                    
-                    let borderColorClass = "border-white/10";
-                    const lbl = (slide.sectionLabel || "").toLowerCase();
-                    if (lbl.includes("chorus")) borderColorClass = "border-blue-500/40";
-                    else if (lbl.includes("verse")) borderColorClass = "border-emerald-500/40";
-                    else if (lbl.includes("bridge")) borderColorClass = "border-rose-500/40";
-                    
-                    return (
-                      <button
-                        key={slide.id}
-                        onClick={() => pushToProjector(slide)}
-                        className={cn(
-                          "relative aspect-video rounded-lg overflow-hidden flex flex-col text-left transition-all duration-200 group bg-zinc-900 border-2",
-                          isActive ? "border-amber-400 ring-2 ring-amber-400/20 ring-offset-2 ring-offset-[#0f0f11]" : borderColorClass,
-                          !isActive && "hover:border-zinc-500"
-                        )}
-                      >
-                        {slide.sectionLabel && (
-                          <div className="absolute top-0 left-0 right-0 bg-black/40 px-2 py-1 border-b border-white/5">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                              {slide.sectionLabel}
-                            </span>
-                          </div>
-                        )}
-                        
-                        <div className="flex-1 flex flex-col items-center justify-center p-3 mt-6">
-                          {slide.content.map((line, i) => (
-                            <p key={i} className="text-[11px] font-semibold text-center text-zinc-300 leading-tight">
-                              {line}
-                            </p>
-                          ))}
-                        </div>
-
-                        {isActive && (
-                          <div className="absolute inset-0 border-[3px] border-amber-400 pointer-events-none rounded-lg" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+               {/* Bottom Timeline */}
+               <TimelineEditor 
+                 blocks={activeBlocks} 
+                 onUpdateBlock={handleUpdateBlock}
+                 onChopToWords={handleChopToWords}
+                 onReset={handleResetBlocks}
+               />
             </>
           )}
         </div>
@@ -296,7 +391,10 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                 <div className="p-4 space-y-6">
                   {/* Global Shortcut */}
                   <div className="space-y-3">
-                    <p className="text-[10px] font-bold uppercase text-zinc-500 mb-2">Global Appearance</p>
+                    <div className="flex justify-between items-center mb-2">
+                       <p className="text-[10px] font-bold uppercase text-zinc-500">Global Song Properties</p>
+                       <button className="text-[10px] font-bold text-rose-500 hover:text-rose-400">Reset to Default</button>
+                    </div>
                     <Link 
                       href={`/setlists/${setlist.id}/projector`}
                       target="_blank"
@@ -310,18 +408,20 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
 
                   {/* Character Properties */}
                   <div className="space-y-4">
-                     <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Character</p>
+                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Character</p>
                      
                      <div className="space-y-2">
                        <select 
-                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-sm text-white focus:outline-none focus:border-violet-500"
+                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
                          value={settings.fontFamily}
                          onChange={(e) => setSettings({...settings, fontFamily: e.target.value})}
                        >
-                         <option value="Inter">Inter (Sans)</option>
                          <option value="Arial">Arial</option>
-                         <option value="Times New Roman">Times New Roman (Serif)</option>
-                         <option value="Courier New">Courier New (Mono)</option>
+                         <option value="Arial Black">Arial Black</option>
+                         <option value="Bahnschrift">Bahnschrift</option>
+                         <option value="Inter">Inter (Sans)</option>
+                         <option value="Times New Roman">Times New Roman</option>
+                         <option value="Courier New">Courier New</option>
                          <option value="Georgia">Georgia</option>
                        </select>
                        
@@ -337,36 +437,40 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                          </div>
                        </div>
 
-                       <div className="flex rounded bg-[#1a1a1a] border border-white/10 overflow-hidden">
-                         <button onClick={() => setSettings({...settings, bold: !settings.bold})} className={cn("flex-1 py-1.5 flex items-center justify-center hover:bg-white/5 transition", settings.bold && "bg-white/10 text-white")}><Bold className="size-4" /></button>
-                         <button onClick={() => setSettings({...settings, italic: !settings.italic})} className={cn("flex-1 py-1.5 flex items-center justify-center border-l border-white/5 hover:bg-white/5 transition", settings.italic && "bg-white/10 text-white")}><Italic className="size-4" /></button>
-                         <button onClick={() => setSettings({...settings, underline: !settings.underline})} className={cn("flex-1 py-1.5 flex items-center justify-center border-l border-white/5 hover:bg-white/5 transition", settings.underline && "bg-white/10 text-white")}><Underline className="size-4" /></button>
+                       <div className="flex rounded bg-[#1a1a1a] border border-white/10 overflow-hidden mt-2">
+                         <button onClick={() => setSettings({...settings, bold: !settings.bold})} className={cn("flex-1 py-1.5 flex items-center justify-center hover:bg-white/5 transition border-r border-white/5", settings.bold && "bg-white/10 text-white")}><Bold className="size-4" /></button>
+                         <button onClick={() => setSettings({...settings, italic: !settings.italic})} className={cn("flex-1 py-1.5 flex items-center justify-center border-r border-white/5 hover:bg-white/5 transition", settings.italic && "bg-white/10 text-white")}><Italic className="size-4" /></button>
+                         <button onClick={() => setSettings({...settings, underline: !settings.underline})} className={cn("flex-1 py-1.5 flex items-center justify-center hover:bg-white/5 transition", settings.underline && "bg-white/10 text-white")}><Underline className="size-4" /></button>
                        </div>
                      </div>
                   </div>
 
+                  <hr className="border-white/5" />
+
                   {/* Paragraph Properties */}
                   <div className="space-y-4">
-                     <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Paragraph</p>
+                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Paragraph</p>
                      <div className="flex rounded bg-[#1a1a1a] border border-white/10 overflow-hidden">
-                         <button onClick={() => setSettings({...settings, align: 'left'})} className={cn("flex-1 py-1.5 flex items-center justify-center hover:bg-white/5 transition", settings.align === 'left' && "bg-white/10 text-white")}><AlignLeft className="size-4" /></button>
-                         <button onClick={() => setSettings({...settings, align: 'center'})} className={cn("flex-1 py-1.5 flex items-center justify-center border-l border-white/5 hover:bg-white/5 transition", settings.align === 'center' && "bg-white/10 text-white")}><AlignCenter className="size-4" /></button>
-                         <button onClick={() => setSettings({...settings, align: 'right'})} className={cn("flex-1 py-1.5 flex items-center justify-center border-l border-white/5 hover:bg-white/5 transition", settings.align === 'right' && "bg-white/10 text-white")}><AlignRight className="size-4" /></button>
+                         <button onClick={() => setSettings({...settings, align: 'left'})} className={cn("flex-1 py-1.5 flex items-center justify-center hover:bg-white/5 transition border-r border-white/5", settings.align === 'left' && "bg-white/10 text-white")}><AlignLeft className="size-4" /></button>
+                         <button onClick={() => setSettings({...settings, align: 'center'})} className={cn("flex-1 py-1.5 flex items-center justify-center border-r border-white/5 hover:bg-white/5 transition", settings.align === 'center' && "bg-white/10 text-white")}><AlignCenter className="size-4" /></button>
+                         <button onClick={() => setSettings({...settings, align: 'right'})} className={cn("flex-1 py-1.5 flex items-center justify-center hover:bg-white/5 transition", settings.align === 'right' && "bg-white/10 text-white")}><AlignRight className="size-4" /></button>
                      </div>
                   </div>
 
+                  <hr className="border-white/5" />
+
                   {/* Appearance Properties */}
                   <div className="space-y-4">
-                     <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Appearance</p>
+                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Appearance</p>
                      
                      <div className="flex items-center justify-between">
-                       <span className="text-xs font-semibold text-zinc-400">Text Color</span>
-                       <div className="flex gap-1">
-                         {["#ffffff", "#e5e7eb", "#fcd34d", "#6ee7b7", "#93c5fd", "#fca5a5"].map(color => (
+                       <span className="text-xs font-semibold text-zinc-400">Color</span>
+                       <div className="flex gap-1 bg-[#1a1a1a] p-1 rounded border border-white/5">
+                         {["#ffffff", "#e5e7eb", "#fcd34d", "#f87171", "#60a5fa", "#4ade80", "#fbbf24"].map(color => (
                            <button 
                              key={color} 
                              onClick={() => setSettings({...settings, color})}
-                             className={cn("size-4 rounded-full border border-white/20", settings.color === color && "ring-2 ring-white ring-offset-1 ring-offset-[#121212]")}
+                             className={cn("size-3 rounded-sm border border-white/20 transition-transform hover:scale-110", settings.color === color && "ring-1 ring-white")}
                              style={{ backgroundColor: color }}
                            />
                          ))}
@@ -375,12 +479,12 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                      
                      <div className="flex items-center justify-between">
                        <span className="text-xs font-semibold text-zinc-400">Background</span>
-                       <div className="flex gap-1">
+                       <div className="flex gap-1 bg-[#1a1a1a] p-1 rounded border border-white/5">
                          {["#000000", "#111827", "#312e81", "#14532d", "#7f1d1d"].map(color => (
                            <button 
                              key={color} 
                              onClick={() => setSettings({...settings, backgroundColor: color})}
-                             className={cn("size-4 rounded-full border border-white/20", settings.backgroundColor === color && "ring-2 ring-white ring-offset-1 ring-offset-[#121212]")}
+                             className={cn("size-3 rounded-sm border border-white/20 transition-transform hover:scale-110", settings.backgroundColor === color && "ring-1 ring-white")}
                              style={{ backgroundColor: color }}
                            />
                          ))}
@@ -391,9 +495,9 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        <span className="text-xs font-semibold text-zinc-400">Drop Shadow</span>
                        <button 
                          onClick={() => setSettings({...settings, showShadow: !settings.showShadow})}
-                         className={cn("w-8 h-4 rounded-full transition-colors flex items-center px-0.5", settings.showShadow ? "bg-emerald-500 justify-end" : "bg-zinc-700 justify-start")}
+                         className={cn("w-8 h-4 rounded-full transition-colors flex items-center px-0.5", settings.showShadow ? "bg-white justify-end" : "bg-zinc-700 justify-start")}
                        >
-                         <div className="size-3 bg-white rounded-full shadow-sm" />
+                         <div className={cn("size-3 rounded-full shadow-sm", settings.showShadow ? "bg-black" : "bg-white")} />
                        </button>
                      </div>
                   </div>
@@ -401,38 +505,66 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
               )}
 
               {activeTab === "Layers" && (
-                <div className="p-8 text-center text-sm font-semibold text-zinc-500">
-                  <p>Layer management coming soon.</p>
+                <div className="p-2 space-y-1">
+                   {activeBlocks.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-zinc-500">
+                         Click "Chop to Words" to see layers.
+                      </div>
+                   ) : (
+                      activeBlocks.map((block) => (
+                         <div key={block.id} className="flex items-center gap-3 p-3 rounded-lg border border-white/5 bg-[#1a1a1a] hover:bg-white/5 transition group">
+                            <Type className="size-4 text-zinc-500 group-hover:text-zinc-300" />
+                            <span className="text-sm font-bold text-zinc-300 truncate">{block.text}</span>
+                         </div>
+                      ))
+                   )}
                 </div>
               )}
 
               {activeTab === "Motion" && (
                 <div className="p-4 space-y-6">
-                  <div className="space-y-4">
-                     <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Entrance Animation</p>
+                  <div className="flex justify-between items-center mb-2">
+                     <p className="text-[10px] font-bold uppercase text-zinc-500">Global Song Animation</p>
+                     <button className="text-[10px] font-bold text-rose-500 hover:text-rose-400">Reset to Default</button>
+                  </div>
+
+                  <div className="space-y-3">
+                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Entrance Animation</p>
+                     <p className="text-xs text-zinc-500">Effect</p>
                      <select 
-                       className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                       className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
                        value={settings.entranceAnimation}
                        onChange={(e) => setSettings({...settings, entranceAnimation: e.target.value as any})}
                      >
-                       <option value="none">None</option>
-                       <option value="fade">Fade In</option>
-                       <option value="slide-up">Slide Up</option>
-                       <option value="zoom-in">Zoom In</option>
+                       <option value="None">None</option>
+                       <option value="Appear">Appear</option>
+                       <option value="Fade In">Fade In</option>
+                       <option value="Slide In Up">Slide In Up</option>
+                       <option value="Slide In Down">Slide In Down</option>
+                       <option value="Slide In Left">Slide In Left</option>
+                       <option value="Slide In Right">Slide In Right</option>
+                       <option value="Mask In Up">Mask In Up</option>
                      </select>
                   </div>
 
-                  <div className="space-y-4">
-                     <p className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Exit Animation</p>
+                  <hr className="border-white/5" />
+
+                  <div className="space-y-3">
+                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Exit Animation</p>
+                     <p className="text-xs text-zinc-500">Effect</p>
                      <select 
-                       className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                       className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2.5 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
                        value={settings.exitAnimation}
                        onChange={(e) => setSettings({...settings, exitAnimation: e.target.value as any})}
                      >
-                       <option value="none">None</option>
-                       <option value="fade">Fade Out</option>
-                       <option value="slide-down">Slide Down</option>
-                       <option value="zoom-out">Zoom Out</option>
+                       <option value="None">None</option>
+                       <option value="Disappear">Disappear</option>
+                       <option value="Fade Out">Fade Out</option>
+                       <option value="Slide Out Up">Slide Out Up</option>
+                       <option value="Slide Out Down">Slide Out Down</option>
+                       <option value="Slide Out Left">Slide Out Left</option>
+                       <option value="Slide Out Right">Slide Out Right</option>
+                       <option value="Mask Out Up">Mask Out Up</option>
                      </select>
                   </div>
                 </div>
