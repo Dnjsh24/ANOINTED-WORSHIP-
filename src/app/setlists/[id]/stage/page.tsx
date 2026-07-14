@@ -30,6 +30,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
           assigned_key,
           song_order,
           notes,
+          arrangement,
           song:songs (
             id,
             title,
@@ -60,6 +61,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
           assignedKey: ss.assigned_key,
           lead: leadVocal,
           youtubeUrl: ss.youtube_url || null,
+          arrangement: ss.arrangement || null,
           song: {
             id: ss.song?.id,
             title: ss.song?.title || "Unknown Song",

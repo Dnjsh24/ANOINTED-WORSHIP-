@@ -470,7 +470,14 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
                  </span>
                )}
             </h1>
-            <p className="text-xs md:text-sm text-zinc-500 font-semibold leading-none mt-1">{currentSong.bpm || 70} BPM</p>
+            <div className="text-xs md:text-sm text-zinc-500 font-semibold leading-none mt-1 flex flex-col gap-1">
+              <span>{currentSong.bpm || 70} BPM</span>
+              {currentSong.arrangement && (
+                <span className="text-violet-300 truncate max-w-[200px] md:max-w-md" title={currentSong.arrangement}>
+                  {currentSong.arrangement}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         

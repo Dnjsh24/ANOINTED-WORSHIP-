@@ -1390,6 +1390,48 @@ export async function reorderSetlistSongAction(formData: FormData): Promise<Acti
   revalidatePath(`/setlists/${setlistId}`);
   return { ok: true, message: "Song order updated." };
 }
+export async function updateSongSlotArrangementAction(formData: FormData): Promise<ActionState> {
+  const slotId = formString(formData, "slotId");
+  const setlistId = formString(formData, "setlistId");
+  const arrangement = formString(formData, "arrangement");
+
+  const context = await getMutationContext("setlists.manage");
+  if (!context.ok) {
+    return context.state;
+  }
+
+  const { data: slot } = await context.supabase
+    .from("setlist_songs")
+    .select("song:songs(title), setlist:setlists(team_id)")
+    .eq("id", slotId)
+    .maybeSingle() as any;
+
+  const { error } = await context.supabase
+    .from("setlist_songs")
+    .update({ arrangement })
+    .eq("id", slotId);
+
+  if (error) {
+    return { ok: false, message: "Arrangement could not be updated." };
+  }
+
+  if (slot?.setlist?.team_id === context.teamId) {
+    const song = Array.isArray(slot.song) ? slot.song[0] : slot.song;
+    await logSetlistChange(context, {
+      setlistId,
+      changeType: "updated",
+      summary: `Updated arrangement for ${song?.title ?? "a song"}.`,
+      snapshot: {
+        slotId,
+        songTitle: song?.title ?? null,
+        arrangement,
+      },
+    });
+  }
+
+  revalidatePath(`/setlists/${setlistId}`);
+  return { ok: true, message: "Arrangement updated." };
+}
 
 export async function updateAttendanceAction(formData: FormData): Promise<ActionState> {
   const parsed = attendanceSchema.safeParse({

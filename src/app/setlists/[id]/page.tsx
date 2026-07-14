@@ -12,6 +12,7 @@ import { Card, Panel } from "@/components/ui/card";
 import { getSetlistTypeLabel } from "@/lib/domain/event-types";
 import { can } from "@/lib/domain/rbac";
 import { DeleteSongButton } from "@/components/delete-song-button";
+import { EditArrangementButton } from "@/components/edit-arrangement-button";
 import {
   buildAssignmentConflicts,
   getMissingSetlistRoles,
@@ -65,6 +66,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           assigned_key,
           song_order,
           notes,
+          arrangement,
           song:songs (
             id,
             title,
@@ -92,6 +94,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           assignedKey: ss.assigned_key,
           lead: leadVocal,
           youtubeUrl: ss.youtube_url || null,
+          arrangement: ss.arrangement || null,
           song: {
             id: ss.song?.id,
             title: ss.song?.title || "Unknown Song",
@@ -421,6 +424,11 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
                             Lead Vocal ({item.lead})
                           </p>
                         )}
+                        {item.arrangement && (
+                          <p className="mt-1 text-xs font-semibold text-violet-300">
+                            Arrangement: {item.arrangement}
+                          </p>
+                        )}
                       </Link>
                       <div className="flex items-center gap-3">
                         <div className="flex gap-2">
@@ -428,11 +436,19 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
                           <Badge>{item.song.bpm} BPM</Badge>
                         </div>
                         {canManageSetlist && (
-                          <DeleteSongButton
-                            setlistId={setlist.id}
-                            slotId={item.id}
-                            songTitle={item.song.title}
-                          />
+                          <>
+                            <EditArrangementButton
+                              setlistId={setlist.id}
+                              slotId={item.id}
+                              songTitle={item.song.title}
+                              currentArrangement={item.arrangement}
+                            />
+                            <DeleteSongButton
+                              setlistId={setlist.id}
+                              slotId={item.id}
+                              songTitle={item.song.title}
+                            />
+                          </>
                         )}
                       </div>
                     </Card>

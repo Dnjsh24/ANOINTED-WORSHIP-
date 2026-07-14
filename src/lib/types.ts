@@ -92,6 +92,7 @@ export interface SetlistSong {
   assignedKey: string;
   lead?: string;
   band?: string[];
+  arrangement?: string | null;
 }
 
 export interface Setlist {
