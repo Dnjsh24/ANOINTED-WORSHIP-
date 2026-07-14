@@ -134,24 +134,35 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     if (activeBlocks.length > 0) return;
     
     // Split lyrics into words
-    const allWords = activeSlide.content.join(" ").split(/\s+/).filter(Boolean);
+    const newBlocks: SlideBlock[] = [];
+    let wordCounter = 0;
     
-    const newBlocks: SlideBlock[] = allWords.map((word, idx) => {
-      // Scatter randomly or grid layout. Let's do a simple scattered layout
-      const x = 20 + Math.random() * 60; // 20% to 80%
-      const y = 20 + Math.random() * 60; // 20% to 80%
+    const totalLines = activeSlide.content.length;
+    const startY = 50 - ((totalLines - 1) * 7.5); // Center vertically, 15% gap per line
+    
+    activeSlide.content.forEach((line, lineIdx) => {
+      const words = line.split(/\s+/).filter(Boolean);
+      const numWords = words.length;
       
-      // Sequential start times, 0.5s apart
-      const startTime = idx * 0.5;
+      // Center horizontally, assuming ~12% width per word
+      const startX = 50 - ((numWords - 1) * 6);
       
-      return {
-        id: `block-${idx}-${Date.now()}`,
-        text: word,
-        x,
-        y,
-        startTime,
-        duration: 2 // 2s duration default
-      };
+      words.forEach((word, wordIdxInLine) => {
+        const x = startX + (wordIdxInLine * 12);
+        const y = startY + (lineIdx * 15);
+        const startTime = wordCounter * 0.5; // Sequential start times, 0.5s apart
+        
+        newBlocks.push({
+          id: `block-${wordCounter}-${Date.now()}`,
+          text: word,
+          x,
+          y,
+          startTime,
+          duration: 2 // 2s duration default
+        });
+        
+        wordCounter++;
+      });
     });
     
     setSlideOverrides(prev => ({
