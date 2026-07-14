@@ -27,8 +27,11 @@ export default function TimelineEditor({
   const TOTAL_DURATION_SEC = totalDuration;
   const timelineRef = useRef<HTMLDivElement>(null);
   const [draggingBlock, setDraggingBlock] = useState<string | null>(null);
+  const [resizingBlock, setResizingBlock] = useState<string | null>(null);
+  const [resizeEdge, setResizeEdge] = useState<'left' | 'right' | null>(null);
   const [startMouseX, setStartMouseX] = useState(0);
   const [startBlockTime, setStartBlockTime] = useState(0);
+  const [startBlockDuration, setStartBlockDuration] = useState(0);
   const [playProgress, setPlayProgress] = useState(0);
 
   useEffect(() => {
@@ -55,27 +58,42 @@ export default function TimelineEditor({
 
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
-      if (!draggingBlock || !timelineRef.current) return;
+      if ((!draggingBlock && !resizingBlock) || !timelineRef.current) return;
       
       const rect = timelineRef.current.getBoundingClientRect();
       const dx = e.clientX - startMouseX;
-      
       const dxPercent = dx / rect.width;
       const dxTime = dxPercent * TOTAL_DURATION_SEC;
       
-      let newTime = startBlockTime + dxTime;
-      newTime = Math.max(0, Math.min(TOTAL_DURATION_SEC, newTime));
-      
-      onUpdateBlock(draggingBlock, { startTime: newTime });
-    };
-
-    const handlePointerUp = () => {
       if (draggingBlock) {
-        setDraggingBlock(null);
+        let newTime = startBlockTime + dxTime;
+        newTime = Math.max(0, Math.min(TOTAL_DURATION_SEC - startBlockDuration, newTime));
+        onUpdateBlock(draggingBlock, { startTime: newTime });
+      } else if (resizingBlock && resizeEdge) {
+        if (resizeEdge === 'right') {
+          let newDuration = startBlockDuration + dxTime;
+          newDuration = Math.max(0.1, Math.min(TOTAL_DURATION_SEC - startBlockTime, newDuration));
+          onUpdateBlock(resizingBlock, { duration: newDuration });
+        } else if (resizeEdge === 'left') {
+          let newTime = startBlockTime + dxTime;
+          let newDuration = startBlockDuration - dxTime;
+          
+          if (newDuration >= 0.1 && newTime >= 0) {
+            onUpdateBlock(resizingBlock, { startTime: newTime, duration: newDuration });
+          }
+        }
       }
     };
 
-    if (draggingBlock) {
+    const handlePointerUp = () => {
+      if (draggingBlock) setDraggingBlock(null);
+      if (resizingBlock) {
+        setResizingBlock(null);
+        setResizeEdge(null);
+      }
+    };
+
+    if (draggingBlock || resizingBlock) {
       window.addEventListener("pointermove", handlePointerMove);
       window.addEventListener("pointerup", handlePointerUp);
     }
@@ -84,13 +102,25 @@ export default function TimelineEditor({
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [draggingBlock, startMouseX, startBlockTime, onUpdateBlock]);
+  }, [draggingBlock, resizingBlock, resizeEdge, startMouseX, startBlockTime, startBlockDuration, onUpdateBlock, TOTAL_DURATION_SEC]);
 
   const handlePointerDown = (e: React.PointerEvent, block: SlideBlock) => {
     e.preventDefault();
+    e.stopPropagation();
     setDraggingBlock(block.id);
     setStartMouseX(e.clientX);
     setStartBlockTime(block.startTime);
+    setStartBlockDuration(block.duration);
+  };
+
+  const handleResizeStart = (e: React.PointerEvent, block: SlideBlock, edge: 'left' | 'right') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizingBlock(block.id);
+    setResizeEdge(edge);
+    setStartMouseX(e.clientX);
+    setStartBlockTime(block.startTime);
+    setStartBlockDuration(block.duration);
   };
 
   return (
@@ -191,16 +221,35 @@ export default function TimelineEditor({
                 <div key={block.id} className="h-8 relative border-b border-white/5 group">
                   <div
                     className={cn(
-                      "absolute top-1 bottom-1 rounded border border-white/20 cursor-ew-resize flex items-center px-2 truncate transition-colors",
-                      draggingBlock === block.id ? "bg-amber-500/20 border-amber-500 z-10" : "bg-white/10 hover:bg-white/20"
+                      "absolute top-1 bottom-1 rounded border border-white/20 flex items-center transition-colors group-hover:border-white/40",
+                      draggingBlock === block.id || resizingBlock === block.id ? "bg-amber-500/20 border-amber-500 z-10" : "bg-white/10 hover:bg-white/20",
+                      selectedBlockId === block.id && "ring-1 ring-blue-500 bg-blue-500/20"
                     )}
                     style={{
                       left: `${leftPercent}%`,
                       width: `${widthPercent}%`
                     }}
-                    onPointerDown={(e) => handlePointerDown(e, block)}
                   >
-                    <span className="text-[10px] text-white font-semibold truncate">{block.text}</span>
+                    {/* Left Handle (Adjusts Start Time & Duration) */}
+                    <div 
+                      className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/50 rounded-l"
+                      onPointerDown={(e) => handleResizeStart(e, block, 'left')}
+                    />
+
+                    {/* Middle (Moves Block) */}
+                    <div 
+                      className="flex-1 h-full flex items-center px-2 truncate cursor-move"
+                      onPointerDown={(e) => handlePointerDown(e, block)}
+                      onClick={() => onSelectBlock?.(block.id)}
+                    >
+                      <span className="text-[10px] text-white font-semibold truncate pointer-events-none">{block.text}</span>
+                    </div>
+
+                    {/* Right Handle (Adjusts Duration only) */}
+                    <div 
+                      className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/50 rounded-r"
+                      onPointerDown={(e) => handleResizeStart(e, block, 'right')}
+                    />
                   </div>
                 </div>
               );
