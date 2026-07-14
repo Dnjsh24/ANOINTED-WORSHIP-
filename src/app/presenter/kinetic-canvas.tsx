@@ -9,9 +9,11 @@ interface KineticCanvasProps {
   settings: PresentationSettings;
   slide: PresentationSlide;
   onUpdateBlock: (blockId: string, updates: Partial<SlideBlock>) => void;
+  isPlaying?: boolean;
+  onPlayComplete?: () => void;
 }
 
-export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock }: KineticCanvasProps) {
+export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, isPlaying, onPlayComplete }: KineticCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [draggingBlock, setDraggingBlock] = useState<string | null>(null);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
@@ -58,6 +60,15 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock }
     setStartBlockPos({ x: block.x, y: block.y });
   };
 
+  useEffect(() => {
+    if (isPlaying && onPlayComplete) {
+      const timer = setTimeout(() => {
+        onPlayComplete();
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [isPlaying, onPlayComplete]);
+
   return (
     <div 
       ref={containerRef}
@@ -69,10 +80,17 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock }
       
       {blocks.map(block => (
         <div
-          key={block.id}
+          key={`${block.id}-${isPlaying ? 'play' : 'edit'}`}
           className={cn(
             "absolute cursor-move select-none p-2 border border-transparent hover:border-white/20 rounded whitespace-nowrap",
-            draggingBlock === block.id && "border-amber-400 z-10 bg-white/5"
+            draggingBlock === block.id && "border-amber-400 z-10 bg-white/5",
+            isPlaying && "fill-mode-both",
+            isPlaying && settings.entranceAnimation === "Fade In" && "animate-fade-in",
+            isPlaying && settings.entranceAnimation === "Slide In Up" && "animate-fade-up",
+            isPlaying && settings.entranceAnimation === "Slide In Down" && "animate-fade-down",
+            isPlaying && settings.entranceAnimation === "Slide In Left" && "animate-slide-right",
+            isPlaying && settings.entranceAnimation === "Slide In Right" && "animate-slide-left",
+            isPlaying && settings.entranceAnimation === "Mask In Up" && "animate-fade-up"
           )}
           style={{
             left: `${block.x}%`,
@@ -84,7 +102,9 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock }
             fontWeight: settings.bold ? "bold" : "normal",
             fontStyle: settings.italic ? "italic" : "normal",
             textDecoration: settings.underline ? "underline" : "none",
-            textShadow: settings.showShadow ? "0 2px 4px rgba(0,0,0,0.5)" : "none"
+            textShadow: settings.showShadow ? "0 2px 4px rgba(0,0,0,0.5)" : "none",
+            animationDelay: isPlaying ? `${block.startTime}s` : undefined,
+            animationDuration: isPlaying ? "0.5s" : undefined
           }}
           onPointerDown={(e) => handlePointerDown(e, block)}
         >

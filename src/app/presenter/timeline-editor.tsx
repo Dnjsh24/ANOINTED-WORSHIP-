@@ -3,16 +3,17 @@
 import { useState, useRef, useEffect } from "react";
 import type { SlideBlock } from "@/lib/domain/presentation";
 import { cn } from "@/lib/utils";
-import { Scissors, Merge, RotateCcw } from "lucide-react";
+import { Scissors, Merge, RotateCcw, Play } from "lucide-react";
 
 interface TimelineEditorProps {
   blocks: SlideBlock[];
   onUpdateBlock: (blockId: string, updates: Partial<SlideBlock>) => void;
   onChopToWords: () => void;
   onReset: () => void;
+  onPlay: () => void;
 }
 
-export default function TimelineEditor({ blocks, onUpdateBlock, onChopToWords, onReset }: TimelineEditorProps) {
+export default function TimelineEditor({ blocks, onUpdateBlock, onChopToWords, onReset, onPlay }: TimelineEditorProps) {
   const TOTAL_DURATION_SEC = 10; // Fixed 10s timeline for simplicity
   const timelineRef = useRef<HTMLDivElement>(null);
   const [draggingBlock, setDraggingBlock] = useState<string | null>(null);
@@ -67,6 +68,12 @@ export default function TimelineEditor({ blocks, onUpdateBlock, onChopToWords, o
           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Timeline</span>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={onPlay}
+            className="flex items-center gap-1.5 px-3 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-[10px] font-bold text-amber-500 transition border border-amber-500/20"
+          >
+            <Play className="size-3 fill-current" /> Play
+          </button>
           <button 
             onClick={onChopToWords}
             className="flex items-center gap-1.5 px-3 py-1 rounded bg-white/5 hover:bg-white/10 text-[10px] font-bold text-zinc-300 transition"

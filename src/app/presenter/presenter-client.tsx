@@ -16,6 +16,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const [mediaUrl, setMediaUrl] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"Property" | "Layers" | "Motion">("Property");
   const [isSaving, setIsSaving] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   
   const setlist = useMemo(() => setlists.find(s => s.id === selectedSetlistId) || setlists[0], [selectedSetlistId, setlists]);
   
@@ -310,37 +311,62 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                  {slides.map((slide) => {
                     const isActive = activeSlideId === slide.id;
+                    const label = slide.sectionLabel || "Lyrics";
+                    const initial = label.charAt(0).toUpperCase();
+
+                    let colorClass = "text-[#3b82f6]"; 
+                    let bgClass = "bg-[#3b82f6]";
+                    let borderClass = "border-[#10b981]"; 
                     
-                    let borderColorClass = "border-white/10";
-                    const lbl = (slide.sectionLabel || "").toLowerCase();
-                    if (lbl.includes("chorus")) borderColorClass = "border-blue-500/40";
-                    else if (lbl.includes("verse")) borderColorClass = "border-emerald-500/40";
-                    else if (lbl.includes("bridge")) borderColorClass = "border-rose-500/40";
+                    const lowerLabel = label.toLowerCase();
+                    if (lowerLabel.includes("verse")) {
+                      borderClass = "border-[#10b981]";
+                      colorClass = "text-[#10b981]";
+                      bgClass = "bg-[#10b981]";
+                    } else if (lowerLabel.includes("chorus")) {
+                      borderClass = "border-[#3b82f6]";
+                      colorClass = "text-[#3b82f6]";
+                      bgClass = "bg-[#3b82f6]";
+                    } else if (lowerLabel.includes("intro") || lowerLabel.includes("instrumental") || lowerLabel.includes("intrumental")) {
+                      borderClass = "border-[#8b5cf6]";
+                      colorClass = "text-[#8b5cf6]";
+                      bgClass = "bg-[#8b5cf6]";
+                    } else if (lowerLabel.includes("bridge")) {
+                      borderClass = "border-[#eab308]";
+                      colorClass = "text-[#eab308]";
+                      bgClass = "bg-[#eab308]";
+                    }
                     
                     return (
-                      <button
+                      <button 
                         key={slide.id}
-                        onClick={() => pushToProjector(slide)}
+                        onClick={() => setActiveSlideId(slide.id)}
                         className={cn(
-                          "w-full relative rounded-lg overflow-hidden flex flex-col text-left transition-all duration-200 group bg-zinc-900 border-2",
-                          isActive ? "border-amber-400 ring-2 ring-amber-400/20" : borderColorClass,
-                          !isActive && "hover:border-zinc-500"
+                          "w-full flex flex-col rounded-lg overflow-hidden transition text-left border bg-[#18181b]",
+                          isActive 
+                            ? "ring-2 ring-white/30" 
+                            : "hover:brightness-110",
+                          borderClass
                         )}
                       >
-                        {slide.sectionLabel && (
-                          <div className="bg-black/40 px-2 py-1 border-b border-white/5 flex items-center gap-2">
-                             <div className="size-4 rounded-full bg-blue-500 flex items-center justify-center text-[8px] text-white font-bold">{slide.sectionLabel.charAt(0)}</div>
-                            <span className="text-[10px] font-bold text-blue-400 truncate">
-                              {slide.sectionLabel}
-                            </span>
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 w-full border-b border-white/5">
+                          <div className={cn("size-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white", bgClass)}>
+                            {initial}
                           </div>
-                        )}
-                        <div className="p-3">
-                          {slide.content.map((line, i) => (
-                            <p key={i} className="text-[11px] font-semibold text-zinc-300 leading-tight">
-                              {line}
-                            </p>
-                          ))}
+                          <span className={cn("text-xs font-bold tracking-wide", colorClass)}>
+                            {label}
+                          </span>
+                        </div>
+                        
+                        <div className="p-3 w-full">
+                           {slide.content.map((line, lIdx) => (
+                             <span key={lIdx} className={cn(
+                               "text-sm font-bold block w-full leading-snug",
+                               isActive ? "text-white" : "text-zinc-200"
+                             )}>
+                               {line || "(Instrumental)"}
+                             </span>
+                           ))}
                         </div>
                       </button>
                     );
@@ -396,6 +422,8 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        settings={settings} 
                        onUpdateBlock={handleUpdateBlock}
                        slide={activeSlide}
+                       isPlaying={isPlaying}
+                       onPlayComplete={() => setIsPlaying(false)}
                      />
                   ) : (
                      <div className="text-zinc-600 font-bold">Select a slide to edit</div>
@@ -413,6 +441,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                  onUpdateBlock={handleUpdateBlock}
                  onChopToWords={handleChopToWords}
                  onReset={handleResetBlocks}
+                 onPlay={() => setIsPlaying(true)}
                />
             </>
           )}
