@@ -15,6 +15,7 @@ import {
   Sparkles,
   User,
   Users,
+  MonitorPlay,
 } from "lucide-react";
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
@@ -279,6 +280,7 @@ export default async function DashboardPage() {
     { href: "/setlists", label: "Setlists", sub: "View and manage", icon: Music },
     { href: "/events", label: "Timeline", sub: "Team schedule", icon: CalendarDays },
     { href: "/messages", label: "Messages", sub: "Team communication", icon: MessageSquare },
+    { href: "/presenter", label: "Presenter", sub: "Launch presentation", icon: MonitorPlay },
     ...(teamContext.canManageMembers ? [{ href: "/members", label: "Members", sub: "Roster & availability", icon: Users }] : []),
     { href: "/songs", label: "Songs", sub: "Team song library", icon: Music },
     { href: "/dance", label: "Dance", sub: "Choreography & steps", icon: Footprints },

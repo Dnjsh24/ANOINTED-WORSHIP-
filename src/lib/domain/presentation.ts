@@ -6,7 +6,36 @@ export interface PresentationSlide {
   content: string[]; // Array of lines to display
   sectionLabel?: string;
   notes?: string;
+  mediaUrl?: string; // For teaching/image slides
 }
+
+export interface PresentationSettings {
+  fontFamily: string;
+  fontSize: number;
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  align: "left" | "center" | "right";
+  color: string;
+  backgroundColor: string;
+  showShadow: boolean;
+  entranceAnimation: "none" | "fade" | "slide-up" | "zoom-in";
+  exitAnimation: "none" | "fade" | "slide-down" | "zoom-out";
+}
+
+export const defaultPresentationSettings: PresentationSettings = {
+  fontFamily: "Inter",
+  fontSize: 100,
+  bold: true,
+  italic: false,
+  underline: false,
+  align: "center",
+  color: "#ffffff",
+  backgroundColor: "#000000",
+  showShadow: true,
+  entranceAnimation: "none",
+  exitAnimation: "none",
+};
 
 export interface PresentationBlock {
   id: string;

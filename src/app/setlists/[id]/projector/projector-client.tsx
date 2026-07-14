@@ -3,15 +3,15 @@
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import type { PresentationSlide } from "@/lib/domain/presentation";
+import { defaultPresentationSettings, type PresentationSlide, type PresentationSettings } from "@/lib/domain/presentation";
 
 export default function ProjectorClient({ setlistId }: { setlistId: string }) {
   const [activeSlide, setActiveSlide] = useState<PresentationSlide | null>(null);
+  const [settings, setSettings] = useState<PresentationSettings>(defaultPresentationSettings);
   const [isConnected, setIsConnected] = useState(false);
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    // Hide cursor after a few seconds of inactivity to keep screen clean
     let timeout: NodeJS.Timeout;
     const hideCursor = () => {
       document.body.style.cursor = 'none';
@@ -37,10 +37,13 @@ export default function ProjectorClient({ setlistId }: { setlistId: string }) {
 
     channel
       .on("broadcast", { event: "projector_sync" }, (payload: any) => {
-        if (payload.payload && payload.payload.slide) {
-          setActiveSlide(payload.payload.slide as PresentationSlide);
-        } else {
-          setActiveSlide(null); // Clear slide if empty
+        if (payload.payload) {
+          if (payload.payload.settings) {
+            setSettings(payload.payload.settings);
+          }
+          if (payload.payload.slide !== undefined) {
+            setActiveSlide(payload.payload.slide as PresentationSlide | null);
+          }
         }
       })
       .subscribe((status) => {
@@ -52,41 +55,75 @@ export default function ProjectorClient({ setlistId }: { setlistId: string }) {
     };
   }, [setlistId, supabase]);
 
+  const getEntranceClass = () => {
+    switch (settings.entranceAnimation) {
+      case "fade": return "animate-in fade-in duration-500";
+      case "slide-up": return "animate-in slide-in-from-bottom-8 fade-in duration-500";
+      case "zoom-in": return "animate-in zoom-in-95 fade-in duration-500";
+      default: return "";
+    }
+  };
+
+  const getAlignmentClass = () => {
+    switch (settings.align) {
+      case "left": return "items-start text-left";
+      case "right": return "items-end text-right";
+      default: return "items-center text-center";
+    }
+  };
+
   if (!activeSlide) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center">
+      <div className="fixed inset-0 flex items-center justify-center transition-colors duration-300" style={{ backgroundColor: settings.backgroundColor }}>
         {!isConnected && (
-          <p className="text-zinc-800 font-mono text-sm">Waiting for connection...</p>
+          <p className="font-mono text-sm" style={{ color: settings.color }}>Waiting for connection...</p>
         )}
       </div>
     );
   }
 
-  // Handle PDF/Image slides if they are passed as 'media' (future proofing)
+  // Handle PDF/Image slides if they are passed as 'media'
   if ((activeSlide as any).mediaUrl) {
     return (
-       <div className="fixed inset-0 bg-black flex items-center justify-center overflow-hidden">
+       <div className="fixed inset-0 flex items-center justify-center overflow-hidden transition-colors duration-300" style={{ backgroundColor: settings.backgroundColor }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img 
              src={(activeSlide as any).mediaUrl} 
              alt="Slide Media" 
-             className="w-full h-full object-contain"
+             className={cn("w-full h-full object-contain", getEntranceClass())}
+             key={activeSlide.id}
           />
        </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-black text-white flex flex-col items-center justify-center p-8 sm:p-16 overflow-hidden">
-      <div className="max-w-[90vw] w-full flex flex-col items-center justify-center text-center space-y-4 sm:space-y-8 animate-in fade-in duration-500">
+    <div 
+      className="fixed inset-0 flex flex-col justify-center p-8 sm:p-16 overflow-hidden transition-colors duration-300" 
+      style={{ backgroundColor: settings.backgroundColor }}
+    >
+      <div 
+        key={activeSlide.id} 
+        className={cn("w-full flex flex-col space-y-4 sm:space-y-8", getAlignmentClass(), getEntranceClass())}
+        style={{
+          fontFamily: settings.fontFamily,
+          color: settings.color,
+          fontWeight: settings.bold ? "bold" : "normal",
+          fontStyle: settings.italic ? "italic" : "normal",
+          textDecoration: settings.underline ? "underline" : "none",
+        }}
+      >
         {activeSlide.content.map((line, idx) => (
           <p 
             key={idx} 
             className={cn(
-              "font-bold leading-tight drop-shadow-lg",
-              activeSlide.type === "teaching" ? "text-4xl sm:text-6xl lg:text-7xl" : "text-5xl sm:text-7xl lg:text-8xl"
+              "leading-tight",
+              settings.showShadow && "drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
             )}
-            style={{ textWrap: 'balance' }}
+            style={{ 
+              fontSize: \`\${settings.fontSize}pt\`,
+              textWrap: 'balance' 
+            }}
           >
             {line}
           </p>
