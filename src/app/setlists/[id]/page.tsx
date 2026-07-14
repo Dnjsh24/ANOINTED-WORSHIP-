@@ -352,12 +352,18 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           </p>
           <p className="mt-2 text-sm font-semibold text-violet-300">{setlistTypeLabel}</p>
         </div>
-        <div className="flex gap-3">
-          <ButtonLink href={`/setlists/${setlist.id}/stage`} className="bg-violet-600 hover:bg-violet-500 text-white border-transparent">
-            Stage Mode
+        <div className="flex flex-wrap gap-3">
+          <ButtonLink href={`/setlists/${setlist.id}/presenter`} className="bg-amber-600 hover:bg-amber-500 text-white border-transparent">
+            Presenter
           </ButtonLink>
-          <ButtonLink href={`/setlists/${setlist.id}/edit`} variant="secondary">
-            Edit Details
+          <ButtonLink href={`/setlists/${setlist.id}/remote`} className="bg-emerald-600 hover:bg-emerald-500 text-white border-transparent hidden sm:flex">
+            Remote
+          </ButtonLink>
+          <ButtonLink href={`/setlists/${setlist.id}/stage`} className="bg-violet-600 hover:bg-violet-500 text-white border-transparent">
+            Stage
+          </ButtonLink>
+          <ButtonLink href={`/setlists/${setlist.id}/edit`} variant="secondary" className="hidden sm:flex">
+            Edit
           </ButtonLink>
           <ShareButton path={`/setlists/${setlist.id}`} />
         </div>
