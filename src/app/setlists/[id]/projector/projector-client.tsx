@@ -5,9 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { defaultPresentationSettings, type PresentationSlide, type PresentationSettings } from "@/lib/domain/presentation";
 
-export default function ProjectorClient({ setlistId }: { setlistId: string }) {
+export default function ProjectorClient({ setlistId, initialSettings }: { setlistId: string, initialSettings?: PresentationSettings }) {
   const [activeSlide, setActiveSlide] = useState<PresentationSlide | null>(null);
-  const [settings, setSettings] = useState<PresentationSettings>(defaultPresentationSettings);
+  const [settings, setSettings] = useState<PresentationSettings>(initialSettings || defaultPresentationSettings);
   const [isConnected, setIsConnected] = useState(false);
   const supabase = useMemo(() => createClient(), []);
 

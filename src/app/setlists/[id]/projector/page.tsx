@@ -19,13 +19,13 @@ export default async function ProjectorPage({ params }: { params: Promise<{ id: 
 
     const { data: dbSetlist } = (await supabase
       .from("setlists")
-      .select(`id, name`)
+      .select(`id, name, presentation_settings`)
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
       .maybeSingle()) as any;
 
     if (dbSetlist) {
-      return <ProjectorClient setlistId={id} />;
+      return <ProjectorClient setlistId={id} initialSettings={dbSetlist.presentation_settings?.settings} />;
     }
   }
 

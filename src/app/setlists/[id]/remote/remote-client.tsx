@@ -65,6 +65,13 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
 
   const sendSlide = (slide: PresentationSlide) => {
     if (!isServerActive) return;
+    
+    // Attach custom blocks if they exist for this slide
+    const slideOverrides = setlist?.presentationSettings?.slideOverrides || {};
+    if (slideOverrides[slide.id]) {
+      slide.blocks = slideOverrides[slide.id];
+    }
+    
     setActiveSlide(slide);
     channel.send({
       type: "broadcast",
