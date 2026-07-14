@@ -130,7 +130,7 @@ export function parseLyricsAndChords(text: string): SongSection[] {
   let pendingChords: string | undefined = undefined;
 
   const chordWordRegex = /^[A-Ga-g](?:#|b)?(?:[a-zA-Z0-9#\/\+\-]*)$/;
-  const instructionRegex = /^\(?(?:[1-9]x|x[1-9]|pause|stop|repeat)\)?$/i;
+  const instructionRegex = /^\(?(?:[1-9]x|x[1-9]|pause|stop|repeat|transpose)\)?$/i;
   function isChordsLine(line: string): boolean {
     const trimmed = line.trim();
     if (!trimmed) return false;
@@ -152,7 +152,7 @@ export function parseLyricsAndChords(text: string): SongSection[] {
     if (inlineMatch) {
       const maybeLabel = inlineMatch[1].trim();
       const rest = inlineMatch[2].trim();
-      const commonLabels = ["intro", "verse", "chorus", "bridge", "pre", "ending", "outro", "tag", "instrumental", "interlude", "solo", "vamp"];
+      const commonLabels = ["intro", "verse", "chorus", "bridge", "pre", "ending", "outro", "tag", "instrumental", "interlude", "solo", "vamp", "intrumental"];
       
       if (commonLabels.some(l => maybeLabel.toLowerCase().startsWith(l))) {
         // Flush pending chords
