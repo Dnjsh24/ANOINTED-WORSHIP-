@@ -13,7 +13,7 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
   const [activeSlide, setActiveSlide] = useState<PresentationSlide | null>(null);
   
   // Settings sync
-  const [linesPerSlide, setLinesPerSlide] = useState<number>(setlist?.presentation_settings?.linesPerSlide || 4);
+  const [linesPerSlide, setLinesPerSlide] = useState<number>(setlist?.presentationSettings?.linesPerSlide || 4);
   
   // State for the currently viewed song on the remote
   const [activeSongIndex, setActiveSongIndex] = useState(0);

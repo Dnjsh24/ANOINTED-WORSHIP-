@@ -47,6 +47,7 @@ export default async function SetlistRemotePage({ params }: { params: Promise<{ 
         id: dbSetlist.id,
         name: dbSetlist.name,
         songs: songsList,
+        presentationSettings: dbSetlist.presentation_settings,
       };
 
       return <RemoteClient setlist={setlist} />;
