@@ -237,21 +237,6 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
                <h3 className="font-black text-white text-base leading-tight truncate uppercase">{activeSong?.song.title || "No Song"}</h3>
                <p className="text-xs font-semibold text-zinc-500 truncate">Lyrics Reflow</p>
              </div>
-             
-             <div className="flex bg-[#0a0a0a] rounded p-1 border border-white/10 shrink-0 gap-0.5">
-               {[1, 2, 4, 8].map(num => (
-                 <button
-                   key={num}
-                   onClick={() => updateLinesPerSlide(num)}
-                   className={cn(
-                     "px-2.5 py-1 rounded text-[11px] font-bold transition",
-                     linesPerSlide === num ? "bg-[#3b82f6] text-white" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
-                   )}
-                 >
-                   {num}
-                 </button>
-               ))}
-             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#111]">
