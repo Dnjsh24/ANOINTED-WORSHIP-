@@ -251,25 +251,54 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-[#111]">
-             {/* Dynamic Section Buttons based on current song */}
+             {/* Dynamic Slide Buttons based on current song */}
              <button 
                 onClick={() => jumpToSection("Title")}
-                className="w-full flex items-center gap-3 bg-[#1a1a1a] hover:bg-[#222] border border-white/5 rounded-lg p-2 transition group"
+                className="w-full flex items-center gap-3 bg-[#1a1a1a] hover:bg-[#222] border border-white/5 rounded-lg p-2 transition group text-left"
               >
-                <div className="w-8 h-8 rounded bg-white/5 flex items-center justify-center text-xs font-bold text-zinc-400 group-hover:text-white">Q</div>
-                <span className="font-bold text-sm text-white flex-1 text-center pr-8">Title</span>
+                <div className="w-8 h-8 rounded bg-white/5 flex items-center justify-center text-xs font-bold text-zinc-400 shrink-0 group-hover:text-white">Q</div>
+                <div className="flex-1 flex flex-col min-w-0 pr-2">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500 mb-0.5">Title</span>
+                  <span className="font-bold text-sm text-zinc-300 group-hover:text-white truncate block w-full">{activeSong?.song.title || "Unknown"}</span>
+                </div>
               </button>
               
-             {sections.filter((s: any) => s.label && s.label !== "unknown").map((section: any, idx: number) => {
+             {songSlides.map((slide: PresentationSlide, idx: number) => {
                 const key = shortcutKeys[(idx + 1) % shortcutKeys.length];
+                const isActive = activeSlide?.id === slide.id;
+                
                 return (
                   <button 
-                    key={idx}
-                    onClick={() => jumpToSection(section.label)}
-                    className="w-full flex items-center gap-3 bg-[#1a1a1a] hover:bg-[#222] border border-white/5 rounded-lg p-2 transition group"
+                    key={slide.id}
+                    onClick={() => sendSlide(slide)}
+                    className={cn(
+                      "w-full flex items-center gap-3 border rounded-lg p-2 transition group text-left",
+                      isActive 
+                        ? "bg-amber-400/10 border-amber-400/50" 
+                        : "bg-[#1a1a1a] hover:bg-[#222] border-white/5"
+                    )}
                   >
-                    <div className="w-8 h-8 rounded bg-white/5 flex items-center justify-center text-xs font-bold text-zinc-400 group-hover:text-white">{key}</div>
-                    <span className="font-bold text-sm text-white flex-1 text-center pr-8">{section.label}</span>
+                    <div className={cn(
+                      "w-8 h-8 rounded flex items-center justify-center text-xs font-bold shrink-0",
+                      isActive ? "bg-amber-400/20 text-amber-400" : "bg-white/5 text-zinc-400 group-hover:text-white"
+                    )}>{key}</div>
+                    
+                    <div className="flex-1 flex flex-col min-w-0 pr-2">
+                       {slide.sectionLabel && (
+                         <span className={cn(
+                           "text-[9px] font-bold uppercase tracking-wider mb-0.5",
+                           isActive ? "text-amber-500/80" : "text-zinc-500"
+                         )}>
+                           {slide.sectionLabel}
+                         </span>
+                       )}
+                       <span className={cn(
+                         "text-sm font-bold truncate block w-full",
+                         isActive ? "text-amber-400" : "text-zinc-300 group-hover:text-white"
+                       )}>
+                         {slide.content.join(" ")}
+                       </span>
+                    </div>
                   </button>
                 )
              })}
