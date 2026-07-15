@@ -167,7 +167,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const defaultBlocks = useMemo(() => {
      if (!activeSlide) return [];
      const totalLines = activeSlide.content.length;
-     const gap = Math.max(15, settings.fontSize * 0.15);
+     const gap = Math.max(15, settings.fontSize * 0.25);
      const startY = 50 - ((totalLines - 1) * (gap / 2));
      return activeSlide.content.map((line, idx) => ({
         id: `default-${activeSlide.id}-${idx}`,
@@ -230,7 +230,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     let wordCounter = 0;
     
     const totalLines = activeSlide.content.length;
-    const gap = Math.max(15, settings.fontSize * 0.15);
+    const gap = Math.max(15, settings.fontSize * 0.25);
     const startY = 50 - ((totalLines - 1) * (gap / 2));
     
     activeSlide.content.forEach((line, lineIdx) => {
