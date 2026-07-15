@@ -14,9 +14,9 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const [selectedSetlistId, setSelectedSetlistId] = useState<string>(setlists[0]?.id || "");
   const [activeItemIndex, setActiveItemIndex] = useState<number>(0);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
   const [mediaUrl, setMediaUrl] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"Property" | "Layers" | "Motion">("Property");
+  const [activeTab, setActiveTab] = useState<"Property" | "Layers" | "Motion" | "Stage">("Property");
   const [isSaving, setIsSaving] = useState(false);
   const [playKey, setPlayKey] = useState<number>(0);
   
@@ -26,6 +26,38 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const [settings, setSettings] = useState<PresentationSettings>(setlist?.presentationSettings?.settings || defaultPresentationSettings);
   const [linesPerSlide, setLinesPerSlide] = useState<number>(setlist?.presentationSettings?.linesPerSlide || 4);
   const [slideOverrides, setSlideOverrides] = useState<Record<string, SlideBlock[]>>(setlist?.presentationSettings?.slideOverrides || {});
+
+  // --- History & Undo/Redo State ---
+  type HistoryState = { settings: PresentationSettings; slideOverrides: Record<string, SlideBlock[]> };
+  const [past, setPast] = useState<HistoryState[]>([]);
+  const [future, setFuture] = useState<HistoryState[]>([]);
+  
+  // --- Stage Display Controls ---
+  const [stageMessageInput, setStageMessageInput] = useState("");
+  const [countdownInput, setCountdownInput] = useState(5);
+
+  const saveHistoryState = () => {
+    setPast(prev => [...prev.slice(-49), { settings, slideOverrides }]);
+    setFuture([]);
+  };
+
+  const undo = () => {
+    if (past.length === 0) return;
+    const previous = past[past.length - 1];
+    setPast(prev => prev.slice(0, prev.length - 1));
+    setFuture(prev => [{ settings, slideOverrides }, ...prev]);
+    setSettings(previous.settings);
+    setSlideOverrides(previous.slideOverrides);
+  };
+
+  const redo = () => {
+    if (future.length === 0) return;
+    const next = future[0];
+    setFuture(prev => prev.slice(1));
+    setPast(prev => [...prev, { settings, slideOverrides }]);
+    setSettings(next.settings);
+    setSlideOverrides(next.slideOverrides);
+  };
 
   // Update local state when setlist changes
   useEffect(() => {
@@ -119,22 +151,24 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const activeSlide = useMemo(() => slides.find(s => s.id === activeSlideId), [slides, activeSlideId]);
   const activeBlocks = activeSlideId ? slideOverrides[activeSlideId] || [] : [];
   const selectedBlock = useMemo(() => {
-    if (!selectedBlockId || !activeBlocks) return null;
-    return activeBlocks.find(b => b.id === selectedBlockId) || null;
-  }, [selectedBlockId, activeBlocks]);
+    if (selectedBlockIds.length === 0 || !activeBlocks) return null;
+    return activeBlocks.find(b => selectedBlockIds.includes(b.id)) || null;
+  }, [selectedBlockIds, activeBlocks]);
 
   const handleUpdateSelectedBlock = (updates: Partial<SlideBlock>) => {
-    if (!selectedBlockId || !activeSlideId) return;
+    if (selectedBlockIds.length === 0 || !activeSlideId) return;
+    saveHistoryState();
     setSlideOverrides(prev => {
       const currentBlocks = prev[activeSlideId] || [];
       return {
         ...prev,
-        [activeSlideId]: currentBlocks.map(b => b.id === selectedBlockId ? { ...b, ...updates } : b)
+        [activeSlideId]: currentBlocks.map(b => selectedBlockIds.includes(b.id) ? { ...b, ...updates } : b)
       };
     });
   };
   const handleUpdateBlock = (blockId: string, updates: Partial<SlideBlock>) => {
     if (!activeSlideId) return;
+    saveHistoryState();
     setSlideOverrides(prev => {
       const currentBlocks = prev[activeSlideId] || [];
       return {
@@ -182,6 +216,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
       });
     });
     
+    saveHistoryState();
     setSlideOverrides(prev => ({
       ...prev,
       [activeSlide.id]: newBlocks
@@ -190,6 +225,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
 
   const handleResetBlocks = () => {
     if (!activeSlideId) return;
+    saveHistoryState();
     setSlideOverrides(prev => {
       const next = { ...prev };
       delete next[activeSlideId];
@@ -197,42 +233,48 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     });
   };
 
-  const handleDuplicateBlock = (blockId: string) => {
-    if (!activeSlideId) return;
+  const handleDuplicateBlock = () => {
+    if (!activeSlideId || selectedBlockIds.length === 0) return;
+    saveHistoryState();
     setSlideOverrides(prev => {
       const currentBlocks = prev[activeSlideId] || [];
-      const blockToCopy = currentBlocks.find(b => b.id === blockId);
-      if (!blockToCopy) return prev;
+      const newBlocks: SlideBlock[] = [];
       
-      const newBlock: SlideBlock = {
-        ...blockToCopy,
-        id: `block-${Date.now()}`,
-        startTime: blockToCopy.startTime + 0.5,
-        x: blockToCopy.x + 2,
-        y: blockToCopy.y + 2
-      };
+      currentBlocks.forEach(b => {
+        if (selectedBlockIds.includes(b.id)) {
+          newBlocks.push({
+            ...b,
+            id: `block-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+            startTime: b.startTime + 0.5,
+            x: b.x + 2,
+            y: b.y + 2
+          });
+        }
+      });
       
       return {
         ...prev,
-        [activeSlideId]: [...currentBlocks, newBlock]
+        [activeSlideId]: [...currentBlocks, ...newBlocks]
       };
     });
   };
 
-  const handleDeleteBlock = (blockId: string) => {
-    if (!activeSlideId) return;
+  const handleDeleteBlock = () => {
+    if (!activeSlideId || selectedBlockIds.length === 0) return;
+    saveHistoryState();
     setSlideOverrides(prev => {
       const currentBlocks = prev[activeSlideId] || [];
       return {
         ...prev,
-        [activeSlideId]: currentBlocks.filter(b => b.id !== blockId)
+        [activeSlideId]: currentBlocks.filter(b => !selectedBlockIds.includes(b.id))
       };
     });
-    if (selectedBlockId === blockId) setSelectedBlockId(null);
+    setSelectedBlockIds([]);
   };
 
   const handleUpdateDuration = (duration: number) => {
     if (!activeSlideId) return;
+    saveHistoryState();
     const clampedDuration = Math.min(300, Math.max(1, duration));
     setSettings(prev => ({
       ...prev,
@@ -242,6 +284,56 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
       }
     }));
   };
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") {
+        return;
+      }
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        setPlayKey(Date.now());
+      } else if (e.code === "Backspace" || e.code === "Delete") {
+        e.preventDefault();
+        handleDeleteBlock();
+      } else if (e.ctrlKey && e.code === "KeyD") {
+        e.preventDefault();
+        handleDuplicateBlock();
+      } else if (e.ctrlKey && e.code === "KeyZ") {
+        if (e.shiftKey) redo();
+        else undo();
+      } else if (e.ctrlKey && e.code === "KeyY") {
+        redo();
+      } else if (e.code.startsWith("Arrow") && selectedBlockIds.length > 0 && activeSlideId) {
+        e.preventDefault();
+        saveHistoryState();
+        setSlideOverrides(prev => {
+          const currentBlocks = prev[activeSlideId] || [];
+          return {
+            ...prev,
+            [activeSlideId]: currentBlocks.map(b => {
+              if (selectedBlockIds.includes(b.id)) {
+                let dx = 0;
+                let dy = 0;
+                if (e.code === "ArrowUp") dy = -0.5;
+                if (e.code === "ArrowDown") dy = 0.5;
+                if (e.code === "ArrowLeft") dx = -0.5;
+                if (e.code === "ArrowRight") dx = 0.5;
+                return { ...b, x: b.x + dx, y: b.y + dy };
+              }
+              return b;
+            })
+          };
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedBlockIds, activeSlideId, slideOverrides, past, future]);
 
   if (!setlist) {
     return <div className="p-8 text-white">No upcoming setlists found.</div>;
@@ -497,8 +589,8 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        onUpdateBlock={handleUpdateBlock}
                        slide={activeSlide}
                        playKey={playKey}
-                       selectedBlockId={selectedBlockId}
-                       onSelectBlock={setSelectedBlockId}
+                       selectedBlockIds={selectedBlockIds}
+                       onSelectBlock={setSelectedBlockIds}
                      />
                   ) : (
                      <div className="text-zinc-600 font-bold">Select a slide to edit</div>
@@ -518,27 +610,31 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                  onReset={handleResetBlocks}
                  onPlay={() => setPlayKey(Date.now())}
                  playKey={playKey}
-                 selectedBlockId={selectedBlockId}
-                 onSelectBlock={setSelectedBlockId}
+                 selectedBlockIds={selectedBlockIds}
+                 onSelectBlock={setSelectedBlockIds}
                  onDuplicateBlock={handleDuplicateBlock}
                  onDeleteBlock={handleDeleteBlock}
                  totalDuration={activeSlideId ? (settings.slideDurations?.[activeSlideId] || 10) : 10}
                  onUpdateDuration={handleUpdateDuration}
+                 onUndo={undo}
+                 onRedo={redo}
+                 canUndo={past.length > 0}
+                 canRedo={future.length > 0}
                />
             </>
           )}
         </div>
 
-        {/* Right Sidebar: Properties & Motion */}
+        {/* Right Sidebar: Properties & Motion & Stage */}
         <div className="w-[300px] border-l border-white/10 bg-[#121212] flex flex-col shrink-0">
            {/* Tabs */}
-           <div className="px-4 pt-4 border-b border-white/5 flex gap-4 shrink-0">
-             {["Property", "Layers", "Motion"].map(tab => (
+           <div className="px-4 pt-4 border-b border-white/5 flex gap-4 shrink-0 overflow-x-auto">
+             {["Property", "Layers", "Motion", "Stage"].map(tab => (
                <button 
                  key={tab}
                  onClick={() => setActiveTab(tab as any)}
                  className={cn(
-                   "text-xs font-bold pb-2 border-b-2 transition-colors",
+                   "text-xs font-bold pb-2 border-b-2 transition-colors whitespace-nowrap",
                    activeTab === tab ? "text-white border-white" : "text-zinc-600 border-transparent hover:text-zinc-400"
                  )}
                >
@@ -726,6 +822,23 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                      <p className="text-xs font-bold text-blue-500">{selectedBlock ? "Layer Override" : "Global Animation"}</p>
                      <button onClick={() => setSettings(defaultPresentationSettings)} className="text-[10px] font-bold text-zinc-400 hover:text-white transition">Reset to Global</button>
                   </div>
+
+                  {/* SLIDE TRANSITION (Global Only) */}
+                  {!selectedBlock && (
+                     <div className="space-y-3 pb-4 border-b border-white/5">
+                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Slide Transition</p>
+                        <select 
+                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                          value={settings.slideTransition || "None"}
+                          onChange={(e) => setSettings({...settings, slideTransition: e.target.value as any})}
+                        >
+                          <option value="None">None (Cut)</option>
+                          <option value="Crossfade">Crossfade</option>
+                          <option value="Slide Up">Slide Up</option>
+                          <option value="Slide Down">Slide Down</option>
+                        </select>
+                     </div>
+                  )}
 
                   {/* ENTRANCE ANIMATION */}
                   <div className="space-y-3">
@@ -966,6 +1079,72 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        />
                      </div>
 
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "Stage" && (
+                <div className="p-4 space-y-6">
+                  <div className="space-y-3 pb-4 border-b border-white/5">
+                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Flash Note</p>
+                    <input 
+                      type="text" 
+                      placeholder="Message for band..."
+                      value={stageMessageInput}
+                      onChange={(e) => setStageMessageInput(e.target.value)}
+                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
+                    />
+                    <div className="flex gap-2 mt-2">
+                       <button 
+                         onClick={() => {
+                           channel.send({ type: "broadcast", event: "stage_sync", payload: { stageMessage: stageMessageInput } });
+                         }}
+                         className="flex-1 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold py-2 rounded transition"
+                       >
+                         Send
+                       </button>
+                       <button 
+                         onClick={() => {
+                           setStageMessageInput("");
+                           channel.send({ type: "broadcast", event: "stage_sync", payload: { stageMessage: "" } });
+                         }}
+                         className="flex-1 bg-red-900/50 hover:bg-red-800 text-red-200 text-xs font-bold py-2 rounded transition border border-red-900/50"
+                       >
+                         Clear
+                       </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Countdown Timer</p>
+                    <div className="flex gap-2 items-center">
+                       <input 
+                         type="number" 
+                         min="1"
+                         value={countdownInput}
+                         onChange={(e) => setCountdownInput(Number(e.target.value))}
+                         className="w-20 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500 text-center"
+                       />
+                       <span className="text-sm text-zinc-400 font-bold">Minutes</span>
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                       <button 
+                         onClick={() => {
+                           channel.send({ type: "broadcast", event: "stage_sync", payload: { countdownTarget: Date.now() + countdownInput * 60000 } });
+                         }}
+                         className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 rounded transition"
+                       >
+                         Start
+                       </button>
+                       <button 
+                         onClick={() => {
+                           channel.send({ type: "broadcast", event: "stage_sync", payload: { countdownTarget: null } });
+                         }}
+                         className="flex-1 bg-red-900/50 hover:bg-red-800 text-red-200 text-xs font-bold py-2 rounded transition border border-red-900/50"
+                       >
+                         Stop
+                       </button>
+                    </div>
                   </div>
                 </div>
               )}

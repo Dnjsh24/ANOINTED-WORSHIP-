@@ -7,6 +7,7 @@ import { defaultPresentationSettings, type PresentationSlide, type PresentationS
 
 export default function ProjectorClient({ setlistId, initialSettings }: { setlistId: string, initialSettings?: PresentationSettings }) {
   const [activeSlide, setActiveSlide] = useState<PresentationSlide | null>(null);
+  const [prevSlide, setPrevSlide] = useState<PresentationSlide | null>(null);
   const [settings, setSettings] = useState<PresentationSettings>(initialSettings || defaultPresentationSettings);
   const [isConnected, setIsConnected] = useState(false);
   const supabase = useMemo(() => createClient(), []);
@@ -42,7 +43,16 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
             setSettings(payload.payload.settings);
           }
           if (payload.payload.slide !== undefined) {
-            setActiveSlide(payload.payload.slide as PresentationSlide | null);
+            const newSlide = payload.payload.slide as PresentationSlide | null;
+            setActiveSlide(curr => {
+              if (curr && newSlide && curr.id !== newSlide.id && payload.payload.settings?.slideTransition !== "None") {
+                setPrevSlide(curr);
+                setTimeout(() => {
+                  setPrevSlide(null);
+                }, 500); // match transition duration
+              }
+              return newSlide;
+            });
           }
         }
       })
@@ -111,16 +121,50 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
     );
   }
 
+  const slidesToRender = [
+    ...(prevSlide ? [{ slide: prevSlide, isPrev: true }] : []),
+    { slide: activeSlide, isPrev: false }
+  ];
+
+  return (
+    <>
+      {slidesToRender.map(({ slide, isPrev }) => {
+        let transitionClass = "";
+        if (settings.slideTransition === "Crossfade") {
+           transitionClass = isPrev ? "animate-fade-out" : "animate-fade-in fill-mode-both";
+        } else if (settings.slideTransition === "Slide Up") {
+           transitionClass = isPrev ? "animate-slide-out-up" : "animate-slide-in-up fill-mode-both";
+        } else if (settings.slideTransition === "Slide Down") {
+           transitionClass = isPrev ? "animate-slide-out-down" : "animate-slide-in-down fill-mode-both";
+        }
+        
+        return (
+          <SlideRenderer 
+             key={`${slide.id}-${isPrev ? 'prev' : 'active'}`}
+             slide={slide} 
+             settings={settings} 
+             transitionClass={transitionClass} 
+             getEntranceClass={getEntranceClass}
+             getExitClass={getExitClass}
+             getCurveValue={getCurveValue}
+             getAlignmentClass={getAlignmentClass}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, getExitClass, getCurveValue, getAlignmentClass }: any) {
   // Handle PDF/Image slides if they are passed as 'media'
-  if ((activeSlide as any).mediaUrl) {
+  if (slide.mediaUrl) {
     return (
-       <div className="fixed inset-0 flex items-center justify-center overflow-hidden transition-colors duration-300" style={{ backgroundColor: settings.backgroundColor }}>
+       <div className={cn("fixed inset-0 flex items-center justify-center overflow-hidden transition-colors duration-300", transitionClass)} style={{ backgroundColor: settings.backgroundColor, animationDuration: '0.5s' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img 
-             src={(activeSlide as any).mediaUrl} 
+             src={slide.mediaUrl} 
              alt="Slide Media" 
              className={cn("w-full h-full object-contain", getEntranceClass(settings.entranceAnimation))}
-             key={activeSlide.id}
           />
        </div>
     );
@@ -128,8 +172,8 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
 
   return (
     <div 
-      className="fixed inset-0 flex flex-col justify-center p-8 sm:p-16 overflow-hidden transition-colors duration-300" 
-      style={{ backgroundColor: settings.backgroundColor }}
+      className={cn("fixed inset-0 flex flex-col justify-center p-8 sm:p-16 overflow-hidden transition-colors duration-300", transitionClass)} 
+      style={{ backgroundColor: settings.backgroundColor, animationDuration: '0.5s' }}
     >
       {/* Uploaded Background Media */}
       {settings.backgroundMediaUrl && (
@@ -142,9 +186,9 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
           )}
         </div>
       )}
-      {activeSlide.blocks && activeSlide.blocks.length > 0 ? (
+      {slide.blocks && slide.blocks.length > 0 ? (
         <div className="relative w-full h-full">
-          {activeSlide.blocks.map((block, index) => {
+          {slide.blocks.map((block: any, index: number) => {
             const effectiveFontFamily = block.fontFamily || settings.fontFamily;
             const effectiveFontSize = block.fontSize || settings.fontSize;
             const effectiveBold = block.bold ?? settings.bold;
@@ -221,7 +265,7 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
         </div>
       ) : (
         <div 
-          key={activeSlide.id} 
+          key={slide.id} 
           className={cn("w-full flex flex-col space-y-4 sm:space-y-8", getAlignmentClass())}
           style={{
             fontFamily: settings.fontFamily,
@@ -231,7 +275,7 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
             textDecoration: settings.underline ? "underline" : "none",
           }}
         >
-          {activeSlide.content.map((line, idx) => (
+          {slide.content.map((line: string, idx: number) => (
             <div key={idx} className={cn(getEntranceClass(settings.entranceAnimation), getEntranceClass(settings.entranceAnimation) && "fill-mode-both")}
                style={{
                   animationDuration: getEntranceClass(settings.entranceAnimation) ? `${settings.entranceDuration || 1}s` : undefined,

@@ -10,11 +10,11 @@ interface KineticCanvasProps {
   slide: PresentationSlide;
   onUpdateBlock: (blockId: string, updates: Partial<SlideBlock>) => void;
   playKey?: number;
-  selectedBlockId?: string | null;
-  onSelectBlock?: (id: string | null) => void;
+  selectedBlockIds?: string[];
+  onSelectBlock?: (ids: string[]) => void;
 }
 
-export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, playKey = 0, selectedBlockId, onSelectBlock }: KineticCanvasProps) {
+export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, playKey = 0, selectedBlockIds = [], onSelectBlock }: KineticCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [draggingBlock, setDraggingBlock] = useState<string | null>(null);
@@ -83,6 +83,17 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
 
   const handlePointerDown = (e: React.PointerEvent, block: SlideBlock) => {
     e.preventDefault();
+    if (e.shiftKey) {
+      if (selectedBlockIds.includes(block.id)) {
+        onSelectBlock?.(selectedBlockIds.filter(id => id !== block.id));
+      } else {
+        onSelectBlock?.([...selectedBlockIds, block.id]);
+      }
+    } else {
+      if (!selectedBlockIds.includes(block.id)) {
+         onSelectBlock?.([block.id]);
+      }
+    }
     setDraggingBlock(block.id);
     setStartPos({ x: e.clientX, y: e.clientY });
     setStartBlockPos({ x: block.x, y: block.y });
@@ -150,7 +161,11 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
       )}
       
       {/* Click outside to deselect */}
-      <div className="absolute inset-0 z-0" onClick={() => onSelectBlock?.(null)} />
+      <div 
+        className="absolute inset-0 z-0" 
+        onClick={() => onSelectBlock?.([])}
+        onPointerDown={() => onSelectBlock?.([])}
+      />
 
       {blocks.map((block, index) => {
         // Compute effective styles (block overrides or global settings)
@@ -191,11 +206,23 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
 
         return (
           <div
-            key={`${block.id}-${playKey}`}
+            key={block.id}
+            onPointerDown={(e) => handlePointerDown(e, block)}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (e.shiftKey) {
+                if (selectedBlockIds.includes(block.id)) {
+                  onSelectBlock?.(selectedBlockIds.filter(id => id !== block.id));
+                } else {
+                  onSelectBlock?.([...selectedBlockIds, block.id]);
+                }
+              } else {
+                onSelectBlock?.([block.id]);
+              }
+            }}
             className={cn(
-              "absolute cursor-move select-none p-2 border border-transparent hover:border-white/20 rounded whitespace-nowrap z-10",
-              draggingBlock === block.id && "z-20 bg-white/5",
-              selectedBlockId === block.id && "ring-2 ring-blue-500 bg-blue-500/10",
+              "absolute origin-center cursor-move select-none p-1 transition-colors z-10",
+              selectedBlockIds.includes(block.id) ? "ring-2 ring-blue-500 bg-blue-500/20" : "hover:ring-1 hover:ring-white/50",
               isCurrentlyPlaying && animClass && "fill-mode-both",
               isCurrentlyPlaying && animClass
             )}
@@ -206,10 +233,6 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
               animationDelay: isCurrentlyPlaying && animClass ? `${block.startTime + effEntDelay}s` : undefined,
               animationDuration: isCurrentlyPlaying && animClass ? `${effEntDuration}s` : undefined,
               animationTimingFunction: isCurrentlyPlaying && animClass ? entCurveVal : undefined,
-            }}
-            onPointerDown={(e) => {
-              handlePointerDown(e, block);
-              onSelectBlock?.(block.id);
             }}
           >
             {/* Inner div for exit animation */}

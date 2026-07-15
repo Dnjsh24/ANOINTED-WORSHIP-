@@ -26,6 +26,7 @@ export interface PresentationSlide {
   id: string;
   type: "lyrics" | "teaching" | "blank";
   content: string[]; // Array of lines to display
+  chordLines?: { lyric: string; chords?: string }[]; // Full chord payload for confidence monitor
   blocks?: SlideBlock[]; // Independent word/line blocks for kinetic typography
   sectionLabel?: string;
   notes?: string;
@@ -42,6 +43,7 @@ export interface PresentationSettings {
   color: string;
   backgroundColor: string;
   showShadow: boolean;
+  slideTransition: "None" | "Crossfade" | "Slide Up" | "Slide Down";
   entranceAnimation: "None" | "Appear" | "Fade In" | "Slide In Up" | "Slide In Down" | "Slide In Left" | "Slide In Right" | "Mask In Up";
   entranceDuration: number;
   entranceDelay: number;
@@ -63,30 +65,31 @@ export interface PresentationSettings {
 }
 
 export const defaultPresentationSettings: PresentationSettings = {
-  fontFamily: "Inter",
-  fontSize: 100,
+  fontFamily: "Inter, sans-serif",
+  fontSize: 64,
   bold: true,
   italic: false,
   underline: false,
   align: "center",
   color: "#ffffff",
-  backgroundColor: "#000000",
+  backgroundColor: "#050505",
   showShadow: true,
-  entranceAnimation: "None",
+  slideTransition: "Crossfade",
+  entranceAnimation: "Appear",
   entranceDuration: 1.0,
   entranceDelay: 0.2,
   entranceCurve: "Ease Out",
-  exitAnimation: "None",
-  exitDuration: 1.2,
-  exitDelay: 4.2,
-  exitCurve: "Ease Out",
-  kineticMode: "Word by Word",
+  exitAnimation: "Fade Out",
+  exitDuration: 0.5,
+  exitDelay: 0,
+  exitCurve: "Ease In",
+  kineticMode: "Line by Line",
   kineticAnimationOrder: "Forward",
-  kineticStaggerDelay: 0.10,
-  kineticSmoothingCurve: "Smooth",
-  kineticDirection: "Fly Up",
-  kineticTravelDistance: 20,
-  kineticSegmentDuration: 0.50,
+  kineticStaggerDelay: 0.1,
+  kineticSmoothingCurve: "Ease Out",
+  kineticDirection: "Bottom to Top",
+  kineticTravelDistance: 50,
+  kineticSegmentDuration: 2.0,
 };
 
 export interface PresentationBlock {
@@ -108,19 +111,19 @@ export function generateSongSlides(text: string, linesPerSlide: number = 4): Pre
 
   sections.forEach((section, sIndex) => {
     // Filter out lines that only have chords but no lyrics, or empty lyrics
-    const lyricLines = section.lines
-      .filter((line) => line.lyric && line.lyric.trim().length > 0)
-      .map((line) => line.lyric.trim());
+    const validLines = section.lines
+      .filter((line) => line.lyric && line.lyric.trim().length > 0);
 
-    if (lyricLines.length === 0) return;
+    if (validLines.length === 0) return;
 
     // Chunk into slides
-    for (let i = 0; i < lyricLines.length; i += linesPerSlide) {
-      const chunk = lyricLines.slice(i, i + linesPerSlide);
+    for (let i = 0; i < validLines.length; i += linesPerSlide) {
+      const chunk = validLines.slice(i, i + linesPerSlide);
       slides.push({
         id: `slide-sec${sIndex}-${i}`,
         type: "lyrics",
-        content: chunk,
+        content: chunk.map(c => c.lyric.trim()),
+        chordLines: chunk,
         sectionLabel: section.label,
       });
     }

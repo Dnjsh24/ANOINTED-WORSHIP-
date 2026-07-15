@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import type { SlideBlock } from "@/lib/domain/presentation";
 import { cn } from "@/lib/utils";
-import { Scissors, Merge, RotateCcw, Play } from "lucide-react";
+import { Scissors, Merge, RotateCcw, Play, Undo2, Redo2 } from "lucide-react";
 
 interface TimelineEditorProps {
   blocks: SlideBlock[];
@@ -14,15 +14,20 @@ interface TimelineEditorProps {
   playKey?: number;
   totalDuration?: number;
   onUpdateDuration?: (duration: number) => void;
-  selectedBlockId?: string | null;
-  onSelectBlock?: (id: string | null) => void;
-  onDuplicateBlock?: (id: string) => void;
-  onDeleteBlock?: (id: string) => void;
+  selectedBlockIds?: string[];
+  onSelectBlock?: (ids: string[]) => void;
+  onDuplicateBlock?: () => void;
+  onDeleteBlock?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 export default function TimelineEditor({ 
   blocks, onUpdateBlock, onChopToWords, onReset, onPlay, playKey = 0,
-  totalDuration = 10, onUpdateDuration, selectedBlockId, onSelectBlock, onDuplicateBlock, onDeleteBlock
+  totalDuration = 10, onUpdateDuration, selectedBlockIds = [], onSelectBlock, onDuplicateBlock, onDeleteBlock,
+  onUndo, onRedo, canUndo = false, canRedo = false
 }: TimelineEditorProps) {
   const TOTAL_DURATION_SEC = totalDuration;
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -142,16 +147,33 @@ export default function TimelineEditor({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {selectedBlockId && (
+          <div className="flex items-center gap-1 bg-white/5 rounded px-1 py-1 mr-2">
+             <button 
+               onClick={onUndo} disabled={!canUndo}
+               className="p-1 rounded text-zinc-400 hover:text-white hover:bg-white/10 disabled:opacity-30 transition"
+               title="Undo (Ctrl+Z)"
+             >
+               <Undo2 className="size-3" />
+             </button>
+             <button 
+               onClick={onRedo} disabled={!canRedo}
+               className="p-1 rounded text-zinc-400 hover:text-white hover:bg-white/10 disabled:opacity-30 transition"
+               title="Redo (Ctrl+Y)"
+             >
+               <Redo2 className="size-3" />
+             </button>
+          </div>
+          
+          {selectedBlockIds.length > 0 && (
             <>
               <button 
-                onClick={() => onDuplicateBlock?.(selectedBlockId)}
+                onClick={() => onDuplicateBlock?.()}
                 className="flex items-center gap-1.5 px-3 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-[10px] font-bold text-blue-400 transition"
               >
                 Duplicate
               </button>
               <button 
-                onClick={() => onDeleteBlock?.(selectedBlockId)}
+                onClick={() => onDeleteBlock?.()}
                 className="flex items-center gap-1.5 px-3 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-[10px] font-bold text-red-400 transition"
               >
                 Delete
@@ -189,13 +211,23 @@ export default function TimelineEditor({
               key={block.id} 
               className={cn(
                 "h-8 flex items-center px-2 border-b border-white/5 cursor-pointer transition-colors",
-                selectedBlockId === block.id ? "bg-blue-500/20 border-l-2 border-l-blue-500" : "hover:bg-white/5"
+                selectedBlockIds.includes(block.id) ? "bg-blue-500/20 border-l-2 border-l-blue-500" : "hover:bg-white/5"
               )}
-              onClick={() => onSelectBlock?.(block.id)}
+              onClick={(e) => {
+                if (e.shiftKey) {
+                  if (selectedBlockIds.includes(block.id)) {
+                    onSelectBlock?.(selectedBlockIds.filter(id => id !== block.id));
+                  } else {
+                    onSelectBlock?.([...selectedBlockIds, block.id]);
+                  }
+                } else {
+                  onSelectBlock?.([block.id]);
+                }
+              }}
             >
               <span className={cn(
                 "text-[10px] font-semibold truncate",
-                selectedBlockId === block.id ? "text-blue-200" : "text-zinc-500"
+                selectedBlockIds.includes(block.id) ? "text-blue-200" : "text-zinc-500"
               )}>
                 {block.text}
               </span>
@@ -225,7 +257,7 @@ export default function TimelineEditor({
                     className={cn(
                       "absolute top-1 bottom-1 rounded border border-white/20 flex items-center transition-colors group-hover:border-white/40",
                       draggingBlock === block.id || resizingBlock === block.id ? "bg-amber-500/20 border-amber-500 z-10" : "bg-white/10 hover:bg-white/20",
-                      selectedBlockId === block.id && "ring-1 ring-blue-500 bg-blue-500/20"
+                      selectedBlockIds.includes(block.id) && "ring-1 ring-blue-500 bg-blue-500/20"
                     )}
                     style={{
                       left: `${leftPercent}%`,
@@ -242,7 +274,17 @@ export default function TimelineEditor({
                     <div 
                       className="flex-1 h-full flex items-center px-2 truncate cursor-move"
                       onPointerDown={(e) => handlePointerDown(e, block)}
-                      onClick={() => onSelectBlock?.(block.id)}
+                      onClick={(e) => {
+                        if (e.shiftKey) {
+                          if (selectedBlockIds.includes(block.id)) {
+                            onSelectBlock?.(selectedBlockIds.filter(id => id !== block.id));
+                          } else {
+                            onSelectBlock?.([...selectedBlockIds, block.id]);
+                          }
+                        } else {
+                          onSelectBlock?.([block.id]);
+                        }
+                      }}
                     >
                       <span className="text-[10px] text-white font-semibold truncate pointer-events-none">{block.text}</span>
                     </div>
