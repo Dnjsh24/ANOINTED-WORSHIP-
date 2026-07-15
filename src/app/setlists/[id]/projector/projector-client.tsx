@@ -227,7 +227,7 @@ function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, get
               <div
                 key={block.id}
                 className={cn(
-                  "absolute max-w-[96vw] text-center whitespace-pre-wrap break-words",
+                  "absolute w-[92vw] text-center whitespace-pre-wrap break-words",
                   entranceClass && "fill-mode-both",
                   entranceClass
                 )}
