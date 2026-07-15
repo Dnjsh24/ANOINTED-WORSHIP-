@@ -240,10 +240,15 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
 
       {/* Blocks */}
       {(() => {
+        // Calculate the maximum allowed font size for this slide to perfectly fit horizontal width
+        const maxBlockLength = Math.max(...blocks.map(b => b.text.length), 1);
+        const maxAllowedFontSize = 2800 / maxBlockLength;
+
         return blocks.map((block, index) => {
           // Compute effective styles (block overrides or global settings)
           const effectiveFontFamily = block.fontFamily || settings.fontFamily;
-          const effectiveFontSize = block.fontSize || settings.fontSize;
+          const baseFontSize = block.fontSize || settings.fontSize;
+          const effectiveFontSize = Math.min(baseFontSize, maxAllowedFontSize);
           const effectiveBold = block.bold ?? settings.bold;
           const effectiveItalic = block.italic ?? settings.italic;
           const effectiveUnderline = block.underline ?? settings.underline;
@@ -294,7 +299,7 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
               }
             }}
             className={cn(
-              "absolute origin-center cursor-move select-none p-1 transition-colors z-10 w-[92%] text-center whitespace-pre-wrap break-words",
+              "absolute origin-center cursor-move select-none p-1 transition-colors z-10 w-[92%] text-center whitespace-pre",
               selectedBlockIds.includes(block.id) ? "ring-2 ring-blue-500 bg-blue-500/20" : "hover:ring-1 hover:ring-white/50",
               isCurrentlyPlaying && animClass && "fill-mode-both",
               isCurrentlyPlaying && animClass

@@ -168,8 +168,10 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
      if (!activeSlide || activeSlide.content.length === 0) return [];
      const totalLines = activeSlide.content.length;
      
-     // Use the user's explicit font size setting instead of clamping it arbitrarily
-     const effectiveFontSize = settings.fontSize;
+     // Calculate effective font size to correctly space lines vertically without breaking bounds
+     const maxLineLength = Math.max(...activeSlide.content.map(line => line.length), 1);
+     const maxAllowedFontSize = 2800 / maxLineLength;
+     const effectiveFontSize = Math.min(settings.fontSize, maxAllowedFontSize);
      
      const gap = Math.max(15, effectiveFontSize * 0.25);
      const startY = 50 - ((totalLines - 1) * (gap / 2));
@@ -235,8 +237,10 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     
     const totalLines = activeSlide.content.length;
     
-    // Use the user's explicit font size setting instead of clamping it arbitrarily
-    const effectiveFontSize = settings.fontSize;
+    // Calculate effective font size to correctly space lines vertically without breaking bounds
+    const maxLineLength = Math.max(...activeSlide.content.map(line => line.length), 1);
+    const maxAllowedFontSize = 2800 / maxLineLength;
+    const effectiveFontSize = Math.min(settings.fontSize, maxAllowedFontSize);
     
     const gap = Math.max(15, effectiveFontSize * 0.25);
     const startY = 50 - ((totalLines - 1) * (gap / 2));
