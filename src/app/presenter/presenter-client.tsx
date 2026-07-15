@@ -163,7 +163,22 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   }, [activeItem, linesPerSlide, activeItemIndex, bibleVerses]);
 
   const activeSlide = useMemo(() => slides.find(s => s.id === activeSlideId), [slides, activeSlideId]);
-  const activeBlocks = activeSlideId ? slideOverrides[activeSlideId] || [] : [];
+  
+  const defaultBlocks = useMemo(() => {
+     if (!activeSlide) return [];
+     const totalLines = activeSlide.content.length;
+     const startY = 50 - ((totalLines - 1) * 7.5);
+     return activeSlide.content.map((line, idx) => ({
+        id: `default-${activeSlide.id}-${idx}`,
+        text: line,
+        x: 50,
+        y: startY + (idx * 15),
+        startTime: idx * 0.5,
+        duration: 2
+     } as SlideBlock));
+  }, [activeSlide]);
+
+  const activeBlocks = activeSlideId ? slideOverrides[activeSlideId] || defaultBlocks : [];
   const selectedBlock = useMemo(() => {
     if (selectedBlockIds.length === 0 || !activeBlocks) return null;
     return activeBlocks.find(b => selectedBlockIds.includes(b.id)) || null;
@@ -173,7 +188,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     if (selectedBlockIds.length === 0 || !activeSlideId) return;
     saveHistoryState();
     setSlideOverrides(prev => {
-      const currentBlocks = prev[activeSlideId] || [];
+      const currentBlocks = prev[activeSlideId] || defaultBlocks;
       return {
         ...prev,
         [activeSlideId]: currentBlocks.map(b => selectedBlockIds.includes(b.id) ? { ...b, ...updates } : b)
@@ -184,7 +199,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     if (!activeSlideId) return;
     saveHistoryState();
     setSlideOverrides(prev => {
-      const currentBlocks = prev[activeSlideId] || [];
+      const currentBlocks = prev[activeSlideId] || defaultBlocks;
       return {
         ...prev,
         [activeSlideId]: currentBlocks.map(b => b.id === blockId ? { ...b, ...updates } : b)
@@ -195,7 +210,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     if (!activeSlideId) return;
     saveHistoryState();
     setSlideOverrides(prev => {
-      const currentBlocks = prev[activeSlideId] || [];
+      const currentBlocks = prev[activeSlideId] || defaultBlocks;
       return {
         ...prev,
         [activeSlideId]: currentBlocks.map(b => updatesMap[b.id] ? { ...b, ...updatesMap[b.id] } : b)
@@ -682,7 +697,13 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                   
                   {/* Floating properties quick toggle (optional) */}
                   <div className="absolute top-4 left-4 flex gap-2">
-                     <button className="bg-black/50 border border-white/10 p-2 rounded hover:bg-white/10 transition"><MonitorUp className="size-4 text-zinc-400"/></button>
+                     <button 
+                       onClick={() => pushToProjector(activeSlide || null)}
+                       title="Push to Projector"
+                       className="bg-black/50 border border-emerald-500/30 text-emerald-400 p-2 rounded hover:bg-emerald-500/20 transition"
+                     >
+                       <MonitorUp className="size-4" />
+                     </button>
                   </div>
                </div>
 

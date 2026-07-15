@@ -338,61 +338,6 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
         </div>
       );
     })}
-    
-    {blocks.length === 0 && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-8 pointer-events-none">
-          {(() => {
-            const globalAnimClass = getAnimationClass(settings.entranceAnimation);
-            const globalExitClass = getExitClass(settings.exitAnimation);
-            const entCurveVal = getCurveValue(settings.entranceCurve || "Ease Out");
-            const extCurveVal = getCurveValue(settings.exitCurve || "Ease Out");
-            const entDuration = settings.entranceDuration || 1.0;
-            const extDuration = settings.exitDuration || 1.0;
-            const entDelay = settings.entranceDelay || 0;
-            const extDelay = settings.exitDelay || 0;
-
-            return (
-              <div 
-                key={`unchopped-${playKey}`}
-                className={cn(
-                  "flex flex-col space-y-4 w-full text-center",
-                  isCurrentlyPlaying && globalAnimClass && "fill-mode-both",
-                  isCurrentlyPlaying && globalAnimClass
-                )}
-                style={{
-                  animationDelay: isCurrentlyPlaying && globalAnimClass ? `${entDelay}s` : undefined,
-                  animationDuration: isCurrentlyPlaying && globalAnimClass ? `${entDuration}s` : undefined,
-                  animationTimingFunction: isCurrentlyPlaying && globalAnimClass ? entCurveVal : undefined,
-                }}
-              >
-                <div
-                  className={cn(
-                    "flex flex-col space-y-4",
-                    isCurrentlyPlaying && globalExitClass && "fill-mode-forwards",
-                    isCurrentlyPlaying && globalExitClass
-                  )}
-                  style={{
-                    fontFamily: settings.fontFamily,
-                    color: settings.color,
-                    fontWeight: settings.bold ? "bold" : "normal",
-                    fontStyle: settings.italic ? "italic" : "normal",
-                    textDecoration: settings.underline ? "underline" : "none",
-                    fontSize: `${settings.fontSize * 0.4}pt`, // Scale down for editor
-                    textShadow: settings.showShadow ? "0 2px 4px rgba(0,0,0,0.5)" : "none",
-                    animationDelay: isCurrentlyPlaying && globalExitClass ? `${10 + extDelay}s` : undefined, // Fake exit time for unchopped
-                    animationDuration: isCurrentlyPlaying && globalExitClass ? `${extDuration}s` : undefined,
-                    animationTimingFunction: isCurrentlyPlaying && globalExitClass ? extCurveVal : undefined,
-                  }}
-                >
-                  {slide.content.map((line, idx) => (
-                    <p key={idx} className="leading-tight">{line}</p>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      )}
     </div>
   );
 }
