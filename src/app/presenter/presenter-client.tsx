@@ -168,10 +168,8 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
      if (!activeSlide || activeSlide.content.length === 0) return [];
      const totalLines = activeSlide.content.length;
      
-     // Calculate effective font size to prevent overlapping screen boundaries
-     const maxLineLength = Math.max(...activeSlide.content.map(line => line.length), 1);
-     const maxAllowedFontSize = 2000 / maxLineLength; // 1920px screen width heuristic
-     const effectiveFontSize = Math.min(settings.fontSize, maxAllowedFontSize);
+     // Use the user's explicit font size setting instead of clamping it arbitrarily
+     const effectiveFontSize = settings.fontSize;
      
      const gap = Math.max(15, effectiveFontSize * 0.25);
      const startY = 50 - ((totalLines - 1) * (gap / 2));
@@ -237,10 +235,8 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     
     const totalLines = activeSlide.content.length;
     
-    // Calculate effective font size to prevent overlapping screen boundaries
-    const maxLineLength = Math.max(...activeSlide.content.map(line => line.length), 1);
-    const maxAllowedFontSize = 2000 / maxLineLength;
-    const effectiveFontSize = Math.min(settings.fontSize, maxAllowedFontSize);
+    // Use the user's explicit font size setting instead of clamping it arbitrarily
+    const effectiveFontSize = settings.fontSize;
     
     const gap = Math.max(15, effectiveFontSize * 0.25);
     const startY = 50 - ((totalLines - 1) * (gap / 2));
