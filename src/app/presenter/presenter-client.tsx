@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { Loader2, Save, X, Play, Music, LayoutTemplate, MonitorUp, EyeOff, Settings, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Smartphone, Type } from "lucide-react";
+import { Loader2, Save, X, Play, Music, LayoutTemplate, MonitorUp, EyeOff, Settings, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Smartphone, Type, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { generateSongSlides, defaultPresentationSettings, type PresentationSlide, type PresentationSettings, type SlideBlock } from "@/lib/domain/presentation";
@@ -35,6 +35,12 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   // --- Stage Display Controls ---
   const [stageMessageInput, setStageMessageInput] = useState("");
   const [countdownInput, setCountdownInput] = useState(5);
+
+  // --- Bible Controls ---
+  const [bibleQuery, setBibleQuery] = useState("");
+  const [bibleTranslation, setBibleTranslation] = useState("kjv");
+  const [bibleVerses, setBibleVerses] = useState<{ reference: string, text: string }[]>([]);
+  const [isFetchingBible, setIsFetchingBible] = useState(false);
 
   const saveHistoryState = () => {
     setPast(prev => [...prev.slice(-49), { settings, slideOverrides }]);
@@ -144,9 +150,17 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const activeItem = setlist?.songs[activeItemIndex];
   
   const slides = useMemo(() => {
+    if (activeItemIndex === -2) {
+      return bibleVerses.map(v => ({
+         id: `bible-${v.reference.replace(/\s+/g, '-')}`,
+         type: "lyrics",
+         content: [v.text],
+         sectionLabel: v.reference
+      } as PresentationSlide));
+    }
     if (!activeItem) return [];
     return generateSongSlides(activeItem.song.lyricsChords, linesPerSlide);
-  }, [activeItem, linesPerSlide]);
+  }, [activeItem, linesPerSlide, activeItemIndex, bibleVerses]);
 
   const activeSlide = useMemo(() => slides.find(s => s.id === activeSlideId), [slides, activeSlideId]);
   const activeBlocks = activeSlideId ? slideOverrides[activeSlideId] || [] : [];
@@ -174,6 +188,17 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
       return {
         ...prev,
         [activeSlideId]: currentBlocks.map(b => b.id === blockId ? { ...b, ...updates } : b)
+      };
+    });
+  };
+  const handleUpdateBlocks = (updatesMap: Record<string, Partial<SlideBlock>>) => {
+    if (!activeSlideId) return;
+    saveHistoryState();
+    setSlideOverrides(prev => {
+      const currentBlocks = prev[activeSlideId] || [];
+      return {
+        ...prev,
+        [activeSlideId]: currentBlocks.map(b => updatesMap[b.id] ? { ...b, ...updatesMap[b.id] } : b)
       };
     });
   };
@@ -335,6 +360,30 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedBlockIds, activeSlideId, slideOverrides, past, future]);
 
+  const handleFetchBible = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bibleQuery.trim()) return;
+    setIsFetchingBible(true);
+    try {
+      const res = await fetch(`https://bible-api.com/${encodeURIComponent(bibleQuery)}?translation=${bibleTranslation}`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      if (data.verses) {
+         const newVerses = data.verses.map((v: any) => ({
+           reference: `${v.book_name} ${v.chapter}:${v.verse}`,
+           text: v.text.trim()
+         }));
+         setBibleVerses(newVerses);
+         setActiveItemIndex(-2); // Switch to Bible view
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Verse not found or API error.");
+    } finally {
+      setIsFetchingBible(false);
+    }
+  };
+
   if (!setlist) {
     return <div className="p-8 text-white">No upcoming setlists found.</div>;
   }
@@ -388,8 +437,9 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
         
         {/* Far Left Nav (Icons) */}
         <div className="w-14 border-r border-white/5 bg-[#0a0a0a] flex flex-col items-center py-4 gap-4 shrink-0 z-10">
-           <button className="p-2 rounded-lg bg-violet-600/20 text-violet-400"><LayoutTemplate className="size-5" /></button>
-           <button className="p-2 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-zinc-300"><Music className="size-5" /></button>
+           <button onClick={() => setActiveItemIndex(-1)} className={`p-2 rounded-lg ${activeItemIndex === -1 ? 'bg-violet-600/20 text-violet-400' : 'hover:bg-white/5 text-zinc-500 hover:text-zinc-300'}`}><LayoutTemplate className="size-5" /></button>
+           <button onClick={() => setActiveItemIndex(0)} className={`p-2 rounded-lg ${activeItemIndex >= 0 ? 'bg-violet-600/20 text-violet-400' : 'hover:bg-white/5 text-zinc-500 hover:text-zinc-300'}`}><Music className="size-5" /></button>
+           <button onClick={() => setActiveItemIndex(-2)} className={`p-2 rounded-lg ${activeItemIndex === -2 ? 'bg-violet-600/20 text-violet-400' : 'hover:bg-white/5 text-zinc-500 hover:text-zinc-300'}`}><BookOpen className="size-5" /></button>
            <button className="p-2 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-zinc-300"><Settings className="size-5" /></button>
         </div>
 
@@ -454,26 +504,59 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
         {/* Lyrics Reflow (Slides) */}
         {activeItemIndex !== -1 && (
            <div className="w-64 border-r border-white/5 bg-[#121212] flex flex-col shrink-0">
-              <div className="h-14 border-b border-white/5 flex items-center justify-between px-4 shrink-0 bg-[#18181b]">
-                 <div className="flex flex-col justify-center min-w-0">
-                   <span className="text-xs font-bold text-white truncate">{activeItem?.song.title}</span>
-                   <span className="text-[10px] font-semibold text-zinc-500">Lyrics Reflow</span>
-                 </div>
-                 <div className="flex bg-black/50 rounded p-0.5 border border-white/10 shrink-0">
-                    {[1, 2, 4, 8].map(num => (
-                      <button
-                        key={num}
-                        onClick={() => setLinesPerSlide(num)}
-                        className={cn(
-                          "px-1.5 py-0.5 rounded text-[10px] font-bold transition",
-                          linesPerSlide === num ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
-                        )}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                 </div>
-              </div>
+              {activeItemIndex === -2 ? (
+                <div className="p-4 border-b border-white/5 bg-[#18181b]">
+                   <form onSubmit={handleFetchBible} className="space-y-3">
+                     <div>
+                       <label className="text-[10px] font-bold text-zinc-500 uppercase">Search Verse</label>
+                       <input 
+                         type="text" 
+                         value={bibleQuery} 
+                         onChange={e => setBibleQuery(e.target.value)} 
+                         placeholder="e.g. John 3:16" 
+                         className="w-full mt-1 bg-black/50 border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500" 
+                       />
+                     </div>
+                     <div className="flex gap-2">
+                       <select 
+                         value={bibleTranslation} 
+                         onChange={e => setBibleTranslation(e.target.value)}
+                         className="flex-1 bg-black/50 border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500"
+                       >
+                         <option value="kjv">KJV</option>
+                         <option value="web">WEB</option>
+                         <option value="bbe">BBE</option>
+                         <option value="ylt">YLT</option>
+                         <option value="oeb-us">OEB</option>
+                       </select>
+                       <button type="submit" disabled={isFetchingBible} className="bg-violet-600 hover:bg-violet-500 text-white rounded px-3 py-1.5 text-xs font-bold transition disabled:opacity-50">
+                         {isFetchingBible ? "..." : "Search"}
+                       </button>
+                     </div>
+                   </form>
+                </div>
+              ) : (
+                <div className="h-14 border-b border-white/5 flex items-center justify-between px-4 shrink-0 bg-[#18181b]">
+                   <div className="flex flex-col justify-center min-w-0">
+                     <span className="text-xs font-bold text-white truncate">{activeItem?.song.title}</span>
+                     <span className="text-[10px] font-semibold text-zinc-500">Lyrics Reflow</span>
+                   </div>
+                   <div className="flex bg-black/50 rounded p-0.5 border border-white/10 shrink-0">
+                      {[1, 2, 4, 8].map(num => (
+                        <button
+                          key={num}
+                          onClick={() => setLinesPerSlide(num)}
+                          className={cn(
+                            "px-1.5 py-0.5 rounded text-[10px] font-bold transition",
+                            linesPerSlide === num ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"
+                          )}
+                        >
+                          {num}
+                        </button>
+                      ))}
+                   </div>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                  {slides.map((slide) => {
                     const isActive = activeSlideId === slide.id;
@@ -587,6 +670,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        blocks={activeBlocks} 
                        settings={settings} 
                        onUpdateBlock={handleUpdateBlock}
+                       onUpdateBlocks={handleUpdateBlocks}
                        slide={activeSlide}
                        playKey={playKey}
                        selectedBlockIds={selectedBlockIds}
@@ -606,6 +690,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                <TimelineEditor 
                  blocks={activeBlocks} 
                  onUpdateBlock={handleUpdateBlock}
+                 onUpdateBlocks={handleUpdateBlocks}
                  onChopToWords={handleChopToWords}
                  onReset={handleResetBlocks}
                  onPlay={() => setPlayKey(Date.now())}
@@ -692,8 +777,20 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        >
                          <option value="Arial">Arial</option>
                          <option value="Arial Black">Arial Black</option>
-                         <option value="Bahnschrift">Bahnschrift</option>
                          <option value="Inter">Inter (Sans)</option>
+                         <option value="Roboto">Roboto</option>
+                         <option value="Open Sans">Open Sans</option>
+                         <option value="Montserrat">Montserrat</option>
+                         <option value="Lato">Lato</option>
+                         <option value="Poppins">Poppins</option>
+                         <option value="Playfair Display">Playfair Display</option>
+                         <option value="Oswald">Oswald</option>
+                         <option value="Raleway">Raleway</option>
+                         <option value="Nunito">Nunito</option>
+                         <option value="Ubuntu">Ubuntu</option>
+                         <option value="Merriweather">Merriweather</option>
+                         <option value="PT Serif">PT Serif</option>
+                         <option value="Lora">Lora</option>
                          <option value="Times New Roman">Times New Roman</option>
                          <option value="Courier New">Courier New</option>
                          <option value="Georgia">Georgia</option>

@@ -9,18 +9,23 @@ interface KineticCanvasProps {
   settings: PresentationSettings;
   slide: PresentationSlide;
   onUpdateBlock: (blockId: string, updates: Partial<SlideBlock>) => void;
+  onUpdateBlocks?: (updatesMap: Record<string, Partial<SlideBlock>>) => void;
   playKey?: number;
   selectedBlockIds?: string[];
   onSelectBlock?: (ids: string[]) => void;
 }
 
-export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, playKey = 0, selectedBlockIds = [], onSelectBlock }: KineticCanvasProps) {
+export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, onUpdateBlocks, playKey = 0, selectedBlockIds = [], onSelectBlock }: KineticCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [draggingBlock, setDraggingBlock] = useState<string | null>(null);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
   const [startBlockPos, setStartBlockPos] = useState({ x: 0, y: 0 });
+  const [initialSelectedBlocks, setInitialSelectedBlocks] = useState<SlideBlock[]>([]);
   const [isCurrentlyPlaying, setIsCurrentlyPlaying] = useState(false);
+  
+  // Selection box state
+  const [selectionBox, setSelectionBox] = useState<{ startX: number, startY: number, endX: number, endY: number } | null>(null);
 
   // Sync background video play/pause with timeline
   useEffect(() => {
@@ -49,28 +54,65 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
 
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
-      if (!draggingBlock || !containerRef.current) return;
+      if (!containerRef.current) return;
       
       const rect = containerRef.current.getBoundingClientRect();
-      const dx = e.clientX - startPos.x;
-      const dy = e.clientY - startPos.y;
-      
-      const dxPercent = (dx / rect.width) * 100;
-      const dyPercent = (dy / rect.height) * 100;
-      
-      onUpdateBlock(draggingBlock, {
-        x: startBlockPos.x + dxPercent,
-        y: startBlockPos.y + dyPercent
-      });
-    };
 
-    const handlePointerUp = () => {
       if (draggingBlock) {
-        setDraggingBlock(null);
+         const dx = e.clientX - startPos.x;
+         const dy = e.clientY - startPos.y;
+         const dxPercent = (dx / rect.width) * 100;
+         const dyPercent = (dy / rect.height) * 100;
+
+         // If the dragged block is part of the selection, drag all selected blocks together
+         if (selectedBlockIds.includes(draggingBlock) && onUpdateBlocks && initialSelectedBlocks.length > 0) {
+            const updatesMap: Record<string, Partial<SlideBlock>> = {};
+            initialSelectedBlocks.forEach(b => {
+               updatesMap[b.id] = {
+                 x: b.x + dxPercent,
+                 y: b.y + dyPercent
+               };
+            });
+            onUpdateBlocks(updatesMap);
+         } else {
+            onUpdateBlock(draggingBlock, {
+              x: startBlockPos.x + dxPercent,
+              y: startBlockPos.y + dyPercent
+            });
+         }
+      } else if (selectionBox) {
+         const x = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
+         const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+         const newBox = { ...selectionBox, endX: x, endY: y };
+         setSelectionBox(newBox);
+         
+         const minX = Math.min(newBox.startX, newBox.endX) / rect.width * 100;
+         const maxX = Math.max(newBox.startX, newBox.endX) / rect.width * 100;
+         const minY = Math.min(newBox.startY, newBox.endY) / rect.height * 100;
+         const maxY = Math.max(newBox.startY, newBox.endY) / rect.height * 100;
+         
+         // Select blocks that intersect the box
+         // We'll use a very simple point-in-box check based on block.x, block.y which is their center/origin
+         const intersectingBlocks = blocks.filter(b => 
+            b.x >= minX && b.x <= maxX && b.y >= minY && b.y <= maxY
+         ).map(b => b.id);
+         
+         if (e.shiftKey || e.ctrlKey || e.metaKey) {
+            // Merge with initial selection when modifier held
+            const merged = Array.from(new Set([...initialSelectedBlocks.map(b=>b.id), ...intersectingBlocks]));
+            onSelectBlock?.(merged);
+         } else {
+            onSelectBlock?.(intersectingBlocks);
+         }
       }
     };
 
-    if (draggingBlock) {
+    const handlePointerUp = () => {
+      setDraggingBlock(null);
+      setSelectionBox(null);
+    };
+
+    if (draggingBlock || selectionBox) {
       window.addEventListener("pointermove", handlePointerMove);
       window.addEventListener("pointerup", handlePointerUp);
     }
@@ -79,11 +121,13 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [draggingBlock, startPos, startBlockPos, onUpdateBlock]);
+  }, [draggingBlock, selectionBox, startPos, startBlockPos, onUpdateBlock, onUpdateBlocks, initialSelectedBlocks, selectedBlockIds, onSelectBlock, blocks]);
 
   const handlePointerDown = (e: React.PointerEvent, block: SlideBlock) => {
     e.preventDefault();
-    if (e.shiftKey) {
+    e.stopPropagation(); // Prevent background click
+
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
       if (selectedBlockIds.includes(block.id)) {
         onSelectBlock?.(selectedBlockIds.filter(id => id !== block.id));
       } else {
@@ -94,9 +138,28 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
          onSelectBlock?.([block.id]);
       }
     }
+    
+    // Save initial positions for bulk dragging
+    setInitialSelectedBlocks(blocks.filter(b => selectedBlockIds.includes(b.id) || b.id === block.id));
     setDraggingBlock(block.id);
     setStartPos({ x: e.clientX, y: e.clientY });
     setStartBlockPos({ x: block.x, y: block.y });
+  };
+
+  const handleBackgroundPointerDown = (e: React.PointerEvent) => {
+    // Only trigger if clicking directly on the background
+    if (e.target !== containerRef.current && (e.target as Element).id !== "kinetic-canvas-bg") return;
+    
+    const rect = containerRef.current!.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    setSelectionBox({ startX: x, startY: y, endX: x, endY: y });
+    setInitialSelectedBlocks(blocks.filter(b => selectedBlockIds.includes(b.id)));
+    
+    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      onSelectBlock?.([]);
+    }
   };
 
   const getAnimationClass = (effect: string) => {
@@ -140,12 +203,14 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
   return (
     <div 
       ref={containerRef}
+      id="kinetic-canvas-bg"
       className="relative w-full aspect-video bg-[#050505] overflow-hidden border border-white/5 rounded-lg shadow-2xl"
       style={{ backgroundColor: settings.backgroundColor }}
+      onPointerDown={handleBackgroundPointerDown}
     >
       {/* Grid background (fallback) */}
       {!settings.backgroundMediaUrl && (
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
+        <div id="kinetic-canvas-bg" className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
       )}
       
       {/* Uploaded Background Media */}
@@ -160,12 +225,18 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
         </div>
       )}
       
-      {/* Click outside to deselect */}
-      <div 
-        className="absolute inset-0 z-0" 
-        onClick={() => onSelectBlock?.([])}
-        onPointerDown={() => onSelectBlock?.([])}
-      />
+      {/* Selection Box */}
+      {selectionBox && (
+        <div 
+          className="absolute border border-violet-500 bg-violet-500/20 pointer-events-none z-50"
+          style={{
+            left: Math.min(selectionBox.startX, selectionBox.endX),
+            top: Math.min(selectionBox.startY, selectionBox.endY),
+            width: Math.abs(selectionBox.startX - selectionBox.endX),
+            height: Math.abs(selectionBox.startY - selectionBox.endY)
+          }}
+        />
+      )}
 
       {blocks.map((block, index) => {
         // Compute effective styles (block overrides or global settings)
@@ -320,10 +391,6 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
               </div>
             );
           })()}
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 pointer-events-auto">
-             <p className="text-zinc-400 font-bold text-sm mb-4">Default Slide View</p>
-             <p className="text-zinc-500 text-xs">Click "Chop to Words" below to enable the kinetic editor</p>
-          </div>
         </div>
       )}
     </div>

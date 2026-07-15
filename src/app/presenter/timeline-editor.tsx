@@ -8,6 +8,7 @@ import { Scissors, Merge, RotateCcw, Play, Undo2, Redo2 } from "lucide-react";
 interface TimelineEditorProps {
   blocks: SlideBlock[];
   onUpdateBlock: (blockId: string, updates: Partial<SlideBlock>) => void;
+  onUpdateBlocks?: (updatesMap: Record<string, Partial<SlideBlock>>) => void;
   onChopToWords: () => void;
   onReset: () => void;
   onPlay: () => void;
@@ -25,7 +26,7 @@ interface TimelineEditorProps {
 }
 
 export default function TimelineEditor({ 
-  blocks, onUpdateBlock, onChopToWords, onReset, onPlay, playKey = 0,
+  blocks, onUpdateBlock, onUpdateBlocks, onChopToWords, onReset, onPlay, playKey = 0,
   totalDuration = 10, onUpdateDuration, selectedBlockIds = [], onSelectBlock, onDuplicateBlock, onDeleteBlock,
   onUndo, onRedo, canUndo = false, canRedo = false
 }: TimelineEditorProps) {
