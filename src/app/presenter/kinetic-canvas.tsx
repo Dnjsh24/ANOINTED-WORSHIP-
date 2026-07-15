@@ -238,22 +238,29 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
         />
       )}
 
-      {blocks.map((block, index) => {
-        // Compute effective styles (block overrides or global settings)
-        const effectiveFontFamily = block.fontFamily || settings.fontFamily;
-        const effectiveFontSize = block.fontSize || settings.fontSize;
-        const effectiveBold = block.bold ?? settings.bold;
-        const effectiveItalic = block.italic ?? settings.italic;
-        const effectiveUnderline = block.underline ?? settings.underline;
+      {/* Blocks */}
+      {(() => {
+        // Calculate the maximum allowed font size for this slide to prevent horizontal overflow
+        const maxBlockLength = Math.max(...blocks.map(b => b.text.length), 1);
+        const maxAllowedFontSize = 2000 / maxBlockLength;
 
-        // Effective Animations
-        const effEntAnim = block.entranceAnimation ?? settings.entranceAnimation;
-        const effEntDuration = block.entranceDuration ?? (settings.entranceDuration || 1.0);
-        let effEntDelay = block.entranceDelay ?? (settings.entranceDelay || 0);
-        const effEntCurve = block.entranceCurve ?? (settings.entranceCurve || "Ease Out");
+        return blocks.map((block, index) => {
+          // Compute effective styles (block overrides or global settings)
+          const effectiveFontFamily = block.fontFamily || settings.fontFamily;
+          const baseFontSize = block.fontSize || settings.fontSize;
+          const effectiveFontSize = Math.min(baseFontSize, maxAllowedFontSize);
+          const effectiveBold = block.bold ?? settings.bold;
+          const effectiveItalic = block.italic ?? settings.italic;
+          const effectiveUnderline = block.underline ?? settings.underline;
+
+          // Effective Animations
+          const effEntAnim = block.entranceAnimation ?? settings.entranceAnimation;
+          const effEntDuration = block.entranceDuration ?? (settings.entranceDuration || 1.0);
+          let effEntDelay = block.entranceDelay ?? (settings.entranceDelay || 0);
+          const effEntCurve = block.entranceCurve ?? (settings.entranceCurve || "Ease Out");
         
-        const effExtAnim = block.exitAnimation ?? settings.exitAnimation;
-        const effExtDuration = block.exitDuration ?? (settings.exitDuration || 1.0);
+          const effExtAnim = block.exitAnimation ?? settings.exitAnimation;
+          const effExtDuration = block.exitDuration ?? (settings.exitDuration || 1.0);
         const effExtDelay = block.exitDelay ?? (settings.exitDelay || 0); // User-defined explicit exit delay override
         const effExtCurve = block.exitCurve ?? (settings.exitCurve || "Ease Out");
 
@@ -337,7 +344,8 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
           )}
         </div>
       );
-    })}
+        });
+      })()}
     </div>
   );
 }

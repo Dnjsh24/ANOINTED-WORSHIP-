@@ -165,9 +165,15 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const activeSlide = useMemo(() => slides.find(s => s.id === activeSlideId), [slides, activeSlideId]);
   
   const defaultBlocks = useMemo(() => {
-     if (!activeSlide) return [];
+     if (!activeSlide || activeSlide.content.length === 0) return [];
      const totalLines = activeSlide.content.length;
-     const gap = Math.max(15, settings.fontSize * 0.25);
+     
+     // Calculate effective font size to prevent overlapping screen boundaries
+     const maxLineLength = Math.max(...activeSlide.content.map(line => line.length), 1);
+     const maxAllowedFontSize = 2000 / maxLineLength; // 1920px screen width heuristic
+     const effectiveFontSize = Math.min(settings.fontSize, maxAllowedFontSize);
+     
+     const gap = Math.max(15, effectiveFontSize * 0.25);
      const startY = 50 - ((totalLines - 1) * (gap / 2));
      return activeSlide.content.map((line, idx) => ({
         id: `default-${activeSlide.id}-${idx}`,
@@ -230,7 +236,13 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     let wordCounter = 0;
     
     const totalLines = activeSlide.content.length;
-    const gap = Math.max(15, settings.fontSize * 0.25);
+    
+    // Calculate effective font size to prevent overlapping screen boundaries
+    const maxLineLength = Math.max(...activeSlide.content.map(line => line.length), 1);
+    const maxAllowedFontSize = 2000 / maxLineLength;
+    const effectiveFontSize = Math.min(settings.fontSize, maxAllowedFontSize);
+    
+    const gap = Math.max(15, effectiveFontSize * 0.25);
     const startY = 50 - ((totalLines - 1) * (gap / 2));
     
     activeSlide.content.forEach((line, lineIdx) => {

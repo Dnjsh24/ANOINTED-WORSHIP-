@@ -188,10 +188,15 @@ function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, get
       )}
       {slide.blocks && slide.blocks.length > 0 ? (
         <div className="relative w-full h-full">
-          {slide.blocks.map((block: any, index: number) => {
-            const effectiveFontFamily = block.fontFamily || settings.fontFamily;
-            const effectiveFontSize = block.fontSize || settings.fontSize;
-            const effectiveBold = block.bold ?? settings.bold;
+          {(() => {
+            const maxBlockLength = Math.max(...(slide.blocks || []).map((b: any) => b.text.length), 1);
+            const maxAllowedFontSize = 2000 / maxBlockLength;
+
+            return slide.blocks.map((block: any, index: number) => {
+              const effectiveFontFamily = block.fontFamily || settings.fontFamily;
+              const baseFontSize = block.fontSize || settings.fontSize;
+              const effectiveFontSize = Math.min(baseFontSize, maxAllowedFontSize);
+              const effectiveBold = block.bold ?? settings.bold;
             const effectiveItalic = block.italic ?? settings.italic;
             const effectiveUnderline = block.underline ?? settings.underline;
 
@@ -261,7 +266,8 @@ function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, get
                 </div>
               </div>
             );
-          })}
+            });
+          })()}
         </div>
       ) : (
         <div 
