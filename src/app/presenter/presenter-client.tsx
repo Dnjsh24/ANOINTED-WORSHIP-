@@ -233,11 +233,12 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
 
   const handleUpdateDuration = (duration: number) => {
     if (!activeSlideId) return;
+    const clampedDuration = Math.min(300, Math.max(1, duration));
     setSettings(prev => ({
       ...prev,
       slideDurations: {
         ...(prev.slideDurations || {}),
-        [activeSlideId]: duration
+        [activeSlideId]: clampedDuration
       }
     }));
   };

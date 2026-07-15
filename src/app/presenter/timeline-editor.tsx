@@ -133,8 +133,10 @@ export default function TimelineEditor({
             <span className="text-[10px] font-bold text-zinc-500">Duration (s)</span>
             <input 
               type="number" 
+              min={1}
+              max={300}
               value={TOTAL_DURATION_SEC}
-              onChange={(e) => onUpdateDuration?.(Math.max(1, Number(e.target.value)))}
+              onChange={(e) => onUpdateDuration?.(Math.min(300, Math.max(1, Number(e.target.value))))}
               className="w-12 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-white focus:outline-none focus:border-violet-500"
             />
           </div>
