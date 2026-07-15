@@ -167,12 +167,12 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const defaultBlocks = useMemo(() => {
      if (!activeSlide) return [];
      const totalLines = activeSlide.content.length;
-     const startY = 50 - ((totalLines - 1) * 7.5);
+     const startY = 50 - ((totalLines - 1) * 10);
      return activeSlide.content.map((line, idx) => ({
         id: `default-${activeSlide.id}-${idx}`,
         text: line,
         x: 50,
-        y: startY + (idx * 15),
+        y: startY + (idx * 20),
         startTime: idx * 0.5,
         duration: 2
      } as SlideBlock));
@@ -229,7 +229,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     let wordCounter = 0;
     
     const totalLines = activeSlide.content.length;
-    const startY = 50 - ((totalLines - 1) * 7.5); // Center vertically, 15% gap per line
+    const startY = 50 - ((totalLines - 1) * 10); // Center vertically, 20% gap per line
     
     activeSlide.content.forEach((line, lineIdx) => {
       const words = line.split(/\s+/).filter(Boolean);
@@ -240,7 +240,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
       
       words.forEach((word, wordIdxInLine) => {
         const x = startX + (wordIdxInLine * 12);
-        const y = startY + (lineIdx * 15);
+        const y = startY + (lineIdx * 20);
         const startTime = wordCounter * 0.5; // Sequential start times, 0.5s apart
         
         newBlocks.push({
