@@ -167,16 +167,17 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const defaultBlocks = useMemo(() => {
      if (!activeSlide) return [];
      const totalLines = activeSlide.content.length;
-     const startY = 50 - ((totalLines - 1) * 10);
+     const gap = Math.max(15, settings.fontSize * 0.15);
+     const startY = 50 - ((totalLines - 1) * (gap / 2));
      return activeSlide.content.map((line, idx) => ({
         id: `default-${activeSlide.id}-${idx}`,
         text: line,
         x: 50,
-        y: startY + (idx * 20),
+        y: startY + (idx * gap),
         startTime: idx * 0.5,
         duration: 2
      } as SlideBlock));
-  }, [activeSlide]);
+  }, [activeSlide, settings.fontSize]);
 
   const activeBlocks = activeSlideId ? slideOverrides[activeSlideId] || defaultBlocks : [];
   const selectedBlock = useMemo(() => {
@@ -229,7 +230,8 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     let wordCounter = 0;
     
     const totalLines = activeSlide.content.length;
-    const startY = 50 - ((totalLines - 1) * 10); // Center vertically, 20% gap per line
+    const gap = Math.max(15, settings.fontSize * 0.15);
+    const startY = 50 - ((totalLines - 1) * (gap / 2));
     
     activeSlide.content.forEach((line, lineIdx) => {
       const words = line.split(/\s+/).filter(Boolean);
@@ -240,7 +242,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
       
       words.forEach((word, wordIdxInLine) => {
         const x = startX + (wordIdxInLine * 12);
-        const y = startY + (lineIdx * 20);
+        const y = startY + (lineIdx * gap);
         const startTime = wordCounter * 0.5; // Sequential start times, 0.5s apart
         
         newBlocks.push({
