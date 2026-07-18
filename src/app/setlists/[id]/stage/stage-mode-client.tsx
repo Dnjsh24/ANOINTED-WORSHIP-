@@ -74,8 +74,9 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
   const rawLyrics = currentSong?.lyricsChords || "";
   const sections = parseLyricsAndChords(rawLyrics);
 
-  const baseKey = currentSetlistSong?.assignedKey || currentSong?.originalKey || "C";
-  const [selectedKey, setSelectedKey] = useState(baseKey);
+  const baseKey = currentSong?.originalKey || "C";
+  const initialKey = currentSetlistSong?.assignedKey || currentSong?.originalKey || "C";
+  const [selectedKey, setSelectedKey] = useState(initialKey);
   const [guitarMode, setGuitarMode] = useState(false);
   
   const [metronomePlaying, setMetronomePlaying] = useState(false);
