@@ -1328,6 +1328,25 @@ export async function removeSetlistSongAction(formData: FormData): Promise<Actio
     return { ok: false, message: "Song could not be removed." };
   }
 
+  // Re-sequence the remaining songs to eliminate gaps
+  const { data: remainingSongs } = await context.supabase
+    .from("setlist_songs")
+    .select("id, song_order")
+    .eq("setlist_id", setlistId)
+    .order("song_order", { ascending: true });
+
+  if (remainingSongs) {
+    for (let i = 0; i < remainingSongs.length; i++) {
+      const expectedOrder = i + 1;
+      if (remainingSongs[i].song_order !== expectedOrder) {
+        await context.supabase
+          .from("setlist_songs")
+          .update({ song_order: expectedOrder })
+          .eq("id", remainingSongs[i].id);
+      }
+    }
+  }
+
   if (slot?.setlist?.team_id === context.teamId) {
     const song = Array.isArray(slot.song) ? slot.song[0] : slot.song;
     await logSetlistChange(context, {
