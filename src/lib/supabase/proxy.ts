@@ -2,14 +2,74 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv, hasSupabaseEnv } from "@/lib/supabase/env";
 import type { Database } from "@/lib/supabase/database.types";
+import { rateLimit } from "@/lib/rate-limit";
+
+// ---------------------------------------------------------------------------
+// Rate limit configuration per route tier
+// ---------------------------------------------------------------------------
+const RATE_LIMITS = {
+  /** OAuth callback — tightest limit to prevent code replay abuse */
+  auth: { max: 10, windowMs: 60_000 },
+  /** Internal API routes — moderate limit */
+  api: { max: 30, windowMs: 60_000 },
+  /** General page navigation — generous limit, real users won't hit this */
+  general: { max: 120, windowMs: 60_000 },
+} as const;
+
+/** Extract the best available client IP from the request headers. */
+function getClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    // x-forwarded-for can be a comma-separated list; take the first (client) IP.
+    return forwarded.split(",")[0].trim();
+  }
+  return request.headers.get("x-real-ip") ?? "unknown";
+}
 
 export async function updateSession(request: NextRequest) {
+  // ---------------------------------------------------------------------------
+  // Rate limiting — runs before any Supabase or route logic
+  // ---------------------------------------------------------------------------
+  const pathname = request.nextUrl.pathname;
+  const ip = getClientIp(request);
+
+  const isAuthRoute = pathname.startsWith("/auth");
+  const isApiRoute = pathname.startsWith("/api");
+
+  const limitConfig = isAuthRoute
+    ? RATE_LIMITS.auth
+    : isApiRoute
+    ? RATE_LIMITS.api
+    : RATE_LIMITS.general;
+
+  const limitKey = `${isAuthRoute ? "auth" : isApiRoute ? "api" : "gen"}:${ip}`;
+  const { allowed, remaining, resetAt } = rateLimit(limitKey, limitConfig.max, limitConfig.windowMs);
+
+  if (!allowed) {
+    const retryAfterSeconds = Math.ceil((resetAt - Date.now()) / 1000);
+    return new NextResponse(
+      JSON.stringify({
+        error: "Too Many Requests",
+        message: `Rate limit exceeded. Try again in ${retryAfterSeconds} second${retryAfterSeconds === 1 ? "" : "s"}.`,
+      }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(retryAfterSeconds),
+          "X-RateLimit-Limit": String(limitConfig.max),
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)),
+        },
+      }
+    );
+  }
+
   if (!hasSupabaseEnv()) {
     return NextResponse.next({ request });
   }
 
   const prefix = "/services/anointed-worship-app";
-  const pathname = request.nextUrl.pathname;
   const hasPrefix = pathname.startsWith(prefix);
 
   const requestHeaders = new Headers(request.headers);
