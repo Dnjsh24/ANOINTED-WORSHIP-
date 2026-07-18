@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Users, Edit } from "lucide-react";
 import { notFound } from "next/navigation";
 import { AttendanceToggle } from "@/components/attendance-toggle";
 import { AppShell } from "@/components/app-shell";
@@ -207,7 +207,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           </Card>
         </Panel>
         {can(teamContext.role, "events.manage") ? (
-          <div className="mt-1">
+          <div className="mt-1 flex gap-3">
+            <ButtonLink
+              href={`/events/${event.id}/edit`}
+              className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-zinc-300 transition hover:bg-white/10 hover:text-white"
+            >
+              <Edit className="size-4" />
+              Edit Event
+            </ButtonLink>
             <EventDeleteButton eventId={event.id} />
           </div>
         ) : null}

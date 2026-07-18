@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useActionState } from "react";
-import { createEventAction } from "@/app/actions";
+import { createEventAction, updateEventAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { ButtonLink } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,15 +19,32 @@ export function EventForm({
   defaultDate,
   requiresApproval = false,
   canLinkSetlists = true,
+  initialEvent,
 }: {
   setlists?: Array<{ id: string; name: string; date: string }>;
   defaultDate?: string;
   requiresApproval?: boolean;
   canLinkSetlists?: boolean;
+  initialEvent?: {
+    id: string;
+    name: string;
+    type: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    rehearsalDate: string;
+    rehearsalStartTime: string;
+    rehearsalEndTime: string;
+    location: string;
+    assignedTeams: string[];
+    notes: string;
+    linkedSetlistId: string;
+  };
 }) {
-  const [state, formAction] = useActionState(createEventAction, initialActionState);
-  const [eventType, setEventType] = useState("service");
-  const [selectedTeams, setSelectedTeams] = useState<string[]>(["Worship Band"]);
+  const actionToUse = initialEvent ? updateEventAction : createEventAction;
+  const [state, formAction] = useActionState(actionToUse, initialActionState);
+  const [eventType, setEventType] = useState(initialEvent?.type ?? "service");
+  const [selectedTeams, setSelectedTeams] = useState<string[]>(initialEvent?.assignedTeams ?? ["Worship Band"]);
   const [selectAll, setSelectAll] = useState(false);
 
   const isServiceRehearsal = eventType === "service_rehearsal";
@@ -60,6 +77,7 @@ export function EventForm({
           </div>
         ) : null}
 
+        {initialEvent ? <input type="hidden" name="eventId" value={initialEvent.id} /> : null}
         <input type="hidden" name="assignedTeams" value={selectedTeams.join(", ")} />
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -70,7 +88,7 @@ export function EventForm({
 
             <label className="block space-y-1.5">
               <span className="text-xs font-bold text-zinc-300">Title *</span>
-              <Input name="title" defaultValue="Sunday Morning Worship" placeholder="e.g., Sunday Service" required className="rounded-xl border-white/10" />
+              <Input name="title" defaultValue={initialEvent?.name ?? "Sunday Morning Worship"} placeholder="e.g., Sunday Service" required className="rounded-xl border-white/10" />
             </label>
 
             <label className="block space-y-1.5">
@@ -93,12 +111,12 @@ export function EventForm({
 
             <label className="block space-y-1.5">
               <span className="text-xs font-bold text-zinc-300">Date *</span>
-              <Input type="date" name="date" defaultValue={defaultDate ?? "2026-07-12"} required className="rounded-xl border-white/10" />
+              <Input type="date" name="date" defaultValue={initialEvent?.date ?? defaultDate ?? "2026-07-12"} required className="rounded-xl border-white/10" />
             </label>
 
             <label className="block space-y-1.5">
               <span className="text-xs font-bold text-zinc-300">Location *</span>
-              <Input name="location" defaultValue="Main Sanctuary" placeholder="e.g., Main Auditorium" required className="rounded-xl border-white/10" />
+              <Input name="location" defaultValue={initialEvent?.location ?? "Main Sanctuary"} placeholder="e.g., Main Auditorium" required className="rounded-xl border-white/10" />
             </label>
           </div>
 
@@ -109,11 +127,11 @@ export function EventForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="block space-y-1.5">
                 <span className="text-xs font-bold text-zinc-300">{isServiceRehearsal ? "Service start time" : "Start time"} *</span>
-                <Input type="time" name="startTime" defaultValue="09:00" required className="rounded-xl border-white/10" />
+                <Input type="time" name="startTime" defaultValue={initialEvent?.startTime ?? "09:00"} required className="rounded-xl border-white/10" />
               </label>
               <label className="block space-y-1.5">
                 <span className="text-xs font-bold text-zinc-300">{isServiceRehearsal ? "Service end time" : "End time"}</span>
-                <Input type="time" name="endTime" defaultValue="12:30" className="rounded-xl border-white/10" />
+                <Input type="time" name="endTime" defaultValue={initialEvent?.endTime ?? "12:30"} className="rounded-xl border-white/10" />
               </label>
             </div>
 
@@ -123,15 +141,15 @@ export function EventForm({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <label className="block space-y-1.5">
                     <span className="text-xs font-bold text-zinc-300">Rehearsal date *</span>
-                    <Input type="date" name="rehearsalDate" className="rounded-xl border-white/10" />
+                    <Input type="date" name="rehearsalDate" defaultValue={initialEvent?.rehearsalDate ?? ""} className="rounded-xl border-white/10" />
                   </label>
                   <label className="block space-y-1.5">
                     <span className="text-xs font-bold text-zinc-300">Rehearsal start time *</span>
-                    <Input type="time" name="rehearsalStartTime" defaultValue="07:00" required className="rounded-xl border-white/10" />
+                    <Input type="time" name="rehearsalStartTime" defaultValue={initialEvent?.rehearsalStartTime ?? "07:00"} required className="rounded-xl border-white/10" />
                   </label>
                   <label className="block space-y-1.5">
                     <span className="text-xs font-bold text-zinc-300">Rehearsal end time</span>
-                    <Input type="time" name="rehearsalEndTime" defaultValue="08:30" className="rounded-xl border-white/10" />
+                    <Input type="time" name="rehearsalEndTime" defaultValue={initialEvent?.rehearsalEndTime ?? "08:30"} className="rounded-xl border-white/10" />
                   </label>
                 </div>
               </div>
@@ -170,7 +188,7 @@ export function EventForm({
                 <div className="relative">
                   <select
                     name="linkedSetlistId"
-                    defaultValue=""
+                    defaultValue={initialEvent?.linkedSetlistId ?? ""}
                     className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20"
                   >
                     <option value="" className="bg-[#111014] text-white">No setlist</option>
@@ -192,6 +210,7 @@ export function EventForm({
             <span className="text-xs font-bold text-zinc-300">Notes (Optional)</span>
             <textarea
               name="notes"
+              defaultValue={initialEvent?.notes ?? ""}
               placeholder="Add any notes about this event..."
               className="min-h-24 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-xs text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20"
             />
@@ -203,7 +222,7 @@ export function EventForm({
             Cancel
           </ButtonLink>
           <SubmitButton className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500 hover:shadow-[0_0_15px_rgba(139,92,246,0.35)]">
-            {requiresApproval ? "Request Event" : "Create Event"}
+            {initialEvent ? "Save Changes" : requiresApproval ? "Request Event" : "Create Event"}
           </SubmitButton>
         </div>
       </form>

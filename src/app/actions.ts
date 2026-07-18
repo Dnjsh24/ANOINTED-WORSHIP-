@@ -1839,6 +1839,73 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
   redirect(`/events/${data.id}`);
 }
 
+export async function updateEventAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const eventId = formString(formData, "eventId");
+  const parsed = eventInputSchema.safeParse({
+    title: formString(formData, "title"),
+    eventType: formString(formData, "eventType"),
+    date: formString(formData, "date"),
+    startTime: formString(formData, "startTime"),
+    endTime: formString(formData, "endTime"),
+    rehearsalStartTime: formString(formData, "rehearsalStartTime"),
+    rehearsalEndTime: formString(formData, "rehearsalEndTime"),
+    rehearsalDate: formString(formData, "rehearsalDate"),
+    location: formString(formData, "location"),
+    assignedTeams: formString(formData, "assignedTeams"),
+    linkedSetlistId: formString(formData, "linkedSetlistId"),
+    notes: formString(formData, "notes"),
+  });
+
+  if (!eventId) {
+    return { ok: false, message: "Event ID is required." };
+  }
+
+  if (!parsed.success) {
+    return validationState(parsed.error);
+  }
+
+  const context = await getMutationContext("events.manage");
+  if (!context.ok) {
+    return { ...context.state, message: "You don't have permission to edit events." };
+  }
+
+  const updateData: Record<string, unknown> = {
+    name: parsed.data.title,
+    type: parsed.data.eventType,
+    event_date: parsed.data.date,
+    starts_at: parsed.data.startTime,
+    ends_at: parsed.data.endTime || null,
+    location: parsed.data.location,
+    description: parsed.data.notes || parsed.data.assignedTeams || null,
+    rehearsal_time: parsed.data.rehearsalStartTime || null,
+    rehearsal_end_time: parsed.data.rehearsalEndTime || null,
+    rehearsal_date: parsed.data.rehearsalDate || null,
+  };
+
+  const { error } = await context.supabase
+    .from("events")
+    .update(updateData as any)
+    .eq("id", eventId)
+    .eq("team_id", context.teamId);
+
+  if (error) {
+    return { ok: false, message: error.message };
+  }
+
+  if (parsed.data.linkedSetlistId && can(context.role, "setlists.manage")) {
+    await context.supabase
+      .from("setlists")
+      .update({ event_id: eventId })
+      .eq("id", parsed.data.linkedSetlistId);
+  }
+
+  revalidatePath("/events");
+  revalidatePath(`/events/${eventId}`);
+  revalidatePath("/dashboard");
+
+  redirect(`/events/${eventId}`);
+}
+
 export async function reviewEventAction(formData: FormData): Promise<ActionState> {
   const parsed = z.object({
     eventId: z.string().min(1),
