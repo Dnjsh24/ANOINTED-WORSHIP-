@@ -71,7 +71,8 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             id,
             title,
             bpm,
-            original_key
+            original_key,
+            lyrics_chords
           )
         )
       `)
@@ -100,6 +101,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             title: ss.song?.title || "Unknown Song",
             bpm: ss.song?.bpm || 70,
             originalKey: ss.song?.original_key || "C",
+            lyrics: ss.song?.lyrics_chords || "",
           },
         };
       });
@@ -442,6 +444,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
                               slotId={item.id}
                               songTitle={item.song.title}
                               currentArrangement={item.arrangement}
+                              lyrics={item.song.lyrics}
                             />
                             <DeleteSongButton
                               setlistId={setlist.id}

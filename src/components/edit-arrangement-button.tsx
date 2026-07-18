@@ -10,11 +10,13 @@ export function EditArrangementButton({
   slotId,
   songTitle,
   currentArrangement,
+  lyrics,
 }: {
   setlistId: string;
   slotId: string;
   songTitle: string;
   currentArrangement?: string | null;
+  lyrics: string;
 }) {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
@@ -45,6 +47,7 @@ export function EditArrangementButton({
         onSave={handleSave}
         songTitle={songTitle}
         initialArrangement={currentArrangement || ""}
+        lyrics={lyrics}
       />
     </>
   );

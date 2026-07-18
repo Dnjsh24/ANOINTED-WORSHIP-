@@ -714,7 +714,9 @@ export async function cancelJoinRequestAction(formData: FormData): Promise<Actio
 
 type ParsedSetlistInput = z.infer<typeof setlistInputSchema>;
 
-function buildSetlistAssignments(eventId: string, data: ParsedSetlistInput) {
+type ParsedEventInput = z.infer<typeof eventInputSchema>;
+
+function buildEventAssignments(eventId: string, data: ParsedEventInput) {
   const assignmentsToInsert: Array<{ event_id: string; team_member_id: string; assignment: string }> = [];
 
   if (data.worshipLeader) {
@@ -760,7 +762,7 @@ function buildSetlistAssignments(eventId: string, data: ParsedSetlistInput) {
   return assignmentsToInsert;
 }
 
-function buildSetlistSnapshot(data: ParsedSetlistInput, assignments: Array<{ team_member_id: string; assignment: string }>) {
+function buildSetlistSnapshot(data: ParsedSetlistInput) {
   return {
     title: data.title,
     serviceDate: data.serviceDate,
@@ -770,10 +772,7 @@ function buildSetlistSnapshot(data: ParsedSetlistInput, assignments: Array<{ tea
     callTime: data.callTime,
     rehearsalTime: data.rehearsalTime,
     notes: data.notes ?? "",
-    assignments: assignments.map((assignment) => ({
-      memberId: assignment.team_member_id,
-      role: assignment.assignment,
-    })),
+    
   };
 }
 
@@ -822,19 +821,8 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     location: formString(formData, "location"),
     callTime: formString(formData, "callTime"),
     rehearsalTime: formString(formData, "rehearsalTime"),
-    worshipLeader: formString(formData, "worshipLeader"),
+    
     notes: formString(formData, "notes"),
-    acousticGuitar: formString(formData, "acousticGuitar"),
-    electricGuitar: formString(formData, "electricGuitar"),
-    bass: formString(formData, "bass"),
-    drums: formString(formData, "drums"),
-    mainKeys: formString(formData, "mainKeys"),
-    secondKeys: formString(formData, "secondKeys"),
-    extraBandMembers: formData.getAll("extraBandMembers").map(String).filter(Boolean),
-    backupSingers: formData.getAll("backupSingers").map(String).filter(Boolean),
-    media: formString(formData, "media"),
-    dancers: formData.getAll("dancers").map(String).filter(Boolean),
-    templateId: optionalFormString(formData, "templateId"),
   });
 
   if (!parsed.success) {
@@ -917,19 +905,13 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     return { ok: false, message: "Setlist could not be saved. Please try again." };
   }
 
-  // 3. Save roles/assignments
-  const assignmentsToInsert = buildSetlistAssignments(resolvedEventId, parsed.data);
+  
 
-  if (assignmentsToInsert.length > 0) {
-    await (context.supabase.from("event_assignments") as any).insert(assignmentsToInsert);
-  }
-
-  const templateName = await getServiceTemplateName(context, parsed.data.templateId);
   await logSetlistChange(context, {
     setlistId: setlistData.id,
     changeType: "created",
-    summary: templateName ? `Created from ${templateName} template.` : "Created setlist.",
-    snapshot: buildSetlistSnapshot(parsed.data, assignmentsToInsert),
+    summary: "Created setlist.",
+    snapshot: buildSetlistSnapshot(parsed.data),
   });
 
   revalidatePath("/setlists");
@@ -946,19 +928,8 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
     location: formString(formData, "location"),
     callTime: formString(formData, "callTime"),
     rehearsalTime: formString(formData, "rehearsalTime"),
-    worshipLeader: formString(formData, "worshipLeader"),
+    
     notes: formString(formData, "notes"),
-    acousticGuitar: formString(formData, "acousticGuitar"),
-    electricGuitar: formString(formData, "electricGuitar"),
-    bass: formString(formData, "bass"),
-    drums: formString(formData, "drums"),
-    mainKeys: formString(formData, "mainKeys"),
-    secondKeys: formString(formData, "secondKeys"),
-    extraBandMembers: formData.getAll("extraBandMembers").map(String).filter(Boolean),
-    backupSingers: formData.getAll("backupSingers").map(String).filter(Boolean),
-    media: formString(formData, "media"),
-    dancers: formData.getAll("dancers").map(String).filter(Boolean),
-    templateId: optionalFormString(formData, "templateId"),
   });
 
   if (!id) {
@@ -1042,22 +1013,12 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
     return { ok: false, message: "Setlist changes could not be saved." };
   }
 
-  // Update roles/assignments
   if (eventId) {
-    await (context.supabase.from("event_assignments") as any).delete().eq("event_id", eventId);
-
-    const assignmentsToInsert = buildSetlistAssignments(eventId, parsed.data);
-
-    if (assignmentsToInsert.length > 0) {
-      await (context.supabase.from("event_assignments") as any).insert(assignmentsToInsert);
-    }
-
-    const templateName = await getServiceTemplateName(context, parsed.data.templateId);
     await logSetlistChange(context, {
       setlistId: id,
       changeType: "updated",
-      summary: templateName ? `Updated details from ${templateName} template.` : "Updated setlist details and team assignments.",
-      snapshot: buildSetlistSnapshot(parsed.data, assignmentsToInsert),
+      summary: "Updated setlist details.",
+      snapshot: buildSetlistSnapshot(parsed.data),
     });
   }
 
@@ -1075,17 +1036,17 @@ export async function createServiceTemplateAction(_previous: ActionState, formDa
     rehearsalTime: formString(formData, "rehearsalTime") || "08:30",
     reminderFrequency: formString(formData, "reminderFrequency") || "weekly",
     reminderOccurrences: formString(formData, "reminderOccurrences") || "4",
-    worshipLeader: formString(formData, "worshipLeader"),
-    acousticGuitar: formString(formData, "acousticGuitar"),
-    electricGuitar: formString(formData, "electricGuitar"),
-    bass: formString(formData, "bass"),
-    drums: formString(formData, "drums"),
-    mainKeys: formString(formData, "mainKeys"),
-    secondKeys: formString(formData, "secondKeys"),
-    extraBandMembers: formData.getAll("extraBandMembers").map(String).filter(Boolean),
-    backupSingers: formData.getAll("backupSingers").map(String).filter(Boolean),
-    media: formString(formData, "media"),
-    dancers: formData.getAll("dancers").map(String).filter(Boolean),
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
   });
 
   if (!parsed.success) {
@@ -1817,6 +1778,14 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
 
   if (error || !data) {
     return { ok: false, message: error ? error.message : "Event could not be created." };
+  }
+
+  
+  if (approvalStatus === "approved") {
+    const assignmentsToInsert = buildEventAssignments(data.id, parsed.data);
+    if (assignmentsToInsert.length > 0) {
+      await (context.supabase.from("event_assignments") as any).insert(assignmentsToInsert);
+    }
   }
 
   if (approvalStatus === "approved" && parsed.data.linkedSetlistId && can(context.role, "setlists.manage")) {

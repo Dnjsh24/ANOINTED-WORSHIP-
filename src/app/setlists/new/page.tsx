@@ -91,7 +91,7 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
         <p className="mt-2 text-sm font-semibold text-zinc-300">Create event details, scheduling, team assignments, and song order.</p>
       </div>
       <Panel>
-        <SetlistForm teamMembers={teamMembersList} eventId={eventId} initialEventType={initialEventType} serviceTemplates={serviceTemplates} />
+        <SetlistForm eventId={eventId} initialEventType={initialEventType} />
       </Panel>
     </AppShell>
   );

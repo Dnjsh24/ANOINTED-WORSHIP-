@@ -67,20 +67,9 @@ export const setlistInputSchema = z.object({
   location: z.string().trim().min(1, "Location is required").max(160),
   callTime: z.string().trim().min(1, "Call time is required"),
   rehearsalTime: z.string().trim().min(1, "Rehearsal time is required"),
-  worshipLeader: z.string().trim().min(1, "Worship leader is required").max(160),
+  worshipLeader: z.string().trim().max(160).optional(),
   notes: z.string().trim().max(2000).optional(),
-  acousticGuitar: z.string().trim().max(160).optional(),
-  electricGuitar: z.string().trim().max(160).optional(),
-  bass: z.string().trim().max(160).optional(),
-  drums: z.string().trim().max(160).optional(),
-  mainKeys: z.string().trim().max(160).optional(),
-  secondKeys: z.string().trim().max(160).optional(),
-  extraBandMembers: z.array(z.string().trim()).optional(),
-  backupSingers: z.array(z.string().trim()).optional(),
-  media: z.string().trim().max(160).optional(),
-  dancers: z.array(z.string().trim()).optional(),
   eventId: z.string().trim().optional(),
-  templateId: z.string().trim().optional(),
  }).superRefine((value, context) => {
   const requiresServiceType = value.eventType === "service" || value.eventType === "service_rehearsal";
 
@@ -136,6 +125,18 @@ export const eventInputSchema = z.object({
   assignedTeams: z.string().trim().max(500).optional(),
   linkedSetlistId: z.string().trim().optional(),
   notes: z.string().trim().max(2000).optional(),
+  worshipLeader: z.string().trim().min(1, "Worship leader is required").max(160),
+  acousticGuitar: z.string().trim().max(160).optional(),
+  electricGuitar: z.string().trim().max(160).optional(),
+  bass: z.string().trim().max(160).optional(),
+  drums: z.string().trim().max(160).optional(),
+  mainKeys: z.string().trim().max(160).optional(),
+  secondKeys: z.string().trim().max(160).optional(),
+  extraBandMembers: z.array(z.string().trim()).optional(),
+  backupSingers: z.array(z.string().trim()).optional(),
+  media: z.string().trim().max(160).optional(),
+  dancers: z.array(z.string().trim()).optional(),
+  templateId: z.string().trim().optional(),
 });
 
 export const noticeTargetSchema = z
