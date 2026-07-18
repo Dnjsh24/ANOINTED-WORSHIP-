@@ -1327,6 +1327,36 @@ export async function removeSetlistSongAction(formData: FormData): Promise<Actio
   return { ok: true, message: "Song removed." };
 }
 
+
+export async function updateSetlistSongKeyAction(formData: FormData): Promise<ActionState> {
+  const context = await getMutationContext("setlists.manage");
+  if (!context.ok) return context.state;
+
+  const setlistId = formData.get("setlistId")?.toString();
+  const slotId = formData.get("slotId")?.toString();
+  const assignedKey = formData.get("assignedKey")?.toString();
+
+  if (!setlistId || !slotId || !assignedKey) {
+    return { ok: false, message: "Missing required fields." };
+  }
+
+  const { error } = await context.supabase
+    .from("setlist_songs")
+    .update({ assigned_key: assignedKey })
+    .eq("id", slotId)
+    .eq("setlist_id", setlistId);
+
+  if (error) {
+    return { ok: false, message: "Failed to update key." };
+  }
+
+  revalidatePath(`/setlists/${setlistId}`);
+  revalidatePath(`/setlists/${setlistId}/stage`);
+  revalidatePath(`/setlists/${setlistId}/presenter`);
+  
+  return { ok: true, message: "Key updated." };
+}
+
 export async function reorderSetlistSongAction(formData: FormData): Promise<ActionState> {
   const slotId = formString(formData, "slotId");
   const setlistId = formString(formData, "setlistId");

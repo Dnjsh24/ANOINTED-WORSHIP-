@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AttendanceToggle } from "@/components/attendance-toggle";
 import { AppShell } from "@/components/app-shell";
+import { ChangeKeyButton } from "@/components/change-key-button";
 import { ShareButton } from "@/components/share-button";
 import { LocalTime } from "@/components/local-time";
 import { Avatar } from "@/components/ui/avatar";
@@ -434,7 +435,16 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
                       </Link>
                       <div className="flex items-center gap-3">
                         <div className="flex gap-2">
-                          <Badge>Key: {item.assignedKey}</Badge>
+                          {canManageSetlist ? (
+                            <ChangeKeyButton
+                              setlistId={setlist.id}
+                              slotId={item.id}
+                              currentKey={item.assignedKey}
+                              originalKey={item.song.originalKey}
+                            />
+                          ) : (
+                            <Badge>Key: {item.assignedKey}</Badge>
+                          )}
                           <Badge>{item.song.bpm} BPM</Badge>
                         </div>
                         {canManageSetlist && (

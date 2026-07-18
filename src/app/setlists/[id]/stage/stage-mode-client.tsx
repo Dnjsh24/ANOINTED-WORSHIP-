@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, PenTool, Radio
 import { parseLyricsAndChords, transposeProgression, capoSuggestion } from "@/lib/domain/chords";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { updateSetlistSongKeyAction } from "@/app/actions";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MINOR_KEYS = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
@@ -305,11 +306,20 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
   const activeKeys = isMinor ? MINOR_KEYS : MAJOR_KEYS;
   const selectedKeyIndex = activeKeys.indexOf(selectedKey);
 
-  function changeKey(direction: number) {
+  async function changeKey(direction: number) {
     if (selectedKeyIndex === -1) return;
     let nextIdx = (selectedKeyIndex + direction) % 12;
     if (nextIdx < 0) nextIdx += 12;
-    setSelectedKey(activeKeys[nextIdx]);
+    const newKey = activeKeys[nextIdx];
+    setSelectedKey(newKey);
+    
+    if (currentSetlistSong?.id) {
+      const formData = new FormData();
+      formData.set("setlistId", setlist.id);
+      formData.set("slotId", currentSetlistSong.id);
+      formData.set("assignedKey", newKey);
+      updateSetlistSongKeyAction(formData).catch(console.error); // fire and forget
+    }
   }
 
   // Capo Logic (Guitar Mode)
