@@ -122,14 +122,35 @@ export function ArrangementEditor({
 
   useEffect(() => {
     if (isOpen) {
-      const parsed = initialArrangement
-        ? initialArrangement.split(",").map((s) => s.trim()).filter(Boolean)
-        : [];
-      setSections(
-        parsed.map((value, index) => ({ id: `section-${index}-${Date.now()}`, value }))
-      );
+      let currentParsedLyrics: SongSection[] = [];
       if (lyrics) {
-        setParsedLyrics(parseLyricsAndChords(lyrics));
+        currentParsedLyrics = parseLyricsAndChords(lyrics);
+        setParsedLyrics(currentParsedLyrics);
+      } else {
+        setParsedLyrics([]);
+      }
+
+      if (initialArrangement) {
+        const parsed = initialArrangement
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        setSections(
+          parsed.map((value, index) => ({
+            id: `section-${index}-${Date.now()}`,
+            value,
+          }))
+        );
+      } else if (currentParsedLyrics.length > 0) {
+        // Pre-populate from original song sequence if no custom arrangement exists
+        setSections(
+          currentParsedLyrics.map((sec, index) => ({
+            id: `section-${index}-${Date.now()}`,
+            value: sec.label,
+          }))
+        );
+      } else {
+        setSections([]);
       }
     }
   }, [isOpen, initialArrangement, lyrics]);
