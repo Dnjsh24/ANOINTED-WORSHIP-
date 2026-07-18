@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Edit3 } from "lucide-react";
 import { updateSongSlotArrangementAction } from "@/app/actions";
+import { ArrangementEditor } from "./arrangement-editor";
 
 export function EditArrangementButton({
   setlistId,
@@ -14,31 +16,36 @@ export function EditArrangementButton({
   songTitle: string;
   currentArrangement?: string | null;
 }) {
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const newArrangement = window.prompt(
-      `Enter arrangement for "${songTitle}" (e.g. Intro, V1, C, V2, C, B, C, Outro):`,
-      currentArrangement || ""
-    );
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
 
-    if (newArrangement !== null && newArrangement !== currentArrangement) {
-      const formData = new FormData(e.currentTarget);
+  const handleSave = async (newArrangement: string) => {
+    if (newArrangement !== currentArrangement) {
+      const formData = new FormData();
+      formData.set("setlistId", setlistId);
+      formData.set("slotId", slotId);
       formData.set("arrangement", newArrangement);
       await updateSongSlotArrangementAction(formData);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="inline-flex">
-      <input type="hidden" name="setlistId" value={setlistId} />
-      <input type="hidden" name="slotId" value={slotId} />
+    <>
       <button
-        type="submit"
+        type="button"
+        onClick={() => setIsEditorOpen(true)}
         aria-label="Edit arrangement"
-        className="rounded-lg p-1.5 text-zinc-400 hover:text-violet-300 hover:bg-violet-500/10 transition"
+        className="rounded-lg p-1.5 text-zinc-400 hover:text-violet-300 hover:bg-violet-500/10 transition inline-flex"
       >
         <Edit3 className="size-4" />
       </button>
-    </form>
+
+      <ArrangementEditor
+        isOpen={isEditorOpen}
+        onClose={() => setIsEditorOpen(false)}
+        onSave={handleSave}
+        songTitle={songTitle}
+        initialArrangement={currentArrangement || ""}
+      />
+    </>
   );
 }
