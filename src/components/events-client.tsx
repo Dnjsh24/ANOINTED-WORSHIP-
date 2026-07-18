@@ -383,6 +383,14 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
                       </div>
 
                       <div className="flex items-center gap-2">
+                        {!memberSubmissionMode && (
+                          <Link
+                            href={`/events/${event.id}/edit`}
+                            className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-bold text-zinc-300 transition hover:bg-zinc-700 hover:text-white"
+                          >
+                            Edit
+                          </Link>
+                        )}
                         <Link
                           href={`/events/${event.id}`}
                           className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-violet-500"
