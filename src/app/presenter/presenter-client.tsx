@@ -432,6 +432,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                onChange={(e) => {
                   setSelectedSetlistId(e.target.value);
                   setActiveItemIndex(0);
+                  setActiveSlideId(null);
                   pushToProjector(null);
                }}
                className="bg-[#1a1a1a] border border-white/10 text-white text-sm font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-violet-500"
@@ -479,16 +480,15 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
              <button className="text-xs font-bold pb-2 border-b-2 text-zinc-600 border-transparent hover:text-zinc-400">Notes</button>
           </div>
           
-          <div className="p-2 flex gap-2 border-b border-white/5 bg-[#0a0a0a]">
-             <button className="flex-1 flex items-center justify-center gap-2 py-1.5 bg-[#18181b] border border-white/10 rounded text-xs font-bold text-zinc-300"><Music className="size-3"/> Song</button>
-             <button className="flex-1 flex items-center justify-center gap-2 py-1.5 hover:bg-white/5 border border-transparent rounded text-xs font-bold text-zinc-500 hover:text-zinc-300"><LayoutTemplate className="size-3"/> Worship</button>
+          <div className="p-2 border-b border-white/5 bg-[#0a0a0a]">
+             <button className="flex items-center gap-2 py-1.5 px-3 bg-[#18181b] border border-white/10 rounded text-xs font-bold text-zinc-300"><Music className="size-3"/> Song</button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {setlist.songs.map((item: any, idx: number) => (
               <button
                 key={item.id}
-                onClick={() => setActiveItemIndex(idx)}
+                onClick={() => { setActiveItemIndex(idx); setActiveSlideId(null); }}
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors",
                   activeItemIndex === idx 
@@ -618,7 +618,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                     return (
                       <button 
                         key={slide.id}
-                        onClick={() => setActiveSlideId(slide.id)}
+                        onClick={() => { setActiveSlideId(slide.id); pushToProjector(slide); }}
                         className={cn(
                           "w-full flex flex-col rounded-lg overflow-hidden transition text-left border bg-[#18181b]",
                           isActive 
@@ -958,18 +958,24 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                   {/* SLIDE TRANSITION (Global Only) */}
                   {!selectedBlock && (
                      <div className="space-y-3 pb-4 border-b border-white/5">
-                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Slide Transition</p>
-                        <select 
-                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
-                          value={settings.slideTransition || "None"}
-                          onChange={(e) => setSettings({...settings, slideTransition: e.target.value as any})}
-                        >
-                          <option value="None">None (Cut)</option>
-                          <option value="Crossfade">Crossfade</option>
-                          <option value="Slide Up">Slide Up</option>
-                          <option value="Slide Down">Slide Down</option>
-                        </select>
-                     </div>
+                         <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Slide Transition</p>
+                         <select 
+                           className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                           value={settings.slideTransition || "None"}
+                           onChange={(e) => setSettings({...settings, slideTransition: e.target.value as any})}
+                         >
+                           <option value="None">None (Cut)</option>
+                           <option value="Crossfade">Crossfade</option>
+                           <option value="Slide Up">Slide Up</option>
+                           <option value="Slide Down">Slide Down</option>
+                           <option value="Slide Left">Slide Left</option>
+                           <option value="Slide Right">Slide Right</option>
+                           <option value="Zoom In">Zoom In</option>
+                           <option value="Zoom Out">Zoom Out</option>
+                           <option value="Blur">Blur</option>
+                           <option value="Flip">Flip</option>
+                         </select>
+                      </div>
                   )}
 
                   {/* ENTRANCE ANIMATION */}
@@ -977,24 +983,47 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                      <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Entrance Animation</p>
                      
                      <div className="space-y-1">
-                       <p className="text-xs text-zinc-400 font-semibold">Effect</p>
-                       <select 
-                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
-                         value={selectedBlock?.entranceAnimation ?? settings.entranceAnimation}
-                         onChange={(e) => {
-                           if (selectedBlock) handleUpdateSelectedBlock({ entranceAnimation: e.target.value });
-                           else setSettings({...settings, entranceAnimation: e.target.value as any});
-                         }}
-                       >
-                         <option value="None">None</option>
-                         <option value="Appear">Appear</option>
-                         <option value="Fade In">Fade In</option>
-                         <option value="Slide In Up">Slide In Up</option>
-                         <option value="Slide In Down">Slide In Down</option>
-                         <option value="Slide In Left">Slide In Left</option>
-                         <option value="Slide In Right">Slide In Right</option>
-                         <option value="Mask In Up">Mask In Up</option>
-                       </select>
+                        <p className="text-xs text-zinc-400 font-semibold">Effect</p>
+                        <select 
+                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                          value={selectedBlock?.entranceAnimation ?? settings.entranceAnimation}
+                          onChange={(e) => {
+                            if (selectedBlock) handleUpdateSelectedBlock({ entranceAnimation: e.target.value });
+                            else setSettings({...settings, entranceAnimation: e.target.value as any});
+                          }}
+                        >
+                          <option value="None">None</option>
+                          <optgroup label="── Fade">
+                            <option value="Appear">Appear (Flash)</option>
+                            <option value="Fade In">Fade In</option>
+                            <option value="Blur In">Blur In</option>
+                          </optgroup>
+                          <optgroup label="── Slide">
+                            <option value="Slide In Up">Slide In Up</option>
+                            <option value="Slide In Down">Slide In Down</option>
+                            <option value="Slide In Left">Slide In Left</option>
+                            <option value="Slide In Right">Slide In Right</option>
+                            <option value="Rise Up">Rise Up (Big)</option>
+                            <option value="Drop Down">Drop Down (Big)</option>
+                            <option value="Mask In Up">Mask In Up</option>
+                          </optgroup>
+                          <optgroup label="── Zoom">
+                            <option value="Zoom In">Zoom In</option>
+                            <option value="Zoom In Bounce">Zoom In Bounce</option>
+                            <option value="Bounce In">Bounce In</option>
+                          </optgroup>
+                          <optgroup label="── Flip / Rotate">
+                            <option value="Flip In X">Flip In X (Horizontal)</option>
+                            <option value="Flip In Y">Flip In Y (Vertical)</option>
+                            <option value="Rotate In">Rotate In</option>
+                            <option value="Roll In">Roll In</option>
+                            <option value="Swing In">Swing In</option>
+                          </optgroup>
+                          <optgroup label="── Skew">
+                            <option value="Skew In Left">Skew In Left</option>
+                            <option value="Skew In Right">Skew In Right</option>
+                          </optgroup>
+                        </select>
                      </div>
 
                      <div className="space-y-1">
@@ -1025,24 +1054,34 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
 
                      <div className="space-y-1">
                        <p className="text-xs text-zinc-400 font-semibold">Easing Curve</p>
-                       <select 
-                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
-                         value={selectedBlock?.entranceCurve ?? settings.entranceCurve}
-                         onChange={(e) => {
-                           if (selectedBlock) handleUpdateSelectedBlock({ entranceCurve: e.target.value });
-                           else setSettings({...settings, entranceCurve: e.target.value});
-                         }}
-                       >
-                         <option value="Ease Out">Ease Out</option>
-                         <option value="Ease In">Ease In</option>
-                         <option value="Ease In Out">Ease In Out</option>
-                         <option value="Linear">Linear</option>
-                       </select>
-                       <div className="h-8 mt-2 w-full border-b border-l border-white/10 relative overflow-hidden">
-                         <svg className="w-full h-full absolute inset-0" preserveAspectRatio="none" viewBox="0 0 100 100">
-                           <path d={(selectedBlock?.entranceCurve ?? settings.entranceCurve) === "Ease Out" ? "M0,100 Q20,10 100,0" : "M0,100 L100,0"} fill="none" stroke="#60a5fa" strokeWidth="3" vectorEffect="non-scaling-stroke"/>
-                         </svg>
-                       </div>
+                        <select 
+                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                          value={selectedBlock?.entranceCurve ?? settings.entranceCurve}
+                          onChange={(e) => {
+                            if (selectedBlock) handleUpdateSelectedBlock({ entranceCurve: e.target.value });
+                            else setSettings({...settings, entranceCurve: e.target.value});
+                          }}
+                        >
+                          <option value="Ease Out">Ease Out</option>
+                          <option value="Ease In">Ease In</option>
+                          <option value="Ease In Out">Ease In Out</option>
+                          <option value="Linear">Linear</option>
+                          <option value="Spring">Spring (Bounce)</option>
+                          <option value="Sharp">Sharp</option>
+                        </select>
+                        <div className="h-8 mt-2 w-full border-b border-l border-white/10 relative overflow-hidden">
+                          <svg className="w-full h-full absolute inset-0" preserveAspectRatio="none" viewBox="0 0 100 100">
+                            {(() => {
+                              const c = selectedBlock?.entranceCurve ?? settings.entranceCurve;
+                              if (c === "Ease Out")    return <path d="M0,100 C10,100 30,0 100,0" fill="none" stroke="#60a5fa" strokeWidth="3" vectorEffect="non-scaling-stroke"/>;
+                              if (c === "Ease In")     return <path d="M0,100 C70,100 90,0 100,0" fill="none" stroke="#60a5fa" strokeWidth="3" vectorEffect="non-scaling-stroke"/>;
+                              if (c === "Ease In Out") return <path d="M0,100 C30,100 70,0 100,0" fill="none" stroke="#60a5fa" strokeWidth="3" vectorEffect="non-scaling-stroke"/>;
+                              if (c === "Spring")      return <path d="M0,100 C20,0 40,120 60,90 S80,-10 100,0" fill="none" stroke="#a78bfa" strokeWidth="3" vectorEffect="non-scaling-stroke"/>;
+                              if (c === "Sharp")       return <path d="M0,100 C0,100 0,0 100,0" fill="none" stroke="#f472b6" strokeWidth="3" vectorEffect="non-scaling-stroke"/>;
+                              return <path d="M0,100 L100,0" fill="none" stroke="#60a5fa" strokeWidth="3" vectorEffect="non-scaling-stroke"/>;
+                            })()}
+                          </svg>
+                        </div>
                      </div>
                   </div>
 
@@ -1053,24 +1092,44 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                      <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Exit Animation</p>
                      
                      <div className="space-y-1">
-                       <p className="text-xs text-zinc-400 font-semibold">Effect</p>
-                       <select 
-                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
-                         value={selectedBlock?.exitAnimation ?? settings.exitAnimation}
-                         onChange={(e) => {
-                           if (selectedBlock) handleUpdateSelectedBlock({ exitAnimation: e.target.value });
-                           else setSettings({...settings, exitAnimation: e.target.value as any});
-                         }}
-                       >
-                         <option value="None">None</option>
-                         <option value="Disappear">Disappear</option>
-                         <option value="Fade Out">Fade Out</option>
-                         <option value="Slide Out Up">Slide Out Up</option>
-                         <option value="Slide Out Down">Slide Out Down</option>
-                         <option value="Slide Out Left">Slide Out Left</option>
-                         <option value="Slide Out Right">Slide Out Right</option>
-                         <option value="Mask Out Up">Mask Out Up</option>
-                       </select>
+                        <p className="text-xs text-zinc-400 font-semibold">Effect</p>
+                        <select 
+                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
+                          value={selectedBlock?.exitAnimation ?? settings.exitAnimation}
+                          onChange={(e) => {
+                            if (selectedBlock) handleUpdateSelectedBlock({ exitAnimation: e.target.value });
+                            else setSettings({...settings, exitAnimation: e.target.value as any});
+                          }}
+                        >
+                          <option value="None">None</option>
+                          <optgroup label="── Fade">
+                            <option value="Disappear">Disappear (Flash)</option>
+                            <option value="Fade Out">Fade Out</option>
+                            <option value="Blur Out">Blur Out</option>
+                          </optgroup>
+                          <optgroup label="── Slide">
+                            <option value="Slide Out Up">Slide Out Up</option>
+                            <option value="Slide Out Down">Slide Out Down</option>
+                            <option value="Slide Out Left">Slide Out Left</option>
+                            <option value="Slide Out Right">Slide Out Right</option>
+                            <option value="Shrink Up">Shrink Up</option>
+                            <option value="Mask Out Up">Mask Out Up</option>
+                          </optgroup>
+                          <optgroup label="── Zoom">
+                            <option value="Zoom Out">Zoom Out</option>
+                            <option value="Zoom Out Blow">Zoom Out Blow</option>
+                            <option value="Bounce Out">Bounce Out</option>
+                          </optgroup>
+                          <optgroup label="── Flip / Rotate">
+                            <option value="Flip Out X">Flip Out X (Horizontal)</option>
+                            <option value="Flip Out Y">Flip Out Y (Vertical)</option>
+                            <option value="Rotate Out">Rotate Out</option>
+                          </optgroup>
+                          <optgroup label="── Skew">
+                            <option value="Skew Out Left">Skew Out Left</option>
+                            <option value="Skew Out Right">Skew Out Right</option>
+                          </optgroup>
+                        </select>
                      </div>
 
                      <div className="space-y-1">

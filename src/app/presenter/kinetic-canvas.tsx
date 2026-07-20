@@ -164,39 +164,64 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
 
   const getAnimationClass = (effect: string) => {
     switch (effect) {
-      case "Appear": return "animate-appear";
-      case "Fade In": return "animate-fade-in";
-      case "Slide In Up": return "animate-slide-in-up";
-      case "Slide In Down": return "animate-slide-in-down";
-      case "Slide In Left": return "animate-slide-in-left";
-      case "Slide In Right": return "animate-slide-in-right";
-      case "Mask In Up": return "animate-fade-in-up";
-      case "None": return "";
-      default: return "";
+      case "Appear":          return "animate-appear";
+      case "Fade In":         return "animate-fade-in";
+      case "Slide In Up":     return "animate-slide-in-up";
+      case "Slide In Down":   return "animate-slide-in-down";
+      case "Slide In Left":   return "animate-slide-in-left";
+      case "Slide In Right":  return "animate-slide-in-right";
+      case "Mask In Up":      return "animate-fade-in-up";
+      case "Zoom In":         return "animate-zoom-in";
+      case "Zoom In Bounce":  return "animate-zoom-in-bounce";
+      case "Flip In X":       return "animate-flip-in-x";
+      case "Flip In Y":       return "animate-flip-in-y";
+      case "Rotate In":       return "animate-rotate-in";
+      case "Blur In":         return "animate-blur-in";
+      case "Rise Up":         return "animate-rise-up";
+      case "Drop Down":       return "animate-drop-down";
+      case "Bounce In":       return "animate-bounce-in";
+      case "Skew In Left":    return "animate-skew-in-left";
+      case "Skew In Right":   return "animate-skew-in-right";
+      case "Swing In":        return "animate-swing-in";
+      case "Roll In":         return "animate-roll-in";
+      case "None":            return "";
+      default:                return "";
     }
   };
 
   const getExitClass = (effect: string) => {
     switch (effect) {
-      case "Disappear": return "opacity-0"; // Instantly hide
-      case "Fade Out": return "animate-fade-out";
-      case "Slide Out Up": return "animate-fade-out-up";
-      case "Slide Out Down": return "animate-fade-out-down";
-      case "Slide Out Left": return "animate-slide-out-left";
+      case "Disappear":       return "opacity-0";
+      case "Fade Out":        return "animate-fade-out";
+      case "Slide Out Up":    return "animate-fade-out-up";
+      case "Slide Out Down":  return "animate-fade-out-down";
+      case "Slide Out Left":  return "animate-slide-out-left";
       case "Slide Out Right": return "animate-slide-out-right";
-      case "Mask Out Up": return "animate-fade-out-up";
-      case "None": return "";
-      default: return "";
+      case "Mask Out Up":     return "animate-fade-out-up";
+      case "Zoom Out":        return "animate-zoom-out";
+      case "Zoom Out Blow":   return "animate-zoom-out-blow";
+      case "Flip Out X":      return "animate-flip-out-x";
+      case "Flip Out Y":      return "animate-flip-out-y";
+      case "Rotate Out":      return "animate-rotate-out";
+      case "Blur Out":        return "animate-blur-out";
+      case "Shrink Up":       return "animate-shrink-up";
+      case "Skew Out Left":   return "animate-skew-out-left";
+      case "Skew Out Right":  return "animate-skew-out-right";
+      case "Bounce Out":      return "animate-bounce-out";
+      case "None":            return "";
+      default:                return "";
     }
   };
 
   const getCurveValue = (curve: string) => {
     switch (curve) {
-      case "Ease In": return "ease-in";
-      case "Ease Out": return "ease-out";
+      case "Ease In":     return "ease-in";
+      case "Ease Out":    return "ease-out";
       case "Ease In Out": return "ease-in-out";
-      case "Linear": return "linear";
-      default: return "ease-out";
+      case "Linear":      return "linear";
+      case "Spring":      return "cubic-bezier(0.34, 1.56, 0.64, 1)";
+      case "Sharp":       return "cubic-bezier(0.4, 0, 1, 1)";
+      default:            return "ease-out";
     }
   };
 
