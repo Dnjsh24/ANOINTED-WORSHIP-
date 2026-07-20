@@ -269,41 +269,56 @@ function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, get
             });
           })()}
         </div>
-      ) : (
-        <div 
-          key={slide.id} 
-          className={cn("w-full flex flex-col space-y-4 sm:space-y-8", getAlignmentClass())}
-          style={{
-            fontFamily: settings.fontFamily,
-            color: settings.color,
-            fontWeight: settings.bold ? "bold" : "normal",
-            fontStyle: settings.italic ? "italic" : "normal",
-            textDecoration: settings.underline ? "underline" : "none",
-          }}
-        >
-          {slide.content.map((line: string, idx: number) => (
-            <div key={idx} className={cn(getEntranceClass(settings.entranceAnimation), getEntranceClass(settings.entranceAnimation) && "fill-mode-both")}
-               style={{
-                  animationDuration: getEntranceClass(settings.entranceAnimation) ? `${settings.entranceDuration || 1}s` : undefined,
-                  animationDelay: getEntranceClass(settings.entranceAnimation) ? `${(settings.entranceDelay || 0) + (settings.kineticMode === "Line by Line" ? idx * (settings.kineticStaggerDelay || 0.1) : 0)}s` : undefined,
-                  animationTimingFunction: getEntranceClass(settings.entranceAnimation) ? getCurveValue(settings.entranceCurve || "Ease Out") : undefined,
-               }}
+      ) : (() => {
+          // Auto-fit: compute the largest font that fits both width and height
+          const longestLine = Math.max(...slide.content.map((l: string) => l.length), 1);
+          // Horizontal fit: ~1680 viewport-pt units wide (accounts for padding), ~0.55 aspect ratio per char
+          const hFit = (1680 / longestLine) / 0.55;
+          // Vertical fit: available vertical space split across lines with line-height 1.25
+          const numLines = slide.content.length || 1;
+          const vFit = 900 / (numLines * 1.3);
+          // Auto font = min of h-fit and v-fit, then user can cap it down with their setting
+          const autoFontSize = Math.min(hFit, vFit, settings.fontSize);
+          const effectiveFontSize = Math.max(24, Math.round(autoFontSize));
+
+          return (
+            <div 
+              key={slide.id} 
+              className={cn("w-full flex flex-col", getAlignmentClass())}
+              style={{
+                fontFamily: settings.fontFamily,
+                color: settings.color,
+                fontWeight: settings.bold ? "bold" : "normal",
+                fontStyle: settings.italic ? "italic" : "normal",
+                textDecoration: settings.underline ? "underline" : "none",
+                gap: `${Math.max(4, effectiveFontSize * 0.12)}pt`,
+              }}
             >
-               <p 
-                 className={cn(
-                   "text-[length:inherit] leading-tight",
-                   settings.showShadow && "drop-shadow-2xl"
-                 )}
-                 style={{ 
-                   fontSize: `${settings.fontSize}pt`,
-                   textShadow: settings.showShadow ? "0 4px 12px rgba(0,0,0,0.8)" : "none",
-                 }}
-               >
-                 {line}
-               </p>
+              {slide.content.map((line: string, idx: number) => (
+                <div key={idx} className={cn(getEntranceClass(settings.entranceAnimation), getEntranceClass(settings.entranceAnimation) && "fill-mode-both")}
+                   style={{
+                      animationDuration: getEntranceClass(settings.entranceAnimation) ? `${settings.entranceDuration || 1}s` : undefined,
+                      animationDelay: getEntranceClass(settings.entranceAnimation) ? `${(settings.entranceDelay || 0) + (settings.kineticMode === "Line by Line" ? idx * (settings.kineticStaggerDelay || 0.1) : 0)}s` : undefined,
+                      animationTimingFunction: getEntranceClass(settings.entranceAnimation) ? getCurveValue(settings.entranceCurve || "Ease Out") : undefined,
+                   }}
+                >
+                   <p 
+                     className={cn(
+                       "leading-tight",
+                       settings.showShadow && "drop-shadow-2xl"
+                     )}
+                     style={{ 
+                       fontSize: `${effectiveFontSize}pt`,
+                       textShadow: settings.showShadow ? "0 4px 12px rgba(0,0,0,0.8)" : "none",
+                     }}
+                   >
+                     {line}
+                   </p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })()
       )}
     </div>
   );

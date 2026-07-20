@@ -66,7 +66,7 @@ export interface PresentationSettings {
 
 export const defaultPresentationSettings: PresentationSettings = {
   fontFamily: "Inter, sans-serif",
-  fontSize: 64,
+  fontSize: 200,
   bold: true,
   italic: false,
   underline: false,

@@ -189,10 +189,14 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
      if (!activeSlide || activeSlide.content.length === 0) return [];
      const totalLines = activeSlide.content.length;
      
-     // Calculate effective font size to correctly space lines vertically without breaking bounds
+     // Auto-fit: same formula as projector — fill the canvas both horizontally and vertically
      const maxLineLength = Math.max(...activeSlide.content.map(line => line.length), 1);
-     const maxAllowedFontSize = 2800 / maxLineLength;
-     const effectiveFontSize = Math.min(settings.fontSize, maxAllowedFontSize);
+     // Horizontal: canvas is ~2800 canvas-units wide (scaled), chars are ~0.55 aspect
+     const hFit = (2800 / maxLineLength) / 0.55;
+     // Vertical: canvas height = 100 units, lines take (fontSize * 1.3) each
+     const vFit = 100 / (totalLines * 1.3);
+     const autoFontSize = Math.min(hFit, settings.fontSize);
+     const effectiveFontSize = Math.max(8, Math.round(autoFontSize));
      
      const gap = Math.max(15, effectiveFontSize * 0.25);
      const startY = 50 - ((totalLines - 1) * (gap / 2));
