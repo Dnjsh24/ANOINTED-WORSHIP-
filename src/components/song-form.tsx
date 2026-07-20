@@ -114,6 +114,13 @@ export function SongForm({ song }: { song?: Song }) {
         const titleInput = document.querySelector<HTMLInputElement>("input[name=title]");
         if (titleInput && !titleInput.value) titleInput.value = data.title;
       }
+      if (data.tags && data.tags.length > 0) {
+        setTags(prev => {
+          const currentTags = prev.split(",").map(t => t.trim()).filter(Boolean);
+          const newTags = data.tags.filter((t: string) => !currentTags.includes(t));
+          return [...currentTags, ...newTags].join(", ");
+        });
+      }
       setSongStatus("Imported successfully! Check lyrics/chords tab.");
       setImportUrl("");
       setActiveTab("chords");

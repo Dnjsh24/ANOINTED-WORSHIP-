@@ -356,7 +356,7 @@ export function SongViewer({ song }: { song: Song }) {
                         )}
                         <p className={cn(
                           "font-semibold text-zinc-100 text-[13px]",
-                          activeTab === "chords" && "font-mono tracking-wide text-sm"
+                          activeTab === "chords" && line.chords && song.tags?.some(t => t.toLowerCase() === "monospace") && "font-mono tracking-wide text-sm"
                         )}>
                           {line.lyric}
                         </p>
