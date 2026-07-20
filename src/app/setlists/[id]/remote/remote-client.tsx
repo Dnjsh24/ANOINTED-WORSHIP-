@@ -20,7 +20,7 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
   const activeSong = setlist.songs[activeSongIndex];
 
   const supabase = useMemo(() => createClient(), []);
-  const channel = useMemo(() => supabase.channel(`setlist_${setlist.id}`), [setlist.id, supabase]);
+  const [channel, setChannel] = useState<any>(null);
 
   // Derived slides for the active song
   const songSlides = useMemo(() => {
@@ -36,35 +36,42 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
 
   // Handle connection
   useEffect(() => {
-    if (isServerActive) {
-      channel
-        .on("broadcast", { event: "projector_sync" }, (payload: any) => {
-          setActiveSlide(payload.payload.slide || null);
-        })
-        .on("broadcast", { event: "settings_sync" }, (payload: any) => {
-          if (payload.payload.linesPerSlide) {
-            setLinesPerSlide(payload.payload.linesPerSlide);
-          }
-        })
-        .subscribe((status) => {
-          setIsConnected(status === 'SUBSCRIBED');
-        });
-    } else {
-      channel.unsubscribe();
+    if (!isServerActive) {
       setIsConnected(false);
+      setChannel(null);
+      return;
     }
 
+    const newChannel = supabase.channel(`setlist_${setlist.id}`);
+    
+    newChannel
+      .on("broadcast", { event: "projector_sync" }, (payload: any) => {
+        setActiveSlide(payload.payload.slide || null);
+      })
+      .on("broadcast", { event: "settings_sync" }, (payload: any) => {
+        if (payload.payload.linesPerSlide) {
+          setLinesPerSlide(payload.payload.linesPerSlide);
+        }
+      })
+      .subscribe((status) => {
+        setIsConnected(status === 'SUBSCRIBED');
+      });
+      
+    setChannel(newChannel);
+
     return () => {
-      channel.unsubscribe();
+      newChannel.unsubscribe();
+      setIsConnected(false);
+      setChannel(null);
     };
-  }, [isServerActive, channel]);
+  }, [isServerActive, setlist.id, supabase]);
 
   const toggleServer = () => {
     setIsServerActive(!isServerActive);
   };
 
   const sendSlide = (slide: PresentationSlide) => {
-    if (!isServerActive) return;
+    if (!isServerActive || !channel) return;
     
     // Attach custom blocks if they exist for this slide
     const slideOverrides = setlist?.presentationSettings?.slideOverrides || {};
@@ -82,7 +89,7 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
 
   const updateLinesPerSlide = (num: number) => {
     setLinesPerSlide(num);
-    if (isServerActive) {
+    if (isServerActive && channel) {
       channel.send({
         type: "broadcast",
         event: "settings_sync",
