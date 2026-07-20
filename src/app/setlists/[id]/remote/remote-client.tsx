@@ -135,25 +135,6 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
             </div>
           </div>
           
-          {/* Connection Status */}
-          <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#111]">
-            <div className="flex items-center gap-2">
-              <div className={cn("size-2 rounded-full", isConnected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-zinc-600")} />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-                {isConnected ? "SERVER ONLINE" : "SERVER OFFLINE"}
-              </span>
-            </div>
-            <button 
-              onClick={toggleServer}
-              className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded text-xs font-bold transition",
-                isServerActive ? "bg-white/10 text-white hover:bg-white/20" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
-              )}
-            >
-              <Power className="size-3" />
-              {isServerActive ? "Stop Server" : "Start Server"}
-            </button>
-          </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-[#0a0a0a]">
             {activeSong ? (
@@ -334,8 +315,27 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
 
         {/* Right Column: Projector Preview */}
         <div className="flex-[1.5] flex flex-col bg-[#0f0f11]">
-          <div className="p-4 border-b border-white/10 h-16 shrink-0 bg-[#1a1a1a]">
+          <div className="px-4 border-b border-white/10 h-16 shrink-0 bg-[#1a1a1a] flex items-center justify-between">
             <h2 className="text-lg font-black text-white tracking-tight">Projector</h2>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className={cn("size-2 rounded-full", isConnected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-zinc-600")} />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                  {isConnected ? "PRESENTING" : "NOT PRESENTING"}
+                </span>
+              </div>
+              <button 
+                onClick={toggleServer}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded text-xs font-bold transition",
+                  isServerActive ? "bg-white/10 text-white hover:bg-white/20" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white"
+                )}
+              >
+                <Power className="size-3" />
+                {isServerActive ? "Stop Presenting" : "Start Presenting"}
+              </button>
+            </div>
           </div>
           
           <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0a0a0a]">
