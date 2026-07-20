@@ -190,12 +190,14 @@ function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, get
         <div className="relative w-full h-full">
           {(() => {
             const maxBlockLength = Math.max(...(slide.blocks || []).map((b: any) => b.text.length), 1);
-            const maxAllowedFontSize = 2800 / maxBlockLength;
+            const maxAllowedFontSize = 2200 / maxBlockLength;
 
             return slide.blocks.map((block: any, index: number) => {
               const effectiveFontFamily = block.fontFamily || settings.fontFamily;
-              const baseFontSize = block.fontSize || settings.fontSize;
-              const effectiveFontSize = Math.min(baseFontSize, maxAllowedFontSize);
+              // Respect block-level explicit overrides without capping, cap otherwise
+              const effectiveFontSize = block.fontSize !== undefined 
+                ? block.fontSize 
+                : Math.min(settings.fontSize, maxAllowedFontSize);
               const effectiveBold = block.bold ?? settings.bold;
             const effectiveItalic = block.italic ?? settings.italic;
             const effectiveUnderline = block.underline ?? settings.underline;

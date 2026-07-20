@@ -272,8 +272,11 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
         return blocks.map((block, index) => {
           // Compute effective styles (block overrides or global settings)
           const effectiveFontFamily = block.fontFamily || settings.fontFamily;
-          const baseFontSize = block.fontSize || settings.fontSize;
-          const effectiveFontSize = Math.min(baseFontSize, maxAllowedFontSize);
+          // If the user explicitly sets a block-level font size, respect it without capping.
+          // Otherwise, fall back to global settings and cap it to prevent overflow.
+          const effectiveFontSize = block.fontSize !== undefined 
+            ? block.fontSize 
+            : Math.min(settings.fontSize, maxAllowedFontSize);
           const effectiveBold = block.bold ?? settings.bold;
           const effectiveItalic = block.italic ?? settings.italic;
           const effectiveUnderline = block.underline ?? settings.underline;
