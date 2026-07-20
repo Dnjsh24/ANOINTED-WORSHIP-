@@ -10,6 +10,11 @@ import KineticCanvas from "./kinetic-canvas";
 import TimelineEditor from "./timeline-editor";
 import { MediaUploader } from "@/components/media-uploader";
 
+const BIBLE_BOOKS = [
+  { name: "Genesis", chapters: 50, ot: true }, { name: "Exodus", chapters: 40, ot: true }, { name: "Leviticus", chapters: 27, ot: true }, { name: "Numbers", chapters: 36, ot: true }, { name: "Deuteronomy", chapters: 34, ot: true }, { name: "Joshua", chapters: 24, ot: true }, { name: "Judges", chapters: 21, ot: true }, { name: "Ruth", chapters: 4, ot: true }, { name: "1 Samuel", chapters: 31, ot: true }, { name: "2 Samuel", chapters: 24, ot: true }, { name: "1 Kings", chapters: 22, ot: true }, { name: "2 Kings", chapters: 25, ot: true }, { name: "1 Chronicles", chapters: 29, ot: true }, { name: "2 Chronicles", chapters: 36, ot: true }, { name: "Ezra", chapters: 10, ot: true }, { name: "Nehemiah", chapters: 13, ot: true }, { name: "Esther", chapters: 10, ot: true }, { name: "Job", chapters: 42, ot: true }, { name: "Psalms", chapters: 150, ot: true }, { name: "Proverbs", chapters: 31, ot: true }, { name: "Ecclesiastes", chapters: 12, ot: true }, { name: "Song of Solomon", chapters: 8, ot: true }, { name: "Isaiah", chapters: 66, ot: true }, { name: "Jeremiah", chapters: 52, ot: true }, { name: "Lamentations", chapters: 5, ot: true }, { name: "Ezekiel", chapters: 48, ot: true }, { name: "Daniel", chapters: 12, ot: true }, { name: "Hosea", chapters: 14, ot: true }, { name: "Joel", chapters: 3, ot: true }, { name: "Amos", chapters: 9, ot: true }, { name: "Obadiah", chapters: 1, ot: true }, { name: "Jonah", chapters: 4, ot: true }, { name: "Micah", chapters: 7, ot: true }, { name: "Nahum", chapters: 3, ot: true }, { name: "Habakkuk", chapters: 3, ot: true }, { name: "Zephaniah", chapters: 3, ot: true }, { name: "Haggai", chapters: 2, ot: true }, { name: "Zechariah", chapters: 14, ot: true }, { name: "Malachi", chapters: 4, ot: true },
+  { name: "Matthew", chapters: 28, ot: false }, { name: "Mark", chapters: 16, ot: false }, { name: "Luke", chapters: 24, ot: false }, { name: "John", chapters: 21, ot: false }, { name: "Acts", chapters: 28, ot: false }, { name: "Romans", chapters: 16, ot: false }, { name: "1 Corinthians", chapters: 16, ot: false }, { name: "2 Corinthians", chapters: 13, ot: false }, { name: "Galatians", chapters: 6, ot: false }, { name: "Ephesians", chapters: 6, ot: false }, { name: "Philippians", chapters: 4, ot: false }, { name: "Colossians", chapters: 4, ot: false }, { name: "1 Thessalonians", chapters: 5, ot: false }, { name: "2 Thessalonians", chapters: 3, ot: false }, { name: "1 Timothy", chapters: 6, ot: false }, { name: "2 Timothy", chapters: 4, ot: false }, { name: "Titus", chapters: 3, ot: false }, { name: "Philemon", chapters: 1, ot: false }, { name: "Hebrews", chapters: 13, ot: false }, { name: "James", chapters: 5, ot: false }, { name: "1 Peter", chapters: 5, ot: false }, { name: "2 Peter", chapters: 3, ot: false }, { name: "1 John", chapters: 5, ot: false }, { name: "2 John", chapters: 1, ot: false }, { name: "3 John", chapters: 1, ot: false }, { name: "Jude", chapters: 1, ot: false }, { name: "Revelation", chapters: 22, ot: false }
+];
+
 export default function GlobalPresenterClient({ setlists }: { setlists: any[] }) {
   const [selectedSetlistId, setSelectedSetlistId] = useState<string>(setlists[0]?.id || "");
   const [activeItemIndex, setActiveItemIndex] = useState<number>(0);
@@ -42,26 +47,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const [bibleVerses, setBibleVerses] = useState<{ reference: string, text: string }[]>([]);
   const [isFetchingBible, setIsFetchingBible] = useState(false);
   const [selectedBibleBook, setSelectedBibleBook] = useState("");
-
-  const OLD_TESTAMENT_BOOKS = [
-    "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy",
-    "Joshua", "Judges", "Ruth", "1 Samuel", "2 Samuel",
-    "1 Kings", "2 Kings", "1 Chronicles", "2 Chronicles", "Ezra",
-    "Nehemiah", "Esther", "Job", "Psalms", "Proverbs",
-    "Ecclesiastes", "Song of Solomon", "Isaiah", "Jeremiah", "Lamentations",
-    "Ezekiel", "Daniel", "Hosea", "Joel", "Amos",
-    "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk",
-    "Zephaniah", "Haggai", "Zechariah", "Malachi",
-  ];
-
-  const NEW_TESTAMENT_BOOKS = [
-    "Matthew", "Mark", "Luke", "John", "Acts",
-    "Romans", "1 Corinthians", "2 Corinthians", "Galatians", "Ephesians",
-    "Philippians", "Colossians", "1 Thessalonians", "2 Thessalonians", "1 Timothy",
-    "2 Timothy", "Titus", "Philemon", "Hebrews", "James",
-    "1 Peter", "2 Peter", "1 John", "2 John", "3 John",
-    "Jude", "Revelation",
-  ];
+  const [selectedBibleChapter, setSelectedBibleChapter] = useState<number | null>(null);
 
   const saveHistoryState = () => {
     setPast(prev => [...prev.slice(-49), { settings, slideOverrides }]);
@@ -426,15 +412,15 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedBlockIds, activeSlideId, slideOverrides, past, future]);
 
-  const handleFetchBible = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!bibleQuery.trim()) return;
+  const handleFetchChapter = async (book: string, chapter: number) => {
+    setSelectedBibleChapter(chapter);
     setIsFetchingBible(true);
     try {
-      const params = new URLSearchParams({ q: bibleQuery, translation: bibleTranslation });
+      const query = `${book} ${chapter}`;
+      const params = new URLSearchParams({ q: query, translation: bibleTranslation });
       const res = await fetch(`/api/bible?${params}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Verse not found");
+      if (!res.ok) throw new Error(data?.error || "Chapter not found");
       if (data.verses && data.verses.length > 0) {
          const newVerses = data.verses.map((v: any) => ({
            reference: `${v.book_name} ${v.chapter}:${v.verse}`,
@@ -443,11 +429,11 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
          setBibleVerses(newVerses);
          setActiveItemIndex(-2);
       } else {
-        alert("Verse not found. Try a format like \"John 3:16\" or \"Psalms 23:1-6\".");
+        alert("Chapter not found.");
       }
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || "Verse not found. Try a format like \"John 3:16\".");
+      alert(err?.message || "Failed to fetch chapter.");
     } finally {
       setIsFetchingBible(false);
     }
@@ -573,60 +559,106 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
         {/* Lyrics Reflow (Slides) */}
         {activeItemIndex !== -1 && (
            <div className="w-64 border-r border-white/5 bg-[#121212] flex flex-col shrink-0">
-              {activeItemIndex === -2 ? (
-                <div className="p-4 border-b border-white/5 bg-[#18181b]">
-                   <form onSubmit={handleFetchBible} className="space-y-3">
+               {activeItemIndex === -2 ? (
+                <div className="p-4 border-b border-white/5 bg-[#18181b] flex flex-col gap-4 max-h-[50vh] overflow-y-auto">
+                   
+                   <div>
+                     <label className="text-[10px] font-bold text-zinc-500 uppercase">Translation</label>
+                     <select 
+                       value={bibleTranslation}
+                       onChange={e => setBibleTranslation(e.target.value)}
+                       className="w-full mt-1 bg-black/50 border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500"
+                     >
+                       <option value="kjv">KJV</option>
+                       <option value="web">WEB</option>
+                       <option value="bbe">BBE</option>
+                     </select>
+                   </div>
+
+                   <div>
+                     <label className="text-[10px] font-bold text-zinc-500 uppercase">Book</label>
+                     <select
+                       value={selectedBibleBook}
+                       onChange={e => {
+                         setSelectedBibleBook(e.target.value);
+                         setSelectedBibleChapter(null);
+                         setBibleVerses([]);
+                       }}
+                       className="w-full mt-1 bg-black/50 border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500"
+                     >
+                       <option value="">— Select a Book —</option>
+                       <optgroup label="── Old Testament ──">
+                         {BIBLE_BOOKS.filter(b => b.ot).map(b => (
+                           <option key={b.name} value={b.name}>{b.name}</option>
+                         ))}
+                       </optgroup>
+                       <optgroup label="── New Testament ──">
+                         {BIBLE_BOOKS.filter(b => !b.ot).map(b => (
+                           <option key={b.name} value={b.name}>{b.name}</option>
+                         ))}
+                       </optgroup>
+                     </select>
+                   </div>
+                   
+                   {selectedBibleBook && (
                      <div>
-                       <label className="text-[10px] font-bold text-zinc-500 uppercase">Search Verse</label>
-                       <input 
-                         type="text" 
-                         value={bibleQuery} 
-                         onChange={e => setBibleQuery(e.target.value)} 
-                         placeholder="e.g. John 3:16" 
-                         className="w-full mt-1 bg-black/50 border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500" 
-                       />
+                       <label className="text-[10px] font-bold text-zinc-500 uppercase flex items-center justify-between">
+                         Chapter
+                         {isFetchingBible && <Loader2 className="size-3 animate-spin text-violet-500" />}
+                       </label>
+                       <div className="grid grid-cols-5 gap-1 mt-2">
+                         {Array.from({ length: BIBLE_BOOKS.find(b => b.name === selectedBibleBook)?.chapters || 0 }).map((_, i) => {
+                            const chapter = i + 1;
+                            return (
+                              <button 
+                                key={chapter}
+                                onClick={() => handleFetchChapter(selectedBibleBook, chapter)}
+                                className={cn(
+                                  "py-1 text-xs rounded border transition-colors",
+                                  selectedBibleChapter === chapter 
+                                    ? "bg-violet-600 border-violet-500 text-white font-bold" 
+                                    : "bg-black/30 border-white/5 text-zinc-400 hover:bg-white/10 hover:text-white"
+                                )}
+                              >
+                                {chapter}
+                              </button>
+                            );
+                         })}
+                       </div>
                      </div>
+                   )}
+
+                   {selectedBibleChapter && bibleVerses.length > 0 && (
                      <div>
-                       <label className="text-[10px] font-bold text-zinc-500 uppercase">Browse by Book</label>
-                       <select
-                         value={selectedBibleBook}
-                         onChange={e => {
-                           const book = e.target.value;
-                           setSelectedBibleBook(book);
-                           if (book) setBibleQuery(book + " 1:1");
-                         }}
-                         className="w-full mt-1 bg-black/50 border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500"
-                       >
-                         <option value="">— Select a Book —</option>
-                         <optgroup label="── Old Testament ──">
-                           {OLD_TESTAMENT_BOOKS.map(book => (
-                             <option key={book} value={book}>{book}</option>
-                           ))}
-                         </optgroup>
-                         <optgroup label="── New Testament ──">
-                           {NEW_TESTAMENT_BOOKS.map(book => (
-                             <option key={book} value={book}>{book}</option>
-                           ))}
-                         </optgroup>
-                       </select>
+                       <label className="text-[10px] font-bold text-zinc-500 uppercase">Verse</label>
+                       <div className="grid grid-cols-5 gap-1 mt-2">
+                         {bibleVerses.map((v, i) => {
+                            const verseNum = i + 1;
+                            const slideId = `bible-${v.reference.replace(/\s+/g, '-')}`;
+                            const isActive = activeSlideId === slideId;
+                            return (
+                              <button 
+                                key={verseNum}
+                                onClick={() => {
+                                   const slide = slides.find(s => s.id === slideId);
+                                   if (slide) pushToProjector(slide);
+                                   const el = document.getElementById(slideId);
+                                   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                }}
+                                className={cn(
+                                  "py-1 text-xs rounded border transition-colors",
+                                  isActive 
+                                    ? "bg-blue-600 border-blue-500 text-white font-bold" 
+                                    : "bg-black/30 border-white/5 text-zinc-400 hover:bg-white/10 hover:text-white"
+                                )}
+                              >
+                                {verseNum}
+                              </button>
+                            );
+                         })}
+                       </div>
                      </div>
-                     <div className="flex gap-2">
-                       <select 
-                         value={bibleTranslation} 
-                         onChange={e => setBibleTranslation(e.target.value)}
-                         className="flex-1 bg-black/50 border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500"
-                       >
-                         <option value="kjv">KJV</option>
-                         <option value="web">WEB</option>
-                         <option value="bbe">BBE</option>
-                         <option value="ylt">YLT</option>
-                         <option value="oeb-us">OEB</option>
-                       </select>
-                       <button type="submit" disabled={isFetchingBible} className="bg-violet-600 hover:bg-violet-500 text-white rounded px-3 py-1.5 text-xs font-bold transition disabled:opacity-50">
-                         {isFetchingBible ? "..." : "Search"}
-                       </button>
-                     </div>
-                   </form>
+                   )}
                 </div>
               ) : (
                 <div className="h-14 border-b border-white/5 flex items-center justify-between px-4 shrink-0 bg-[#18181b]">
