@@ -29,15 +29,16 @@ export function ChordDiagrams({
       <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">
         {instrument} Chord Diagrams ({uniqueChords.length})
       </h3>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7">
+      <div className="flex overflow-x-auto gap-4 pb-4 snap-x">
         {uniqueChords.map((chord) => (
-          <ChordCard
-            key={chord}
-            chord={chord}
-            instrument={instrument}
-            showNumbers={showNumbers}
-            selectedKey={selectedKey}
-          />
+          <div key={chord} className="shrink-0 w-[140px] snap-start">
+            <ChordCard
+              chord={chord}
+              instrument={instrument}
+              showNumbers={showNumbers}
+              selectedKey={selectedKey}
+            />
+          </div>
         ))}
       </div>
     </div>
