@@ -265,9 +265,9 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
 
       {/* Blocks */}
       {(() => {
-        // Auto-fit: horizontal constraint only (vertical handled by block Y positions)
+        // Horizontal fit: safe max font size (pt) is approx 2200 / chars
         const maxBlockLength = Math.max(...blocks.map(b => b.text.length), 1);
-        const maxAllowedFontSize = (2800 / maxBlockLength) / 0.55;
+        const maxAllowedFontSize = 2200 / maxBlockLength;
 
         return blocks.map((block, index) => {
           // Compute effective styles (block overrides or global settings)

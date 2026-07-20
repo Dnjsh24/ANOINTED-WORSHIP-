@@ -191,8 +191,8 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
      
      // Auto-fit: same formula as projector — fill the canvas both horizontally and vertically
      const maxLineLength = Math.max(...activeSlide.content.map(line => line.length), 1);
-     // Horizontal: canvas is ~2800 canvas-units wide (scaled), chars are ~0.55 aspect
-     const hFit = (2800 / maxLineLength) / 0.55;
+     // Horizontal: safe max font size (pt) is approx 2200 / chars
+     const hFit = 2200 / maxLineLength;
      // Vertical: canvas height = 100 units, lines take (fontSize * 1.3) each
      const vFit = 100 / (totalLines * 1.3);
      const autoFontSize = Math.min(hFit, settings.fontSize);

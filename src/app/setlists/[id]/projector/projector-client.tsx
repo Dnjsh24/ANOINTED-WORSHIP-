@@ -272,8 +272,8 @@ function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, get
       ) : (() => {
           // Auto-fit: compute the largest font that fits both width and height
           const longestLine = Math.max(...slide.content.map((l: string) => l.length), 1);
-          // Horizontal fit: ~1680 viewport-pt units wide (accounts for padding), ~0.55 aspect ratio per char
-          const hFit = (1680 / longestLine) / 0.55;
+          // Horizontal fit: canvas is 1920px wide. Safe max font size (pt) is approx 2200 / chars
+          const hFit = 2200 / longestLine;
           // Vertical fit: available vertical space split across lines with line-height 1.25
           const numLines = slide.content.length || 1;
           const vFit = 900 / (numLines * 1.3);
