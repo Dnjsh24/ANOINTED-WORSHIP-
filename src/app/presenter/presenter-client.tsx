@@ -41,6 +41,27 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const [bibleTranslation, setBibleTranslation] = useState("kjv");
   const [bibleVerses, setBibleVerses] = useState<{ reference: string, text: string }[]>([]);
   const [isFetchingBible, setIsFetchingBible] = useState(false);
+  const [selectedBibleBook, setSelectedBibleBook] = useState("");
+
+  const OLD_TESTAMENT_BOOKS = [
+    "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy",
+    "Joshua", "Judges", "Ruth", "1 Samuel", "2 Samuel",
+    "1 Kings", "2 Kings", "1 Chronicles", "2 Chronicles", "Ezra",
+    "Nehemiah", "Esther", "Job", "Psalms", "Proverbs",
+    "Ecclesiastes", "Song of Solomon", "Isaiah", "Jeremiah", "Lamentations",
+    "Ezekiel", "Daniel", "Hosea", "Joel", "Amos",
+    "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk",
+    "Zephaniah", "Haggai", "Zechariah", "Malachi",
+  ];
+
+  const NEW_TESTAMENT_BOOKS = [
+    "Matthew", "Mark", "Luke", "John", "Acts",
+    "Romans", "1 Corinthians", "2 Corinthians", "Galatians", "Ephesians",
+    "Philippians", "Colossians", "1 Thessalonians", "2 Thessalonians", "1 Timothy",
+    "2 Timothy", "Titus", "Philemon", "Hebrews", "James",
+    "1 Peter", "2 Peter", "1 John", "2 John", "3 John",
+    "Jude", "Revelation",
+  ];
 
   const saveHistoryState = () => {
     setPast(prev => [...prev.slice(-49), { settings, slideOverrides }]);
@@ -394,20 +415,23 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     if (!bibleQuery.trim()) return;
     setIsFetchingBible(true);
     try {
-      const res = await fetch(`https://bible-api.com/${encodeURIComponent(bibleQuery)}?translation=${bibleTranslation}`);
-      if (!res.ok) throw new Error("Failed to fetch");
+      const params = new URLSearchParams({ q: bibleQuery, translation: bibleTranslation });
+      const res = await fetch(`/api/bible?${params}`);
       const data = await res.json();
-      if (data.verses) {
+      if (!res.ok) throw new Error(data?.error || "Verse not found");
+      if (data.verses && data.verses.length > 0) {
          const newVerses = data.verses.map((v: any) => ({
            reference: `${v.book_name} ${v.chapter}:${v.verse}`,
            text: v.text.trim()
          }));
          setBibleVerses(newVerses);
-         setActiveItemIndex(-2); // Switch to Bible view
+         setActiveItemIndex(-2);
+      } else {
+        alert("Verse not found. Try a format like \"John 3:16\" or \"Psalms 23:1-6\".");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Verse not found or API error.");
+      alert(err?.message || "Verse not found. Try a format like \"John 3:16\".");
     } finally {
       setIsFetchingBible(false);
     }
@@ -545,6 +569,30 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                          placeholder="e.g. John 3:16" 
                          className="w-full mt-1 bg-black/50 border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500" 
                        />
+                     </div>
+                     <div>
+                       <label className="text-[10px] font-bold text-zinc-500 uppercase">Browse by Book</label>
+                       <select
+                         value={selectedBibleBook}
+                         onChange={e => {
+                           const book = e.target.value;
+                           setSelectedBibleBook(book);
+                           if (book) setBibleQuery(book + " 1:1");
+                         }}
+                         className="w-full mt-1 bg-black/50 border border-white/10 rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-violet-500"
+                       >
+                         <option value="">— Select a Book —</option>
+                         <optgroup label="── Old Testament ──">
+                           {OLD_TESTAMENT_BOOKS.map(book => (
+                             <option key={book} value={book}>{book}</option>
+                           ))}
+                         </optgroup>
+                         <optgroup label="── New Testament ──">
+                           {NEW_TESTAMENT_BOOKS.map(book => (
+                             <option key={book} value={book}>{book}</option>
+                           ))}
+                         </optgroup>
+                       </select>
                      </div>
                      <div className="flex gap-2">
                        <select 

@@ -240,7 +240,10 @@ export function SongViewer({ song }: { song: Song }) {
           <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Key</span>
           <div className="flex items-center gap-2">
             <button onClick={() => changeKey(-1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">-</button>
-            <span className="font-mono text-base font-extrabold text-white min-w-6 text-center">{selectedKey}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-base font-extrabold text-white min-w-6 text-center">{selectedKey}</span>
+              <span className="text-[9px] font-bold text-zinc-600 whitespace-nowrap">(orig: {song.originalKey})</span>
+            </div>
             <button onClick={() => changeKey(1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">+</button>
           </div>
         </div>
