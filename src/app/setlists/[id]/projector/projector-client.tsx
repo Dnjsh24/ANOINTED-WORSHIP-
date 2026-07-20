@@ -190,7 +190,9 @@ function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, get
         <div className="relative w-full h-full">
           {(() => {
             const maxBlockLength = Math.max(...(slide.blocks || []).map((b: any) => b.text.length), 1);
-            const maxAllowedFontSize = 2200 / maxBlockLength;
+            const hFit = 2200 / maxBlockLength;
+            const vFit = 810 / (Math.max(1, slide.blocks?.length || 1) * 1.3);
+            const maxAllowedFontSize = Math.min(hFit, vFit);
 
             return slide.blocks.map((block: any, index: number) => {
               const effectiveFontFamily = block.fontFamily || settings.fontFamily;
@@ -276,9 +278,9 @@ function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, get
           const longestLine = Math.max(...slide.content.map((l: string) => l.length), 1);
           // Horizontal fit: canvas is 1920px wide. Safe max font size (pt) is approx 2200 / chars
           const hFit = 2200 / longestLine;
-          // Vertical fit: available vertical space split across lines with line-height 1.25
+          // Vertical fit: available vertical space split across lines with line-height 1.3
           const numLines = slide.content.length || 1;
-          const vFit = 900 / (numLines * 1.3);
+          const vFit = 810 / (numLines * 1.3);
           // Auto font = min of h-fit and v-fit, then user can cap it down with their setting
           const autoFontSize = Math.min(hFit, vFit, settings.fontSize);
           const effectiveFontSize = Math.max(24, Math.round(autoFontSize));

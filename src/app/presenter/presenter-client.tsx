@@ -193,12 +193,13 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
      const maxLineLength = Math.max(...activeSlide.content.map(line => line.length), 1);
      // Horizontal: safe max font size (pt) is approx 2200 / chars
      const hFit = 2200 / maxLineLength;
-     // Vertical: canvas height = 100 units, lines take (fontSize * 1.3) each
-     const vFit = 100 / (totalLines * 1.3);
-     const autoFontSize = Math.min(hFit, settings.fontSize);
+     // Vertical: screen height is ~810pt. Lines take (fontSize * 1.3) each
+     const vFit = 810 / (totalLines * 1.3);
+     const autoFontSize = Math.min(hFit, vFit, settings.fontSize);
      const effectiveFontSize = Math.max(8, Math.round(autoFontSize));
      
-     const gap = Math.max(15, effectiveFontSize * 0.25);
+     // Gap is percentage of screen height: (fontSize * 1.3 / 810) * 100 ≈ fontSize * 0.16
+     const gap = effectiveFontSize * 0.16;
      const startY = 50 - ((totalLines - 1) * (gap / 2));
      return activeSlide.content.map((line, idx) => ({
         id: `default-${activeSlide.id}-${idx}`,
@@ -220,7 +221,9 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     if (selectedBlock?.fontSize !== undefined) return selectedBlock.fontSize;
     if (selectedBlock && activeBlocks) {
       const maxBlockLen = Math.max(...activeBlocks.map(b => b.text.length), 1);
-      return Math.max(8, Math.round(Math.min(settings.fontSize, 2200 / maxBlockLen)));
+      const hFit = 2200 / maxBlockLen;
+      const vFit = 810 / (activeBlocks.length * 1.3);
+      return Math.max(8, Math.round(Math.min(settings.fontSize, hFit, vFit)));
     }
     return settings.fontSize;
   }, [selectedBlock, settings.fontSize, activeBlocks]);
