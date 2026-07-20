@@ -120,7 +120,7 @@ export function generateSongSlides(text: string, linesPerSlide: number = 4): Pre
     for (let i = 0; i < validLines.length; i += linesPerSlide) {
       const chunk = validLines.slice(i, i + linesPerSlide);
       slides.push({
-        id: `slide-sec${sIndex}-${i}`,
+        id: `slide-sec${sIndex}-${i}-reflow${linesPerSlide}`,
         type: "lyrics",
         content: chunk.map(c => c.lyric.trim()),
         chordLines: chunk,

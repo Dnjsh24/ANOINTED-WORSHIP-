@@ -216,6 +216,15 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
     return activeBlocks.find(b => selectedBlockIds.includes(b.id)) || null;
   }, [selectedBlockIds, activeBlocks]);
 
+  const displayFontSize = useMemo(() => {
+    if (selectedBlock?.fontSize !== undefined) return selectedBlock.fontSize;
+    if (selectedBlock && activeBlocks) {
+      const maxBlockLen = Math.max(...activeBlocks.map(b => b.text.length), 1);
+      return Math.max(8, Math.round(Math.min(settings.fontSize, 2200 / maxBlockLen)));
+    }
+    return settings.fontSize;
+  }, [selectedBlock, settings.fontSize, activeBlocks]);
+
   const handleUpdateSelectedBlock = (updates: Partial<SlideBlock>) => {
     if (selectedBlockIds.length === 0 || !activeSlideId) return;
     saveHistoryState();
@@ -887,7 +896,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                          <div className="flex-1 flex items-center bg-[#1a1a1a] border border-white/10 rounded px-2">
                             <input 
                               type="number" 
-                              value={selectedBlock?.fontSize || settings.fontSize} 
+                              value={displayFontSize} 
                               onChange={(e) => {
                                 if (selectedBlock) handleUpdateSelectedBlock({ fontSize: Number(e.target.value) });
                                 else setSettings({...settings, fontSize: Number(e.target.value)});
