@@ -6,14 +6,22 @@ import { rateLimit } from "@/lib/rate-limit";
 
 // ---------------------------------------------------------------------------
 // Rate limit configuration per route tier
+//
+// ⚠️  These limits are shared per IP address. When your whole team connects
+//     through a single phone hotspot, everyone shares one IP — so limits
+//     must be generous enough for the full team size (10–20 users).
+//
+//     Sizing guide (hotspot scenario):
+//       ~15 users × ~8 Next.js requests per page = ~120 req per navigation burst
+//       General window: 600 req / 60s → comfortable headroom for 15 active users
 // ---------------------------------------------------------------------------
 const RATE_LIMITS = {
-  /** OAuth callback — tightest limit to prevent code replay abuse */
+  /** OAuth callback — stays tight, this route is unauthenticated */
   auth: { max: 10, windowMs: 60_000 },
-  /** Internal API routes — moderate limit */
-  api: { max: 30, windowMs: 60_000 },
-  /** General page navigation — generous limit, real users won't hit this */
-  general: { max: 120, windowMs: 60_000 },
+  /** API routes — raised to handle the full team hitting endpoints together */
+  api: { max: 150, windowMs: 60_000 },
+  /** General page navigation — raised for shared-hotspot team usage */
+  general: { max: 600, windowMs: 60_000 },
 } as const;
 
 /** Extract the best available client IP from the request headers. */
