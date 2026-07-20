@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { readFileSync } from "fs";
-import path from "path";
+import { seedSongs } from "./data";
 
 export async function GET() {
   const supabase = await createClient();
@@ -28,15 +27,7 @@ export async function GET() {
   const teamId = membership.team_id;
 
   try {
-    const songsPath = path.join(process.cwd(), "scratch", "songs.json");
-    let songsData;
-    
-    try {
-      songsData = JSON.parse(readFileSync(songsPath, "utf8"));
-    } catch {
-      const brainPath = "C:\\Users\\danje\\.gemini\\antigravity\\brain\\6fee3659-39dd-4d04-96db-96caf1c4a46f\\scratch\\songs.json";
-      songsData = JSON.parse(readFileSync(brainPath, "utf8"));
-    }
+    const songsData = seedSongs;
 
     const songsToInsert = songsData.map((song: any) => ({
       team_id: teamId,
