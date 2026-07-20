@@ -329,7 +329,7 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
               }
             }}
             className={cn(
-              "absolute origin-center cursor-move select-none p-1 transition-colors z-10 w-[92%] text-center whitespace-pre",
+              "absolute origin-center cursor-move select-none p-1 transition-colors z-10 w-max text-center whitespace-pre",
               selectedBlockIds.includes(block.id) ? "ring-2 ring-blue-500 bg-blue-500/20" : "hover:ring-1 hover:ring-white/50",
               isCurrentlyPlaying && animClass && "fill-mode-both",
               isCurrentlyPlaying && animClass
