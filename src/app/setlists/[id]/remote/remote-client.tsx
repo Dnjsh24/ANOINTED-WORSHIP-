@@ -206,7 +206,7 @@ export default function RemoteClient({ setlist }: { setlist: any }) {
                                  {chunk.map((line: any, lIdx: number) => (
                                    <div key={lIdx} className="leading-tight mb-1 last:mb-0">
                                       {line.chords && <div className="text-[#3b82f6] font-mono font-bold text-sm whitespace-pre">{line.chords}</div>}
-                                      {line.lyric && <div className={cn("text-zinc-300 font-semibold text-base", line.chords && currentSong?.song?.tags?.some(t => t.toLowerCase() === "monospace") && "font-mono")}>{line.lyric}</div>}
+                                      {line.lyric && <div className="text-zinc-300 font-semibold text-base">{line.lyric}</div>}
                                    </div>
                                  ))}
                                </button>

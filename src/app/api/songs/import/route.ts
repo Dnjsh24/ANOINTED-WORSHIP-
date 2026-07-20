@@ -50,8 +50,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ 
       title,
       artist,
-      lyrics: chordsText.trim(),
-      tags: ["Monospace"]
+      lyrics: chordsText.trim()
     });
 
   } catch (err: any) {
