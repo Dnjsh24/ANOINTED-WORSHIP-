@@ -38,9 +38,9 @@ export async function GET() {
       time_signature: song.timeSignature,
       lyrics_chords: song.lyrics,
       tags: song.tags || [],
-      status: "approved",
+      status: "approved" as const,
       created_by: user.id,
-    }));
+    })) as any;
 
     const { data, error } = await supabase
       .from("songs")
