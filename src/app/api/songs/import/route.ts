@@ -44,7 +44,8 @@ export async function POST(req: Request) {
     }
 
     if (!chordsText.trim()) {
-      return NextResponse.json({ error: "Could not find chords text on that page." }, { status: 404 });
+      const actualTitle = $("title").text();
+      return NextResponse.json({ error: `Could not find chords text on that page. (Title: ${actualTitle})` }, { status: 404 });
     }
 
     return NextResponse.json({ 
