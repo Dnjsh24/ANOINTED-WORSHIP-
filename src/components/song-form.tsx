@@ -27,6 +27,9 @@ export function SongForm({ song }: { song?: Song }) {
   const voiceCountdownIntervalRef = useRef<number | null>(null);
   const [voiceSecondsLeft, setVoiceSecondsLeft] = useState<number | null>(null);
   const lyricsRef = useRef<HTMLTextAreaElement>(null);
+  
+  const [importUrl, setImportUrl] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
 
   const [transcribingNotes, setTranscribingNotes] = useState(false);
   const transcriptionDetectorRef = useRef<VoiceKeyDetector | null>(null);
@@ -90,6 +93,36 @@ export function SongForm({ song }: { song?: Song }) {
     const matchPct = Math.round(result.score * 100);
     const mode = result.mode === "minor" ? "minor" : "major";
     setDetectMessage(`Detected ${result.key} ${mode} (${result.matchCount}/${result.totalChords} chords fit, ${matchPct}% confidence)`);
+  };
+
+  const handleImportFromUrl = async () => {
+    if (!importUrl) return;
+    setIsImporting(true);
+    setSongStatus("Importing chords...");
+    try {
+      const res = await fetch("/api/songs/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: importUrl })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to import");
+      }
+      setLyrics(data.lyrics);
+      if (data.title) {
+        const titleInput = document.querySelector<HTMLInputElement>("input[name=title]");
+        if (titleInput && !titleInput.value) titleInput.value = data.title;
+      }
+      setSongStatus("Imported successfully! Check lyrics/chords tab.");
+      setImportUrl("");
+      setActiveTab("chords");
+      handleDetectKeyFromChords();
+    } catch (err: any) {
+      setSongStatus("Import failed: " + err.message);
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleDetectKeyFromVoice = async () => {
@@ -208,6 +241,23 @@ export function SongForm({ song }: { song?: Song }) {
         {/* Left Column: Details */}
         <div className="space-y-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5">
           <h3 className="text-sm font-bold text-white mb-2 pb-2 border-b border-white/[0.04]">Song Details</h3>
+
+          <div className="flex gap-2 mb-4">
+            <Input 
+              value={importUrl} 
+              onChange={e => setImportUrl(e.target.value)} 
+              placeholder="Paste WorshipChords.com URL to auto-import..." 
+              className="h-9 text-xs"
+            />
+            <button
+              type="button"
+              onClick={handleImportFromUrl}
+              disabled={isImporting || !importUrl}
+              className="shrink-0 h-9 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold text-white disabled:opacity-50 transition"
+            >
+              {isImporting ? "Importing..." : "Import"}
+            </button>
+          </div>
           
           <label className="block space-y-1.5">
             <span className="text-xs font-bold text-zinc-300">Song Title *</span>
