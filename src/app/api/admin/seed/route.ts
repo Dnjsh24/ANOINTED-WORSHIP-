@@ -1,15 +1,31 @@
 import { NextResponse } from "next/server";
-import { getMutationContext } from "@/app/actions";
+import { createClient } from "@/lib/supabase/server";
 import { readFileSync } from "fs";
 import path from "path";
 
 export async function GET() {
-  const context = await getMutationContext("songs.create");
-  if (!context.ok) {
-    return NextResponse.json({ error: "Not authorized or no team found. Please log in first." }, { status: 401 });
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Please log in first." }, { status: 401 });
   }
 
-  const { supabase, teamId, userId } = context;
+  // Get the first active team membership for the user
+  const { data: membership } = await supabase
+    .from("team_members")
+    .select("team_id")
+    .eq("profile_id", user.id)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!membership) {
+    return NextResponse.json({ error: "You are not a part of any team. Join or create a team first." }, { status: 401 });
+  }
+
+  const teamId = membership.team_id;
 
   try {
     const songsPath = path.join(process.cwd(), "scratch", "songs.json");
@@ -32,7 +48,7 @@ export async function GET() {
       lyrics_chords: song.lyrics,
       tags: song.tags || [],
       status: "approved",
-      created_by: userId,
+      created_by: user.id,
     }));
 
     const { data, error } = await supabase
