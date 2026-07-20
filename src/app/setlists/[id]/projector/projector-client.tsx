@@ -319,7 +319,7 @@ function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, get
             </div>
           );
         })()
-      )}
+      }
     </div>
   );
 }
