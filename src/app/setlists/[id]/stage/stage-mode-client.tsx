@@ -688,7 +688,10 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
                     )}
                     {line.lyric && (
                       <div 
-                        className="font-semibold text-zinc-100 whitespace-pre-wrap leading-tight mt-1 text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]"
+                        className={cn(
+                          "font-semibold text-zinc-100 whitespace-pre-wrap leading-tight mt-1 text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]",
+                          line.chords && "font-mono"
+                        )}
                       >
                         {line.lyric}
                       </div>

@@ -354,7 +354,12 @@ export function SongViewer({ song }: { song: Song }) {
                               : transposeProgression(line.chords, song.originalKey, selectedKey)}
                           </p>
                         )}
-                        <p className="font-semibold text-zinc-100 text-[13px]">{line.lyric}</p>
+                        <p className={cn(
+                          "font-semibold text-zinc-100 text-[13px]",
+                          activeTab === "chords" && "font-mono tracking-wide text-sm"
+                        )}>
+                          {line.lyric}
+                        </p>
                       </div>
                     ))}
                   </div>
