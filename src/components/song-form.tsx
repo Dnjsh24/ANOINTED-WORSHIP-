@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { Key, Mic, MicOff, Music, Trash2 } from "lucide-react";
 import { detectKeyFromText } from "@/lib/detect-key-from-chords";
 import { VoiceKeyDetector } from "@/lib/voice-key-detector";
+import { SpotifySearch, type SpotifyTrack } from "./spotify-search";
 
 export function SongForm({ song }: { song?: Song }) {
   const [state, formAction] = useActionState(song ? updateSongAction : createSongAction, initialActionState);
@@ -30,6 +31,23 @@ export function SongForm({ song }: { song?: Song }) {
   
   const [importUrl, setImportUrl] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+
+  const [spotifyUrl, setSpotifyUrl] = useState(song?.spotify_url ?? "");
+  const [imageUrl, setImageUrl] = useState(song?.image_url ?? "");
+  const [songAlbum, setSongAlbum] = useState(song?.album ?? "");
+
+  const handleSpotifySelect = (track: SpotifyTrack) => {
+    const titleInput = document.querySelector<HTMLInputElement>("input[name=title]");
+    const artistInput = document.querySelector<HTMLInputElement>("input[name=artist]");
+    
+    if (titleInput) titleInput.value = track.name;
+    if (artistInput) artistInput.value = track.artists.map(a => a.name).join(", ");
+    
+    setSongAlbum(track.album.name);
+    setSpotifyUrl(track.external_urls.spotify);
+    setImageUrl(track.album.images[0]?.url || "");
+    setSongStatus("Imported from Spotify!");
+  };
 
   const [transcribingNotes, setTranscribingNotes] = useState(false);
   const transcriptionDetectorRef = useRef<VoiceKeyDetector | null>(null);
@@ -228,6 +246,8 @@ export function SongForm({ song }: { song?: Song }) {
   return (
     <form action={formAction} className="space-y-6 text-left animate-fade-in">
       {song && <input type="hidden" name="songId" value={song.id} />}
+      <input type="hidden" name="spotifyUrl" value={spotifyUrl} />
+      <input type="hidden" name="imageUrl" value={imageUrl} />
       <ActionMessage state={state} />
       {songStatus ? (
         <p aria-live="polite" className="rounded-md border border-violet-400/30 bg-violet-400/10 px-3 py-2 text-sm font-semibold text-violet-100">
@@ -241,6 +261,10 @@ export function SongForm({ song }: { song?: Song }) {
         {/* Left Column: Details */}
         <div className="space-y-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5">
           <h3 className="text-sm font-bold text-white mb-2 pb-2 border-b border-white/[0.04]">Song Details</h3>
+
+          <div className="mb-4">
+            <SpotifySearch onSelect={handleSpotifySelect} />
+          </div>
 
           <div className="flex gap-2 mb-4">
             <Input 
@@ -271,7 +295,7 @@ export function SongForm({ song }: { song?: Song }) {
 
           <label className="block space-y-1.5">
             <span className="text-xs font-bold text-zinc-300">Album (Optional)</span>
-            <Input name="album" defaultValue={song?.album} placeholder="e.g., Coat of Many Colors" />
+            <Input name="album" value={songAlbum} onChange={(e) => setSongAlbum(e.target.value)} placeholder="e.g., Coat of Many Colors" />
           </label>
 
           {/* Key with picker icon next to it */}

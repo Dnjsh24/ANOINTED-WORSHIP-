@@ -114,12 +114,67 @@ const nashvilleMap: Record<number, string> = {
   11: "7",
 };
 
+export interface ChordToken {
+  chord: string;
+  lyric: string;
+}
+
 export interface SongSection {
   label: string;
   lines: Array<{
     chords?: string;
     lyric: string;
+    tokens?: ChordToken[];
   }>;
+}
+
+// --- ChordPro inline format helpers ---
+
+function isChordProLine(line: string): boolean {
+  // Contains at least one [ChordName] marker, e.g. [G]Amazing [C]grace
+  return /\[[A-Ga-g][^\]]*\]/.test(line);
+}
+
+function parseChordProLine(line: string): { lyric: string; tokens: ChordToken[] } {
+  const tokens: ChordToken[] = [];
+  let lyric = '';
+
+  // Capture any text BEFORE the first bracket
+  const firstBracket = line.indexOf('[');
+  if (firstBracket > 0) {
+    const prefix = line.substring(0, firstBracket);
+    tokens.push({ chord: '', lyric: prefix });
+    lyric += prefix;
+  }
+
+  const regex = /\[([^\]]+)\]([^\[]*)/g;
+  let match;
+  while ((match = regex.exec(line)) !== null) {
+    const chord = match[1].trim();
+    const text = match[2];
+    tokens.push({ chord, lyric: text });
+    lyric += text;
+  }
+
+  return { lyric: lyric.trim(), tokens };
+}
+
+export function transposeTokens(
+  tokens: ChordToken[],
+  fromKey: string,
+  toKey: string
+): ChordToken[] {
+  return tokens.map((t) => ({
+    chord: t.chord ? transposeChord(t.chord, fromKey, toKey) : '',
+    lyric: t.lyric,
+  }));
+}
+
+export function tokensToNashville(tokens: ChordToken[], key: string): ChordToken[] {
+  return tokens.map((t) => ({
+    chord: t.chord ? chordToNashville(t.chord, key) : '',
+    lyric: t.lyric,
+  }));
 }
 
 export function parseLyricsAndChords(text: string): SongSection[] {
@@ -193,7 +248,15 @@ export function parseLyricsAndChords(text: string): SongSection[] {
       sections.push(currentSection);
     }
 
-    if (isChordsLine(lineToProcess)) {
+    if (isChordProLine(lineToProcess) && !(trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      // ChordPro inline format: [G]Amazing [C]grace
+      if (pendingChords) {
+        currentSection.lines.push({ chords: pendingChords, lyric: '' });
+        pendingChords = undefined;
+      }
+      const { lyric, tokens } = parseChordProLine(lineToProcess);
+      currentSection.lines.push({ lyric, tokens });
+    } else if (isChordsLine(lineToProcess)) {
       if (pendingChords) {
         // If we already have pending chords, flush them
         currentSection.lines.push({ chords: pendingChords, lyric: "" });
@@ -234,6 +297,10 @@ export function formatSongToText(song: SongWithSections): string {
     .map((section) => {
       const linesText = section.lines
         .map((line) => {
+          if (line.tokens && line.tokens.length > 0) {
+            // Round-trip ChordPro format: [G]Amazing [C]grace
+            return line.tokens.map((t) => `${t.chord ? `[${t.chord}]` : ''}${t.lyric}`).join('');
+          }
           if (line.chords) {
             return `${line.chords}\n${line.lyric}`;
           }

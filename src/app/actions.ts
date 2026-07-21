@@ -2852,6 +2852,8 @@ export async function createSongAction(_previous: ActionState, formData: FormDat
     timeSignature: formString(formData, "timeSignature") || "4/4",
     lyrics: formString(formData, "lyrics"),
     youtubeUrl: formString(formData, "youtubeUrl"),
+    spotifyUrl: formString(formData, "spotifyUrl"),
+    imageUrl: formString(formData, "imageUrl"),
     album: formString(formData, "album"),
   });
 
@@ -2875,6 +2877,8 @@ export async function createSongAction(_previous: ActionState, formData: FormDat
       time_signature: parsed.data.timeSignature,
       lyrics_chords: parsed.data.lyrics,
       youtube_url: parsed.data.youtubeUrl || null,
+      spotify_url: parsed.data.spotifyUrl || null,
+      image_url: parsed.data.imageUrl || null,
       album: parsed.data.album || null,
       tags: [],
       status: "approved",
@@ -2901,6 +2905,8 @@ export async function updateSongAction(_previous: ActionState, formData: FormDat
     timeSignature: formString(formData, "timeSignature") || "4/4",
     lyrics: formString(formData, "lyrics"),
     youtubeUrl: formString(formData, "youtubeUrl"),
+    spotifyUrl: formString(formData, "spotifyUrl"),
+    imageUrl: formString(formData, "imageUrl"),
     album: formString(formData, "album"),
   });
 
@@ -2927,6 +2933,8 @@ export async function updateSongAction(_previous: ActionState, formData: FormDat
       time_signature: parsed.data.timeSignature,
       lyrics_chords: parsed.data.lyrics,
       youtube_url: parsed.data.youtubeUrl || null,
+      spotify_url: parsed.data.spotifyUrl || null,
+      image_url: parsed.data.imageUrl || null,
       album: parsed.data.album || null,
     })
     .eq("id", songId)

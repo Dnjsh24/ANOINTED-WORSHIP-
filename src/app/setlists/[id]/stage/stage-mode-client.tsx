@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, PenTool, Radio, Eraser, Type, Guitar, ChevronsDown } from "lucide-react";
-import { parseLyricsAndChords, transposeProgression, capoSuggestion } from "@/lib/domain/chords";
+import { parseLyricsAndChords, transposeProgression, transposeTokens, capoSuggestion } from "@/lib/domain/chords";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { updateSetlistSongKeyAction } from "@/app/actions";
@@ -362,8 +362,12 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
     return sections.map(sec => ({
       ...sec,
       lines: sec.lines.map(line => {
+        if (line.tokens) {
+          // ChordPro format: transpose each token's chord
+          return { ...line, tokens: transposeTokens(line.tokens, baseKey, displayKey) };
+        }
         if (!line.chords) return line;
-        const newChords = line.chords.split(/([\s-]+)/).map(part => {
+        const newChords = line.chords.split(/([ \t-]+)/).map(part => {
            if (!part.trim() || part === "-" || part === "/") return part;
            if (/^[A-Ga-g]/.test(part.trim())) {
              return transposeProgression(part.trim(), baseKey, displayKey);
@@ -677,21 +681,36 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
                 </div>
               )}
               <div className="space-y-4">
-                {section.lines.map((line, lIdx) => (
+                {section.lines.map((line: any, lIdx: number) => (
                   <div key={lIdx} className="leading-relaxed max-w-full overflow-x-auto no-scrollbar">
-                    {line.chords && (
-                      <div 
-                        className="font-mono font-bold text-violet-400 whitespace-pre leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]"
-                      >
-                        {line.chords}
+                    {line.tokens ? (
+                      // ChordPro inline: chord perfectly above each syllable
+                      <div className="flex flex-wrap items-end leading-none">
+                        {line.tokens.map((token: any, tIdx: number) => (
+                          <span key={tIdx} className="inline-flex flex-col items-start">
+                            <span className="font-mono font-bold text-violet-400 leading-none pb-1 min-h-[1em] block whitespace-pre text-[calc(0.85rem*var(--user-font-scale))]">
+                              {token.chord || ""}
+                            </span>
+                            <span className="font-semibold text-zinc-100 whitespace-pre text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
+                              {token.lyric || (token.chord ? "\u00a0" : "")}
+                            </span>
+                          </span>
+                        ))}
                       </div>
-                    )}
-                    {line.lyric && (
-                      <div 
-                        className="font-semibold text-zinc-100 whitespace-pre-wrap leading-tight mt-1 text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]"
-                      >
-                        {line.lyric}
-                      </div>
+                    ) : (
+                      // Legacy space-aligned format
+                      <>
+                        {line.chords && (
+                          <div className="font-mono font-bold text-violet-400 whitespace-pre leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]">
+                            {line.chords}
+                          </div>
+                        )}
+                        {line.lyric && (
+                          <div className="font-semibold text-zinc-100 whitespace-pre-wrap leading-tight mt-1 text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
+                            {line.lyric}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 ))}

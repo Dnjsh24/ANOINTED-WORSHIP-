@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { capoSuggestion, progressionToNashville, transposeProgression } from "@/lib/domain/chords";
+import { capoSuggestion, chordToNashville, progressionToNashville, transposeChord, transposeProgression, transposeTokens, tokensToNashville } from "@/lib/domain/chords";
 import { ChordDiagrams } from "@/components/chord-diagrams";
 import type { Song } from "@/lib/types";
 import Link from "next/link";
@@ -17,6 +17,38 @@ function getYouTubeEmbedId(url?: string): string | null {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? match[2] : null;
+}
+
+// Renders ChordPro tokens: each chord floats perfectly above its syllable
+function InlineChordLine({
+  tokens,
+  fromKey,
+  toKey,
+  showNumbers,
+}: {
+  tokens: Array<{ chord: string; lyric: string }>;
+  fromKey: string;
+  toKey: string;
+  showNumbers: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-end leading-none mb-0.5">
+      {tokens.map((token, i) => (
+        <span key={i} className="inline-flex flex-col items-start">
+          <span className="font-mono font-bold text-violet-300 text-xs leading-none pb-1 min-h-[14px] block whitespace-pre">
+            {token.chord
+              ? showNumbers
+                ? chordToNashville(token.chord, fromKey)
+                : transposeChord(token.chord, fromKey, toKey)
+              : ""}
+          </span>
+          <span className="font-semibold text-zinc-100 text-[13px] whitespace-pre">
+            {token.lyric || (token.chord ? "\u00a0" : "")}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 let audioCtx: AudioContext | null = null;
@@ -138,20 +170,22 @@ export function SongViewer({ song }: { song: Song }) {
   const embedId = useMemo(() => getYouTubeEmbedId(song.youtubeUrl), [song.youtubeUrl]);
   const capo = useMemo(() => capoSuggestion(song.originalKey, selectedKey), [selectedKey, song.originalKey]);
 
-  // Extract unique chords
+  // Extract unique chords (handles both legacy and ChordPro token formats)
   const uniqueChords = useMemo(() => {
     const set = new Set<string>();
     song.sections.forEach((section) => {
       section.lines.forEach((line) => {
-        if (line.chords) {
+        if (line.tokens) {
+          line.tokens.forEach((t) => {
+            if (t.chord && /^[A-Ga-g]/.test(t.chord)) {
+              set.add(transposeChord(t.chord, song.originalKey, selectedKey));
+            }
+          });
+        } else if (line.chords) {
           line.chords.split(/[\s-]+/).forEach((chord) => {
             const trimmed = chord.trim();
-            if (trimmed && trimmed !== "/") {
-              // Ensure it's actually a chord before adding (starts with A-G)
-              if (/^[A-Ga-g]/.test(trimmed)) {
-                const transposed = transposeProgression(trimmed, song.originalKey, selectedKey);
-                set.add(transposed);
-              }
+            if (trimmed && trimmed !== "/" && /^[A-Ga-g]/.test(trimmed)) {
+              set.add(transposeProgression(trimmed, song.originalKey, selectedKey));
             }
           });
         }
@@ -209,15 +243,24 @@ export function SongViewer({ song }: { song: Song }) {
   return (
     <div className="space-y-6 text-left animate-fade-in">
       {/* Top Header Card */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-white">{song.title}</h1>
-          <p className="mt-1 text-sm font-semibold text-zinc-400">
-            {song.artist}
-            {song.album && <span className="text-zinc-500 font-normal italic ml-2">({song.album})</span>}
-          </p>
+      <div className="flex flex-col md:flex-row items-start justify-between gap-6">
+        <div className="flex items-start gap-4">
+          {song.imageUrl ? (
+            <img src={song.imageUrl} alt={song.album || song.title} className="size-24 rounded-lg object-cover shadow-lg" />
+          ) : (
+            <div className="size-24 rounded-lg bg-white/5 flex items-center justify-center shadow-lg border border-white/10">
+              <Music className="size-8 text-zinc-600" />
+            </div>
+          )}
+          <div className="pt-1">
+            <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">{song.title}</h1>
+            <p className="mt-2 text-base font-semibold text-zinc-400">
+              {song.artist}
+              {song.album && <span className="text-zinc-500 font-normal italic ml-2">({song.album})</span>}
+            </p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto md:justify-end">
           <Link
             href={`/songs/${song.id}/edit`}
             className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]"
@@ -347,14 +390,25 @@ export function SongViewer({ song }: { song: Song }) {
                   <div className="space-y-3.5">
                     {section.lines.map((line, index) => (
                       <div key={`${line.lyric}-${index}`}>
-                        {line.chords && activeTab === "chords" && (
-                          <p className="font-mono font-bold text-violet-300 whitespace-pre-wrap tracking-wide text-sm mb-0.5">
-                            {showNumbers
-                              ? progressionToNashville(line.chords, song.originalKey)
-                              : transposeProgression(line.chords, song.originalKey, selectedKey)}
-                          </p>
+                        {line.tokens && activeTab === "chords" ? (
+                          <InlineChordLine
+                            tokens={showNumbers ? tokensToNashville(line.tokens, song.originalKey) : transposeTokens(line.tokens, song.originalKey, selectedKey)}
+                            fromKey={song.originalKey}
+                            toKey={selectedKey}
+                            showNumbers={false}
+                          />
+                        ) : (
+                          <>
+                            {line.chords && activeTab === "chords" && (
+                              <p className="font-mono font-bold text-violet-300 whitespace-pre-wrap tracking-wide text-sm mb-0.5">
+                                {showNumbers
+                                  ? progressionToNashville(line.chords, song.originalKey)
+                                  : transposeProgression(line.chords, song.originalKey, selectedKey)}
+                              </p>
+                            )}
+                            <p className="font-semibold text-zinc-100 text-[13px]">{line.lyric}</p>
+                          </>
                         )}
-                        <p className="font-semibold text-zinc-100 text-[13px]">{line.lyric}</p>
                       </div>
                     ))}
                   </div>

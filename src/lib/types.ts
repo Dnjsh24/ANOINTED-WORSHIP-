@@ -62,11 +62,17 @@ export interface JoinRequestSummary {
   requestedAt?: string;
 }
 
+export interface ChordToken {
+  chord: string; // chord name (empty string for plain lyric segments)
+  lyric: string; // lyric text that follows this chord
+}
+
 export interface SongSection {
   label: string;
   lines: Array<{
     chords?: string;
     lyric: string;
+    tokens?: ChordToken[]; // ChordPro inline format
   }>;
 }
 
@@ -82,6 +88,8 @@ export interface Song {
   favorite: boolean;
   sections: SongSection[];
   youtubeUrl?: string;
+  spotifyUrl?: string;
+  imageUrl?: string;
   album?: string;
 }
 
