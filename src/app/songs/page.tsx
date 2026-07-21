@@ -33,7 +33,7 @@ export default async function SongsPage() {
         .eq("team_id", teamContext.teamId)
         .order("title");
       
-      dbSongs = fallback.data;
+      dbSongs = fallback.data as any;
     }
 
     if (dbSongs) {
