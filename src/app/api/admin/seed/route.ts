@@ -27,9 +27,36 @@ export async function GET() {
   const teamId = membership.team_id;
 
   try {
-    const songsData = seedSongs;
+    // Step 1: Get all song titles already in this team's library
+    const { data: existingSongs, error: fetchError } = await supabase
+      .from("songs")
+      .select("title")
+      .eq("team_id", teamId);
 
-    const songsToInsert = songsData.map((song: any) => ({
+    if (fetchError) {
+      return NextResponse.json({ error: fetchError.message }, { status: 500 });
+    }
+
+    const existingTitles = new Set(
+      (existingSongs ?? []).map((s: any) => s.title.toLowerCase().trim())
+    );
+
+    // Step 2: Only keep songs that are NOT already in the library
+    const newSongs = seedSongs.filter(
+      (song) => !existingTitles.has(song.title.toLowerCase().trim())
+    );
+
+    if (newSongs.length === 0) {
+      return NextResponse.json({
+        success: true,
+        count: 0,
+        skipped: existingTitles.size,
+        message: "All songs are already in your library! Nothing new to add.",
+      });
+    }
+
+    // Step 3: Insert only the new songs
+    const songsToInsert = newSongs.map((song: any) => ({
       team_id: teamId,
       title: song.title,
       artist: song.artist,
@@ -51,7 +78,13 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, count: data.length, inserted: data });
+    return NextResponse.json({
+      success: true,
+      count: data.length,
+      skipped: existingTitles.size,
+      message: `Added ${data.length} new songs. Skipped ${existingTitles.size} that were already in your library.`,
+      inserted: data,
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
