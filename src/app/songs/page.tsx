@@ -18,11 +18,23 @@ export default async function SongsPage() {
 
   if (hasSupabaseEnv() && teamContext.teamId) {
     const supabase = await createClient();
-    const { data: dbSongs } = await supabase
+    let { data: dbSongs, error } = await supabase
       .from("songs")
       .select("id, title, artist, original_key, bpm, time_signature, tags, youtube_url, image_url, album, setlist_songs(count)")
       .eq("team_id", teamContext.teamId)
       .order("title");
+
+    // Fallback if the remote database hasn't had the migration applied yet
+    if (error && error.message.includes("column")) {
+      console.warn("Migration missing on remote DB, falling back to safe query:", error);
+      const fallback = await supabase
+        .from("songs")
+        .select("id, title, artist, original_key, bpm, time_signature, tags, youtube_url, setlist_songs(count)")
+        .eq("team_id", teamContext.teamId)
+        .order("title");
+      
+      dbSongs = fallback.data;
+    }
 
     if (dbSongs) {
       songsList = dbSongs.map((s) => ({
