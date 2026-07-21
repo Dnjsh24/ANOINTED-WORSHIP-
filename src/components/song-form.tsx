@@ -32,8 +32,8 @@ export function SongForm({ song }: { song?: Song }) {
   const [importUrl, setImportUrl] = useState("");
   const [isImporting, setIsImporting] = useState(false);
 
-  const [spotifyUrl, setSpotifyUrl] = useState(song?.spotify_url ?? "");
-  const [imageUrl, setImageUrl] = useState(song?.image_url ?? "");
+  const [spotifyUrl, setSpotifyUrl] = useState(song?.spotifyUrl ?? "");
+  const [imageUrl, setImageUrl] = useState(song?.imageUrl ?? "");
   const [songAlbum, setSongAlbum] = useState(song?.album ?? "");
 
   const handleSpotifySelect = (track: SpotifyTrack) => {

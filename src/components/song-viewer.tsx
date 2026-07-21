@@ -6,7 +6,7 @@ import { capoSuggestion, chordToNashville, progressionToNashville, transposeChor
 import { ChordDiagrams } from "@/components/chord-diagrams";
 import type { Song } from "@/lib/types";
 import Link from "next/link";
-import { Play, Square } from "lucide-react";
+import { Play, Square, Music } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
@@ -317,6 +317,20 @@ export function SongViewer({ song }: { song: Song }) {
           </select>
         </div>
       </div>
+
+      {song.spotifyUrl && (
+        <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
+          <iframe 
+            src={song.spotifyUrl.replace("open.spotify.com/track/", "open.spotify.com/embed/track/")} 
+            width="100%" 
+            height="152" 
+            frameBorder="0" 
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+            loading="lazy" 
+            className="rounded-xl"
+          ></iframe>
+        </div>
+      )}
 
       {/* Chord Shapes Card on Top */}
       {showChords && uniqueChords.length > 0 && (

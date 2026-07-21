@@ -17,6 +17,7 @@ export function SongLibraryGrid({ songs }: { songs: Song[] }) {
   const [status, setStatus] = useState("");
   const [statusOk, setStatusOk] = useState(true);
   const [isPending, startTransition] = useTransition();
+  const [sortBy, setSortBy] = useState<"title" | "playCount">("title");
 
   function toggleFavorite(song: Song) {
     const nextFavorite = !favoriteIds.has(song.id);
@@ -52,6 +53,13 @@ export function SongLibraryGrid({ songs }: { songs: Song[] }) {
           return haystack.includes(query) && (!favoritesOnly || favoriteIds.has(song.id));
         });
 
+        const sortedSongs = [...filteredSongs].sort((a, b) => {
+          if (sortBy === "playCount") {
+            return (b.playCount || 0) - (a.playCount || 0);
+          }
+          return a.title.localeCompare(b.title);
+        });
+
         return (
           <>
             <div className="mt-8 flex justify-end">
@@ -62,29 +70,47 @@ export function SongLibraryGrid({ songs }: { songs: Song[] }) {
             </div>
             {status && <p className={statusOk ? "mt-4 text-sm font-bold text-emerald-300" : "mt-4 text-sm font-bold text-amber-200"}>{status}</p>}
             {filtersOpen && (
-              <div className="mt-4 flex flex-wrap gap-2 rounded-lg border border-white/10 bg-[#17161b] p-4">
+              <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-[#17161b] p-4">
                 <Button type="button" variant={favoritesOnly ? "primary" : "secondary"} onClick={() => setFavoritesOnly((value) => !value)}>
                   Favorites
                 </Button>
-                <Button type="button" variant="secondary" onClick={() => setFavoritesOnly(false)}>
+                <Button type="button" variant={!favoritesOnly ? "primary" : "secondary"} onClick={() => setFavoritesOnly(false)}>
                   All Songs
                 </Button>
+                <div className="flex items-center gap-2 border-l border-white/10 pl-4 ml-2">
+                  <span className="text-sm font-semibold text-zinc-400 mr-1">Sort by:</span>
+                  <Button type="button" variant={sortBy === "title" ? "primary" : "secondary"} onClick={() => setSortBy("title")}>
+                    A-Z
+                  </Button>
+                  <Button type="button" variant={sortBy === "playCount" ? "primary" : "secondary"} onClick={() => setSortBy("playCount")}>
+                    Most Played
+                  </Button>
+                </div>
               </div>
             )}
             <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {filteredSongs.map((song) => (
+              {sortedSongs.map((song) => (
                 <Card key={song.id} className="p-5">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <Link href={`/songs/${song.id}`} className="font-bold text-white hover:text-violet-100">
-                        {song.title}
-                      </Link>
-                      <p className="mt-1 text-sm font-semibold text-zinc-300">{song.artist}</p>
-                      {song.album && (
-                        <p className="mt-0.5 text-xs font-semibold text-zinc-400 italic">
-                          Album: {song.album}
-                        </p>
+                    <div className="flex items-start gap-4 flex-1">
+                      {song.imageUrl ? (
+                        <img src={song.imageUrl} alt={song.title} className="size-14 rounded-md object-cover shadow-sm shrink-0" />
+                      ) : (
+                        <div className="size-14 rounded-md bg-white/10 flex items-center justify-center shrink-0">
+                          <Heart className="size-5 text-zinc-500 opacity-50" />
+                        </div>
                       )}
+                      <div>
+                        <Link href={`/songs/${song.id}`} className="font-bold text-white hover:text-violet-100">
+                          {song.title}
+                        </Link>
+                        <p className="mt-1 text-sm font-semibold text-zinc-300">{song.artist}</p>
+                        {song.album && (
+                          <p className="mt-0.5 text-xs font-semibold text-zinc-400 italic">
+                            Album: {song.album}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -100,6 +126,11 @@ export function SongLibraryGrid({ songs }: { songs: Song[] }) {
                     <Badge>Key: {song.currentKey}</Badge>
                     <Badge>{song.bpm} BPM</Badge>
                     <Badge>{song.timeSignature}</Badge>
+                    {(song.playCount ?? 0) > 0 && (
+                      <Badge className="bg-violet-500/20 text-violet-300 border-violet-500/30">
+                        Played {song.playCount} {song.playCount === 1 ? "time" : "times"}
+                      </Badge>
+                    )}
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {song.tags.map((tag) => (

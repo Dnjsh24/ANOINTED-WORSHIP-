@@ -91,6 +91,7 @@ export interface Song {
   spotifyUrl?: string;
   imageUrl?: string;
   album?: string;
+  playCount?: number;
 }
 
 export interface SetlistSong {
