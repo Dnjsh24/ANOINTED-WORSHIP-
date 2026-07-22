@@ -15,6 +15,7 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
   const teamContext = await getRequiredTeamContext();
   let teamMembersList: TeamMember[] = [];
   let serviceTemplates: ServiceTemplate[] = fallbackServiceTemplates;
+  let setlistTemplates: any[] = [];
   let initialEventType: EventType | undefined;
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
@@ -61,11 +62,15 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
       };
     });
 
-    const { data: setlistTemplates } = await supabase
+    const { data } = await supabase
       .from("setlist_templates")
       .select("*")
       .eq("team_id", teamContext.teamId)
       .order("created_at", { ascending: false });
+    
+    if (data) {
+      setlistTemplates = data;
+    }
 
     const { data: templateRows } = await supabase
       .from("service_templates")

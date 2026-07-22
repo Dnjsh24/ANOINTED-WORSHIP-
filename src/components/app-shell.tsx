@@ -41,7 +41,7 @@ export async function AppShell({
   teamContext?: TeamContext;
 }) {
   const context = teamContext ?? (await getCurrentTeamContext());
-  const navigation = getVisibleNavigationItems(context.role);
+  const navigation = getVisibleNavigationItems(context.role as any);
   
   let unreadMessageCount = 0;
   if (hasSupabaseEnv() && context.userId) {

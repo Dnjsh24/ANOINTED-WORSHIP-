@@ -7,8 +7,7 @@ import { z } from "zod";
 import { logActivity } from "@/lib/domain/activity";
 import type { ActionState } from "@/lib/action-state";
 import { can } from "@/lib/domain/rbac";
-import { getTeamContext, getMutationContext, getCurrentTeamContext } from "@/lib/supabase/team-guard";
-import { resolveNoticeTarget } from "@/lib/domain/notices";
+import { getCurrentTeamContext } from "@/lib/supabase/team-context";
 import { notifyProfiles } from "@/lib/push-notifications";
 import { generateTeamCode } from "@/lib/domain/team-code";
 import { toPostgresTime } from "@/lib/domain/time";
@@ -338,11 +337,13 @@ async function resolveNoticeTarget(context: MutationContext, target: NoticeTarge
     target: {
       targetRole: null,
       targetProfileId: null,
-      targetLabel: "All team",
+      targetLabel: "Everyone",
       recipientProfileIds,
     },
   };
 }
+
+
 
 export async function signInWithGoogle() {
   if (!hasSupabaseEnv()) {
@@ -927,6 +928,8 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
           team_id: context.teamId,
           title: `[Slot: ${slot.label || slot.tag || 'Any'}]`,
           artist: "Template",
+          original_key: "C",
+          lyrics_chords: "",
           created_by: context.userId
         }).select("id").single();
         
@@ -935,6 +938,7 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
             setlist_id: setlistData.id,
             song_id: dummySong.id,
             song_order: slot.order || (i + 1),
+            assigned_key: "C",
             notes: `Template Tag: ${slot.tag || 'none'}`
           });
         }
@@ -963,11 +967,11 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
   });
   const { data: teamMembers } = await context.supabase
     .from("team_members")
-    .select("user_id")
+    .select("profile_id")
     .eq("team_id", context.teamId);
 
   if (teamMembers) {
-    const userIds = teamMembers.map((m) => m.user_id);
+    const userIds = teamMembers.map((m) => m.profile_id);
     notifyProfiles(context.supabase, userIds, {
       title: "New Setlist Created",
       body: parsed.data.title + " on " + parsed.data.serviceDate,
@@ -2769,7 +2773,7 @@ export async function updateMemberRoleAction(_previous: ActionState, formData: F
   const { error } = await context.supabase
     .from("team_members")
     .update(
-      teamRoles.includes(parsed.data.role as TeamRole)
+      ["owner", "admin", "pastor", "worship_leader", "member"].includes(parsed.data.role)
         ? { role: parsed.data.role as TeamRole, custom_role_id: null }
         : { role: "member", custom_role_id: parsed.data.role }
     )

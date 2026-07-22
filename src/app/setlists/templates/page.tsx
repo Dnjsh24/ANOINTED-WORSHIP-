@@ -1,12 +1,17 @@
 import { AppShell } from "@/components/app-shell";
-import { requireTeamRole } from "@/lib/supabase/team-guard";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { createClient } from "@/lib/supabase/server";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 export default async function TemplatesPage() {
-  const teamContext = await requireTeamRole(["owner", "admin", "pastor", "worship_leader"]);
+  const teamContext = await getRequiredTeamContext();
+  const allowed = ["owner", "admin", "pastor", "worship_leader"].includes(teamContext.role);
+  if (!allowed) {
+    redirect("/dashboard");
+  }
   const supabase = await createClient();
 
   const { data: templates } = await supabase
@@ -43,7 +48,7 @@ export default async function TemplatesPage() {
             
             <form action={deleteTemplate} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <input type="hidden" name="id" value={t.id} />
-              <Button type="submit" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-400/10">
+              <Button type="submit" variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-400/10 !px-2">
                 <Trash2 className="size-4" />
               </Button>
             </form>

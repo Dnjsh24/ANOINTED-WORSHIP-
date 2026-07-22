@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { can, assertRole } from "@/lib/domain/rbac";
+import { can, assertRole, type Permission } from "@/lib/domain/rbac";
 import { resolvePostLoginPath, type PostLoginPath } from "@/lib/domain/post-login";
 import { appName, teamCode } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -107,8 +107,8 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
     userId: session.user.id,
     teamId: member.team_id,
     memberId: member.id,
-    teamName: member.teams?.name ?? appName,
-    teamCode: member.teams?.code ?? null,
+    teamName: (member.teams as any)?.name ?? appName,
+    teamCode: (member.teams as any)?.code ?? null,
     role: member.role,
     customPermissions,
     canManageMembers: can(member.role, "members.manage", customPermissions),

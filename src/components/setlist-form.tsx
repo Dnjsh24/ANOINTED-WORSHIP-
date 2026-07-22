@@ -22,6 +22,7 @@ export function SetlistForm({
   setlist,
   eventId,
   initialEventType,
+  templateId,
   }: {
   setlist?: Setlist;
   eventId?: string;

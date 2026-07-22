@@ -66,7 +66,6 @@ export function SlideBackgroundPicker({
     <div className="relative inline-block text-left">
       <Button
         variant="ghost"
-        size="sm"
         onClick={() => setIsOpen(!isOpen)}
         className="h-8 gap-2 border border-white/10 bg-white/5 text-xs text-white hover:bg-white/10"
       >

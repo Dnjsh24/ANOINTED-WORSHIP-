@@ -2,7 +2,7 @@
 
 import { useState, useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Check, Clipboard, Copy, CreditCard, FileText, Globe, Info, Key, LayoutGrid, Link2, Lock, Shield, ShieldAlert, Sliders, Users, Users2, Trash2 } from "lucide-react";
+import { Check, Clipboard, Copy, CreditCard, FileText, Globe, Info, Key, LayoutGrid, Link2, Lock, Plus, Shield, ShieldAlert, Sliders, Users, Users2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { SettingsForm } from "@/components/settings-form";
 import { Card, Panel } from "@/components/ui/card";
@@ -11,7 +11,7 @@ import { timeAgo } from "@/lib/utils";
 import { updateTeamSettingsAction, deleteTeamAction, leaveTeamAction, createCustomRoleAction, deleteCustomRoleAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { initialActionState } from "@/lib/action-state";
-import { can, type Permission } from "@/lib/domain/rbac";
+import { can, PERMISSION_LABELS, type Permission } from "@/lib/domain/rbac";
 import { teamRoles, type TeamRole, type CustomRole } from "@/lib/types";
 
 const TABS = [
@@ -609,7 +609,7 @@ export function SettingsClientView({
                       >
                         Cancel
                       </button>
-                      <SubmitButton label="Create Role" loadingLabel="Creating..." variant="primary" />
+                      <SubmitButton variant="primary">Create Role</SubmitButton>
                     </div>
                   </div>
                 </form>

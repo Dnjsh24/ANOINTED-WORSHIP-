@@ -46,6 +46,45 @@ export interface Database {
         };
         Relationships: [];
       };
+      custom_roles: {
+        Row: {
+          id: string;
+          team_id: string;
+          name: string;
+          permissions: string[];
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          team_id: string;
+          name: string;
+          permissions: string[];
+          created_at?: string;
+        };
+        Update: {
+          name?: string;
+          permissions?: string[];
+        };
+        Relationships: [];
+      };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          profile_id: string;
+          subscription: any;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          subscription: any;
+          created_at?: string;
+        };
+        Update: {
+          subscription?: any;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
@@ -185,6 +224,7 @@ export interface Database {
           ministry: string | null;
           ministries: string[] | null;
           team_anniversary: string | null;
+          custom_role_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -197,6 +237,7 @@ export interface Database {
           ministry?: string | null;
           ministries?: string[] | null;
           team_anniversary?: string | null;
+          custom_role_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -206,6 +247,7 @@ export interface Database {
           ministry?: string | null;
           ministries?: string[] | null;
           team_anniversary?: string | null;
+          custom_role_id?: string | null;
           updated_at?: string;
         };
         Relationships: [];

@@ -1,10 +1,15 @@
 import { AppShell } from "@/components/app-shell";
-import { requireTeamRole } from "@/lib/supabase/team-guard";
+import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { createClient } from "@/lib/supabase/server";
 import { AnalyticsDashboard } from "@/components/analytics-dashboard";
+import { redirect } from "next/navigation";
 
 export default async function AnalyticsPage() {
-  const teamContext = await requireTeamRole(["owner", "admin"]);
+  const teamContext = await getRequiredTeamContext();
+  const isAdminOrOwner = teamContext.role === "admin" || teamContext.role === "owner";
+  if (!isAdminOrOwner) {
+    redirect("/dashboard");
+  }
   const supabase = await createClient();
 
   // 1. Most played songs (Top 10)

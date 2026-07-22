@@ -1002,7 +1002,9 @@ export function MessagesClient({
                      </div>
                   )}
                 </div>
-              )})}
+                </div>
+                  );
+                })}
               {/* Scroll anchor — realtime messages scroll here */}
               <div ref={bottomRef} />
             </div>

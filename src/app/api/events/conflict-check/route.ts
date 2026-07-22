@@ -58,7 +58,7 @@ export async function POST(req: Request) {
 
     const conflicts: { memberName: string; eventName: string }[] = [];
 
-    for (const ev of events) {
+    for (const ev of events as any[]) {
       if (!ev.event_assignments || ev.event_assignments.length === 0) continue;
       
       const eventAssignedIds = new Set<string>(ev.event_assignments.map((ea: any) => ea.profile_id));

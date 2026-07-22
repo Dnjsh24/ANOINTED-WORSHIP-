@@ -103,7 +103,7 @@ export default async function EventsPage() {
     <AppShell active="Timeline" teamContext={teamContext}>
       <EventsClient
         events={eventsList}
-        canReviewEvents={canReviewEventRequests(teamContext.role)}
+        canReviewEvents={canReviewEventRequests(teamContext.role as any)}
         memberSubmissionMode={!can(teamContext.role, "events.manage")}
       />
     </AppShell>
