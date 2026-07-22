@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { createSongAction, updateSongAction, deleteSongAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { ButtonLink } from "@/components/ui/button";
@@ -9,13 +9,15 @@ import { initialActionState } from "@/lib/action-state";
 import { formatSongToText } from "@/lib/domain/chords";
 import type { Song } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Key, Mic, MicOff, Music, Trash2 } from "lucide-react";
+import { Key, Mic, MicOff, Music, Trash2, AlertTriangle } from "lucide-react";
 import { detectKeyFromText } from "@/lib/detect-key-from-chords";
 import { VoiceKeyDetector } from "@/lib/voice-key-detector";
 import { SpotifySearch, type SpotifyTrack } from "./spotify-search";
 
 export function SongForm({ song }: { song?: Song }) {
   const [state, formAction] = useActionState(song ? updateSongAction : createSongAction, initialActionState);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [pendingDelete, startDeleteTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<"chords" | "lyrics">("chords");
   const [tags, setTags] = useState(song?.tags?.join(", ") ?? "Worship, Contemporary");
   const [lyrics, setLyrics] = useState(song ? formatSongToText(song) : "");
@@ -459,19 +461,67 @@ export function SongForm({ song }: { song?: Song }) {
       <div className="flex items-center justify-between gap-3 pt-4 border-t border-white/[0.04]">
         <div>
           {song && (
-            <button
-              type="submit"
-              formAction={deleteSongAction}
-              onClick={(e) => {
-                if (!window.confirm("Are you sure you want to delete this song? This action cannot be undone.")) {
-                  e.preventDefault();
-                }
-              }}
-              className="flex items-center gap-1.5 text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
-            >
-              <Trash2 className="size-3.5" />
-              Delete Song
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(true)}
+                className="flex items-center gap-1.5 text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
+              >
+                <Trash2 className="size-3.5" />
+                Delete Song
+              </button>
+
+              {deleteModalOpen && (
+                <div
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+                  onClick={() => setDeleteModalOpen(false)}
+                >
+                  <div
+                    className="mx-4 w-full max-w-md rounded-2xl border border-white/10 bg-[#0f0e14] p-6 shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-full bg-red-500/20">
+                        <AlertTriangle className="size-5 text-red-300" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-white">Delete Song</h2>
+                        <p className="text-sm text-zinc-400">This action cannot be undone.</p>
+                      </div>
+                    </div>
+
+                    <p className="mt-4 text-sm text-zinc-300">
+                      Are you sure you want to delete this song?
+                    </p>
+
+                    <div className="mt-6 flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setDeleteModalOpen(false)}
+                        className="flex-1 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-zinc-300 transition hover:bg-white/10"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pendingDelete}
+                        onClick={() => {
+                          startDeleteTransition(async () => {
+                            const fd = new FormData();
+                            fd.append("songId", song.id);
+                            await deleteSongAction(fd);
+                            setDeleteModalOpen(false);
+                          });
+                        }}
+                        className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-500 disabled:opacity-50"
+                      >
+                        {pendingDelete ? "Deleting..." : "Yes, delete song"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
         <div className="flex items-center gap-3">
