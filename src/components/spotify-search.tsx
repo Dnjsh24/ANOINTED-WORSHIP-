@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Play, Square, ExternalLink } from "lucide-react";
 
 export type SpotifyTrack = {
   id: string;
@@ -10,6 +10,7 @@ export type SpotifyTrack = {
   artists: { name: string }[];
   album: { name: string; images: { url: string }[] };
   external_urls: { spotify: string };
+  preview_url?: string | null;
 };
 
 export function SpotifySearch({
@@ -21,6 +22,17 @@ export function SpotifySearch({
   const [results, setResults] = useState<SpotifyTrack[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  
+  const [playingAudio, setPlayingAudio] = useState<HTMLAudioElement | null>(null);
+  const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (playingAudio) {
+        playingAudio.pause();
+      }
+    };
+  }, [playingAudio]);
 
   const searchSpotify = async (q: string) => {
     setQuery(q);
@@ -42,6 +54,32 @@ export function SpotifySearch({
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const togglePreview = (e: React.MouseEvent, track: SpotifyTrack) => {
+    e.stopPropagation();
+    
+    if (playingTrackId === track.id) {
+      playingAudio?.pause();
+      setPlayingAudio(null);
+      setPlayingTrackId(null);
+    } else {
+      if (playingAudio) {
+        playingAudio.pause();
+      }
+      if (track.preview_url) {
+        const audio = new Audio(track.preview_url);
+        audio.play();
+        setPlayingAudio(audio);
+        setPlayingTrackId(track.id);
+        audio.onended = () => {
+          setPlayingAudio(null);
+          setPlayingTrackId(null);
+        };
+      } else {
+        window.open(track.external_urls.spotify, "_blank");
+      }
     }
   };
 
@@ -74,8 +112,13 @@ export function SpotifySearch({
                 onSelect(track);
                 setOpen(false);
                 setQuery("");
+                if (playingAudio) {
+                  playingAudio.pause();
+                  setPlayingAudio(null);
+                  setPlayingTrackId(null);
+                }
               }}
-              className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/5 transition"
+              className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/5 transition group"
             >
               {track.album.images[0]?.url ? (
                 <img
@@ -93,6 +136,19 @@ export function SpotifySearch({
                 <div className="text-xs text-zinc-400 truncate">
                   {track.artists.map((a) => a.name).join(", ")}
                 </div>
+              </div>
+              <div 
+                onClick={(e) => togglePreview(e, track)}
+                className="flex size-8 items-center justify-center rounded-full bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white transition opacity-0 group-hover:opacity-100 mr-1"
+                title={track.preview_url ? "Play preview" : "Open in Spotify"}
+              >
+                {playingTrackId === track.id ? (
+                  <Square className="size-3.5 fill-current" />
+                ) : track.preview_url ? (
+                  <Play className="size-3.5 fill-current ml-0.5" />
+                ) : (
+                  <ExternalLink className="size-3.5" />
+                )}
               </div>
             </button>
           ))}
