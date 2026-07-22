@@ -1,4 +1,10 @@
 {
   "framework": "nextjs",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "crons": [
+    {
+      "path": "/api/songs/cleanup-trash",
+      "schedule": "0 0 * * *"
+    }
+  ]
 }

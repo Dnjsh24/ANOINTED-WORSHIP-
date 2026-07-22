@@ -35,7 +35,8 @@ export default async function AddSongToSetlistPage({ params }: { params: Promise
     // 2. Fetch songs library
     const { data: dbSongs } = await supabase
       .from("songs")
-      .select("*")
+      .select("id, title, artist, original_key, bpm, time_signature, tags")
+      .is("deleted_at", null)
       .eq("team_id", teamContext.teamId)
       .eq("status", "approved")
       .order("title", { ascending: true });

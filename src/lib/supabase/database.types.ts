@@ -380,6 +380,7 @@ export interface Database {
           created_by: string;
           created_at: string;
           updated_at: string;
+          deleted_at: string | null;
         };
         Insert: {
           id?: string;
@@ -400,6 +401,7 @@ export interface Database {
           created_by: string;
           created_at?: string;
           updated_at?: string;
+          deleted_at?: string | null;
         };
         Update: {
           title?: string;
@@ -416,6 +418,7 @@ export interface Database {
           tags?: string[];
           status?: SongEditStatus;
           updated_at?: string;
+          deleted_at?: string | null;
         };
         Relationships: [];
       };

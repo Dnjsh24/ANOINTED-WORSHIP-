@@ -2960,6 +2960,58 @@ export async function deleteSongAction(formData: FormData) {
     throw new Error(context.state.message);
   }
 
+  // Soft delete the song
+  const { error } = await context.supabase
+    .from("songs")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", songId)
+    .eq("team_id", context.teamId);
+
+  if (error) {
+    throw new Error("Song could not be deleted.");
+  }
+
+  revalidatePath("/songs");
+  redirect("/songs");
+}
+
+export async function restoreSongAction(formData: FormData) {
+  const songId = formString(formData, "songId");
+  if (!songId) {
+    throw new Error("Song id is missing.");
+  }
+
+  const context = await getMutationContext("songs.delete");
+  if (!context.ok) {
+    throw new Error(context.state.message);
+  }
+
+  const { error } = await context.supabase
+    .from("songs")
+    .update({ deleted_at: null })
+    .eq("id", songId)
+    .eq("team_id", context.teamId);
+
+  if (error) {
+    throw new Error("Song could not be restored.");
+  }
+
+  revalidatePath("/songs");
+  revalidatePath("/songs/trash");
+  redirect("/songs");
+}
+
+export async function hardDeleteSongAction(formData: FormData) {
+  const songId = formString(formData, "songId");
+  if (!songId) {
+    throw new Error("Song id is missing.");
+  }
+
+  const context = await getMutationContext("songs.delete");
+  if (!context.ok) {
+    throw new Error(context.state.message);
+  }
+
   // Manually delete dependent records to avoid foreign key constraint errors
   await context.supabase.from("setlist_songs").delete().eq("song_id", songId);
   await context.supabase.from("song_favorites").delete().eq("song_id", songId);
@@ -2971,11 +3023,12 @@ export async function deleteSongAction(formData: FormData) {
     .eq("team_id", context.teamId);
 
   if (error) {
-    throw new Error("Song could not be deleted.");
+    throw new Error("Song could not be permanently deleted.");
   }
 
   revalidatePath("/songs");
-  redirect("/songs");
+  revalidatePath("/songs/trash");
+  redirect("/songs/trash");
 }
 
 export async function submitFeedbackAction(_previous: ActionState, formData: FormData): Promise<ActionState> {

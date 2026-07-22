@@ -1,4 +1,4 @@
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { SongLibraryGrid } from "@/components/song-library-grid";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ export default async function SongsPage() {
     let { data: dbSongs, error } = await supabase
       .from("songs")
       .select("id, title, artist, original_key, bpm, time_signature, tags, youtube_url, image_url, album, setlist_songs(count)")
+      .is("deleted_at", null)
       .eq("team_id", teamContext.teamId)
       .order("title");
 
@@ -67,6 +68,9 @@ export default async function SongsPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
+          <ButtonLink href="/songs/trash" variant="secondary" className="px-3">
+            <Trash2 className="size-4" />
+          </ButtonLink>
           <div className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-[#18171c] px-4 py-2.5 text-sm font-bold">
             <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Total Songs</span>
             <span className="text-white font-extrabold text-base">{totalSongsCount}</span>
