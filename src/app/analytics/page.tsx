@@ -58,7 +58,7 @@ export default async function AnalyticsPage() {
       
       const assignments = ev.event_assignments || [];
       eventTypeStats[type].total += assignments.length;
-      eventTypeStats[type].confirmed += assignments.filter((a: any) => a.status === "confirmed").length;
+      eventTypeStats[type].confirmed += assignments.filter((a: any) => a.status === "available").length;
     }
   }
   

@@ -44,9 +44,8 @@ export default async function ProfilePage() {
         ? supabase
             .from("attendance")
             .select("id")
-            .eq("team_id", teamContext.teamId)
-            .eq("profile_id", teamContext.userId)
-            .eq("status", "confirmed")
+            .eq("team_member_id", teamContext.memberId as string)
+            .eq("status", "available")
         : Promise.resolve({ data: [] }),
     ]);
 
