@@ -36,7 +36,8 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
             title,
             bpm,
             original_key,
-            lyrics_chords
+            lyrics_chords,
+            youtube_url
           )
         )
       `)
@@ -60,7 +61,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
           order: ss.song_order,
           assignedKey: ss.assigned_key,
           lead: leadVocal,
-          youtubeUrl: ss.youtube_url || null,
+          youtubeUrl: ss.song?.youtube_url || null,
           arrangement: ss.arrangement || null,
           song: {
             id: ss.song?.id,

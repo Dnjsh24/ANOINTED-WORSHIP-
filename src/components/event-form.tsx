@@ -1,7 +1,7 @@
 "use client";
 
-import { type Dispatch, type ReactNode, type SetStateAction, useActionState, useId, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { type Dispatch, type ReactNode, type SetStateAction, useActionState, useEffect, useId, useRef, useState } from "react";
+import { AlertCircle, Plus, X } from "lucide-react";
 import type { ServiceTemplate, TeamMember } from "@/lib/types";
 import { createEventAction, updateEventAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
@@ -65,6 +65,9 @@ export function EventForm({
   const actionToUse = initialEvent ? updateEventAction : createEventAction;
   const [state, formAction] = useActionState(actionToUse, initialActionState);
   const [eventType, setEventType] = useState(initialEvent?.type ?? "service");
+  const [recurrence, setRecurrence] = useState("none");
+  const [eventDate, setEventDate] = useState(initialEvent?.date ?? defaultDate ?? "");
+  const [conflicts, setConflicts] = useState<{ memberName: string; eventName: string }[]>([]);
     
   const isServiceRehearsal = eventType === "service_rehearsal";
 
@@ -124,6 +127,52 @@ export function EventForm({
     setDancerRows(createAssignmentRows("dancer", nextAssignments.dancers, 3));
   }
 
+  // Conflict detection
+  useEffect(() => {
+    if (!eventDate) {
+      setConflicts([]);
+      return;
+    }
+
+    const assignedIds = new Set<string>();
+    for (const key of Object.keys(assignmentValues)) {
+      const val = (assignmentValues as any)[key];
+      if (Array.isArray(val)) {
+        val.forEach((id) => id && assignedIds.add(id));
+      } else if (val) {
+        assignedIds.add(val);
+      }
+    }
+
+    if (assignedIds.size === 0) {
+      setConflicts([]);
+      return;
+    }
+
+    const checkConflicts = async () => {
+      try {
+        const res = await fetch("/api/events/conflict-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: eventDate,
+            memberIds: Array.from(assignedIds),
+            excludeEventId: initialEvent?.id
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setConflicts(data.conflicts || []);
+        }
+      } catch (err) {
+        console.error("Failed to check conflicts", err);
+      }
+    };
+
+    const timer = setTimeout(checkConflicts, 500); // debounce
+    return () => clearTimeout(timer);
+  }, [eventDate, assignmentValues, initialEvent?.id]);
+
   return (
     <div className="animate-fade-in">
       <form action={formAction} className="space-y-6">
@@ -137,6 +186,22 @@ export function EventForm({
 
         {initialEvent ? <input type="hidden" name="eventId" value={initialEvent.id} /> : null}
         
+        {conflicts.length > 0 && (
+          <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4 animate-fade-down">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertCircle className="size-4 text-yellow-400" />
+              <h3 className="text-sm font-bold text-yellow-400">Scheduling Conflicts Detected</h3>
+            </div>
+            <ul className="space-y-1 ml-6 list-disc text-sm text-yellow-200/80 font-medium">
+              {conflicts.map((c, idx) => (
+                <li key={idx}>
+                  <strong className="text-yellow-100">{c.memberName}</strong> is already assigned to <strong className="text-yellow-100">{c.eventName}</strong> on this date.
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="grid gap-6 md:grid-cols-2">
 
           {/* Left Column: Event Details */}
@@ -168,13 +233,32 @@ export function EventForm({
 
             <label className="block space-y-1.5">
               <span className="text-xs font-bold text-zinc-300">Date *</span>
-              <Input type="date" name="date" defaultValue={initialEvent?.date ?? defaultDate ?? "2026-07-12"} required className="rounded-xl border-white/10" />
+              <Input type="date" name="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required className="rounded-xl border-white/10" />
             </label>
 
             <label className="block space-y-1.5">
               <span className="text-xs font-bold text-zinc-300">Location *</span>
               <Input name="location" defaultValue={initialEvent?.location ?? "Main Sanctuary"} placeholder="e.g., Main Auditorium" required className="rounded-xl border-white/10" />
             </label>
+
+            {!initialEvent && (
+              <label className="block space-y-1.5 pt-2 border-t border-white/[0.04]">
+                <span className="text-xs font-bold text-zinc-300">Recurrence</span>
+                <div className="relative">
+                  <select
+                    name="recurrence"
+                    value={recurrence}
+                    onChange={(e) => setRecurrence(e.target.value)}
+                    className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20"
+                  >
+                    <option value="none" className="bg-[#111014] text-white">None (One-time event)</option>
+                    <option value="weekly" className="bg-[#111014] text-white">Weekly (Next 12 weeks)</option>
+                    <option value="biweekly" className="bg-[#111014] text-white">Bi-weekly (Next 6 occurrences)</option>
+                    <option value="monthly" className="bg-[#111014] text-white">Monthly (Next 3 months)</option>
+                  </select>
+                </div>
+              </label>
+            )}
           </div>
 
           {/* Right Column: Time & Logistics */}

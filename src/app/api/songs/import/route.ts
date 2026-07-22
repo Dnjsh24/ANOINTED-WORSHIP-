@@ -31,7 +31,33 @@ export async function POST(req: Request) {
       title = $("h1.entry-title").text().replace("Chords", "").trim();
     }
     
-    // 2. Generic fallback (find <pre> tags or code blocks)
+    // 2. Try Ultimate Guitar
+    else if (url.includes("ultimate-guitar.com")) {
+      const jsStore = $(".js-store").attr("data-content");
+      if (jsStore) {
+        try {
+          const data = JSON.parse(jsStore);
+          const tabContent = data?.store?.page?.data?.tab_view?.wiki_tab?.content;
+          if (tabContent) {
+            chordsText = tabContent.replace(/\[ch\]/g, "").replace(/\[\/ch\]/g, "").replace(/\[tab\]/g, "").replace(/\[\/tab\]/g, "");
+          }
+          const tabMeta = data?.store?.page?.data?.tab;
+          if (tabMeta) {
+            title = tabMeta.song_name || "";
+            artist = tabMeta.artist_name || "";
+          }
+        } catch (e) {
+          // ignore parse errors
+        }
+      }
+    }
+    
+    // 3. Try PraiseCharts
+    else if (url.includes("praisecharts.com") || url.includes("songselect.ccli.com")) {
+      return NextResponse.json({ error: "This site requires an account or subscription to view full chords. Please copy and paste manually." }, { status: 403 });
+    }
+
+    // 4. Generic fallback (find <pre> tags or code blocks)
     if (!chordsText) {
       $("pre").each((i, el) => {
         chordsText += $(el).text() + "\n\n";

@@ -20,6 +20,7 @@ export interface MobileNavigationItem {
   id: string;
   href: string;
   label: string;
+  badgeCount?: number;
 }
 
 type MobileTab = {
@@ -27,6 +28,7 @@ type MobileTab = {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
+  badgeCount?: number;
 };
 
 export function MobileIconRail({
@@ -62,6 +64,7 @@ export function MobileIconRail({
       href: item?.href ?? fallbackHref,
       label: item?.label ?? fallbackLabel,
       icon: iconById[id],
+      badgeCount: item?.badgeCount,
     };
   };
 
@@ -106,19 +109,26 @@ export function MobileIconRail({
         className="fixed bottom-0 inset-x-0 z-40 border-t border-white/[0.08] bg-[#111014]/90 backdrop-blur-lg px-2 py-2 text-white shadow-2xl md:hidden flex justify-around items-center h-16 animate-fade-up"
       >
         {defaultTabs.map((tab) => {
-          const Icon = tab.icon;
           const isActive = activeLabel === tab.label.toLowerCase() && !showMoreMenu;
           return (
             <Link
               key={tab.id}
               href={tab.href}
               onClick={() => setShowMoreMenu(false)}
-              className="flex flex-col items-center justify-center flex-1 py-1 transition-all duration-200"
+              className={cn(
+                "relative flex flex-col items-center justify-center py-2 min-w-[64px]",
+                isActive ? "text-violet-400" : "text-zinc-500 hover:text-zinc-300 transition-colors"
+              )}
             >
-              <Icon className={cn("size-5 transition-transform duration-200", isActive ? "text-violet-400 scale-110" : "text-zinc-500")} />
-              <span className={cn("text-[9px] mt-1 font-bold tracking-tight", isActive ? "text-violet-400 font-extrabold" : "text-zinc-500")}>
-                {tab.label}
-              </span>
+              <div className="relative">
+                <tab.icon className={cn("size-6 mb-1 transition-transform", isActive && "scale-110")} />
+                {tab.badgeCount !== undefined && tab.badgeCount > 0 && (
+                  <span className="absolute -top-1 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0f0e14]">
+                    {tab.badgeCount > 9 ? "9+" : tab.badgeCount}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] font-medium">{tab.label}</span>
             </Link>
           );
         })}

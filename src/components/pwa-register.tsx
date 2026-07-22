@@ -13,6 +13,29 @@ export function PwaRegister() {
     // 1. Initial connection status
     setIsOnline(navigator.onLine);
 
+    async function subscribeToPush(registration: ServiceWorkerRegistration) {
+      if (!("PushManager" in window)) return;
+      
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return;
+
+      try {
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        });
+
+        await fetch("/api/web-push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscription }),
+        });
+        console.log("[PWA] Successfully subscribed to web push.");
+      } catch (err) {
+        console.error("[PWA] Failed to subscribe to web push:", err);
+      }
+    }
+
     // 2. Register Service Worker
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker
@@ -20,6 +43,9 @@ export function PwaRegister() {
         .then((reg) => {
           console.log("[PWA] Service Worker registered with scope:", reg.scope);
           setSwRegistration(reg);
+
+          // Subscribe to Push Notifications
+          subscribeToPush(reg);
 
           // Check if there is an update waiting
           if (reg.waiting) {
@@ -71,14 +97,7 @@ export function PwaRegister() {
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
-    // Request Notification permission on mount
-    if (typeof window !== "undefined" && "Notification" in window) {
-      if (Notification.permission === "default") {
-        Notification.requestPermission().then((permission) => {
-          console.log("[PWA] Notification permission status:", permission);
-        });
-      }
-    }
+    // Request Notification permission on mount is handled in subscribeToPush
 
     return () => {
       window.removeEventListener("online", handleOnline);

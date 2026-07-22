@@ -6,6 +6,7 @@ import { EventDeleteButton } from "@/components/event-delete-button";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
+import { AttendanceRoster, type AttendanceRecord } from "@/components/attendance-roster";
 import { can } from "@/lib/domain/rbac";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -28,6 +29,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     confirmed: 0,
     pending: 0,
     approvalStatus: "approved",
+    notes: null as string | null,
+    roster: {} as any,
+    totalMembers: 0,
+    recurrenceRule: null as string | null,
   };
 
   let linkedSetlistId: string | null = null;
@@ -54,7 +59,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       const [attendanceResult, activeMembersResult] = await Promise.all([
         supabase
           .from("attendance")
-          .select("status")
+          .select("status, profile_id, profiles ( id, full_name, avatar_url )")
           .eq("event_id", id),
         supabase
           .from("team_members")
@@ -88,6 +93,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         timeStr = `Rehearsal: ${rehTime} | Service: ${svcTime}`;
       }
 
+      const roster: AttendanceRecord[] = (dbAttendance ?? []).map((row: any) => ({
+        status: row.status,
+        profileId: row.profile_id,
+        fullName: row.profiles?.full_name ?? "Unknown",
+        avatarUrl: row.profiles?.avatar_url,
+      }));
+
       event = {
         id: dbEvent.id,
         name: dbEvent.name,
@@ -101,6 +113,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         confirmed,
         pending,
         approvalStatus: dbEvent.approval_status ?? "approved",
+        notes: dbEvent.description ?? null,
+        roster,
+        totalMembers: totalMembers ?? 0,
+        recurrenceRule: dbEvent.recurrence_rule ?? null,
       };
 
       linkedSetlistId = dbEvent.setlists?.[0]?.id || null;
@@ -136,7 +152,12 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                 Pending approval
               </span>
             ) : null}
-            <h1 className="mt-3 text-3xl font-extrabold text-white leading-tight">{event.name}</h1>
+            {event.recurrenceRule ? (
+              <span className="ml-2 inline-block rounded-full border border-blue-400/30 bg-blue-500/15 px-2.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-blue-200">
+                Recurring ({event.recurrenceRule})
+              </span>
+            ) : null}
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-white md:text-3xl">{event.name}</h1>
             <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-violet-300">
               <CalendarDays className="size-3.5" />
               {event.date}
@@ -180,6 +201,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
                 <Badge key={team}>{team}</Badge>
               ))}
             </div>
+            {event.notes && (
+              <div className="mt-6 border-t border-white/10 pt-4">
+                <p className="font-mono text-[10px] font-bold uppercase text-zinc-400">Notes</p>
+                <p className="mt-2 text-sm font-semibold text-zinc-300">
+                  {event.notes}
+                </p>
+              </div>
+            )}
           </Panel>
         </div>
         <Panel>
@@ -201,10 +230,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               </div>
             </>
           )}
-          <Card className="mt-6 p-4">
-            <p className="font-mono text-[10px] font-bold uppercase text-zinc-400">Notes</p>
-            <p className="mt-2 text-sm font-semibold text-zinc-300">Bring in-ear monitors and updated charts.</p>
-          </Card>
+          {event.roster && <AttendanceRoster roster={event.roster} totalMembers={event.totalMembers!} />}
         </Panel>
         {can(teamContext.role, "events.manage") ? (
           <div className="mt-1 flex gap-3">

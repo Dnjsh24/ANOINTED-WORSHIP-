@@ -6,7 +6,7 @@ import { capoSuggestion, chordToNashville, progressionToNashville, transposeChor
 import { ChordDiagrams } from "@/components/chord-diagrams";
 import type { Song } from "@/lib/types";
 import Link from "next/link";
-import { Play, Square, Music } from "lucide-react";
+import { Play, Square, Music, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
@@ -89,8 +89,34 @@ function playClick(beat: number, volume: number = 0.5) {
   }
 }
 
-export function SongViewer({ song }: { song: Song }) {
-  const [selectedKey, setSelectedKey] = useState(song.currentKey);
+import { updateSetlistSongKeyAction } from "@/app/actions";
+import { useTransition } from "react";
+
+export function SongViewer({ 
+  song,
+  setlistId,
+  slotId,
+  assignedKey
+}: { 
+  song: Song;
+  setlistId?: string;
+  slotId?: string;
+  assignedKey?: string;
+}) {
+  const [selectedKey, setSelectedKey] = useState(assignedKey ?? song.currentKey);
+  const [isPending, startTransition] = useTransition();
+
+  const handleSaveKey = () => {
+    if (!setlistId || !slotId) return;
+    const formData = new FormData();
+    formData.set("setlistId", setlistId);
+    formData.set("slotId", slotId);
+    formData.set("assignedKey", selectedKey);
+    startTransition(async () => {
+      await updateSetlistSongKeyAction(formData);
+      // Wait for revalidation or assume success
+    });
+  };
   const [showNumbers] = useState(false);
   const [instrument, setInstrument] = useState<"piano" | "guitar" | "bass">("guitar");
   const [showChords] = useState(true);
@@ -279,16 +305,27 @@ export function SongViewer({ song }: { song: Song }) {
       {/* Controls Panel */}
       <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5 grid gap-4 sm:grid-cols-2 md:grid-cols-4 items-center">
         {/* Key Selector */}
-        <div className="flex items-center justify-between border-r border-white/[0.06] pr-4 md:pr-6">
-          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Key</span>
-          <div className="flex items-center gap-2">
-            <button onClick={() => changeKey(-1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">-</button>
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono text-base font-extrabold text-white min-w-6 text-center">{selectedKey}</span>
-              <span className="text-[9px] font-bold text-zinc-600 whitespace-nowrap">(orig: {song.originalKey})</span>
+        <div className="flex flex-col border-r border-white/[0.06] pr-4 md:pr-6 justify-center gap-2">
+          <div className="flex items-center justify-between w-full">
+            <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Key</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => changeKey(-1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">-</button>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-base font-extrabold text-white min-w-6 text-center">{selectedKey}</span>
+                <span className="text-[9px] font-bold text-zinc-600 whitespace-nowrap">(orig: {song.originalKey})</span>
+              </div>
+              <button onClick={() => changeKey(1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">+</button>
             </div>
-            <button onClick={() => changeKey(1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">+</button>
           </div>
+          {setlistId && slotId && selectedKey !== assignedKey && (
+            <button 
+              onClick={handleSaveKey} 
+              disabled={isPending} 
+              className="w-full rounded-md bg-amber-500/20 px-2 py-1 text-[10px] font-bold uppercase text-amber-300 hover:bg-amber-500/30 transition disabled:opacity-50 flex items-center justify-center gap-1"
+            >
+              <Save className="size-3" /> Save to Setlist
+            </button>
+          )}
         </div>
 
         {/* Transpose Selector */}

@@ -308,6 +308,7 @@ export const members: TeamMember[] = [
     status: "active",
     attendanceRate: 98,
     ministry: "Worship Leader",
+    ministries: ["Worship Leader"],
   },
   {
     id: "member-casey",
@@ -316,6 +317,7 @@ export const members: TeamMember[] = [
     status: "active",
     attendanceRate: 92,
     ministry: "Keys",
+    ministries: ["Keys"],
   },
   {
     id: "member-jordan",
@@ -324,6 +326,7 @@ export const members: TeamMember[] = [
     status: "inactive",
     attendanceRate: 45,
     ministry: "Drums",
+    ministries: ["Drums"],
   },
 ];
 

@@ -7,7 +7,9 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { generateSongSlides, type PresentationSlide } from "@/lib/domain/presentation";
 
-export default function PresenterClient({ setlist }: { setlist: any }) {
+import { SlideBackgroundPicker } from "@/components/slide-background-picker";
+
+export default function PresenterClient({ setlist, teamId }: { setlist: any, teamId: string }) {
   const [activeItemIndex, setActiveItemIndex] = useState<number>(0);
   const [linesPerSlide, setLinesPerSlide] = useState<number>(4);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
@@ -28,7 +30,7 @@ export default function PresenterClient({ setlist }: { setlist: any }) {
     channel.send({
       type: "broadcast",
       event: "projector_sync",
-      payload: { slide },
+      payload: { slide, slideSettings: activeItem?.slideSettings || null },
     });
   };
 
@@ -149,11 +151,23 @@ export default function PresenterClient({ setlist }: { setlist: any }) {
             <>
               {/* Editor Header */}
               <div className="h-14 border-b border-white/5 flex items-center justify-between px-6 shrink-0 bg-[#18181b]">
-                <div className="flex items-center gap-3">
-                  <h2 className="font-bold text-white">{activeItem?.song.title}</h2>
-                  <span className="text-xs font-semibold text-zinc-500 bg-black/50 px-2 py-1 rounded">
-                    {slides.length} Slides
-                  </span>
+                <div className="flex items-center gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Music className="size-5 text-violet-400" />
+                      {activeItem.song.title}
+                    </h2>
+                    <p className="text-sm font-semibold text-zinc-400 mt-1">
+                      Key: {activeItem.assignedKey} • {activeItem.song.bpm} BPM
+                    </p>
+                  </div>
+                  <div className="ml-auto">
+                    <SlideBackgroundPicker 
+                      setlistSongId={activeItem.id} 
+                      teamId={teamId} 
+                      initialSettings={activeItem.slideSettings} 
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-zinc-500">Lines per Slide:</span>

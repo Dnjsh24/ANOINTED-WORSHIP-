@@ -4,8 +4,12 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { logActivity } from "@/lib/domain/activity";
 import type { ActionState } from "@/lib/action-state";
 import { can } from "@/lib/domain/rbac";
+import { getTeamContext, getMutationContext, getCurrentTeamContext } from "@/lib/supabase/team-guard";
+import { resolveNoticeTarget } from "@/lib/domain/notices";
+import { notifyProfiles } from "@/lib/push-notifications";
 import { generateTeamCode } from "@/lib/domain/team-code";
 import { toPostgresTime } from "@/lib/domain/time";
 import { normalizeSetlistServiceTimes } from "@/lib/domain/event-types";
@@ -905,7 +909,42 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     return { ok: false, message: "Setlist could not be saved. Please try again." };
   }
 
-  
+  const templateId = formString(formData, "templateId");
+  if (templateId) {
+    const { data: template } = await context.supabase
+      .from("setlist_templates")
+      .select("slots")
+      .eq("id", templateId)
+      .single();
+    
+    if (template && Array.isArray(template.slots)) {
+      const slots = template.slots as any[];
+      const insertData = [];
+      for (let i = 0; i < slots.length; i++) {
+        const slot = slots[i];
+        // Create a dummy placeholder song to satisfy the song_id foreign key constraint
+        const { data: dummySong } = await context.supabase.from("songs").insert({
+          team_id: context.teamId,
+          title: `[Slot: ${slot.label || slot.tag || 'Any'}]`,
+          artist: "Template",
+          created_by: context.userId
+        }).select("id").single();
+        
+        if (dummySong) {
+          insertData.push({
+            setlist_id: setlistData.id,
+            song_id: dummySong.id,
+            song_order: slot.order || (i + 1),
+            notes: `Template Tag: ${slot.tag || 'none'}`
+          });
+        }
+      }
+      
+      if (insertData.length > 0) {
+        await context.supabase.from("setlist_songs").insert(insertData);
+      }
+    }
+  }
 
   await logSetlistChange(context, {
     setlistId: setlistData.id,
@@ -914,8 +953,69 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     snapshot: buildSetlistSnapshot(parsed.data),
   });
 
+  await logActivity({
+    teamId: context.teamId,
+    profileId: context.userId,
+    action: "created",
+    targetType: "setlist",
+    targetId: setlistData.id,
+    details: { name: parsed.data.title, date: parsed.data.serviceDate },
+  });
+  const { data: teamMembers } = await context.supabase
+    .from("team_members")
+    .select("user_id")
+    .eq("team_id", context.teamId);
+
+  if (teamMembers) {
+    const userIds = teamMembers.map((m) => m.user_id);
+    notifyProfiles(context.supabase, userIds, {
+      title: "New Setlist Created",
+      body: parsed.data.title + " on " + parsed.data.serviceDate,
+    });
+  }
+
   revalidatePath("/setlists");
   redirect(`/setlists/${setlistData.id}`);
+}
+
+export async function createSetlistTemplateAction(formData: FormData) {
+  const context = await getMutationContext("setlists.manage");
+  if (!context.ok) return { ok: false, message: "Unauthorized" };
+
+  const setlistId = formString(formData, "setlistId");
+  const name = formString(formData, "name");
+  const description = formString(formData, "description");
+
+  if (!setlistId || !name) return { ok: false, message: "Missing fields" };
+
+  // Fetch setlist songs to use as slots
+  const { data: songs } = await context.supabase
+    .from("setlist_songs")
+    .select("song_order, song_id, songs(title)")
+    .eq("setlist_id", setlistId)
+    .order("song_order", { ascending: true });
+
+  const slots = (songs || []).map((s: any) => ({
+    order: s.song_order,
+    label: s.songs?.title || "Song",
+    tag: ""
+  }));
+
+  const { error } = await context.supabase
+    .from("setlist_templates")
+    .insert({
+      team_id: context.teamId,
+      name,
+      description,
+      slots,
+      created_by: context.userId
+    });
+
+  if (error) {
+    return { ok: false, message: "Could not save template." };
+  }
+
+  return { ok: true, message: "Template saved successfully." };
 }
 
 export async function updateSetlistAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
@@ -1400,6 +1500,97 @@ export async function reorderSetlistSongAction(formData: FormData): Promise<Acti
   revalidatePath(`/setlists/${setlistId}`);
   return { ok: true, message: "Song order updated." };
 }
+
+export async function bulkReorderSetlistSongsAction(formData: FormData): Promise<ActionState> {
+  const setlistId = formString(formData, "setlistId");
+  const updatesJson = formString(formData, "updates");
+
+  if (!setlistId || !updatesJson) {
+    return { ok: false, message: "Missing required fields." };
+  }
+
+  const context = await getMutationContext("setlists.manage");
+  if (!context.ok) {
+    return context.state;
+  }
+
+  try {
+    const updates: { id: string; song_order: number }[] = JSON.parse(updatesJson);
+    const promises = updates.map((u) => 
+      context.supabase.from("setlist_songs").update({ song_order: u.song_order }).eq("id", u.id).eq("setlist_id", setlistId)
+    );
+    const results = await Promise.all(promises);
+    
+    if (results.some(r => r.error)) {
+      console.error(results.find(r => r.error)?.error);
+      return { ok: false, message: "Failed to reorder some songs." };
+    }
+
+    revalidatePath(`/setlists/${setlistId}`);
+    return { ok: true, message: "Songs reordered successfully." };
+  } catch (e) {
+    return { ok: false, message: "Invalid payload." };
+  }
+}
+
+export async function updateSetlistSongNotesAction(formData: FormData): Promise<ActionState> {
+  const slotId = formString(formData, "slotId");
+  const setlistId = formString(formData, "setlistId");
+  const bandNotes = formString(formData, "bandNotes");
+
+  if (!slotId || !setlistId) {
+    return { ok: false, message: "Missing required fields." };
+  }
+
+  const context = await getMutationContext("setlists.manage");
+  if (!context.ok) {
+    return context.state;
+  }
+
+  const { error } = await context.supabase
+    .from("setlist_songs")
+    .update({ band_notes: bandNotes })
+    .eq("id", slotId)
+    .eq("setlist_id", setlistId);
+
+  if (error) {
+    return { ok: false, message: "Failed to update notes." };
+  }
+
+  revalidatePath(`/setlists/${setlistId}`);
+  return { ok: true, message: "Notes updated." };
+}
+
+export async function markMessagesReadAction(channelId: string, messageIds: string[]): Promise<ActionState> {
+  const context = await getMutationContext("messages.send");
+  if (!context.ok) {
+    return context.state;
+  }
+
+  // 1. Update channel_reads
+  const { error: channelError } = await context.supabase
+    .from("channel_reads")
+    .upsert(
+      { profile_id: context.userId, channel_id: channelId, last_read_at: new Date().toISOString() },
+      { onConflict: 'profile_id,channel_id' }
+    );
+
+  // 2. Update message_reads
+  if (messageIds.length > 0) {
+    const readsToInsert = messageIds.map(id => ({
+      message_id: id,
+      profile_id: context.userId,
+      read_at: new Date().toISOString()
+    }));
+    await context.supabase
+      .from("message_reads")
+      .upsert(readsToInsert, { onConflict: 'message_id,profile_id' });
+  }
+
+  // No revalidatePath here because it will re-render too aggressively during active chat
+  return { ok: true, message: "Marked as read." };
+}
+
 export async function updateSongSlotArrangementAction(formData: FormData): Promise<ActionState> {
   const slotId = formString(formData, "slotId");
   const setlistId = formString(formData, "setlistId");
@@ -1560,6 +1751,8 @@ export async function createAnnouncementAction(_previous: ActionState, formData:
   }
 
   const { target } = resolvedTarget;
+  const isPinned = formData.get("isPinned") === "on";
+
   const { data: announcement, error } = await context.supabase
     .from("announcements")
     .insert({
@@ -1573,6 +1766,7 @@ export async function createAnnouncementAction(_previous: ActionState, formData:
       target_profile_id: target.targetProfileId,
       target_label: target.targetLabel,
       created_by: context.userId,
+      is_pinned: isPinned,
     })
     .select("id")
     .single();
@@ -1593,6 +1787,12 @@ export async function createAnnouncementAction(_previous: ActionState, formData:
     if (receiptError) {
       return { ok: false, message: "Announcement was added, but delivery tracking could not be created." };
     }
+
+    // Send push notifications asynchronously
+    notifyProfiles(context.supabase, target.recipientProfileIds, {
+      title: "New Announcement: " + parsed.data.title,
+      body: parsed.data.body,
+    });
   }
 
   revalidatePath("/announcements");
@@ -1762,6 +1962,7 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
     assignedTeams: formString(formData, "assignedTeams"),
     linkedSetlistId: formString(formData, "linkedSetlistId"),
     notes: formString(formData, "notes"),
+    recurrence: formString(formData, "recurrence") || "none",
   });
 
   if (!parsed.success) {
@@ -1815,6 +2016,54 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
     const assignmentsToInsert = buildEventAssignments(data.id, parsed.data);
     if (assignmentsToInsert.length > 0) {
       await (context.supabase.from("event_assignments") as any).insert(assignmentsToInsert);
+    }
+  }
+
+  // Handle Recurrence
+  const recurrence = (parsed.data as any).recurrence;
+  if (recurrence && recurrence !== "none") {
+    const numOccurrences = recurrence === "weekly" ? 12 : recurrence === "biweekly" ? 6 : 3;
+    const daysToAdd = recurrence === "weekly" ? 7 : recurrence === "biweekly" ? 14 : 0;
+    
+    let currentDate = new Date(parsed.data.date);
+    
+    // Update the parent with the recurrence rule
+    await context.supabase
+      .from("events")
+      .update({ recurrence_rule: recurrence })
+      .eq("id", data.id);
+
+    const recurringEvents = [];
+    for (let i = 1; i <= numOccurrences; i++) {
+      if (recurrence === "monthly") {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+      } else {
+        currentDate.setDate(currentDate.getDate() + daysToAdd);
+      }
+      
+      const newDateStr = currentDate.toISOString().slice(0, 10);
+      recurringEvents.push({
+        ...insertData,
+        event_date: newDateStr,
+        recurrence_rule: recurrence,
+        recurrence_parent_id: data.id,
+      });
+    }
+
+    if (recurringEvents.length > 0) {
+      const { data: insertedRecurringEvents, error: insertError } = await context.supabase
+        .from("events")
+        .insert(recurringEvents as any)
+        .select("id");
+        
+      if (!insertError && insertedRecurringEvents && approvalStatus === "approved") {
+        for (const re of insertedRecurringEvents) {
+          const assignmentsToInsert = buildEventAssignments(re.id, parsed.data);
+          if (assignmentsToInsert.length > 0) {
+            await (context.supabase.from("event_assignments") as any).insert(assignmentsToInsert);
+          }
+        }
+      }
     }
   }
 
@@ -1952,6 +2201,8 @@ export async function sendMessageAction(formData: FormData): Promise<ActionState
     channelId: formData.get("channelId"),
     body: formData.get("body"),
     attachmentFileId: formString(formData, "attachmentFileId") || undefined,
+    scheduledFor: formString(formData, "scheduledFor") || undefined,
+    parentMessageId: formString(formData, "parentMessageId") || undefined,
   });
 
   if (!parsed.success) {
@@ -1984,6 +2235,9 @@ export async function sendMessageAction(formData: FormData): Promise<ActionState
       sender_member_id: context.memberId,
       body: parsed.data.body,
       attachment_file_id: attachmentFileId,
+      scheduled_for: parsed.data.scheduledFor || null,
+      is_delivered: !parsed.data.scheduledFor,
+      parent_message_id: parsed.data.parentMessageId || null,
     })
     .select("id, created_at")
     .single();
@@ -2514,7 +2768,11 @@ export async function updateMemberRoleAction(_previous: ActionState, formData: F
 
   const { error } = await context.supabase
     .from("team_members")
-    .update({ role: parsed.data.role })
+    .update(
+      teamRoles.includes(parsed.data.role as TeamRole)
+        ? { role: parsed.data.role as TeamRole, custom_role_id: null }
+        : { role: "member", custom_role_id: parsed.data.role }
+    )
     .eq("id", parsed.data.memberId)
     .eq("team_id", context.teamId);
 
@@ -2567,13 +2825,57 @@ export async function regenerateTeamCodeAction(): Promise<ActionState> {
 
   revalidatePath("/members");
   revalidatePath("/admin/settings");
-  return { ok: true, message: "Team code regenerated." };
+  return { ok: true, message: "Custom role created." };
+}
+
+export async function updateSlideSettingsAction(formData: FormData): Promise<ActionState> {
+  const setlistSongId = formData.get("setlistSongId") as string;
+  const slideSettingsStr = formData.get("slideSettings") as string;
+  
+  if (!setlistSongId || !slideSettingsStr) {
+    return { ok: false, message: "Missing required fields." };
+  }
+  
+  const context = await getMutationContext("setlists.manage");
+  if (!context.ok) return context.state;
+  
+  let slideSettings = null;
+  try {
+    slideSettings = JSON.parse(slideSettingsStr);
+  } catch (e) {
+    return { ok: false, message: "Invalid settings." };
+  }
+
+  const { error } = await context.supabase
+    .from("setlist_songs")
+    .update({ slide_settings: slideSettings })
+    .eq("id", setlistSongId);
+
+  if (error) {
+    return { ok: false, message: "Failed to update slide settings." };
+  }
+
+  // Need to get setlistId to revalidate
+  const { data } = await context.supabase
+    .from("setlist_songs")
+    .select("setlist_id")
+    .eq("id", setlistSongId)
+    .single();
+
+  if (data?.setlist_id) {
+    revalidatePath(`/setlists/${data.setlist_id}/presenter`);
+    revalidatePath(`/setlists/${data.setlist_id}/projector`);
+  }
+
+  return { ok: true, message: "Slide settings updated." };
 }
 
 export async function updateProfileAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = profileInputSchema.safeParse({
     fullName: formString(formData, "fullName"),
-    primaryRole: formString(formData, "primaryRole"),
+    ministries: formData.getAll("ministries").map((val) => String(val)),
+    birthday: formString(formData, "birthday") || null,
+    teamAnniversary: formString(formData, "teamAnniversary") || null,
   });
 
   if (!parsed.success) {
@@ -2585,10 +2887,16 @@ export async function updateProfileAction(_previous: ActionState, formData: Form
     return { ...context.state, message: "Profile save requires sign-in." };
   }
 
-  const { error: profileError } = await context.supabase.from("profiles").update({ full_name: parsed.data.fullName }).eq("id", context.userId);
+  const { error: profileError } = await context.supabase.from("profiles").update({ 
+    full_name: parsed.data.fullName,
+    birthday: parsed.data.birthday 
+  }).eq("id", context.userId);
   const { error: memberError } = await context.supabase
     .from("team_members")
-    .update({ ministry: parsed.data.primaryRole })
+    .update({ 
+      ministries: parsed.data.ministries,
+      team_anniversary: parsed.data.teamAnniversary
+    })
     .eq("id", context.memberId);
 
   if (profileError || memberError) {
@@ -2890,9 +3198,62 @@ export async function createSongAction(_previous: ActionState, formData: FormDat
   if (error || !data) {
     return { ok: false, message: "Song could not be created." };
   }
+  await logActivity({
+    teamId: context.teamId,
+    profileId: context.userId,
+    action: "created",
+    targetType: "song",
+    targetId: data.id,
+    details: { title: parsed.data.title, artist: parsed.data.artist },
+  });
 
   revalidatePath("/songs");
   redirect(`/songs/${data.id}`);
+}
+
+export async function createCustomRoleAction(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const teamId = formData.get("teamId") as string;
+  const name = formData.get("name") as string;
+  const permissions = formData.getAll("permissions") as string[];
+
+  if (!teamId || !name) {
+    return { ok: false, message: "Missing required fields." };
+  }
+
+  const teamContext = await getCurrentTeamContext();
+  if (teamContext.teamId !== teamId || !can(teamContext.role, "team.manage", teamContext.customPermissions)) {
+    return { ok: false, message: "Unauthorized." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("custom_roles").insert({
+    team_id: teamId,
+    name,
+    permissions,
+  });
+
+  if (error) {
+    if (error.code === "23505") return { ok: false, message: "A custom role with this name already exists." };
+    return { ok: false, message: "Failed to create custom role." };
+  }
+
+  revalidatePath("/admin/settings");
+  return { ok: true, message: "Custom role created successfully." };
+}
+
+export async function deleteCustomRoleAction(formData: FormData) {
+  const teamId = formData.get("teamId") as string;
+  const roleId = formData.get("roleId") as string;
+
+  if (!teamId || !roleId) return;
+
+  const teamContext = await getCurrentTeamContext();
+  if (teamContext.teamId !== teamId || !can(teamContext.role, "team.manage", teamContext.customPermissions)) return;
+
+  const supabase = await createClient();
+  await supabase.from("custom_roles").delete().eq("id", roleId).eq("team_id", teamId);
+
+  revalidatePath("/admin/settings");
 }
 
 export async function updateSongAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
@@ -3112,4 +3473,29 @@ export async function deleteEventAction(formData: FormData): Promise<ActionState
 
   revalidatePath("/events");
   redirect("/events");
+}
+
+export async function toggleAnnouncementPinAction(formData: FormData): Promise<ActionState> {
+  const context = await getMutationContext("announcements.create");
+  if (!context.ok) return context.state;
+
+  const announcementId = formData.get("announcementId")?.toString();
+  const isPinned = formData.get("isPinned") === "true";
+
+  if (!announcementId) {
+    return { ok: false, message: "Missing announcement ID." };
+  }
+
+  const { error } = await context.supabase
+    .from("announcements")
+    .update({ is_pinned: isPinned })
+    .eq("id", announcementId)
+    .eq("team_id", context.teamId);
+
+  if (error) {
+    return { ok: false, message: "Failed to update pin status." };
+  }
+
+  revalidatePath("/announcements");
+  return { ok: true, message: isPinned ? "Announcement pinned." : "Announcement unpinned." };
 }

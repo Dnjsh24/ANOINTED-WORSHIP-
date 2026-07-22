@@ -18,14 +18,28 @@ const TIMEZONES = [
 
 const LANGUAGES = ["English", "Spanish", "French", "Tagalog"];
 
+const AVAILABLE_MINISTRIES = [
+  "Band Member",
+  "Worship Leader",
+  "Media & Tech",
+  "Dance Ministry",
+  "Pastor",
+  "Singer / Member",
+  "Ushers / Greeters",
+];
+
 export function ProfileForm({
   fullName,
   email,
-  primaryRole,
+  ministries: initialMinistries,
+  birthday,
+  teamAnniversary
 }: {
   fullName: string;
   email: string;
-  primaryRole: string;
+  ministries: string[];
+  birthday: string | null;
+  teamAnniversary: string | null;
 }) {
   const [state, formAction] = useActionState(updateProfileAction, initialActionState);
   const [phone, setPhone] = useState("(555) 555-0123");
@@ -34,6 +48,13 @@ export function ProfileForm({
   const [emailNotif, setEmailNotif] = useState(true);
   const [pushNotif, setPushNotif] = useState(true);
   const [profileStatus, setProfileStatus] = useState("");
+  const [ministries, setMinistries] = useState<string[]>(initialMinistries);
+
+  function toggleMinistry(m: string) {
+    setMinistries(prev => 
+      prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]
+    );
+  }
 
   return (
     <form action={formAction} className="space-y-6 animate-fade-in">
@@ -85,7 +106,38 @@ export function ProfileForm({
               </select>
             </div>
           </label>
-          <input type="hidden" name="primaryRole" value={primaryRole} />
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold text-zinc-300">Birthday</span>
+            <Input type="date" name="birthday" defaultValue={birthday || ""} />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-xs font-bold text-zinc-300">Team Anniversary</span>
+            <Input type="date" name="teamAnniversary" defaultValue={teamAnniversary || ""} />
+          </label>
+          {ministries.map((m) => (
+            <input key={m} type="hidden" name="ministries" value={m} />
+          ))}
+        </div>
+      </div>
+
+      {/* Ministries Section */}
+      <div className="mt-8 border-t border-white/[0.06] pt-6 space-y-4">
+        <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500">Ministry Involvement</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {AVAILABLE_MINISTRIES.map((m) => (
+            <label key={m} className={cn(
+              "flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors",
+              ministries.includes(m) ? "border-violet-500/50 bg-violet-500/10 text-violet-100" : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:bg-white/[0.04]"
+            )}>
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={ministries.includes(m)}
+                onChange={() => toggleMinistry(m)}
+              />
+              <span className="text-xs font-bold">{m}</span>
+            </label>
+          ))}
         </div>
       </div>
 

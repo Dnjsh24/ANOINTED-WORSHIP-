@@ -9,6 +9,7 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
   const [activeSlide, setActiveSlide] = useState<PresentationSlide | null>(null);
   const [prevSlide, setPrevSlide] = useState<PresentationSlide | null>(null);
   const [settings, setSettings] = useState<PresentationSettings>(initialSettings || defaultPresentationSettings);
+  const [slideSettings, setSlideSettings] = useState<{ backgroundType?: string; backgroundValue?: string } | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const supabase = useMemo(() => createClient(), []);
 
@@ -41,6 +42,9 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
         if (payload.payload) {
           if (payload.payload.settings) {
             setSettings(payload.payload.settings);
+          }
+          if (payload.payload.slideSettings !== undefined) {
+            setSlideSettings(payload.payload.slideSettings);
           }
           if (payload.payload.slide !== undefined) {
             const newSlide = payload.payload.slide as PresentationSlide | null;
@@ -148,6 +152,7 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
              getExitClass={getExitClass}
              getCurveValue={getCurveValue}
              getAlignmentClass={getAlignmentClass}
+             slideSettings={slideSettings}
           />
         );
       })}
@@ -155,7 +160,7 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
   );
 }
 
-function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, getExitClass, getCurveValue, getAlignmentClass }: any) {
+function SlideRenderer({ slide, settings, slideSettings, transitionClass, getEntranceClass, getExitClass, getCurveValue, getAlignmentClass }: any) {
   // Handle PDF/Image slides if they are passed as 'media'
   if (slide.mediaUrl) {
     return (
@@ -170,19 +175,32 @@ function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, get
     );
   }
 
+  let containerStyle: React.CSSProperties = { 
+    backgroundColor: settings.backgroundColor, 
+    animationDuration: '0.5s' 
+  };
+  
+  if (slideSettings) {
+    if (slideSettings.backgroundType === "color") {
+      containerStyle.backgroundColor = slideSettings.backgroundValue;
+    } else if (slideSettings.backgroundType === "gradient") {
+      containerStyle.background = slideSettings.backgroundValue;
+    }
+  }
+
   return (
     <div 
       className={cn("fixed inset-0 flex flex-col justify-center p-8 sm:p-16 overflow-hidden transition-colors duration-300", transitionClass)} 
-      style={{ backgroundColor: settings.backgroundColor, animationDuration: '0.5s' }}
+      style={containerStyle}
     >
       {/* Uploaded Background Media */}
-      {settings.backgroundMediaUrl && (
+      {(settings.backgroundMediaUrl || (slideSettings?.backgroundType === "image" && slideSettings?.backgroundValue)) && (
         <div className="absolute inset-0 overflow-hidden -z-10">
-          {settings.backgroundMediaType === "video" ? (
+          {settings.backgroundMediaType === "video" && !slideSettings?.backgroundValue ? (
             <video src={settings.backgroundMediaUrl} className="w-full h-full object-cover opacity-80" autoPlay loop muted playsInline />
           ) : (
              // eslint-disable-next-line @next/next/no-img-element
-            <img src={settings.backgroundMediaUrl} className="w-full h-full object-cover opacity-80" alt="Background" />
+            <img src={slideSettings?.backgroundValue || settings.backgroundMediaUrl} className="w-full h-full object-cover opacity-80" alt="Background" />
           )}
         </div>
       )}

@@ -14,28 +14,40 @@ export default async function ProfilePage() {
   const teamContext = await getRequiredTeamContext();
   let fullName = "David M.";
   let email = sampleUser.email;
-  let primaryRole = "Acoustic Guitar";
+  let ministries: string[] = [];
   let accessLevel = teamContext.role;
   let avatarUrl: string | null = null;
+  let memberSince = "Jan 5, 2024";
+  let attendanceRate = 90;
+  let birthday: string | null = null;
+  let teamAnniversary: string | null = null;
   const initialNowIso = new Date().toISOString();
 
   if (hasSupabaseEnv() && teamContext.userId) {
     const supabase = await createClient();
 
-    const [profileResult, membershipResult] = await Promise.all([
+    const [profileResult, eventsResult, attendanceResult] = await Promise.all([
       supabase
         .from("profiles")
-        .select("full_name, email, avatar_url")
+        .select("full_name, email, avatar_url, birthday, team_members!inner(role, ministries, created_at, team_anniversary)")
         .eq("id", teamContext.userId)
+        .eq("team_members.team_id", teamContext.teamId ?? "")
         .maybeSingle(),
       teamContext.teamId
         ? supabase
-            .from("team_members")
-            .select("role, ministry")
+            .from("events")
+            .select("id")
+            .eq("team_id", teamContext.teamId)
+            .lte("event_date", initialNowIso.split("T")[0])
+        : Promise.resolve({ data: [] }),
+      teamContext.teamId
+        ? supabase
+            .from("event_attendance")
+            .select("id")
             .eq("team_id", teamContext.teamId)
             .eq("profile_id", teamContext.userId)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
+            .eq("status", "confirmed")
+        : Promise.resolve({ data: [] }),
     ]);
 
     const profile = profileResult.data;
@@ -43,12 +55,25 @@ export default async function ProfilePage() {
       fullName = profile.full_name ?? "Unknown User";
       email = profile.email ?? "";
       avatarUrl = profile.avatar_url ?? null;
+      birthday = profile.birthday ?? null;
+
+      const membership = (profile.team_members as any)?.[0];
+      if (membership) {
+        ministries = membership.ministries ?? [];
+        accessLevel = membership.role ?? "member";
+        teamAnniversary = membership.team_anniversary ?? null;
+        if (membership.created_at) {
+          memberSince = new Date(membership.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+        }
+      }
     }
 
-    const membership = membershipResult.data;
-    if (membership) {
-      primaryRole = membership.ministry ?? "Member";
-      accessLevel = membership.role ?? "member";
+    const pastEventsCount = eventsResult.data?.length ?? 0;
+    const attendedCount = attendanceResult.data?.length ?? 0;
+    if (pastEventsCount > 0) {
+      attendanceRate = Math.round((attendedCount / pastEventsCount) * 100);
+    } else {
+      attendanceRate = 100;
     }
   }
 
@@ -62,7 +87,7 @@ export default async function ProfilePage() {
             <PhotoPickerButton />
 
             <h1 className="mt-5 text-2xl font-bold text-white">{fullName}</h1>
-            <p className="mt-1 text-sm font-semibold text-zinc-400 capitalize">{primaryRole || accessLevel.replace("_", " ")}</p>
+            <p className="mt-1 text-sm font-semibold text-zinc-400 capitalize">{ministries.length > 0 ? ministries.join(", ") : accessLevel.replace("_", " ")}</p>
             
             <div className="mt-3 flex justify-center">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">
@@ -74,7 +99,11 @@ export default async function ProfilePage() {
             <div className="w-full mt-6 border-t border-white/[0.06] pt-5 space-y-3.5 text-left text-xs font-semibold text-zinc-400">
               <div className="flex justify-between">
                 <span>Member Since</span>
-                <span className="text-white font-bold">Jan 5, 2024</span>
+                <span className="text-white font-bold">{memberSince}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Attendance Rate</span>
+                <span className="text-emerald-400 font-bold">{attendanceRate}%</span>
               </div>
               <div className="flex justify-between">
                 <span>Last Active</span>
@@ -87,7 +116,7 @@ export default async function ProfilePage() {
         <Panel>
           <h2 className="text-2xl font-bold">Profile Settings</h2>
           <div className="mt-6">
-            <ProfileForm fullName={fullName} email={email} primaryRole={primaryRole} />
+            <ProfileForm fullName={fullName} email={email} ministries={ministries} birthday={birthday} teamAnniversary={teamAnniversary} />
           </div>
         </Panel>
       </div>

@@ -14,6 +14,7 @@ import { getSetlistTypeLabel } from "@/lib/domain/event-types";
 import { can } from "@/lib/domain/rbac";
 import { DeleteSongButton } from "@/components/delete-song-button";
 import { EditArrangementButton } from "@/components/edit-arrangement-button";
+import { SetlistSongOrder } from "@/components/setlist-song-order";
 import {
   buildAssignmentConflicts,
   getMissingSetlistRoles,
@@ -67,6 +68,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           assigned_key,
           song_order,
           notes,
+          band_notes,
           arrangement,
           song:songs (
             id,
@@ -95,6 +97,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           order: ss.song_order,
           assignedKey: ss.assigned_key,
           lead: leadVocal,
+          bandNotes: ss.band_notes || null,
           youtubeUrl: ss.youtube_url || null,
           arrangement: ss.arrangement || null,
           song: {
@@ -408,66 +411,12 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
                 + Add Song
               </ButtonLink>
             </div>
-            <div className="mt-4 space-y-3 stagger">
-              {setlist.songs.length === 0 ? (
-                <p className="rounded-lg border border-white/10 bg-[#18171c] p-6 text-center text-sm font-semibold text-zinc-400">
-                  No songs in this setlist yet. Use Add Song to populate it.
-                </p>
-              ) : (
-                setlist.songs.map((item: any) => (
-                  <div key={item.id} className="block animate-scale-in">
-                    <Card className="grid grid-cols-[auto_1fr_auto] items-center gap-4 p-4 transition-all duration-200 hover:border-violet-400/30">
-                      <span className="font-mono text-sm font-bold text-zinc-300">{item.order}</span>
-                      <Link href={`/songs/${item.song.id}`} className="flex-1 min-w-0 text-left group">
-                        <p className="font-bold text-white group-hover:text-violet-300 transition-colors">
-                          {item.song.title}
-                        </p>
-                        {item.lead && (
-                          <p className="mt-1 text-xs font-semibold text-zinc-400">
-                            Lead Vocal ({item.lead})
-                          </p>
-                        )}
-                        {item.arrangement && (
-                          <p className="mt-1 text-xs font-semibold text-violet-300">
-                            Arrangement: {item.arrangement}
-                          </p>
-                        )}
-                      </Link>
-                      <div className="flex items-center gap-3">
-                        <div className="flex gap-2">
-                          {canManageSetlist ? (
-                            <ChangeKeyButton
-                              setlistId={setlist.id}
-                              slotId={item.id}
-                              currentKey={item.assignedKey}
-                              originalKey={item.song.originalKey}
-                            />
-                          ) : (
-                            <Badge>Key: {item.assignedKey}</Badge>
-                          )}
-                          <Badge>{item.song.bpm} BPM</Badge>
-                        </div>
-                        {canManageSetlist && (
-                          <>
-                            <EditArrangementButton
-                              setlistId={setlist.id}
-                              slotId={item.id}
-                              songTitle={item.song.title}
-                              currentArrangement={item.arrangement}
-                              lyrics={item.song.lyrics}
-                            />
-                            <DeleteSongButton
-                              setlistId={setlist.id}
-                              slotId={item.id}
-                              songTitle={item.song.title}
-                            />
-                          </>
-                        )}
-                      </div>
-                    </Card>
-                  </div>
-                ))
-              )}
+            <div className="mt-4">
+              <SetlistSongOrder 
+                setlistId={setlist.id} 
+                initialSongs={setlist.songs} 
+                canManageSetlist={canManageSetlist} 
+              />
             </div>
           </div>
         </div>

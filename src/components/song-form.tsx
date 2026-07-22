@@ -37,13 +37,12 @@ export function SongForm({ song }: { song?: Song }) {
   const [spotifyUrl, setSpotifyUrl] = useState(song?.spotifyUrl ?? "");
   const [imageUrl, setImageUrl] = useState(song?.imageUrl ?? "");
   const [songAlbum, setSongAlbum] = useState(song?.album ?? "");
+  const [songTitle, setSongTitle] = useState(song?.title ?? "");
+  const [songArtist, setSongArtist] = useState(song?.artist ?? "");
 
   const handleSpotifySelect = (track: SpotifyTrack) => {
-    const titleInput = document.querySelector<HTMLInputElement>("input[name=title]");
-    const artistInput = document.querySelector<HTMLInputElement>("input[name=artist]");
-    
-    if (titleInput) titleInput.value = track.name;
-    if (artistInput) artistInput.value = track.artists.map(a => a.name).join(", ");
+    setSongTitle(track.name);
+    setSongArtist(track.artists.map(a => a.name).join(", "));
     
     setSongAlbum(track.album.name);
     setSpotifyUrl(track.external_urls.spotify);
@@ -272,7 +271,7 @@ export function SongForm({ song }: { song?: Song }) {
             <Input 
               value={importUrl} 
               onChange={e => setImportUrl(e.target.value)} 
-              placeholder="Paste WorshipChords.com URL to auto-import..." 
+              placeholder="Paste WorshipChords / Ultimate Guitar URL to auto-import..." 
               className="h-9 text-xs"
             />
             <button
@@ -287,12 +286,12 @@ export function SongForm({ song }: { song?: Song }) {
           
           <label className="block space-y-1.5">
             <span className="text-xs font-bold text-zinc-300">Song Title *</span>
-            <Input name="title" defaultValue={song?.title} placeholder="e.g., Your Faithfulness" required />
+            <Input name="title" value={songTitle} onChange={(e) => setSongTitle(e.target.value)} placeholder="e.g., Your Faithfulness" required />
           </label>
 
           <label className="block space-y-1.5">
             <span className="text-xs font-bold text-zinc-300">Artist / Source *</span>
-            <Input name="artist" defaultValue={song?.artist} placeholder="e.g., Brandon Lake" required />
+            <Input name="artist" value={songArtist} onChange={(e) => setSongArtist(e.target.value)} placeholder="e.g., Brandon Lake" required />
           </label>
 
           <label className="block space-y-1.5">

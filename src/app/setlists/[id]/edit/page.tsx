@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { SetlistForm } from "@/components/setlist-form";
 import { Panel } from "@/components/ui/card";
+import { SaveAsTemplateButton } from "@/components/save-as-template-button";
 import { setlists as sampleSetlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -57,10 +58,14 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
 
   return (
     <AppShell active="Setlists" teamContext={teamContext}>
-      <div className="mb-6">
-        <p className="font-mono text-xs font-bold uppercase text-violet-200">Setlists</p>
-        <h1 className="mt-2 text-4xl font-bold">Edit Setlist</h1>
-        <p className="mt-2 text-sm font-semibold text-zinc-300">{setlist.name}</p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <p className="font-mono text-xs font-bold uppercase text-violet-200">Setlists</p>
+          <h1 className="mt-2 text-4xl font-bold">Edit Setlist</h1>
+          <p className="mt-2 text-sm font-semibold text-zinc-300">{setlist.name}</p>
+        </div>
+        
+        <SaveAsTemplateButton setlistId={setlist.id} />
       </div>
       <Panel>
         <SetlistForm setlist={setlist} />

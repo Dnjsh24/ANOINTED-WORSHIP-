@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { EventForm } from "@/components/event-form";
+import { redirect } from "next/navigation";
 import { Panel } from "@/components/ui/card";
 import { fallbackServiceTemplates, mapServiceTemplate } from "@/lib/domain/service-templates";
 import { members as sampleMembers } from "@/lib/sample-data";
@@ -13,6 +14,11 @@ import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 export default async function NewEventPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const { date } = await searchParams;
   const teamContext = await getRequiredTeamContext();
+  
+  if (!can(teamContext.role, "events.manage") && !can(teamContext.role, "events.request")) {
+    redirect("/events");
+  }
+
   const canCreateOfficialEvents = can(teamContext.role, "events.manage");
   const canLinkSetlists = canCreateOfficialEvents && can(teamContext.role, "setlists.manage");
   let teamMembersList: TeamMember[] = [];
@@ -27,7 +33,7 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
     // Fetch team members
     const { data: dbMembers } = await supabase
       .from("team_members")
-      .select("id, profile_id, role, status, ministry")
+      .select("id, profile_id, role, status, ministry, ministries")
       .eq("team_id", teamContext.teamId)
       .order("created_at", { ascending: true });
 
@@ -47,7 +53,8 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
       );
     }
 
-    teamMembersList = (dbMembers ?? []).map((tm) => {
+    teamMembersList = (dbMembers ?? []).map((t: any) => {
+      const tm = t as any;
       const profile = memberProfilesMap[tm.profile_id];
       return {
         id: tm.id,
@@ -60,6 +67,7 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
         status: (tm.status as "active" | "inactive") ?? "active",
         attendanceRate: 0,
         ministry: tm.ministry ?? "",
+        ministries: tm.ministries ?? (tm.ministry ? [tm.ministry] : []),
       };
     });
 

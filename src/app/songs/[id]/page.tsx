@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SongViewer } from "@/components/song-viewer";
 import { AppShell } from "@/components/app-shell";
+import { SongUsageHeatmap } from "@/components/song-usage-heatmap";
 import { songs as sampleSongs } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -10,11 +11,19 @@ import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { parseLyricsAndChords } from "@/lib/domain/chords";
 import type { Song } from "@/lib/types";
 
-export default async function SongPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SongPage({ 
+  params,
+  searchParams 
+}: { 
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ setlistId?: string; slotId?: string; assignedKey?: string }>;
+}) {
   const { id } = await params;
+  const sp = searchParams ? await searchParams : {};
   const teamContext = await getRequiredTeamContext();
 
   let song: Song | null = hasSupabaseEnv() ? null : sampleSongs.find((item) => item.id === id) ?? sampleSongs[0];
+  let usageDates: string[] = [];
 
   if (hasSupabaseEnv()) {
     const supabase = await createClient();
@@ -43,6 +52,21 @@ export default async function SongPage({ params }: { params: Promise<{ id: strin
         album: dbSong.album ?? undefined,
       };
     }
+
+    // Fetch usage dates for heatmap
+    if (dbSong) {
+      const { data: usageData } = await supabase
+        .from("setlist_songs")
+        .select(`setlists!inner(setlist_date)`)
+        .eq("song_id", id)
+        .eq("setlists.team_id", teamContext.teamId);
+
+      if (usageData) {
+        usageDates = usageData
+          .map((item: any) => item.setlists?.setlist_date)
+          .filter(Boolean);
+      }
+    }
   }
 
   if (!song) {
@@ -56,7 +80,14 @@ export default async function SongPage({ params }: { params: Promise<{ id: strin
           <ArrowLeft className="size-3.5" />
           Back to Songs
         </Link>
-        <SongViewer song={song} />
+        <SongViewer 
+          song={song} 
+          setlistId={sp.setlistId}
+          slotId={sp.slotId}
+          assignedKey={sp.assignedKey}
+        />
+        
+        <SongUsageHeatmap dates={usageDates} />
       </div>
     </AppShell>
   );

@@ -8,11 +8,11 @@ import { SettingsForm } from "@/components/settings-form";
 import { Card, Panel } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/utils";
-import { deleteTeamAction, leaveTeamAction } from "@/app/actions";
+import { updateTeamSettingsAction, deleteTeamAction, leaveTeamAction, createCustomRoleAction, deleteCustomRoleAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { initialActionState } from "@/lib/action-state";
 import { can, type Permission } from "@/lib/domain/rbac";
-import { teamRoles, type TeamRole } from "@/lib/types";
+import { teamRoles, type TeamRole, type CustomRole } from "@/lib/types";
 
 const TABS = [
   { id: "controls", label: "Team Controls", icon: LayoutGrid },
@@ -73,6 +73,8 @@ export function SettingsClientView({
   activityLog = [],
   memberCountsByRole = {},
   totalMembers = 0,
+  customRoles = [],
+  customPermissions = [],
 }: {
   teamId: string;
   teamName: string;
@@ -85,6 +87,8 @@ export function SettingsClientView({
   activityLog?: Array<{ user: string; action: string; time: string; role: string }>;
   memberCountsByRole?: Record<string, number>;
   totalMembers?: number;
+  customRoles?: CustomRole[];
+  customPermissions?: Permission[];
 }) {
   const [activeTab, setActiveTab] = useState("controls");
   const [copied, setCopied] = useState(false);
@@ -93,6 +97,8 @@ export function SettingsClientView({
   const [leaveState, leaveFormAction] = useActionState(leaveTeamAction, initialActionState);
   const [leaveConfirmText, setLeaveConfirmText] = useState("");
   const [settingsStatus, setSettingsStatus] = useState("");
+  const [createRoleState, createRoleAction] = useActionState(createCustomRoleAction, initialActionState);
+  const [isCreatingRole, setIsCreatingRole] = useState(false);
 
   function handleCopy() {
     navigator.clipboard.writeText(teamCode);
@@ -543,6 +549,109 @@ export function SettingsClientView({
               <p className="mt-4 text-[10px] font-semibold text-zinc-500">
                 Roles with members: {Object.entries(memberCountsByRole).filter(([, c]) => c > 0).map(([r, c]) => `${r.replace("_", " ")} (${c})`).join(", ") || "None yet"}
               </p>
+            </Panel>
+
+            <Panel className="bg-[#111014]/80 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-base font-bold text-white">Custom Roles</h3>
+                  <p className="text-xs text-zinc-400 font-semibold mt-1">
+                    Create custom roles with specific permissions tailored for your team.
+                  </p>
+                </div>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatingRole(true)}
+                    className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-violet-500 transition"
+                  >
+                    <Plus className="size-4" />
+                    New Role
+                  </button>
+                )}
+              </div>
+
+              {isCreatingRole && (
+                <form action={(formData) => {
+                  formData.set("teamId", teamId);
+                  createRoleAction(formData);
+                }} className="mb-6 rounded-xl border border-violet-500/30 bg-violet-500/5 p-4">
+                  <h4 className="text-sm font-bold text-white mb-3">Create Custom Role</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="name" className="block text-xs font-bold text-zinc-300 mb-1">Role Name</label>
+                      <input
+                        type="text"
+                        name="name"
+                        id="name"
+                        required
+                        className="w-full rounded-md border border-white/10 bg-[#18171c] px-3 py-2 text-sm text-white focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                        placeholder="e.g. Guest Speaker"
+                      />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-bold text-zinc-300 mb-2">Permissions</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {Object.entries(PERMISSION_LABELS).map(([perm, label]) => (
+                          <label key={perm} className="flex items-center gap-2 rounded border border-white/5 bg-white/[0.02] p-2 hover:bg-white/[0.04] cursor-pointer">
+                            <input type="checkbox" name="permissions" value={perm} className="rounded border-zinc-700 bg-zinc-800 text-violet-500 focus:ring-violet-500 focus:ring-offset-zinc-900" />
+                            <span className="text-xs font-semibold text-zinc-300">{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <ActionMessage state={createRoleState} />
+                    <div className="flex gap-2 justify-end pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsCreatingRole(false)}
+                        className="rounded-xl px-4 py-2 text-xs font-bold text-zinc-400 hover:text-white"
+                      >
+                        Cancel
+                      </button>
+                      <SubmitButton label="Create Role" loadingLabel="Creating..." variant="primary" />
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {customRoles && customRoles.length > 0 ? (
+                <div className="space-y-3">
+                  {customRoles.map((cr) => (
+                    <div key={cr.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                      <div>
+                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                          {cr.name}
+                          <span className="rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-300 border border-violet-500/20">Custom</span>
+                        </h4>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {cr.permissions.length === 0 && <span className="text-xs text-zinc-500">No permissions selected</span>}
+                          {cr.permissions.map((p) => (
+                            <span key={p} className="rounded-md bg-white/[0.06] px-2 py-1 text-[10px] font-medium text-zinc-300">
+                              {PERMISSION_LABELS[p as Permission] || p}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      {isAdmin && (
+                        <form action={deleteCustomRoleAction} className="shrink-0">
+                          <input type="hidden" name="teamId" value={teamId} />
+                          <input type="hidden" name="roleId" value={cr.id} />
+                          <button type="submit" className="rounded-md p-1.5 text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition" aria-label="Delete custom role">
+                            <Trash2 className="size-4" />
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                !isCreatingRole && (
+                  <div className="rounded-xl border border-dashed border-white/10 p-6 text-center">
+                    <p className="text-sm font-semibold text-zinc-400">No custom roles defined yet.</p>
+                  </div>
+                )
+              )}
             </Panel>
           </div>
         )}

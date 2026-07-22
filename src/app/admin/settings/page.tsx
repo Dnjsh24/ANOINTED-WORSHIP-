@@ -6,7 +6,7 @@ import { teamCode } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
-import type { TeamRole, TeamMember, EventType } from "@/lib/types";
+import type { TeamRole, TeamMember, EventType, CustomRole } from "@/lib/types";
 
 function formatTimeForInput(timeStr: string | null): string {
   if (!timeStr) return "08:00";
@@ -47,6 +47,7 @@ export default async function AdminSettingsPage() {
   let activityLog: ActivityEntry[] = [];
   let memberCountsByRole: Record<string, number> = {};
   let totalMembers = 0;
+  let customRoles: CustomRole[] = [];
 
   if (hasSupabaseEnv() && teamContext.teamId) {
     const supabase = await createClient();
@@ -127,6 +128,15 @@ export default async function AdminSettingsPage() {
       acc[m.role] = (acc[m.role] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
+    
+    // Fetch custom roles
+    const { data: customRolesData } = await supabase
+      .from("custom_roles")
+      .select("*")
+      .eq("team_id", teamContext.teamId)
+      .order("created_at", { ascending: true });
+    
+    customRoles = (customRolesData || []) as CustomRole[];
   }
 
   return (
@@ -150,6 +160,8 @@ export default async function AdminSettingsPage() {
         activityLog={activityLog}
         memberCountsByRole={memberCountsByRole}
         totalMembers={totalMembers}
+        customRoles={customRoles}
+        customPermissions={teamContext.customPermissions}
       />
     </AppShell>
   );

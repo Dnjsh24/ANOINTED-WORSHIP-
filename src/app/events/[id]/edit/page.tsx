@@ -33,7 +33,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
     // Fetch team members
     const { data: dbMembers } = await supabase
       .from("team_members")
-      .select("id, profile_id, role, status, ministry")
+      .select("id, profile_id, role, status, ministry, ministries")
       .eq("team_id", teamContext.teamId)
       .order("created_at", { ascending: true });
 
@@ -53,7 +53,8 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
       );
     }
 
-    teamMembersList = (dbMembers ?? []).map((tm) => {
+    teamMembersList = (dbMembers ?? []).map((t: any) => {
+      const tm = t as any;
       const profile = memberProfilesMap[tm.profile_id];
       return {
         id: tm.id,
@@ -66,6 +67,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
         status: (tm.status as "active" | "inactive") ?? "active",
         attendanceRate: 0,
         ministry: tm.ministry ?? "",
+        ministries: tm.ministries ?? (tm.ministry ? [tm.ministry] : []),
       };
     });
 

@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import { SetlistForm } from "@/components/setlist-form";
 import { Panel } from "@/components/ui/card";
+import { SetlistTemplatePicker } from "@/components/setlist-template-picker";
 import { fallbackServiceTemplates, mapServiceTemplate } from "@/lib/domain/service-templates";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -9,8 +10,8 @@ import { members as sampleMembers } from "@/lib/sample-data";
 import type { EventType } from "@/lib/types";
 import type { ServiceTemplate, TeamMember, TeamRole } from "@/lib/types";
 
-export default async function NewSetlistPage({ searchParams }: { searchParams: Promise<{ eventId?: string }> }) {
-  const { eventId } = await searchParams;
+export default async function NewSetlistPage({ searchParams }: { searchParams: Promise<{ eventId?: string; templateId?: string }> }) {
+  const { eventId, templateId } = await searchParams;
   const teamContext = await getRequiredTeamContext();
   let teamMembersList: TeamMember[] = [];
   let serviceTemplates: ServiceTemplate[] = fallbackServiceTemplates;
@@ -22,7 +23,7 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
     // Fetch team members
     const { data: dbMembers } = await supabase
       .from("team_members")
-      .select("id, profile_id, role, status, ministry")
+      .select("id, profile_id, role, status, ministry, ministries")
       .eq("team_id", teamContext.teamId)
       .order("created_at", { ascending: true });
 
@@ -42,7 +43,8 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
       );
     }
 
-    teamMembersList = (dbMembers ?? []).map((tm) => {
+    teamMembersList = (dbMembers ?? []).map((t: any) => {
+      const tm = t as any;
       const profile = memberProfilesMap[tm.profile_id];
       return {
         id: tm.id,
@@ -55,8 +57,15 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
         status: (tm.status as "active" | "inactive") ?? "active",
         attendanceRate: 0,
         ministry: tm.ministry ?? "",
+        ministries: tm.ministries ?? (tm.ministry ? [tm.ministry] : []),
       };
     });
+
+    const { data: setlistTemplates } = await supabase
+      .from("setlist_templates")
+      .select("*")
+      .eq("team_id", teamContext.teamId)
+      .order("created_at", { ascending: false });
 
     const { data: templateRows } = await supabase
       .from("service_templates")
@@ -85,13 +94,19 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
 
   return (
     <AppShell active="Setlists" teamContext={teamContext}>
-      <div className="mb-6">
-        <p className="font-mono text-xs font-bold uppercase text-violet-200">Setlists</p>
-        <h1 className="mt-2 text-4xl font-bold">New Setlist</h1>
-        <p className="mt-2 text-sm font-semibold text-zinc-300">Create event details, scheduling, team assignments, and song order.</p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <p className="font-mono text-xs font-bold uppercase text-violet-200">Setlists</p>
+          <h1 className="mt-2 text-4xl font-bold">New Setlist</h1>
+          <p className="mt-2 text-sm font-semibold text-zinc-300">Create event details, scheduling, team assignments, and song order.</p>
+        </div>
+        
+        {/* We pass the templates here but currently SetlistForm creates the Setlist first.
+            We will allow selecting a template, which passes a hidden field to SetlistForm. */}
+        <SetlistTemplatePicker templates={setlistTemplates || []} />
       </div>
       <Panel>
-        <SetlistForm eventId={eventId} initialEventType={initialEventType} />
+        <SetlistForm eventId={eventId} initialEventType={initialEventType} templateId={templateId} />
       </Panel>
     </AppShell>
   );

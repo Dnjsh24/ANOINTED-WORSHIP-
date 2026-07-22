@@ -25,6 +25,7 @@ export default async function SetlistPresenterPage({ params }: { params: Promise
           song_order,
           notes,
           arrangement,
+          slide_settings,
           song:songs (
             id,
             title,
@@ -49,6 +50,7 @@ export default async function SetlistPresenterPage({ params }: { params: Promise
           id: ss.id,
           order: ss.song_order,
           assignedKey: ss.assigned_key,
+          slideSettings: ss.slide_settings,
           song: {
             id: ss.song?.id,
             title: ss.song?.title || "Unknown Song",
@@ -67,7 +69,7 @@ export default async function SetlistPresenterPage({ params }: { params: Promise
         songs: songsList,
       };
 
-      return <PresenterClient setlist={setlist} />;
+      return <PresenterClient setlist={setlist} teamId={teamContext.teamId!} />;
     }
   }
 

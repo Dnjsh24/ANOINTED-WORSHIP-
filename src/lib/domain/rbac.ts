@@ -7,6 +7,7 @@ export type Permission =
   | "announcements.create"
   | "events.manage"
   | "events.review"
+  | "events.request"
   | "songs.create"
   | "songs.edit"
   | "songs.review"
@@ -26,6 +27,7 @@ const permissionsByRole: Record<TeamRole, Permission[]> = {
     "announcements.create",
     "events.manage",
     "events.review",
+    "events.request",
     "songs.create",
     "songs.edit",
     "songs.review",
@@ -43,6 +45,7 @@ const permissionsByRole: Record<TeamRole, Permission[]> = {
     "announcements.create",
     "events.manage",
     "events.review",
+    "events.request",
     "songs.create",
     "songs.edit",
     "songs.review",
@@ -54,13 +57,15 @@ const permissionsByRole: Record<TeamRole, Permission[]> = {
     "messages.send",
     "prayer_requests.create",
   ],
-  pastor: ["announcements.create", "events.manage", "attendance.confirm", "messages.send", "prayer_requests.create"],
+  pastor: ["announcements.create", "events.manage", "events.request", "attendance.confirm", "messages.send", "prayer_requests.create"],
   worship_leader: [
     "announcements.create",
     "events.manage",
+    "events.request",
     "songs.create",
     "songs.edit",
     "songs.review",
+    "songs.delete",
     "setlists.manage",
     "files.upload",
     "attendance.confirm",
@@ -68,6 +73,7 @@ const permissionsByRole: Record<TeamRole, Permission[]> = {
     "prayer_requests.create",
   ],
   band_leader: [
+    "events.request",
     "songs.create",
     "songs.edit",
     "songs.review",
@@ -83,8 +89,36 @@ const permissionsByRole: Record<TeamRole, Permission[]> = {
   member: ["attendance.confirm", "messages.send", "prayer_requests.create"],
 };
 
-export function can(role: TeamRole, permission: Permission) {
-  return permissionsByRole[role].includes(permission);
+export const PERMISSION_LABELS: Record<Permission, string> = {
+  "team.manage": "Manage Team Settings",
+  "members.manage": "Manage Members",
+  "join_requests.review": "Review Join Requests",
+  "announcements.create": "Create Announcements",
+  "events.manage": "Manage Events",
+  "events.review": "Review Event Requests",
+  "events.request": "Request Events",
+  "songs.create": "Add Songs",
+  "songs.edit": "Edit Songs",
+  "songs.review": "Review Song Submissions",
+  "songs.delete": "Delete Songs",
+  "setlists.manage": "Manage Setlists",
+  "dance_notes.manage": "Manage Dance Notes",
+  "files.upload": "Upload Files",
+  "attendance.confirm": "Confirm Attendance",
+  "messages.send": "Send Messages",
+  "prayer_requests.create": "Create Prayer Requests",
+};
+
+export function can(role: TeamRole | string, permission: Permission, customPermissions?: Permission[]): boolean {
+  if (role === "owner") return true;
+  if (customPermissions && customPermissions.includes(permission)) return true;
+  
+  // Cast to TeamRole if it's one of the standard roles
+  if (teamRoles.includes(role as TeamRole)) {
+    return permissionsByRole[role as TeamRole]?.includes(permission) ?? false;
+  }
+  
+  return false;
 }
 
 export function assertRole(value: string): TeamRole {
@@ -117,7 +151,7 @@ export function visibleNavigation(role: TeamRole) {
   ];
 
   if (can(role, "members.manage")) {
-    return [...base.slice(0, -1), "members", ...base.slice(-1)];
+    return [...base.slice(0, -1), "members", "analytics", ...base.slice(-1)];
   }
 
   return base;

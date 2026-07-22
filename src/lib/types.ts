@@ -33,7 +33,8 @@ export interface TeamMember {
   role: TeamRole;
   status: "active" | "inactive";
   attendanceRate: number;
-  ministry: string;
+  ministry?: string;
+  ministries: string[];
 }
 
 export interface NoticeMemberTarget {
@@ -102,6 +103,7 @@ export interface SetlistSong {
   lead?: string;
   band?: string[];
   arrangement?: string | null;
+  bandNotes?: string | null;
 }
 
 export interface Setlist {
@@ -169,6 +171,8 @@ export interface Event {
   createdByMe?: boolean;
   setlistId?: string;
   myStatus?: "available" | "maybe" | "unavailable" | "pending" | "no_response";
+  notes?: string | null;
+  roster?: any;
 }
 
 export interface Announcement {
@@ -198,4 +202,16 @@ export interface Message {
     mimeType?: string;
     url?: string;
   };
+  reads?: {
+    profileId: string;
+    avatarUrl?: string | null;
+    fullName?: string;
+  }[];
+  parentMessageId?: string | null;
+}
+
+export interface CustomRole {
+  id: string;
+  name: string;
+  permissions: string[];
 }

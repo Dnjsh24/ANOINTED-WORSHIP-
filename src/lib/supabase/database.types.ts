@@ -13,12 +13,46 @@ type ReminderRecurrence = "none" | "weekly" | "monthly";
 export interface Database {
   public: {
     Tables: {
+      activity_logs: {
+        Row: {
+          id: string;
+          team_id: string;
+          profile_id: string;
+          action: string;
+          target_type: string;
+          target_id: string | null;
+          details: any;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          team_id: string;
+          profile_id: string;
+          action: string;
+          target_type: string;
+          target_id?: string | null;
+          details?: any;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          team_id?: string;
+          profile_id?: string;
+          action?: string;
+          target_type?: string;
+          target_id?: string | null;
+          details?: any;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
           full_name: string | null;
           email: string | null;
           avatar_url: string | null;
+          birthday: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -27,6 +61,7 @@ export interface Database {
           full_name?: string | null;
           email?: string | null;
           avatar_url?: string | null;
+          birthday?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -34,6 +69,7 @@ export interface Database {
           full_name?: string | null;
           email?: string | null;
           avatar_url?: string | null;
+          birthday?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -147,6 +183,8 @@ export interface Database {
           role: TeamRole;
           status: MemberStatus;
           ministry: string | null;
+          ministries: string[] | null;
+          team_anniversary: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -157,6 +195,8 @@ export interface Database {
           role?: TeamRole;
           status?: MemberStatus;
           ministry?: string | null;
+          ministries?: string[] | null;
+          team_anniversary?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -164,6 +204,8 @@ export interface Database {
           role?: TeamRole;
           status?: MemberStatus;
           ministry?: string | null;
+          ministries?: string[] | null;
+          team_anniversary?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -246,6 +288,7 @@ export interface Database {
           created_by: string;
           created_at: string;
           updated_at: string;
+          is_pinned: boolean | null;
         };
         Insert: {
           id?: string;
@@ -261,6 +304,7 @@ export interface Database {
           created_by: string;
           created_at?: string;
           updated_at?: string;
+          is_pinned?: boolean | null;
         };
         Update: {
           category?: string;
@@ -272,6 +316,7 @@ export interface Database {
           priority?: NoticePriority;
           event_id?: string | null;
           updated_at?: string;
+          is_pinned?: boolean | null;
         };
         Relationships: [];
       };
@@ -320,6 +365,8 @@ export interface Database {
           rehearsal_end_time: string | null;
           rehearsal_date: string | null;
           approval_status: EventApprovalStatus;
+          recurrence_rule: string | null;
+          recurrence_parent_id: string | null;
           created_by: string;
           created_at: string;
           updated_at: string;
@@ -339,6 +386,8 @@ export interface Database {
           rehearsal_end_time?: string | null;
           rehearsal_date?: string | null;
           approval_status?: EventApprovalStatus;
+          recurrence_rule?: string | null;
+          recurrence_parent_id?: string | null;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -356,6 +405,8 @@ export interface Database {
           rehearsal_end_time?: string | null;
           rehearsal_date?: string | null;
           approval_status?: EventApprovalStatus;
+          recurrence_rule?: string | null;
+          recurrence_parent_id?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -500,6 +551,8 @@ export interface Database {
           youtube_url: string | null;
           arrangement: string | null;
           created_at: string;
+          band_notes: string | null;
+          slide_settings: Json | null;
         };
         Insert: {
           id?: string;
@@ -512,6 +565,8 @@ export interface Database {
           youtube_url?: string | null;
           arrangement?: string | null;
           created_at?: string;
+          band_notes?: string | null;
+          slide_settings?: Json | null;
         };
         Update: {
           song_order?: number;
@@ -520,6 +575,36 @@ export interface Database {
           notes?: string | null;
           youtube_url?: string | null;
           arrangement?: string | null;
+          band_notes?: string | null;
+          slide_settings?: Json | null;
+        };
+        Relationships: [];
+      };
+      setlist_templates: {
+        Row: {
+          id: string;
+          team_id: string;
+          name: string;
+          description: string | null;
+          slots: Json;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          team_id: string;
+          name: string;
+          description?: string | null;
+          slots?: Json;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+          slots?: Json;
+          created_by?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -700,6 +785,38 @@ export interface Database {
         };
         Relationships: [];
       };
+      channel_reads: {
+        Row: {
+          profile_id: string;
+          channel_id: string;
+          last_read_at: string;
+        };
+        Insert: {
+          profile_id: string;
+          channel_id: string;
+          last_read_at?: string;
+        };
+        Update: {
+          last_read_at?: string;
+        };
+        Relationships: [];
+      };
+      message_reads: {
+        Row: {
+          message_id: string;
+          profile_id: string;
+          read_at: string;
+        };
+        Insert: {
+          message_id: string;
+          profile_id: string;
+          read_at?: string;
+        };
+        Update: {
+          read_at?: string;
+        };
+        Relationships: [];
+      };
       messages: {
         Row: {
           id: string;
@@ -707,6 +824,9 @@ export interface Database {
           sender_member_id: string;
           body: string;
           attachment_file_id: string | null;
+          scheduled_for: string | null;
+          is_delivered: boolean;
+          parent_message_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -716,12 +836,18 @@ export interface Database {
           sender_member_id: string;
           body: string;
           attachment_file_id?: string | null;
+          scheduled_for?: string | null;
+          is_delivered?: boolean;
+          parent_message_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           body?: string;
           attachment_file_id?: string | null;
+          scheduled_for?: string | null;
+          is_delivered?: boolean;
+          parent_message_id?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -816,6 +942,12 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      get_unread_message_count: {
+        Args: {
+          p_profile_id: string;
+        };
+        Returns: number;
+      };
       create_team_workspace: {
         Args: {
           p_name: string;

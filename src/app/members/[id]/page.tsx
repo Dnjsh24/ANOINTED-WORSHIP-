@@ -29,7 +29,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
     const supabase = await createClient();
     const { data: dbMember } = (await supabase
       .from("team_members")
-      .select("id, profile_id, role, status, ministry, profiles ( id, full_name, email, avatar_url )")
+      .select("id, profile_id, role, status, ministry, ministries, profiles ( id, full_name, email, avatar_url )")
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
       .maybeSingle()) as any;
@@ -48,6 +48,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
         status: dbMember.status ?? "active",
         attendanceRate: 0,
         ministry: dbMember.ministry ?? "",
+        ministries: dbMember.ministries ?? (dbMember.ministry ? [dbMember.ministry] : []),
       };
       request = undefined;
     } else {
@@ -86,6 +87,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
         status: "inactive",
         attendanceRate: 0,
         ministry: request.ministry,
+        ministries: request.ministry ? [request.ministry] : [],
       };
     }
   }
@@ -96,7 +98,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
         <Card className="p-6 text-center">
           <Avatar name={request?.name ?? member.profile.fullName} src={member.profile.avatarUrl} className="mx-auto size-20 text-2xl" />
           <h1 className="mt-5 text-2xl font-bold">{request?.name ?? member.profile.fullName}</h1>
-          <p className="mt-1 text-sm font-semibold text-zinc-400">{request?.ministry ?? member.ministry}</p>
+          <p className="mt-1 text-sm font-semibold text-zinc-400">{request?.ministry ?? (member.ministries.length > 0 ? member.ministries.join(", ") : "Member")}</p>
           <div className="mt-5 flex justify-center gap-2">
             <Badge>{request ? "Pending" : member.status}</Badge>
             {!request && <Badge>{member.attendanceRate}% Attendance</Badge>}
@@ -124,7 +126,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
                 <Music className="size-4" />
                 Ministry Role
               </p>
-              <p className="mt-2 font-semibold">{request?.ministry ?? member.ministry}</p>
+              <p className="mt-2 font-semibold">{request?.ministry ?? (member.ministries.length > 0 ? member.ministries.join(", ") : "Member")}</p>
             </div>
           </div>
           <ButtonLink href="/members" variant="secondary" className="mt-6">

@@ -26,6 +26,7 @@ export function SetlistForm({
   setlist?: Setlist;
   eventId?: string;
   initialEventType?: EventType;
+  templateId?: string;
   }) {
   const action = setlist ? updateSetlistAction : createSetlistAction;
   const [state, formAction] = useActionState(action, initialActionState);
@@ -50,6 +51,7 @@ export function SetlistForm({
       <form action={formAction} className="space-y-6">
         {setlist && <input type="hidden" name="setlistId" value={setlist.id} />}
         {eventId && <input type="hidden" name="eventId" value={eventId} />}
+        {templateId && <input type="hidden" name="templateId" value={templateId} />}
         <ActionMessage state={state} />
 
         {/* 2-Column Split Layout */}

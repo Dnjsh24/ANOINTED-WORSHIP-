@@ -96,6 +96,25 @@ export default async function MessagesPage() {
           messagesByChannel.set(message.channel_id, messages);
         });
 
+        const msgIds = (dbMsgs || []).map((m: any) => m.id);
+        const { data: dbMsgReads } = (msgIds.length > 0
+          ? await supabase
+              .from("message_reads")
+              .select("message_id, profile_id, profiles(avatar_url, full_name)")
+              .in("message_id", msgIds)
+          : { data: [] }) as any;
+
+        const messageReadsByMsgId = new Map<string, any[]>();
+        (dbMsgReads || []).forEach((read: any) => {
+          const reads = messageReadsByMsgId.get(read.message_id) ?? [];
+          reads.push({
+            profileId: read.profile_id,
+            avatarUrl: read.profiles?.avatar_url,
+            fullName: read.profiles?.full_name,
+          });
+          messageReadsByMsgId.set(read.message_id, reads);
+        });
+
         const attachmentFileIds = Array.from(
           new Set<string>(
             (dbMsgs || [])
@@ -156,7 +175,10 @@ export default async function MessagesPage() {
                 minute: "2-digit",
               }),
               mine: msg.sender_member_id === myMemberId,
+              timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
               attachment: msg.attachment_file_id ? attachmentMap.get(msg.attachment_file_id) : undefined,
+              reads: messageReadsByMsgId.get(msg.id) || [],
+              parentMessageId: msg.parent_message_id || null,
             };
           });
 

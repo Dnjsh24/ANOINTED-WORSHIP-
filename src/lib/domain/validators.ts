@@ -52,13 +52,15 @@ export const attendanceSchema = z.object({
 
 export const memberRoleSchema = z.object({
   memberId: z.string().min(1),
-  role: z.enum(teamRoles),
+  role: z.string().min(1),
 });
 
 export const messageSchema = z.object({
-  channelId: z.string().min(1),
-  body: z.string().trim().min(1).max(2000),
-  attachmentFileId: z.string().uuid().optional(),
+  channelId: z.string().uuid("Invalid channel selected."),
+  body: z.string().min(1, "Message cannot be empty."),
+  attachmentFileId: z.string().uuid("Invalid attachment").optional(),
+  scheduledFor: z.string().optional(),
+  parentMessageId: z.string().uuid("Invalid parent message").optional(),
 });
 
 export const setlistInputSchema = z.object({
@@ -186,8 +188,10 @@ export const inviteMemberSchema = z.object({
 
 export const profileInputSchema = z.object({
   fullName: z.string().trim().min(1, "Full name is required").max(160),
-  primaryRole: z.string().trim().min(1, "Primary role is required").max(160),
+  ministries: z.array(z.string()),
   avatarUrl: z.string().trim().nullish().or(z.literal("")),
+  birthday: z.string().trim().nullish().or(z.literal("")),
+  teamAnniversary: z.string().trim().nullish().or(z.literal("")),
 });
 
 export const feedbackInputSchema = z.object({

@@ -1,10 +1,10 @@
 "use client";
 
-import { Download, FileText, Image as ImageIcon, Menu, MoreVertical, MoreHorizontal, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X, Info } from "lucide-react";
+import { Download, FileText, Image as ImageIcon, Menu, MoreVertical, MoreHorizontal, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X, Info, CalendarClock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { addChannelMemberAction, createChannelAction, getOrCreateDirectChannelAction, leaveChannelAction, removeChannelMemberAction, sendMessageAction, updateChannelPreferenceAction } from "@/app/actions";
+import { addChannelMemberAction, createChannelAction, getOrCreateDirectChannelAction, leaveChannelAction, removeChannelMemberAction, sendMessageAction, updateChannelPreferenceAction, markMessagesReadAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,7 @@ export function MessagesClient({
   const [memberships, setMemberships] = useState<ChannelMembership[]>(allChannelMemberships);
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
+  const [scheduledFor, setScheduledFor] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [attachmentOpen, setAttachmentOpen] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState<PendingAttachment | null>(null);
@@ -86,9 +87,11 @@ export function MessagesClient({
   const [managingChannelId, setManagingChannelId] = useState<string | null>(null);
   const [infoPanelOpen, setInfoPanelOpen] = useState(false);
   const [messageOptionsOpenId, setMessageOptionsOpenId] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [status, setStatus] = useState("");
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -281,6 +284,41 @@ export function MessagesClient({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [activeChannelId, activeMessageCount]);
+
+  // Mark messages as read
+  useEffect(() => {
+    if (!activeChannelId || activeChannel.messages.length === 0) return;
+    const unreadMessageIds = activeChannel.messages
+      .filter((msg) => !msg.mine && !msg.reads?.some((r) => r.profileId === currentProfileId))
+      .map((msg) => msg.id);
+
+    if (unreadMessageIds.length > 0) {
+      startTransition(() => {
+        markMessagesReadAction(activeChannelId, unreadMessageIds);
+        setChannelList((prev) => 
+          prev.map((c) => {
+            if (c.id !== activeChannelId) return c;
+            return {
+              ...c,
+              messages: c.messages.map((m) => {
+                if (unreadMessageIds.includes(m.id)) {
+                  return {
+                    ...m,
+                    reads: [...(m.reads || []), { profileId: currentProfileId, avatarUrl: null, fullName: "You" }]
+                  };
+                }
+                return m;
+              })
+            };
+          })
+        );
+      });
+    } else {
+      startTransition(() => {
+        markMessagesReadAction(activeChannelId, []);
+      });
+    }
+  }, [activeChannelId, activeMessageCount, currentProfileId]);
 
   const activeChannelFiles = useMemo(() => {
     const seen = new Set<string>();
@@ -511,9 +549,27 @@ export function MessagesClient({
       if (uploadedAttachment?.id) {
         formData.set("attachmentFileId", uploadedAttachment.id);
       }
+      if (scheduledFor) {
+        formData.set("scheduledFor", new Date(scheduledFor).toISOString());
+      }
+      if (replyingTo) {
+        formData.set("parentMessageId", replyingTo.id);
+      }
 
+      setStatus("Sending...");
       const result = await sendMessageAction(formData);
-      setStatus(result.message);
+
+      if (result.ok) {
+        setDraft("");
+        setScheduledFor("");
+        setSelectedAttachment(null);
+        setAttachmentOpen(false);
+        setEmojiOpen(false);
+        setReplyingTo(null);
+        setStatus("Sent!");
+        setTimeout(() => setStatus(""), 2000);
+        setSelectedAttachment(null);
+      }
       if (!result.ok) {
         return;
       }
@@ -628,7 +684,7 @@ export function MessagesClient({
         {/* Search — shows when expanded on mobile, always on desktop */}
         <div className={cn("relative mt-4", sidebarExpanded ? "block" : "hidden lg:block")}>
           <Search className="absolute left-3 top-2.5 size-4 text-zinc-400" />
-          <Input className="pl-10" placeholder="Search messages..." value={search} onChange={(event) => setSearch(event.target.value)} />
+          <Input ref={searchInputRef} className="pl-10" placeholder="Search messages..." value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
 
         {/* CHANNELS SECTION */}
@@ -747,7 +803,7 @@ export function MessagesClient({
               className="rounded-md p-2 hover:bg-white/[0.06]"
               onClick={() => {
                 setSidebarExpanded(true);
-                setTimeout(() => inputRef.current?.focus(), 0);
+                setTimeout(() => searchInputRef.current?.focus(), 0);
               }}
             >
               <Search className="size-5" />
@@ -833,15 +889,19 @@ export function MessagesClient({
                 Today
                 <span className="h-px flex-1 bg-white/10" />
               </div>
-              {visibleMessages.map((message) => (
-                <div 
-                  key={message.id} 
-                  className={cn("group msg-in flex gap-3 relative", message.mine && "justify-end")}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setMessageOptionsOpenId(messageOptionsOpenId === message.id ? null : message.id);
-                  }}
-                >
+              {visibleMessages
+                .filter(m => !m.parentMessageId)
+                .map((message) => {
+                  const replies = visibleMessages.filter(m => m.parentMessageId === message.id);
+                  return (
+                <div key={message.id} className="relative">
+                  <div 
+                    className={cn("group msg-in flex gap-3 relative", message.mine && "justify-end")}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setMessageOptionsOpenId(messageOptionsOpenId === message.id ? null : message.id);
+                    }}
+                  >
                   {!message.mine && <Avatar name={message.author} src={message.avatarUrl} />}
                   <div className={cn("max-w-xl rounded-lg px-4 py-3 relative", message.mine ? "bg-violet-500 text-white" : "bg-white/[0.12]")}>
                     {!message.mine && <p className="mb-2 text-xs font-bold text-violet-200">{message.author}</p>}
@@ -870,6 +930,27 @@ export function MessagesClient({
                       </a>
                     )}
                     <p className="mt-2 text-right font-mono text-[10px] text-zinc-400">{message.createdAt}</p>
+                    {/* Read Receipts */}
+                    {message.mine && message.reads && message.reads.length > 0 && (
+                      <div className="absolute -bottom-2.5 right-0 flex items-center justify-end">
+                        {message.reads.filter(r => r.profileId !== currentProfileId).slice(0, 4).map((read, i) => (
+                          <div key={read.profileId} className={cn("size-[18px] rounded-full border border-[#111014] bg-zinc-800 shrink-0 shadow-sm", i > 0 && "-ml-1.5")}>
+                            {read.avatarUrl ? (
+                              <img src={read.avatarUrl} alt={read.fullName || "User"} className="size-full rounded-full object-cover" />
+                            ) : (
+                              <div className="flex size-full items-center justify-center rounded-full bg-violet-600 text-[8px] font-bold text-white uppercase">
+                                {(read.fullName || "U")[0]}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {message.reads.filter(r => r.profileId !== currentProfileId).length > 4 && (
+                          <div className="z-10 -ml-1.5 flex size-[18px] items-center justify-center rounded-full border border-[#111014] bg-zinc-800 text-[8px] font-bold text-white shrink-0 shadow-sm">
+                            +{message.reads.filter(r => r.profileId !== currentProfileId).length - 4}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   
                   {/* Options Button & Dropdown */}
@@ -891,7 +972,7 @@ export function MessagesClient({
                         "absolute top-8 z-20 w-32 rounded-lg border border-white/10 bg-[#18171c] p-1.5 shadow-xl shadow-black/50",
                         message.mine ? "right-0 sm:left-0 sm:right-auto" : "left-0 sm:right-0 sm:left-auto"
                       )}>
-                        <button type="button" className="w-full text-left rounded-md px-2 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/[0.08]" onClick={() => { setStatus("Replying to message..."); setMessageOptionsOpenId(null); }}>
+                        <button type="button" className="w-full text-left rounded-md px-2 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/[0.08]" onClick={() => { setReplyingTo(message); setMessageOptionsOpenId(null); inputRef.current?.focus(); }}>
                           Reply
                         </button>
                         <button type="button" className="w-full text-left rounded-md px-2 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/[0.08]" onClick={() => { setStatus("Forwarding message..."); setMessageOptionsOpenId(null); }}>
@@ -905,13 +986,40 @@ export function MessagesClient({
                       </div>
                     )}
                   </div>
+                  
+                  {replies.length > 0 && (
+                     <div className="ml-12 mt-3 space-y-4 border-l-2 border-white/10 pl-4 mb-2">
+                       {replies.map(reply => (
+                         <div key={reply.id} className={cn("group msg-in flex gap-3 relative", reply.mine && "justify-end")}>
+                            {!reply.mine && <Avatar name={reply.author} src={reply.avatarUrl} className="size-8" />}
+                            <div className={cn("max-w-xl rounded-lg px-3 py-2 relative", reply.mine ? "bg-violet-500 text-white" : "bg-white/[0.08]")}>
+                              {!reply.mine && <p className="mb-1 text-[10px] font-bold text-violet-200">{reply.author}</p>}
+                              <p className="text-sm font-semibold leading-6 break-words whitespace-pre-wrap">{reply.body}</p>
+                              <p className="mt-1 text-right font-mono text-[10px] text-zinc-400">{reply.createdAt}</p>
+                            </div>
+                         </div>
+                       ))}
+                     </div>
+                  )}
                 </div>
-              ))}
+              )})}
               {/* Scroll anchor — realtime messages scroll here */}
               <div ref={bottomRef} />
             </div>
             {status && <p className="px-4 pb-2 text-sm font-bold text-emerald-300">{status}</p>}
             <div className="border-t border-white/10 bg-[#111014] p-4">
+              {replyingTo && (
+                <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2">
+                  <div className="flex min-w-0 flex-col">
+                    <span className="text-[10px] font-bold text-violet-300">Replying to {replyingTo.author}</span>
+                    <span className="truncate text-xs text-zinc-300">{replyingTo.body}</span>
+                  </div>
+                  <button type="button" onClick={() => setReplyingTo(null)} className="rounded-full p-1 text-zinc-400 hover:bg-white/10 hover:text-white">
+                    <X className="size-4" />
+                  </button>
+                </div>
+              )}
+              
               {selectedAttachment && (
                 <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2">
                   <div className="flex min-w-0 items-center gap-3">
@@ -999,6 +1107,18 @@ export function MessagesClient({
                     onChange={(event) => handleAttachmentSelected(event.target.files?.[0], "image")}
                   />
                 </div>
+                {(role === "owner" || role === "admin") && (
+                  <div className="relative flex items-center gap-2">
+                    <CalendarClock className="size-5 text-zinc-400 cursor-pointer" />
+                    <input
+                      type="datetime-local"
+                      value={scheduledFor}
+                      onChange={(e) => setScheduledFor(e.target.value)}
+                      className="h-8 rounded-md bg-[#18171c] border border-white/10 px-2 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      title="Schedule Message"
+                    />
+                  </div>
+                )}
                 <Input
                   ref={inputRef}
                   name="body"

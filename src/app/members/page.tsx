@@ -14,7 +14,7 @@ import {
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
-import type { TeamMember, TeamRole } from "@/lib/types";
+import type { TeamMember, TeamRole, CustomRole } from "@/lib/types";
 
 export default async function MembersPage() {
   const teamContext = await getRequiredTeamContext();
@@ -27,12 +27,12 @@ export default async function MembersPage() {
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
-    const [{ data: dbPendingRequests }, { data: dbMembers }] = await Promise.all([
+    const [{ data: dbPendingRequests }, { data: dbMembers }, { data: customRolesData }] = await Promise.all([
       supabase
         .from("join_requests")
         .select(joinRequestWithRequesterProfileSelect)
         .eq("team_id", teamContext.teamId)
-        .eq("status", "pending")
+        .in("status", ["pending", "rejected"])
         .order("created_at", { ascending: false }),
       supabase
         .from("team_members")
@@ -42,6 +42,7 @@ export default async function MembersPage() {
           role,
           status,
           ministry,
+          ministries,
           profiles (
             id,
             full_name,
@@ -51,9 +52,14 @@ export default async function MembersPage() {
         `)
         .eq("team_id", teamContext.teamId)
         .order("created_at", { ascending: true }),
+      supabase
+        .from("custom_roles")
+        .select("*")
+        .eq("team_id", teamContext.teamId),
     ]);
 
     const pendingRequests = (dbPendingRequests ?? []).map((request) => normalizeJoinRequest(request as RawJoinRequest));
+    const customRoles = (customRolesData || []) as CustomRole[];
 
     const members: TeamMember[] = (dbMembers ?? []).map((tm: any) => {
       const profile = tm.profiles;
@@ -69,6 +75,7 @@ export default async function MembersPage() {
         status: (tm.status as "active" | "inactive") ?? "active",
         attendanceRate: 0,
         ministry: tm.ministry ?? "",
+        ministries: tm.ministries ?? (tm.ministry ? [tm.ministry] : []),
       };
     });
 
@@ -79,6 +86,7 @@ export default async function MembersPage() {
           pendingRequests={pendingRequests}
           teamCode={teamContext.teamCode ?? sampleTeamCode}
           teamId={teamContext.teamId}
+          customRoles={customRoles}
         />
       </AppShell>
     );
@@ -92,6 +100,7 @@ export default async function MembersPage() {
         pendingRequests={samplePendingRequests}
         teamCode={teamContext.teamCode ?? sampleTeamCode}
         teamId={null}
+        customRoles={[]}
       />
     </AppShell>
   );

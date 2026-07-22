@@ -25,10 +25,13 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
   const [message, setMessage] = useState("");
   const [messageOk, setMessageOk] = useState(true);
   const [isReviewPending, startReviewTransition] = useTransition();
-  const today = "2026-06-30";
+  const today = new Date().toISOString().slice(0, 10);
 
   // Date state for Calendar View
-  const [currentDate, setCurrentDate] = useState(() => new Date(2026, 6, 1)); // Default: July 2026
+  const [currentDate, setCurrentDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   const prevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));

@@ -1,4 +1,5 @@
 import {
+  Activity,
   AlertCircle,
   AlertTriangle,
   BarChart3,
@@ -7,6 +8,7 @@ import {
   Clock,
   Folder,
   Footprints,
+  Gift,
   Info,
   MapPin,
   MessageSquare,
@@ -19,6 +21,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
+import { PwaRegister } from "@/components/pwa-register";
+import { OfflinePreloader } from "@/components/offline-preloader";
+import { NotificationBell } from "@/components/notification-bell";
 import { AppShell } from "@/components/app-shell";
 import { getSetlistTypeLabel } from "@/lib/domain/event-types";
 import { can } from "@/lib/domain/rbac";
@@ -81,6 +86,8 @@ export default async function DashboardPage() {
     { icon: Users, title: "Attendance", body: "Confirm availability before Friday night.", due: "Due Fri, Jul 10", dueColor: "bg-violet-500/20 text-violet-300", href: "/reminders" },
     { icon: Folder, title: "Media", body: "Upload practice files before rehearsal.", due: "Due Sat, Jul 11", dueColor: "bg-red-500/20 text-red-300", href: "/messages" },
   ];
+  let activityLogs: any[] = [];
+  let upcomingCelebrations: { name: string; type: "Birthday" | "Team Anniversary"; date: Date; daysAway: number }[] = [];
 
   if (hasSupabaseEnv() && teamContext.userId) {
     const supabase = await createClient();
@@ -228,7 +235,7 @@ export default async function DashboardPage() {
         if (sc !== null) totalSetlistsCount = sc;
       }
 
-      const [announcementsResult, remindersResult] = await Promise.all([
+      const [announcementsResult, remindersResult, activityLogsResult, membersResult] = await Promise.all([
         supabase
           .from("announcements")
           .select("id, category, title, body, priority, created_at")
@@ -243,6 +250,22 @@ export default async function DashboardPage() {
           .lte("scheduled_for", new Date().toISOString())
           .order("created_at", { ascending: false })
           .limit(3),
+        supabase
+          .from("activity_logs")
+          .select(`
+            id, action, target_type, details, created_at,
+            profile:profiles(full_name)
+          `)
+          .eq("team_id", teamContext.teamId)
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("team_members")
+          .select(`
+            team_anniversary,
+            profile:profiles(full_name, birthday)
+          `)
+          .eq("team_id", teamContext.teamId)
       ]);
 
       announcementItems = (announcementsResult.data ?? []).map((announcement, index) => {
@@ -265,6 +288,46 @@ export default async function DashboardPage() {
           href: reminder.target_path || "/reminders",
         };
       });
+
+      activityLogs = activityLogsResult.data ?? [];
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const nextWeek = new Date(today);
+      nextWeek.setDate(nextWeek.getDate() + 14); // Next 14 days
+
+      const membersData = membersResult.data ?? [];
+      for (const m of membersData) {
+        if (!m.profile) continue;
+        const p = Array.isArray(m.profile) ? m.profile[0] : m.profile;
+        const name = p.full_name || "Unknown";
+        
+        // Birthday
+        if (p.birthday) {
+          const bdayDate = new Date(p.birthday);
+          bdayDate.setFullYear(today.getFullYear());
+          if (bdayDate < today) bdayDate.setFullYear(today.getFullYear() + 1);
+          if (bdayDate <= nextWeek) {
+            const diffTime = Math.abs(bdayDate.getTime() - today.getTime());
+            const daysAway = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            upcomingCelebrations.push({ name, type: "Birthday", date: bdayDate, daysAway });
+          }
+        }
+        
+        // Anniversary
+        if (m.team_anniversary) {
+          const annivDate = new Date(m.team_anniversary);
+          annivDate.setFullYear(today.getFullYear());
+          if (annivDate < today) annivDate.setFullYear(today.getFullYear() + 1);
+          if (annivDate <= nextWeek) {
+            const diffTime = Math.abs(annivDate.getTime() - today.getTime());
+            const daysAway = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            upcomingCelebrations.push({ name, type: "Team Anniversary", date: annivDate, daysAway });
+          }
+        }
+      }
+      
+      upcomingCelebrations.sort((a, b) => a.daysAway - b.daysAway);
     }
   }
 
@@ -320,6 +383,7 @@ export default async function DashboardPage() {
         <div className="flex h-full flex-col gap-5">
           {/* Hero card */}
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0f0e14] animate-fade-up" style={{ minHeight: 260 }}>
+            {nextSetlist && <OfflinePreloader setlistId={nextSetlist.id} songIds={setlistSongsList.map((s: any) => s.song.id)} />}
             {/* Background gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-br from-violet-900/60 via-purple-900/30 to-[#0f0e14]/80 pointer-events-none" />
             {/* Cross silhouette glow */}
@@ -545,6 +609,64 @@ export default async function DashboardPage() {
               </Link>
             </div>
           </div>
+          
+          {/* Activity Logs (Full Width Row below Announcements/Reminders) */}
+          <div className="rounded-2xl border border-white/10 bg-[#111014]/80 p-4 animate-fade-up mt-2" style={{ animationDelay: "240ms" }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-1.5"><Activity className="size-4 text-violet-400" /> Recent Activity</h3>
+            </div>
+            <div className="space-y-3">
+              {activityLogs.length > 0 ? (
+                activityLogs.map((log, i) => (
+                  <div key={log.id} className="flex gap-3 text-sm border-b border-white/[0.04] pb-3 last:border-0 last:pb-0">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-zinc-300 truncate">
+                        <span className="font-bold text-white mr-1">{log.profile?.full_name}</span>
+                        {log.action} a {log.target_type}
+                        {log.details?.name ? (
+                          <span className="font-bold text-violet-300 ml-1">{log.details.name}</span>
+                        ) : log.details?.title ? (
+                          <span className="font-bold text-violet-300 ml-1">{log.details.title}</span>
+                        ) : null}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-[10px] font-semibold text-zinc-500 whitespace-nowrap">
+                      {new Date(log.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-4 text-center">
+                  <p className="text-xs font-bold text-zinc-400">No recent activity.</p>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Celebrations */}
+          {upcomingCelebrations.length > 0 && (
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-pink-500/10 to-orange-500/5 p-4 animate-fade-up mt-2" style={{ animationDelay: "260ms" }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Gift className="size-4 text-pink-400" />
+                <h3 className="text-sm font-bold text-white">Upcoming Celebrations</h3>
+              </div>
+              <div className="space-y-3">
+                {upcomingCelebrations.map((c, i) => (
+                  <div key={i} className="flex justify-between items-center bg-white/[0.03] p-3 rounded-xl border border-white/[0.04]">
+                    <div>
+                      <p className="text-sm font-bold text-white">{c.name}</p>
+                      <p className="text-[10px] uppercase font-bold tracking-widest text-pink-400/80">{c.type}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-white">{c.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
+                      <p className="text-[10px] text-zinc-400">{c.daysAway === 0 ? "Today!" : `In ${c.daysAway} days`}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
 

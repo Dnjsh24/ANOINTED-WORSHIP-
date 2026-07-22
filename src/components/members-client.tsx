@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, useEffect } from "react";
 import { regenerateTeamCodeAction, reviewJoinRequestAction, updateMemberRoleAction, removeTeamMemberAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import {
   type RawJoinRequest,
 } from "@/lib/domain/join-requests";
 import { createClient } from "@/lib/supabase/client";
-import { teamRoles, type JoinRequestSummary, type TeamMember, type TeamRole } from "@/lib/types";
+import { teamRoles, type JoinRequestSummary, type TeamMember, type TeamRole, type CustomRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function MembersClient({
@@ -23,11 +24,13 @@ export function MembersClient({
   pendingRequests,
   teamCode,
   teamId,
+  customRoles = [],
 }: {
   members: TeamMember[];
   pendingRequests: JoinRequestSummary[];
   teamCode: string;
   teamId: string | null;
+  customRoles?: CustomRole[];
 }) {
   const router = useRouter();
   const [requests, setRequests] = useState(pendingRequests);
@@ -40,6 +43,36 @@ export function MembersClient({
   const [status, setStatus] = useState("");
   const [isPending, startTransition] = useTransition();
   const [onlineMemberUserIds, setOnlineMemberUserIds] = useState<string[]>([]);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set());
+
+  function toggleRequest(id: string) {
+    const next = new Set(selectedRequests);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedRequests(next);
+  }
+
+  function toggleAllRequests(previewIds: string[]) {
+    if (selectedRequests.size === previewIds.length) {
+      setSelectedRequests(new Set());
+    } else {
+      setSelectedRequests(new Set(previewIds));
+    }
+  }
+
+  function approveSelected() {
+    startTransition(async () => {
+      const promises = Array.from(selectedRequests).map(id => {
+        const formData = new FormData();
+        formData.set("requestId", id);
+        formData.set("decision", "approved");
+        return reviewJoinRequestAction(formData);
+      });
+      await Promise.all(promises);
+      setSelectedRequests(new Set());
+    });
+  }
 
   useEffect(() => {
     setRequests(pendingRequests);
@@ -193,11 +226,42 @@ export function MembersClient({
         <div className="flex flex-col gap-5">
           {/* Pending Requests */}
           <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
-            <h2 className="text-sm font-bold text-white mb-4">Pending Requests ({requests.length})</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-white">Pending Requests ({requests.length})</h2>
+              {requestPreview.length > 0 && (
+                <label className="flex items-center gap-2 text-xs font-semibold text-zinc-400 cursor-pointer hover:text-white transition">
+                  <input
+                    type="checkbox"
+                    className="accent-violet-600 cursor-pointer"
+                    checked={selectedRequests.size === requestPreview.length && requestPreview.length > 0}
+                    onChange={() => toggleAllRequests(requestPreview.map(r => r.id))}
+                  />
+                  Select All
+                </label>
+              )}
+            </div>
+            {selectedRequests.size > 0 && (
+              <div className="mb-3">
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={approveSelected}
+                  className="w-full rounded-xl bg-violet-600 py-2 text-xs font-bold text-white transition hover:bg-violet-500 disabled:opacity-50"
+                >
+                  Approve Selected ({selectedRequests.size})
+                </button>
+              </div>
+            )}
             <div className="space-y-3">
               {requestPreview.map((request) => (
                 <div key={request.id} className="flex items-center justify-between rounded-xl bg-white/[0.02] border border-white/[0.06] p-3">
                   <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      className="accent-violet-600 cursor-pointer shrink-0"
+                      checked={selectedRequests.has(request.id)}
+                      onChange={() => toggleRequest(request.id)}
+                    />
                     <Avatar name={request.name} src={request.avatarUrl} className="size-9" />
                     <div>
                       <span className="block text-xs font-bold text-white">{request.name}</span>
@@ -298,13 +362,20 @@ export function MembersClient({
 
                   return (
                     <div key={member.id} className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_32px] items-center px-4 py-3 text-xs font-semibold group">
-                      <Link href={`/members/${member.id}`} className="flex items-center gap-3 hover:text-violet-300 transition-colors min-w-0">
+                      <button onClick={() => setSelectedMember(member)} className="flex items-center gap-3 hover:text-violet-300 transition-colors min-w-0 text-left">
                         <Avatar name={member.profile.fullName} src={member.profile.avatarUrl} className="size-8" />
                         <span className="min-w-0">
                           <span className="block font-bold text-white truncate">{member.profile.fullName}</span>
                           <span className="block text-[10px] text-zinc-400 truncate">{member.profile.email}</span>
+                          {member.ministries && member.ministries.length > 0 && (
+                            <span className="mt-1 flex flex-wrap gap-1">
+                              {member.ministries.map((m) => (
+                                <Badge key={m} className="px-1.5 py-0 text-[9px] h-4 bg-violet-500/10 text-violet-300 border-violet-500/20 uppercase tracking-wider">{m}</Badge>
+                              ))}
+                            </span>
+                          )}
                         </span>
-                      </Link>
+                      </button>
                       <select
                         aria-label={`Role for ${member.profile.fullName}`}
                         value={roleValues[member.id] ?? member.role}
@@ -315,6 +386,12 @@ export function MembersClient({
                         {teamRoles.map((role) => (
                           <option key={role} value={role} className="bg-[#111014] text-white">
                             {role.replace("_", " ")}
+                          </option>
+                        ))}
+                        {customRoles.length > 0 && <optgroup label="Custom Roles" className="bg-[#111014] text-white text-xs font-bold" />}
+                        {customRoles.map((role) => (
+                          <option key={role.id} value={role.id} className="bg-[#111014] text-violet-300 font-bold">
+                            {role.name}
                           </option>
                         ))}
                       </select>
@@ -384,6 +461,61 @@ export function MembersClient({
         </div>
 
       </section>
+
+      {/* Member Profile Drawer */}
+      {selectedMember && (
+        <div className="fixed inset-0 z-[100] flex justify-end">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedMember(null)} />
+          <div className="relative w-full max-w-sm bg-[#0a0a0a] border-l border-white/10 h-full animate-slide-in-right overflow-y-auto">
+            <div className="p-6">
+              <button className="absolute top-4 right-4 text-zinc-400 hover:text-white" onClick={() => setSelectedMember(null)}>
+                <X className="size-5" />
+              </button>
+              
+              <div className="text-center mt-6">
+                <Avatar name={selectedMember.profile.fullName} src={selectedMember.profile.avatarUrl} className="size-24 mx-auto text-3xl" />
+                <h2 className="mt-4 text-2xl font-bold">{selectedMember.profile.fullName}</h2>
+                <p className="text-zinc-400">{selectedMember.profile.email}</p>
+              </div>
+              
+              <div className="mt-8 space-y-6">
+                <div>
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 mb-3">Ministries</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedMember.ministries && selectedMember.ministries.length > 0 ? (
+                      selectedMember.ministries.map(m => (
+                        <Badge key={m} className="px-2 py-1 bg-violet-500/10 text-violet-300 border-violet-500/20">{m}</Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm text-zinc-500">None assigned</span>
+                    )}
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 mb-3">Stats</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+                      <div className="text-sm font-bold text-zinc-400">Attendance</div>
+                      <div className="mt-1 text-2xl font-bold text-white">{selectedMember.attendanceRate}%</div>
+                    </div>
+                    <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02]">
+                      <div className="text-sm font-bold text-zinc-400">Status</div>
+                      <div className="mt-1 text-lg font-bold text-emerald-400 capitalize">{selectedMember.status}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-8">
+                <ButtonLink href={`/members/${selectedMember.id}`} className="w-full justify-center">
+                  Full Profile
+                </ButtonLink>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

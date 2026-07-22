@@ -20,7 +20,7 @@ export function SetlistsClient({ setlists }: { setlists: Setlist[] }) {
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [leader, setLeader] = useState("all");
   const [serviceType, setServiceType] = useState("all");
-  const today = "2026-06-30";
+  const today = new Date().toISOString().slice(0, 10);
 
   const leaders = [...new Set(setlists.map((setlist) => setlist.leader))];
   const setlistTypeLabels = [...new Set(setlists.map((setlist) => getSetlistTypeLabel(setlist)))];
