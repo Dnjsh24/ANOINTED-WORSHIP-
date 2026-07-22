@@ -42,7 +42,7 @@ export default async function ProfilePage() {
         : Promise.resolve({ data: [] }),
       teamContext.teamId
         ? supabase
-            .from("event_attendance")
+            .from("attendance")
             .select("id")
             .eq("team_id", teamContext.teamId)
             .eq("profile_id", teamContext.userId)
