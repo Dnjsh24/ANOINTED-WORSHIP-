@@ -2949,6 +2949,31 @@ export async function updateSongAction(_previous: ActionState, formData: FormDat
   return { ok: true, message: "Song saved." };
 }
 
+export async function deleteSongAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const songId = formString(formData, "songId");
+  if (!songId) {
+    return { ok: false, message: "Song id is missing." };
+  }
+
+  const context = await getMutationContext("songs.delete");
+  if (!context.ok) {
+    return context.state;
+  }
+
+  const { error } = await context.supabase
+    .from("songs")
+    .delete()
+    .eq("id", songId)
+    .eq("team_id", context.teamId);
+
+  if (error) {
+    return { ok: false, message: "Song could not be deleted." };
+  }
+
+  revalidatePath("/songs");
+  redirect("/songs");
+}
+
 export async function submitFeedbackAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = feedbackInputSchema.safeParse({
     reportType: formString(formData, "reportType"),

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { createSongAction, updateSongAction } from "@/app/actions";
+import { createSongAction, updateSongAction, deleteSongAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { ButtonLink } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -460,8 +460,13 @@ export function SongForm({ song }: { song?: Song }) {
         <div>
           {song && (
             <button
-              type="button"
-              onClick={() => setSongStatus("Song deletion needs an admin confirmation flow before it can remove live data.")}
+              type="submit"
+              formAction={deleteSongAction}
+              onClick={(e) => {
+                if (!window.confirm("Are you sure you want to delete this song? This action cannot be undone.")) {
+                  e.preventDefault();
+                }
+              }}
               className="flex items-center gap-1.5 text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
             >
               <Trash2 className="size-3.5" />
