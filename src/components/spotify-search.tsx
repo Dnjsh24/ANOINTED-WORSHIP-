@@ -54,32 +54,13 @@ export function SpotifySearch({
       console.error(e);
     } finally {
       setLoading(false);
-    }
-  };
-
   const togglePreview = (e: React.MouseEvent, track: SpotifyTrack) => {
     e.stopPropagation();
     
     if (playingTrackId === track.id) {
-      playingAudio?.pause();
-      setPlayingAudio(null);
       setPlayingTrackId(null);
     } else {
-      if (playingAudio) {
-        playingAudio.pause();
-      }
-      if (track.preview_url) {
-        const audio = new Audio(track.preview_url);
-        audio.play();
-        setPlayingAudio(audio);
-        setPlayingTrackId(track.id);
-        audio.onended = () => {
-          setPlayingAudio(null);
-          setPlayingTrackId(null);
-        };
-      } else {
-        window.open(track.external_urls.spotify, "_blank");
-      }
+      setPlayingTrackId(track.id);
     }
   };
 
@@ -103,54 +84,62 @@ export function SpotifySearch({
       </div>
 
       {open && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-auto rounded-xl border border-white/10 bg-[#17161b] p-1 shadow-2xl">
+        <div className="absolute top-full left-0 right-0 mt-1 max-h-[400px] overflow-auto rounded-xl border border-white/10 bg-[#17161b] p-1 shadow-2xl">
           {results.map((track) => (
-            <button
-              key={track.id}
-              type="button"
-              onClick={() => {
-                onSelect(track);
-                setOpen(false);
-                setQuery("");
-                if (playingAudio) {
-                  playingAudio.pause();
-                  setPlayingAudio(null);
+            <div key={track.id} className="flex flex-col border-b border-white/5 last:border-0">
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect(track);
+                  setOpen(false);
+                  setQuery("");
                   setPlayingTrackId(null);
-                }
-              }}
-              className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/5 transition group"
-            >
-              {track.album.images[0]?.url ? (
-                <img
-                  src={track.album.images[0].url}
-                  alt={track.album.name}
-                  className="size-10 rounded-md object-cover"
-                />
-              ) : (
-                <div className="size-10 rounded-md bg-white/10" />
-              )}
-              <div className="flex-1 truncate">
-                <div className="text-sm font-semibold text-white truncate">
-                  {track.name}
-                </div>
-                <div className="text-xs text-zinc-400 truncate">
-                  {track.artists.map((a) => a.name).join(", ")}
-                </div>
-              </div>
-              <div 
-                onClick={(e) => togglePreview(e, track)}
-                className="flex size-8 items-center justify-center rounded-full bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white transition opacity-0 group-hover:opacity-100 mr-1"
-                title={track.preview_url ? "Play preview" : "Open in Spotify"}
+                }}
+                className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/5 transition group"
               >
-                {playingTrackId === track.id ? (
-                  <Square className="size-3.5 fill-current" />
-                ) : track.preview_url ? (
-                  <Play className="size-3.5 fill-current ml-0.5" />
+                {track.album.images[0]?.url ? (
+                  <img
+                    src={track.album.images[0].url}
+                    alt={track.album.name}
+                    className="size-10 rounded-md object-cover"
+                  />
                 ) : (
-                  <ExternalLink className="size-3.5" />
+                  <div className="size-10 rounded-md bg-white/10" />
                 )}
-              </div>
-            </button>
+                <div className="flex-1 truncate">
+                  <div className="text-sm font-semibold text-white truncate">
+                    {track.name}
+                  </div>
+                  <div className="text-xs text-zinc-400 truncate">
+                    {track.artists.map((a) => a.name).join(", ")}
+                  </div>
+                </div>
+                <div 
+                  onClick={(e) => togglePreview(e, track)}
+                  className="flex size-8 items-center justify-center rounded-full bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white transition opacity-0 group-hover:opacity-100 mr-1"
+                  title="Preview in browser"
+                >
+                  {playingTrackId === track.id ? (
+                    <Square className="size-3.5 fill-current" />
+                  ) : (
+                    <Play className="size-3.5 fill-current ml-0.5" />
+                  )}
+                </div>
+              </button>
+              {playingTrackId === track.id && (
+                <div className="p-2 animate-fade-in">
+                  <iframe 
+                    src={`https://open.spotify.com/embed/track/${track.id}`} 
+                    width="100%" 
+                    height="80" 
+                    frameBorder="0" 
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                    loading="lazy" 
+                    className="rounded-lg"
+                  ></iframe>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
