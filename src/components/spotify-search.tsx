@@ -54,6 +54,9 @@ export function SpotifySearch({
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
   const togglePreview = (e: React.MouseEvent, track: SpotifyTrack) => {
     e.stopPropagation();
     
