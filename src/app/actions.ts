@@ -2960,6 +2960,10 @@ export async function deleteSongAction(formData: FormData) {
     throw new Error(context.state.message);
   }
 
+  // Manually delete dependent records to avoid foreign key constraint errors
+  await context.supabase.from("setlist_songs").delete().eq("song_id", songId);
+  await context.supabase.from("song_favorites").delete().eq("song_id", songId);
+
   const { error } = await context.supabase
     .from("songs")
     .delete()
