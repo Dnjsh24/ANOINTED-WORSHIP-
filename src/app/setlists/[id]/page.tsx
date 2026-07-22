@@ -98,7 +98,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           assignedKey: ss.assigned_key,
           lead: leadVocal,
           bandNotes: ss.band_notes || null,
-          youtubeUrl: ss.youtube_url || null,
+          youtubeUrl: ss.song?.youtube_url || null,
           arrangement: ss.arrangement || null,
           song: {
             id: ss.song?.id,
@@ -303,7 +303,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
     setlist = sample;
     setlist.eventId = sample.id;
     teamAssignmentsList = [
-      ["Worship Leader", "David M. - Worship Leader", "DM"],
+      ["Worship Leader", "Worship Leader", "WL"],
       ["Band", "Mark - Acoustic Guitar", "M"],
       ["Band", "John - Main Keys", "J"],
       ["Band", "James - Drums", "J"],
@@ -312,7 +312,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
       ["Dancers", "Team A - Dancers", "TA"],
     ];
     assignmentSummaries = [
-      { assignment: "Worship Leader", memberId: "member-alex", memberName: "David M." },
+      { assignment: "Worship Leader", memberId: "member-alex", memberName: "Worship Leader" },
       { assignment: "Acoustic Guitar", memberId: "member-mark", memberName: "Mark" },
       { assignment: "Main Keys", memberId: "member-john", memberName: "John" },
       { assignment: "Drums", memberId: "member-james", memberName: "James" },

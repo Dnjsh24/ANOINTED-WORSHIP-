@@ -10,11 +10,17 @@ export function NotificationBell() {
   const supabase = createClient();
 
   useEffect(() => {
-    // In a real app, this would query the notifications table
-    // For now, it's just a UI placeholder to satisfy the build
     const fetchUnreadCount = async () => {
-      // Mock count
-      setUnreadCount(0);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { count } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("profile_id", user.id)
+        .is("read_at", null);
+      
+      if (count !== null) setUnreadCount(count);
     };
 
     fetchUnreadCount();

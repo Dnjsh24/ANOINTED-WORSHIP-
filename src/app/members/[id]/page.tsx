@@ -50,6 +50,15 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
         ministry: dbMember.ministry ?? "",
         ministries: dbMember.ministries ?? (dbMember.ministry ? [dbMember.ministry] : []),
       };
+
+      const [totalEventsResult, attendedResult] = await Promise.all([
+        supabase.from("events").select("id", { count: "exact", head: true }).eq("team_id", teamContext.teamId).lte("event_date", new Date().toISOString().split("T")[0]),
+        supabase.from("attendance").select("id", { count: "exact", head: true }).eq("team_member_id", dbMember.id).eq("status", "available")
+      ]);
+      const totalEvents = totalEventsResult.count ?? 0;
+      const attended = attendedResult.count ?? 0;
+      member.attendanceRate = totalEvents > 0 ? Math.round((attended / totalEvents) * 100) : 100;
+
       request = undefined;
     } else {
       const { data: dbRequest } = (await supabase

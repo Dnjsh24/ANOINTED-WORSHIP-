@@ -4,7 +4,7 @@ import { Check, Copy, RefreshCw, UserPlus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, useEffect } from "react";
-import { regenerateTeamCodeAction, reviewJoinRequestAction, updateMemberRoleAction, removeTeamMemberAction } from "@/app/actions";
+import { regenerateTeamCodeAction, reviewJoinRequestAction, updateMemberRoleAction, removeTeamMemberAction, bulkApproveJoinRequestsAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -63,13 +63,9 @@ export function MembersClient({
 
   function approveSelected() {
     startTransition(async () => {
-      const promises = Array.from(selectedRequests).map(id => {
-        const formData = new FormData();
-        formData.set("requestId", id);
-        formData.set("decision", "approved");
-        return reviewJoinRequestAction(formData);
-      });
-      await Promise.all(promises);
+      const requestIds = Array.from(selectedRequests);
+      const result = await bulkApproveJoinRequestsAction(requestIds);
+      setStatus(result.message);
       setSelectedRequests(new Set());
     });
   }

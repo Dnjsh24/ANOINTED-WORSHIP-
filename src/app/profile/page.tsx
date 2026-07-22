@@ -12,7 +12,7 @@ import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 
 export default async function ProfilePage() {
   const teamContext = await getRequiredTeamContext();
-  let fullName = "David M.";
+  let fullName = "Unknown User";
   let email = sampleUser.email;
   let ministries: string[] = [];
   let accessLevel = teamContext.role;

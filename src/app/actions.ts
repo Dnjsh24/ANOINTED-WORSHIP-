@@ -713,6 +713,7 @@ export async function cancelJoinRequestAction(formData: FormData): Promise<Actio
   revalidatePath("/members");
   revalidatePath("/members/requests");
   revalidatePath("/dashboard");
+  revalidatePath("/pending");
 
   return { ok: true, message: "Join request canceled." };
 }
@@ -2753,6 +2754,22 @@ export async function reviewJoinRequestWithStateAction(formData: FormData): Prom
     ok: true,
     message: parsed.data.decision === "approved" ? "Join request approved." : "Join request rejected.",
   };
+}
+
+export async function bulkApproveJoinRequestsAction(requestIds: string[]): Promise<ActionState> {
+  const context = await getMutationContext("join_requests.review");
+  if (!context.ok) {
+    return context.state;
+  }
+  let successCount = 0;
+  for (const requestId of requestIds) {
+    const formData = new FormData();
+    formData.set("requestId", requestId);
+    formData.set("decision", "approved");
+    const res = await reviewJoinRequestWithStateAction(formData);
+    if (res.ok) successCount++;
+  }
+  return { ok: true, message: `Approved ${successCount} join requests.` };
 }
 
 export async function updateMemberRoleAction(_previous: ActionState, formData: FormData): Promise<ActionState> {

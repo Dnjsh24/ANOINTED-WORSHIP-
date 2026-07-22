@@ -30,6 +30,7 @@ export function SongForm({ song }: { song?: Song }) {
   const voiceCountdownIntervalRef = useRef<number | null>(null);
   const [voiceSecondsLeft, setVoiceSecondsLeft] = useState<number | null>(null);
   const lyricsRef = useRef<HTMLTextAreaElement>(null);
+  const originalKeyRef = useRef<HTMLSelectElement>(null);
   
   const [importUrl, setImportUrl] = useState("");
   const [isImporting, setIsImporting] = useState(false);
@@ -105,7 +106,7 @@ export function SongForm({ song }: { song?: Song }) {
       return;
     }
 
-    const select = document.querySelector<HTMLSelectElement>("select[name=originalKey]");
+    const select = originalKeyRef.current;
     if (select) {
       select.value = result.key;
     }
@@ -130,8 +131,7 @@ export function SongForm({ song }: { song?: Song }) {
       }
       setLyrics(data.lyrics);
       if (data.title) {
-        const titleInput = document.querySelector<HTMLInputElement>("input[name=title]");
-        if (titleInput && !titleInput.value) titleInput.value = data.title;
+        setSongTitle((prev) => prev || data.title);
       }
       setSongStatus("Imported successfully! Check lyrics/chords tab.");
       setImportUrl("");
@@ -145,7 +145,7 @@ export function SongForm({ song }: { song?: Song }) {
   };
 
   const handleDetectKeyFromVoice = async () => {
-    const select = document.querySelector<HTMLSelectElement>("select[name=originalKey]");
+    const select = originalKeyRef.current;
 
     const clearVoiceTimers = () => {
       if (voiceStopTimerRef.current) {
@@ -307,6 +307,7 @@ export function SongForm({ song }: { song?: Song }) {
                 <div className="relative flex-1">
                   <select
                     name="originalKey"
+                    ref={originalKeyRef}
                     defaultValue={song?.originalKey ?? "C"}
                     className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400"
                     required

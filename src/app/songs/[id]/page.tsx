@@ -57,12 +57,13 @@ export default async function SongPage({
     if (dbSong) {
       const { data: usageData } = await supabase
         .from("setlist_songs")
-        .select(`setlists!inner(setlist_date)`)
+        .select(`setlists!inner(setlist_date, team_id)`)
         .eq("song_id", id)
         .eq("setlists.team_id", teamContext.teamId);
 
       if (usageData) {
         usageDates = usageData
+          .filter((item: any) => item.setlists?.team_id === teamContext.teamId)
           .map((item: any) => item.setlists?.setlist_date)
           .filter(Boolean);
       }
