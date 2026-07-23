@@ -1521,14 +1521,27 @@ export async function bulkReorderSetlistSongsAction(formData: FormData): Promise
 
   try {
     const updates: { id: string; song_order: number }[] = JSON.parse(updatesJson);
-    const promises = updates.map((u) => 
+    
+    // Pass 1: Shift song orders to avoid unique constraint collisions
+    const pass1Promises = updates.map((u) => 
+      context.supabase.from("setlist_songs").update({ song_order: u.song_order + 10000 }).eq("id", u.id).eq("setlist_id", setlistId)
+    );
+    const pass1Results = await Promise.all(pass1Promises);
+    
+    if (pass1Results.some(r => r.error)) {
+      console.error(pass1Results.find(r => r.error)?.error);
+      return { ok: false, message: "Failed to reorder some songs during pass 1." };
+    }
+
+    // Pass 2: Set to correct values
+    const pass2Promises = updates.map((u) => 
       context.supabase.from("setlist_songs").update({ song_order: u.song_order }).eq("id", u.id).eq("setlist_id", setlistId)
     );
-    const results = await Promise.all(promises);
+    const pass2Results = await Promise.all(pass2Promises);
     
-    if (results.some(r => r.error)) {
-      console.error(results.find(r => r.error)?.error);
-      return { ok: false, message: "Failed to reorder some songs." };
+    if (pass2Results.some(r => r.error)) {
+      console.error(pass2Results.find(r => r.error)?.error);
+      return { ok: false, message: "Failed to reorder some songs during pass 2." };
     }
 
     revalidatePath(`/setlists/${setlistId}`);
