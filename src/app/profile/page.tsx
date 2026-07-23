@@ -29,7 +29,7 @@ export default async function ProfilePage() {
     const [profileResult, eventsResult, attendanceResult] = await Promise.all([
       supabase
         .from("profiles")
-        .select("full_name, email, avatar_url, birthday, team_members!inner(role, ministries, created_at, team_anniversary)")
+        .select("full_name, email, avatar_url, team_members!inner(role, ministries, created_at, team_anniversary)")
         .eq("id", teamContext.userId)
         .eq("team_members.team_id", teamContext.teamId ?? "")
         .maybeSingle(),
