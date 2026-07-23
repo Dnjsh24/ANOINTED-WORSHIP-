@@ -68,14 +68,14 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           assigned_key,
           song_order,
           notes,
-          band_notes,
           arrangement,
           song:songs (
             id,
             title,
             bpm,
             original_key,
-            lyrics_chords
+            lyrics_chords,
+            youtube_url
           )
         )
       `)
@@ -97,7 +97,6 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           order: ss.song_order,
           assignedKey: ss.assigned_key,
           lead: leadVocal,
-          bandNotes: ss.band_notes || null,
           youtubeUrl: ss.song?.youtube_url || null,
           arrangement: ss.arrangement || null,
           song: {
