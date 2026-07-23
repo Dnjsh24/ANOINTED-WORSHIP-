@@ -26,7 +26,7 @@ export default async function ProfilePage() {
   if (hasSupabaseEnv() && teamContext.userId) {
     const supabase = await createClient();
 
-    const [profileResult, eventsResult, attendanceResult] = await Promise.all([
+    const [profileResult, attendanceResult] = await Promise.all([
       supabase
         .from("profiles")
         .select("full_name, email, avatar_url, team_members!inner(role, ministries, created_at, team_anniversary)")
@@ -35,17 +35,10 @@ export default async function ProfilePage() {
         .maybeSingle(),
       teamContext.teamId
         ? supabase
-            .from("events")
-            .select("id")
-            .eq("team_id", teamContext.teamId)
-            .lte("event_date", initialNowIso.split("T")[0])
-        : Promise.resolve({ data: [] }),
-      teamContext.teamId
-        ? supabase
             .from("attendance")
-            .select("id")
+            .select("id, status, events!inner(event_date)")
             .eq("team_member_id", teamContext.memberId as string)
-            .eq("status", "available")
+            .lte("events.event_date", initialNowIso.split("T")[0])
         : Promise.resolve({ data: [] }),
     ]);
 
@@ -54,7 +47,6 @@ export default async function ProfilePage() {
       fullName = profile.full_name ?? "Unknown User";
       email = profile.email ?? "";
       avatarUrl = profile.avatar_url ?? null;
-      birthday = profile.birthday ?? null;
 
       const membership = (profile.team_members as any)?.[0];
       if (membership) {
@@ -67,8 +59,9 @@ export default async function ProfilePage() {
       }
     }
 
-    const pastEventsCount = eventsResult.data?.length ?? 0;
-    const attendedCount = attendanceResult.data?.length ?? 0;
+    const pastAttendances = attendanceResult.data || [];
+    const pastEventsCount = pastAttendances.length;
+    const attendedCount = pastAttendances.filter((a: any) => a.status === "available").length;
     if (pastEventsCount > 0) {
       attendanceRate = Math.round((attendedCount / pastEventsCount) * 100);
     } else {

@@ -1,1 +1,1 @@
-alter table "public"."songs" add column "image_url" text;
+alter table "public"."songs" add column if not exists "image_url" text;

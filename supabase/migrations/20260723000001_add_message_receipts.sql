@@ -1,6 +1,6 @@
 create table if not exists public.channel_reads (
   profile_id uuid references public.profiles(id) on delete cascade,
-  channel_id uuid references public.channels(id) on delete cascade,
+  channel_id uuid references public.message_channels(id) on delete cascade,
   last_read_at timestamptz default now(),
   primary key (profile_id, channel_id)
 );
@@ -21,9 +21,10 @@ create policy "Users can view channel reads for their channels"
   on public.channel_reads for select
   using (
     exists (
-      select 1 from public.channel_members cm
+      select 1 from public.message_channel_members cm
+      join public.team_members tm on cm.team_member_id = tm.id
       where cm.channel_id = channel_reads.channel_id
-      and cm.profile_id = auth.uid()
+      and tm.profile_id = auth.uid()
     )
   );
 
@@ -39,9 +40,10 @@ create policy "Users can view message reads for their channels"
   using (
     exists (
       select 1 from public.messages m
-      join public.channel_members cm on m.channel_id = cm.channel_id
+      join public.message_channel_members cm on m.channel_id = cm.channel_id
+      join public.team_members tm on cm.team_member_id = tm.id
       where m.id = message_reads.message_id
-      and cm.profile_id = auth.uid()
+      and tm.profile_id = auth.uid()
     )
   );
 
@@ -59,12 +61,12 @@ declare
 begin
   select count(m.id) into unread_count
   from public.messages m
-  join public.channel_members cm on m.channel_id = cm.channel_id
+  join public.message_channel_members cm on m.channel_id = cm.channel_id
+  join public.team_members tm on cm.team_member_id = tm.id
   left join public.channel_reads cr on cr.channel_id = m.channel_id and cr.profile_id = p_profile_id
-  where cm.profile_id = p_profile_id
+  where tm.profile_id = p_profile_id
   and (cr.last_read_at is null or m.created_at > cr.last_read_at);
   
   return unread_count;
 end;
 $$ language plpgsql security definer;
-

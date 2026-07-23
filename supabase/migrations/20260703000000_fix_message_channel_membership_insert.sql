@@ -1,7 +1,7 @@
 drop policy if exists "Leaders can create channels" on public.message_channels;
 
 drop policy if exists "Approved members can create message channels" on public.message_channels;
-create policy "Approved members can create message channels"
+create policy "Approved members can create message channels v2"
 on public.message_channels for insert to authenticated
 with check (
   created_by = (select auth.uid())
