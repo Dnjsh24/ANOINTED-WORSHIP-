@@ -6,6 +6,8 @@ import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { messages as sampleMessages } from "@/lib/sample-data";
 import { fileKindLabel, formatFileSize } from "@/lib/domain/files";
 
+export const dynamic = "force-dynamic";
+
 export default async function MessagesPage() {
   const teamContext = await getRequiredTeamContext();
 

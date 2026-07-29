@@ -55,6 +55,8 @@ type DashboardReminderItem = {
   href: string;
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
   const teamContext = await getRequiredTeamContext();
 
