@@ -2354,7 +2354,7 @@ export async function sendMessageAction(formData: FormData): Promise<ActionState
     .single();
 
   if (error || !data) {
-    return { ok: false, message: "Message could not be sent." };
+    return { ok: false, message: `Message could not be sent: ${error?.message || "Unknown error"}` };
   }
 
   revalidatePath("/messages");
