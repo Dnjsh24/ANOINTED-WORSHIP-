@@ -8,6 +8,11 @@ import { logActivity } from "@/lib/domain/activity";
 import type { ActionState } from "@/lib/action-state";
 import { can } from "@/lib/domain/rbac";
 import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
+import { getDesktopSetlist, getDesktopSong, restoreDesktopSong, softDeleteDesktopSetlist, softDeleteDesktopSong, upsertDesktopSetlist, upsertDesktopSong } from "@/lib/desktop/workspace";
+import { getDesktopSyncDetails, getDesktopSyncSummary, saveDesktopTeamContext } from "@/lib/desktop/workspace";
+import { syncDesktopWorkspace } from "@/lib/desktop/sync";
+import { getCurrentTeamContextForClient } from "@/lib/supabase/team-context";
 import { notifyProfiles } from "@/lib/push-notifications";
 import { generateTeamCode } from "@/lib/domain/team-code";
 import { toPostgresTime } from "@/lib/domain/time";
@@ -83,6 +88,34 @@ const authRequiredState: ActionState = {
   ok: false,
   message: "Sign in with Supabase to save changes.",
 };
+
+export async function syncDesktopWorkspaceAction() {
+  if (!isDesktopRuntime()) {
+    return { ok: false, message: "Desktop sync is only available in the Windows app.", applied: 0, conflicts: 0 };
+  }
+
+  try {
+    const supabase = await createClient();
+    const context = await getCurrentTeamContextForClient(supabase);
+    if (!context.userId || !context.teamId || !context.memberId) {
+      return { ok: false, message: "Connect to the internet and sign in before syncing.", applied: 0, conflicts: 0 };
+    }
+    saveDesktopTeamContext(context);
+    return await syncDesktopWorkspace(supabase, context);
+  } catch {
+    return { ok: false, message: "No connection available. Changes remain safely stored on this PC.", applied: 0, conflicts: 0 };
+  }
+}
+
+export async function getDesktopSyncSummaryAction() {
+  if (!isDesktopRuntime()) return null;
+  return getDesktopSyncSummary();
+}
+
+export async function getDesktopSyncDetailsAction() {
+  if (!isDesktopRuntime()) return null;
+  return getDesktopSyncDetails();
+}
 
 function validationState(error: z.ZodError): ActionState {
   return {
@@ -835,12 +868,36 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     return validationState(parsed.error);
   }
 
+  const serviceTimes = normalizeSetlistServiceTimes(parsed.data.eventType, parsed.data.serviceType);
+
+  if (isDesktopRuntime()) {
+    const context = await getCurrentTeamContext();
+    if (!context.teamId || !can(context.role, "setlists.manage", context.customPermissions)) {
+      return { ok: false, message: "This cached account cannot manage setlists." };
+    }
+    const id = randomUUID();
+    upsertDesktopSetlist({
+      id,
+      eventId: formString(formData, "eventId") || randomUUID(),
+      teamId: context.teamId,
+      name: parsed.data.title,
+      date: parsed.data.serviceDate,
+      eventType: parsed.data.eventType,
+      location: parsed.data.location,
+      callTime: parsed.data.callTime,
+      rehearsalTime: parsed.data.rehearsalTime,
+      serviceTimes,
+      notes: parsed.data.notes,
+      queue: true,
+    });
+    revalidatePath("/setlists");
+    redirect(`/setlists/${id}`);
+  }
+
   const context = await getMutationContext("setlists.manage");
   if (!context.ok) {
     return { ...context.state, message: context.state.message.replace("changes", "setlists") };
   }
-
-  const serviceTimes = normalizeSetlistServiceTimes(parsed.data.eventType, parsed.data.serviceType);
 
   // 1. Resolve or Create the associated event
   let resolvedEventId = formString(formData, "eventId");
@@ -1047,6 +1104,32 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
 
   const serviceTimes = normalizeSetlistServiceTimes(parsed.data.eventType, parsed.data.serviceType);
 
+  if (isDesktopRuntime()) {
+    const context = await getCurrentTeamContext();
+    if (!context.teamId || !can(context.role, "setlists.manage", context.customPermissions)) {
+      return { ok: false, message: "This cached account cannot manage setlists." };
+    }
+    const existing = getDesktopSetlist(context.teamId, id);
+    if (!existing) return { ok: false, message: "Setlist is not available in this offline workspace." };
+    upsertDesktopSetlist({
+      id,
+      eventId: existing.eventId || randomUUID(),
+      teamId: context.teamId,
+      name: parsed.data.title,
+      date: parsed.data.serviceDate,
+      eventType: parsed.data.eventType,
+      location: parsed.data.location,
+      callTime: parsed.data.callTime,
+      rehearsalTime: parsed.data.rehearsalTime,
+      serviceTimes,
+      notes: parsed.data.notes,
+      queue: true,
+    });
+    revalidatePath("/setlists");
+    revalidatePath(`/setlists/${id}`);
+    return { ok: true, message: "Setlist saved on this PC and queued to sync." };
+  }
+
   const context = await getMutationContext("setlists.manage");
   if (!context.ok) {
     return context.state;
@@ -1206,6 +1289,16 @@ export async function deleteSetlistAction(formData: FormData): Promise<ActionSta
   const setlistId = formData.get("setlistId") as string;
   if (!setlistId) {
     return { ok: false, message: "Setlist ID is required." };
+  }
+
+  if (isDesktopRuntime()) {
+    const context = await getCurrentTeamContext();
+    if (!context.teamId || !can(context.role, "setlists.manage", context.customPermissions)) {
+      return { ok: false, message: "This cached account cannot manage setlists." };
+    }
+    softDeleteDesktopSetlist(setlistId);
+    revalidatePath("/setlists");
+    redirect("/setlists");
   }
 
   const context = await getMutationContext("setlists.manage");
@@ -3203,6 +3296,31 @@ export async function createSongAction(_previous: ActionState, formData: FormDat
     return validationState(parsed.error);
   }
 
+  if (isDesktopRuntime()) {
+    const context = await getCurrentTeamContext();
+    if (!context.userId || !context.teamId || !can(context.role, "songs.create", context.customPermissions)) {
+      return { ok: false, message: "This cached account cannot create songs." };
+    }
+    const id = randomUUID();
+    upsertDesktopSong({
+      id,
+      teamId: context.teamId,
+      title: parsed.data.title,
+      artist: parsed.data.artist,
+      originalKey: parsed.data.originalKey,
+      bpm: parsed.data.bpm ?? null,
+      timeSignature: parsed.data.timeSignature,
+      lyricsChords: parsed.data.lyrics,
+      youtubeUrl: parsed.data.youtubeUrl || null,
+      spotifyUrl: parsed.data.spotifyUrl || null,
+      imageUrl: parsed.data.imageUrl || null,
+      album: parsed.data.album || null,
+      queue: true,
+    });
+    revalidatePath("/songs");
+    redirect(`/songs/${id}`);
+  }
+
   const context = await getMutationContext("songs.create");
   if (!context.ok) {
     return { ...context.state, message: context.state.message.replace("changes", "songs") };
@@ -3313,6 +3431,34 @@ export async function updateSongAction(_previous: ActionState, formData: FormDat
     return validationState(parsed.error);
   }
 
+  if (isDesktopRuntime()) {
+    const context = await getCurrentTeamContext();
+    if (!context.teamId || !can(context.role, "songs.edit", context.customPermissions)) {
+      return { ok: false, message: "This cached account cannot edit songs." };
+    }
+    const existing = getDesktopSong(context.teamId, songId);
+    if (!existing) return { ok: false, message: "Song is not available in this offline workspace." };
+    upsertDesktopSong({
+      id: songId,
+      teamId: context.teamId,
+      title: parsed.data.title,
+      artist: parsed.data.artist,
+      originalKey: parsed.data.originalKey,
+      bpm: parsed.data.bpm ?? null,
+      timeSignature: parsed.data.timeSignature,
+      lyricsChords: parsed.data.lyrics,
+      youtubeUrl: parsed.data.youtubeUrl || null,
+      spotifyUrl: parsed.data.spotifyUrl || null,
+      imageUrl: parsed.data.imageUrl || null,
+      album: parsed.data.album || null,
+      tags: existing.tags,
+      queue: true,
+    });
+    revalidatePath("/songs");
+    revalidatePath(`/songs/${songId}`);
+    return { ok: true, message: "Song saved on this PC and queued to sync." };
+  }
+
   const context = await getMutationContext("songs.edit");
   if (!context.ok) {
     return context.state;
@@ -3350,6 +3496,16 @@ export async function deleteSongAction(formData: FormData) {
     throw new Error("Song id is missing.");
   }
 
+  if (isDesktopRuntime()) {
+    const context = await getCurrentTeamContext();
+    if (!context.teamId || !can(context.role, "songs.delete", context.customPermissions)) {
+      throw new Error("This cached account cannot delete songs.");
+    }
+    softDeleteDesktopSong(songId);
+    revalidatePath("/songs");
+    redirect("/songs");
+  }
+
   const context = await getMutationContext("songs.delete");
   if (!context.ok) {
     throw new Error(context.state.message);
@@ -3374,6 +3530,17 @@ export async function restoreSongAction(formData: FormData) {
   const songId = formString(formData, "songId");
   if (!songId) {
     throw new Error("Song id is missing.");
+  }
+
+  if (isDesktopRuntime()) {
+    const context = await getCurrentTeamContext();
+    if (!context.teamId || !can(context.role, "songs.delete", context.customPermissions)) {
+      throw new Error("This cached account cannot restore songs.");
+    }
+    restoreDesktopSong(songId);
+    revalidatePath("/songs");
+    revalidatePath("/songs/trash");
+    redirect("/songs");
   }
 
   const context = await getMutationContext("songs.delete");

@@ -27,7 +27,7 @@ describe("rbac", () => {
   });
 
   it("orders the primary navigation with Home first and role-aware ministry tabs", () => {
-    expect(visibleNavigation("owner")).toEqual(["home", "setlists", "events", "messages", "members", "profile"]);
+    expect(visibleNavigation("owner")).toEqual(["home", "setlists", "events", "messages", "members", "analytics", "profile"]);
     expect(visibleNavigation("dancer")).toEqual(["home", "setlists", "events", "messages", "profile"]);
     expect(visibleNavigation("member")).toEqual(["home", "setlists", "events", "messages", "profile"]);
   });

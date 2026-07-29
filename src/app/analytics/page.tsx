@@ -74,6 +74,7 @@ export default async function AnalyticsPage() {
       channel_id,
       channels(name)
     `)
+    // eslint-disable-next-line react-hooks/purity -- Analytics are intentionally relative to the current server request.
     .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
   const channelCounts: Record<string, { name: string, count: number }> = {};

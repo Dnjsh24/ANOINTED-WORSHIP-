@@ -88,6 +88,8 @@ export interface Song {
   tags: string[];
   favorite: boolean;
   sections: SongSection[];
+  /** Original stored song text. Present only for local desktop presenter DTOs. */
+  rawLyricsChords?: string;
   youtubeUrl?: string;
   spotifyUrl?: string;
   imageUrl?: string;

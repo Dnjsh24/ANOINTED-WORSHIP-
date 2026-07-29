@@ -9,6 +9,8 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { parseLyricsAndChords } from "@/lib/domain/chords";
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
+import { getDesktopSong } from "@/lib/desktop/workspace";
 import type { Song } from "@/lib/types";
 
 export default async function SongPage({ 
@@ -25,7 +27,9 @@ export default async function SongPage({
   let song: Song | null = hasSupabaseEnv() ? null : sampleSongs.find((item) => item.id === id) ?? sampleSongs[0];
   let usageDates: string[] = [];
 
-  if (hasSupabaseEnv()) {
+  if (isDesktopRuntime() && teamContext.teamId) {
+    song = getDesktopSong(teamContext.teamId, id);
+  } else if (hasSupabaseEnv()) {
     const supabase = await createClient();
     const { data: dbSong } = (await supabase
       .from("songs")

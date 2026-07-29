@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv, hasSupabaseEnv } from "@/lib/supabase/env";
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import type { Database } from "@/lib/supabase/database.types";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -74,6 +75,13 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (!hasSupabaseEnv()) {
+    return NextResponse.next({ request });
+  }
+
+  // The local Next server is always reachable while the internet may not be.
+  // Desktop routes authenticate through the cached workspace context instead of
+  // forcing a Supabase request on every navigation.
+  if (isDesktopRuntime()) {
     return NextResponse.next({ request });
   }
 

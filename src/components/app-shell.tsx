@@ -19,6 +19,8 @@ import { getCurrentTeamContext, type TeamContext } from "@/lib/supabase/team-con
 import { createClient } from "@/lib/supabase/server";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { cn } from "@/lib/utils";
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
+import { DesktopSyncStatus } from "@/components/desktop-sync-status";
 import type { TeamRole } from "@/lib/types";
 
 const navItems = [
@@ -44,7 +46,7 @@ export async function AppShell({
   const navigation = getVisibleNavigationItems(context.role as any);
   
   let unreadMessageCount = 0;
-  if (hasSupabaseEnv() && context.userId) {
+  if (hasSupabaseEnv() && context.userId && !isDesktopRuntime()) {
     const supabase = await createClient();
     const { data } = await supabase.rpc("get_unread_message_count", {
       p_profile_id: context.userId
@@ -84,7 +86,14 @@ export async function AppShell({
               </Link>
             ))}
           </nav>
-          <AppShellActions userId={context.userId} teamId={context.teamId} canManageTeam={context.canManageMembers} />
+          <div className="flex items-center gap-3">
+            <AppShellActions
+              userId={context.userId}
+              teamId={context.teamId}
+              canManageTeam={context.canManageMembers}
+              desktopSync={isDesktopRuntime() ? <DesktopSyncStatus compact /> : undefined}
+            />
+          </div>
         </div>
       </header>
       <MobileIconRail active={active} items={mobileNavigation} canManageTeam={context.canManageMembers} />

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import type { SlideBlock, PresentationSettings, PresentationSlide } from "@/lib/domain/presentation";
+import { entranceMotionClass, exitMotionClass, resolveBlockMotion, resolveSceneLayerMotion, type SceneLayer, type SlideBlock, type PresentationSettings, type PresentationSlide } from "@/lib/domain/presentation";
 import { cn } from "@/lib/utils";
+import { DesktopLiveSource } from "@/components/desktop-live-source";
 
 interface KineticCanvasProps {
   blocks: SlideBlock[];
@@ -13,12 +14,21 @@ interface KineticCanvasProps {
   playKey?: number;
   selectedBlockIds?: string[];
   onSelectBlock?: (ids: string[]) => void;
+  sceneLayers?: SceneLayer[];
+  selectedSceneLayerId?: string | null;
+  selectedSceneLayerIds?: string[];
+  onSelectSceneLayer?: (id: string | null, additive?: boolean) => void;
+  onUpdateSceneLayer?: (id: string, updates: Partial<SceneLayer>) => void;
+  onUpdateSceneLayers?: (updates: Record<string, Partial<SceneLayer>>) => void;
 }
 
-export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, onUpdateBlocks, playKey = 0, selectedBlockIds = [], onSelectBlock }: KineticCanvasProps) {
+export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, onUpdateBlocks, playKey = 0, selectedBlockIds = [], onSelectBlock, sceneLayers = [], selectedSceneLayerId, selectedSceneLayerIds = [], onSelectSceneLayer, onUpdateSceneLayer, onUpdateSceneLayers }: KineticCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [draggingBlock, setDraggingBlock] = useState<string | null>(null);
+  const [draggingSceneLayer, setDraggingSceneLayer] = useState<SceneLayer | null>(null);
+  const [initialSceneLayers, setInitialSceneLayers] = useState<SceneLayer[]>([]);
+  const [resizingSceneLayer, setResizingSceneLayer] = useState<SceneLayer | null>(null);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
   const [startBlockPos, setStartBlockPos] = useState({ x: 0, y: 0 });
   const [initialSelectedBlocks, setInitialSelectedBlocks] = useState<SlideBlock[]>([]);
@@ -58,7 +68,21 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
       
       const rect = containerRef.current.getBoundingClientRect();
 
-      if (draggingBlock) {
+      if (resizingSceneLayer) {
+         const dx = (e.clientX - startPos.x) / rect.width * 100;
+         const dy = (e.clientY - startPos.y) / rect.height * 100;
+         onUpdateSceneLayer?.(resizingSceneLayer.id, {
+           width: Math.max(2, Math.min(100 - resizingSceneLayer.x, startBlockPos.x + dx)),
+           height: Math.max(2, Math.min(100 - resizingSceneLayer.y, startBlockPos.y + dy)),
+         });
+      } else if (draggingSceneLayer) {
+         const dx = (e.clientX - startPos.x) / rect.width * 100;
+         const dy = (e.clientY - startPos.y) / rect.height * 100;
+         const targets = initialSceneLayers.length ? initialSceneLayers : [draggingSceneLayer];
+         const updates = Object.fromEntries(targets.map((layer) => [layer.id, { x: Math.max(0, Math.min(100 - layer.width, layer.x + dx)), y: Math.max(0, Math.min(100 - layer.height, layer.y + dy)) }]));
+         if (onUpdateSceneLayers) onUpdateSceneLayers(updates);
+         else targets.forEach((layer) => onUpdateSceneLayer?.(layer.id, updates[layer.id]));
+      } else if (draggingBlock) {
          const dx = e.clientX - startPos.x;
          const dy = e.clientY - startPos.y;
          const dxPercent = (dx / rect.width) * 100;
@@ -109,10 +133,13 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
 
     const handlePointerUp = () => {
       setDraggingBlock(null);
+      setDraggingSceneLayer(null);
+      setInitialSceneLayers([]);
+      setResizingSceneLayer(null);
       setSelectionBox(null);
     };
 
-    if (draggingBlock || selectionBox) {
+    if (draggingBlock || draggingSceneLayer || resizingSceneLayer || selectionBox) {
       window.addEventListener("pointermove", handlePointerMove);
       window.addEventListener("pointerup", handlePointerUp);
     }
@@ -121,7 +148,7 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [draggingBlock, selectionBox, startPos, startBlockPos, onUpdateBlock, onUpdateBlocks, initialSelectedBlocks, selectedBlockIds, onSelectBlock, blocks]);
+  }, [draggingBlock, draggingSceneLayer, resizingSceneLayer, selectionBox, startPos, startBlockPos, onUpdateBlock, onUpdateBlocks, onUpdateSceneLayer, onUpdateSceneLayers, initialSelectedBlocks, initialSceneLayers, selectedBlockIds, onSelectBlock, blocks]);
 
   const handlePointerDown = (e: React.PointerEvent, block: SlideBlock) => {
     e.preventDefault();
@@ -262,6 +289,21 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
           }}
         />
       )}
+      {sceneLayers.filter((layer) => !layer.hidden).map((layer) => {
+        const motion = resolveSceneLayerMotion(layer, settings);
+        const entrance = entranceMotionClass(motion.entranceAnimation);
+        const exit = exitMotionClass(motion.exitAnimation);
+        return <button key={layer.id} type="button" onPointerDown={(event) => { event.stopPropagation(); onSelectSceneLayer?.(layer.id, event.shiftKey || event.ctrlKey || event.metaKey); if (!layer.locked) { setDraggingSceneLayer(layer); setInitialSceneLayers(layer.groupId ? sceneLayers.filter((candidate) => candidate.groupId === layer.groupId && !candidate.locked) : [layer]); setStartPos({ x: event.clientX, y: event.clientY }); setStartBlockPos({ x: layer.x, y: layer.y }); } }} className={cn("absolute overflow-hidden text-left", selectedSceneLayerIds.includes(layer.id) && "ring-2 ring-violet-400", isCurrentlyPlaying && entrance && "fill-mode-both", isCurrentlyPlaying && entrance)} style={{ left: `${layer.x}%`, top: `${layer.y}%`, width: `${layer.width}%`, height: `${layer.height}%`, transform: `rotate(${layer.rotation}deg)`, backgroundColor: layer.kind === "shape" ? layer.backgroundColor : undefined, borderRadius: `${layer.borderRadius || 0}px`, zIndex: 20 + (layer.zIndex ?? 0), animationDelay: isCurrentlyPlaying && entrance ? `${(layer.startTime || 0) + motion.entranceDelay}s` : undefined, animationDuration: isCurrentlyPlaying && entrance ? `${motion.entranceDuration}s` : undefined }}>
+          <span className={cn("block h-full w-full", isCurrentlyPlaying && exit && "fill-mode-forwards", isCurrentlyPlaying && exit)} style={{ animationDelay: isCurrentlyPlaying && exit && layer.duration ? `${(layer.startTime || 0) + layer.duration + motion.exitDelay}s` : undefined, animationDuration: isCurrentlyPlaying && exit ? `${motion.exitDuration}s` : undefined }}>
+            {layer.kind === "text" && <span style={{ color: layer.color || "#fff", fontSize: `${Math.max(10, (layer.fontSize || 56) * .4)}pt` }}>{layer.text || "Text"}</span>}
+            {layer.kind === "image" && layer.mediaUrl && <img src={layer.mediaUrl} alt="" className="h-full w-full object-contain" />}
+            {layer.kind === "video" && layer.mediaUrl && <video src={layer.mediaUrl} className="h-full w-full object-cover" muted />}
+            {layer.kind === "live-camera" && <DesktopLiveSource kind="live-camera" sourceId={layer.captureSourceId} />}
+            {layer.kind === "live-screen" && <DesktopLiveSource kind="live-screen" sourceId={layer.captureSourceId} />}
+          </span>
+          {selectedSceneLayerId === layer.id && !layer.locked && <span aria-label="Resize layer" onPointerDown={(event) => { event.preventDefault(); event.stopPropagation(); setResizingSceneLayer(layer); setStartPos({ x: event.clientX, y: event.clientY }); setStartBlockPos({ x: layer.width, y: layer.height }); }} className="absolute bottom-0 right-0 size-3 translate-x-1/2 translate-y-1/2 cursor-se-resize rounded-sm border border-black bg-violet-300" />}
+        </button>;
+      })}
 
       {/* Blocks */}
       {(() => {
@@ -284,15 +326,15 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
           const effectiveUnderline = block.underline ?? settings.underline;
 
           // Effective Animations
-          const effEntAnim = block.entranceAnimation ?? settings.entranceAnimation;
-          const effEntDuration = block.entranceDuration ?? (settings.entranceDuration || 1.0);
-          let effEntDelay = block.entranceDelay ?? (settings.entranceDelay || 0);
-          const effEntCurve = block.entranceCurve ?? (settings.entranceCurve || "Ease Out");
-        
-          const effExtAnim = block.exitAnimation ?? settings.exitAnimation;
-          const effExtDuration = block.exitDuration ?? (settings.exitDuration || 1.0);
-        const effExtDelay = block.exitDelay ?? (settings.exitDelay || 0); // User-defined explicit exit delay override
-        const effExtCurve = block.exitCurve ?? (settings.exitCurve || "Ease Out");
+          const resolvedMotion = resolveBlockMotion(block, settings);
+          const effEntAnim = resolvedMotion.entranceAnimation;
+          const effEntDuration = resolvedMotion.entranceDuration;
+          let effEntDelay = resolvedMotion.entranceDelay;
+          const effEntCurve = resolvedMotion.entranceCurve;
+          const effExtAnim = resolvedMotion.exitAnimation;
+          const effExtDuration = resolvedMotion.exitDuration;
+          const effExtDelay = resolvedMotion.exitDelay;
+          const effExtCurve = resolvedMotion.exitCurve;
 
         // Apply kinetic stagger delay if Word by Word mode is active globally
         if (settings.kineticMode === "Word by Word") {

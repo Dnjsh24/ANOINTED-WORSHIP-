@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Electron starts the self-contained Next server from .next/standalone.
+  // The web deployment retains its normal output mode.
+  output: process.env.ANW_DESKTOP_BUILD === "1" ? "standalone" : undefined,
   allowedDevOrigins: ["127.0.0.1", "localhost", "192.168.1.14", "192.168.1.14:3100"],
   reactStrictMode: true,
   async headers() {

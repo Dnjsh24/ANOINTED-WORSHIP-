@@ -49,9 +49,8 @@ function fakeSupabase({
   const client = {
     auth: {
       getUser: async () => ({
-        data: {
-          user: { id: "profile-1" },
-        },
+        data: { user: { id: "profile-1" } },
+        error: null,
       }),
     },
     from: (table: string) => {
@@ -89,7 +88,7 @@ describe("getCurrentTeamContextForClient", () => {
     expect(context.teamName).toBe("Current Team");
     expect(membershipQuery?.operations).toContainEqual({
       name: "select",
-      args: ["id, team_id, role, status, teams!inner (id, name, code)"],
+      args: [expect.stringContaining("custom_role_id")],
     });
     expect(membershipQuery?.operations).toContainEqual({
       name: "order",

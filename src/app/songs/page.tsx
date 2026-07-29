@@ -8,6 +8,8 @@ import { songs as sampleSongs } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
+import { listDesktopSongs } from "@/lib/desktop/workspace";
 import type { Song } from "@/lib/types";
 
 export default async function SongsPage() {
@@ -16,7 +18,10 @@ export default async function SongsPage() {
   let songsList: Song[] = hasSupabaseEnv() ? [] : sampleSongs;
   let totalSongsCount = hasSupabaseEnv() ? 0 : sampleSongs.length;
 
-  if (hasSupabaseEnv() && teamContext.teamId) {
+  if (isDesktopRuntime() && teamContext.teamId) {
+    songsList = listDesktopSongs(teamContext.teamId);
+    totalSongsCount = songsList.length;
+  } else if (hasSupabaseEnv() && teamContext.teamId) {
     const supabase = await createClient();
     let { data: dbSongs, error } = await supabase
       .from("songs")

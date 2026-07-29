@@ -2,7 +2,7 @@
 
 import { Bell, Settings } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
@@ -16,10 +16,12 @@ export function AppShellActions({
   userId,
   teamId,
   canManageTeam = false,
+  desktopSync,
 }: {
   userId: string | null;
   teamId: string | null;
   canManageTeam?: boolean;
+  desktopSync?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [pendingRequestCount, setPendingRequestCount] = useState(0);
@@ -162,6 +164,7 @@ export function AppShellActions({
 
   return (
     <div className="relative flex items-center gap-2 text-zinc-300">
+      {desktopSync}
       <button
         type="button"
         aria-label="Open notifications"

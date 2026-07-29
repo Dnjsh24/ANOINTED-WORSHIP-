@@ -62,6 +62,14 @@ const cancelJoinRequestsMigration = readFileSync(
   join(process.cwd(), "supabase", "migrations", "20260704010000_cancel_join_requests.sql"),
   "utf8",
 );
+const remotePairingMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260726000003_worship_remote_pairing_sessions.sql"),
+  "utf8",
+);
+const privateRemoteHelperMigration = readFileSync(
+  join(process.cwd(), "supabase", "migrations", "20260727000002_move_remote_policy_helper_to_private_schema.sql"),
+  "utf8",
+);
 
 const requiredTables = [
   "profiles",
@@ -216,5 +224,13 @@ describe("Supabase migration", () => {
     expect(cancelJoinRequestsMigration).toContain("notify_join_request_canceled");
     expect(cancelJoinRequestsMigration).toContain("insert into public.notifications");
     expect(cancelJoinRequestsMigration).toContain("'Join request canceled'");
+  });
+
+  it("keeps Remote pairing one-time and uses a non-API role helper", () => {
+    expect(remotePairingMigration).toContain("private.is_worship_remote_operator");
+    expect(remotePairingMigration).toContain("session_row.paired_by is not null");
+    expect(privateRemoteHelperMigration).toContain("alter function public.is_worship_remote_operator(uuid) set schema private");
+    expect(privateRemoteHelperMigration).toContain("grant execute on function private.is_worship_remote_operator(uuid) to authenticated");
+    expect(privateRemoteHelperMigration).toContain("revoke all on function private.is_worship_remote_operator(uuid) from anon");
   });
 });

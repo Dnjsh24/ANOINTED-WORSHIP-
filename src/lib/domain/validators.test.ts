@@ -119,6 +119,7 @@ describe("validators", () => {
         date: "2026-07-09",
         startTime: "19:00",
         location: "Room A",
+        worshipLeader: "Alex Morgan",
       }),
     ).toMatchObject({ eventType: "rehearsal" });
 
@@ -132,6 +133,7 @@ describe("validators", () => {
   it("does not accept profile role changes from personal settings", () => {
     const parsed = profileInputSchema.parse({
       fullName: "Dan Jeshua",
+      ministries: ["Worship"],
       primaryRole: "Member",
       accessLevel: "owner",
       avatarUrl: "",
@@ -143,7 +145,7 @@ describe("validators", () => {
   it("validates optional message attachments", () => {
     expect(
       messageSchema.parse({
-        channelId: "worship-team",
+        channelId: "22222222-2222-4222-8222-222222222222",
         body: "Please review this chart.",
         attachmentFileId: "11111111-1111-4111-8111-111111111111",
       }),
@@ -151,7 +153,7 @@ describe("validators", () => {
 
     expect(() =>
       messageSchema.parse({
-        channelId: "worship-team",
+        channelId: "22222222-2222-4222-8222-222222222222",
         body: "Bad attachment",
         attachmentFileId: "not-a-file-id",
       }),

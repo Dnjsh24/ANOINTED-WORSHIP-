@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
+import { findDesktopBibleVerses } from "@/lib/desktop/workspace";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -7,6 +9,14 @@ export async function GET(req: NextRequest) {
 
   if (!query) {
     return NextResponse.json({ error: "Missing query" }, { status: 400 });
+  }
+
+  if (isDesktopRuntime()) {
+    const verses = findDesktopBibleVerses(query, translation);
+    if (verses.length === 0) {
+      return NextResponse.json({ error: "This Bible passage has not been installed on this PC." }, { status: 404 });
+    }
+    return NextResponse.json({ reference: query, text: verses.map((verse) => verse.text).join(" "), verses });
   }
 
   try {

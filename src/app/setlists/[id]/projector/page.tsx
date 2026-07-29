@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import ProjectorClient from "./projector-client";
 import type { Viewport } from "next";
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
+import { getDesktopPresenterLiveState, getDesktopSetlist } from "@/lib/desktop/workspace";
 
 export const viewport: Viewport = {
   maximumScale: 5,
@@ -14,7 +16,10 @@ export default async function ProjectorPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
 
-  if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
+  if (isDesktopRuntime() && teamContext.teamId) {
+    const setlist = getDesktopSetlist(teamContext.teamId, id);
+    if (setlist) return <ProjectorClient setlistId={id} initialSettings={(setlist as any).presentationSettings?.settings} initialLiveState={getDesktopPresenterLiveState(id)} />;
+  } else if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
     const { data: dbSetlist } = (await supabase

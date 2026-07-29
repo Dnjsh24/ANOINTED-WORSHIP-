@@ -4,13 +4,17 @@ import { setlists as sampleSetlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
+import { listDesktopSetlists } from "@/lib/desktop/workspace";
 import type { Setlist } from "@/lib/types";
 
 export default async function SetlistsPage() {
   const teamContext = await getRequiredTeamContext();
   let setlistsList: Setlist[] = [];
 
-  if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
+  if (isDesktopRuntime() && teamContext.teamId) {
+    setlistsList = listDesktopSetlists(teamContext.teamId);
+  } else if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
     // Fetch setlists, leaders (with profile names), and setlist songs (with song titles/BPMs) in a single nested select

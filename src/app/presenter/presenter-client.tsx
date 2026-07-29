@@ -1,29 +1,95 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Loader2, Save, X, Play, Music, LayoutTemplate, MonitorUp, EyeOff, Settings, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Smartphone, Type, BookOpen } from "lucide-react";
+import { Loader2, Save, X, Play, Music, LayoutTemplate, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Smartphone, Type, BookOpen, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { generateSongSlides, defaultPresentationSettings, type PresentationSlide, type PresentationSettings, type SlideBlock } from "@/lib/domain/presentation";
+import { generateSongSlides, defaultPresentationSettings, resolveBlockMotion, type BlockMotion, type LiveProp, type PresentationSlide, type PresentationSettings, type SceneLayer, type SlideBlock } from "@/lib/domain/presentation";
 import KineticCanvas from "./kinetic-canvas";
 import TimelineEditor from "./timeline-editor";
 import { MediaUploader } from "@/components/media-uploader";
+import { DesktopBackgroundLibrary, type DesktopBackgroundAssetClient, type DesktopBackgroundCollectionClient } from "@/components/desktop-background-library";
+import { DesktopLiveSourcePanel } from "@/components/desktop-live-source-panel";
+import { persistDesktopPresenterLiveState } from "./desktop-live-actions";
+import { createCloudRemotePairing } from "./remote-pairing-actions";
+import { deleteDesktopMotionPresetAction, saveDesktopMotionPresetAction } from "./desktop-motion-preset-actions";
+import { saveDesktopSceneLayersAction } from "./desktop-scene-layer-actions";
+import { deleteDesktopPptxAction, importDesktopPptxAction, renameDesktopPptxAction } from "./desktop-pptx-actions";
+import { deleteDesktopLivePropPresetAction, saveDesktopLivePropPresetAction } from "./desktop-live-prop-actions";
+import { isRemoteCommand, REMOTE_PROTOCOL_VERSION, type RemoteCommandAcknowledgement, type RemoteLiveState } from "@/lib/presentation/control-protocol";
+import { stageLayoutPreset, type StageLayoutPresetId } from "@/lib/desktop/stage-layout";
+import type { AudienceLookLayout } from "@/lib/desktop/audience-looks";
+import { resolveRemoteChannelTarget } from "@/lib/presentation/remote-pairing";
+import {
+  buildLivePresentationSnapshot,
+  isLivePresentationSnapshot,
+  namespacedSlideId,
+  type LivePresentationSnapshot,
+  type PublishedPresentationSlide,
+} from "@/lib/presentation/live-snapshot";
+import { useRemoteCommandSubscription } from "@/lib/presentation/use-remote-command-subscription";
+import { savePresenterDraftAction } from "./presentation-draft-actions";
 
 const BIBLE_BOOKS = [
   { name: "Genesis", chapters: 50, ot: true }, { name: "Exodus", chapters: 40, ot: true }, { name: "Leviticus", chapters: 27, ot: true }, { name: "Numbers", chapters: 36, ot: true }, { name: "Deuteronomy", chapters: 34, ot: true }, { name: "Joshua", chapters: 24, ot: true }, { name: "Judges", chapters: 21, ot: true }, { name: "Ruth", chapters: 4, ot: true }, { name: "1 Samuel", chapters: 31, ot: true }, { name: "2 Samuel", chapters: 24, ot: true }, { name: "1 Kings", chapters: 22, ot: true }, { name: "2 Kings", chapters: 25, ot: true }, { name: "1 Chronicles", chapters: 29, ot: true }, { name: "2 Chronicles", chapters: 36, ot: true }, { name: "Ezra", chapters: 10, ot: true }, { name: "Nehemiah", chapters: 13, ot: true }, { name: "Esther", chapters: 10, ot: true }, { name: "Job", chapters: 42, ot: true }, { name: "Psalms", chapters: 150, ot: true }, { name: "Proverbs", chapters: 31, ot: true }, { name: "Ecclesiastes", chapters: 12, ot: true }, { name: "Song of Solomon", chapters: 8, ot: true }, { name: "Isaiah", chapters: 66, ot: true }, { name: "Jeremiah", chapters: 52, ot: true }, { name: "Lamentations", chapters: 5, ot: true }, { name: "Ezekiel", chapters: 48, ot: true }, { name: "Daniel", chapters: 12, ot: true }, { name: "Hosea", chapters: 14, ot: true }, { name: "Joel", chapters: 3, ot: true }, { name: "Amos", chapters: 9, ot: true }, { name: "Obadiah", chapters: 1, ot: true }, { name: "Jonah", chapters: 4, ot: true }, { name: "Micah", chapters: 7, ot: true }, { name: "Nahum", chapters: 3, ot: true }, { name: "Habakkuk", chapters: 3, ot: true }, { name: "Zephaniah", chapters: 3, ot: true }, { name: "Haggai", chapters: 2, ot: true }, { name: "Zechariah", chapters: 14, ot: true }, { name: "Malachi", chapters: 4, ot: true },
   { name: "Matthew", chapters: 28, ot: false }, { name: "Mark", chapters: 16, ot: false }, { name: "Luke", chapters: 24, ot: false }, { name: "John", chapters: 21, ot: false }, { name: "Acts", chapters: 28, ot: false }, { name: "Romans", chapters: 16, ot: false }, { name: "1 Corinthians", chapters: 16, ot: false }, { name: "2 Corinthians", chapters: 13, ot: false }, { name: "Galatians", chapters: 6, ot: false }, { name: "Ephesians", chapters: 6, ot: false }, { name: "Philippians", chapters: 4, ot: false }, { name: "Colossians", chapters: 4, ot: false }, { name: "1 Thessalonians", chapters: 5, ot: false }, { name: "2 Thessalonians", chapters: 3, ot: false }, { name: "1 Timothy", chapters: 6, ot: false }, { name: "2 Timothy", chapters: 4, ot: false }, { name: "Titus", chapters: 3, ot: false }, { name: "Philemon", chapters: 1, ot: false }, { name: "Hebrews", chapters: 13, ot: false }, { name: "James", chapters: 5, ot: false }, { name: "1 Peter", chapters: 5, ot: false }, { name: "2 Peter", chapters: 3, ot: false }, { name: "1 John", chapters: 5, ot: false }, { name: "2 John", chapters: 1, ot: false }, { name: "3 John", chapters: 1, ot: false }, { name: "Jude", chapters: 1, ot: false }, { name: "Revelation", chapters: 22, ot: false }
 ];
 
-export default function GlobalPresenterClient({ setlists }: { setlists: any[] }) {
-  const [selectedSetlistId, setSelectedSetlistId] = useState<string>(setlists[0]?.id || "");
+export default function GlobalPresenterClient({
+  setlists,
+  initialSetlistId,
+  desktopMode = false,
+  desktopBackgrounds = [],
+  desktopBackgroundCollections = [],
+  desktopSetlistBackgrounds = {},
+  desktopMotionPresets = [],
+  desktopSceneLayers = {},
+  desktopAudienceLooks = [],
+  desktopOutputConfigs = [],
+  desktopLivePropPresets = [],
+  desktopImportedPresentations = [],
+}: {
+  setlists: any[];
+  initialSetlistId?: string;
+  desktopMode?: boolean;
+  desktopBackgrounds?: DesktopBackgroundAssetClient[];
+  desktopBackgroundCollections?: DesktopBackgroundCollectionClient[];
+  desktopSetlistBackgrounds?: Record<string, DesktopBackgroundAssetClient | null>;
+  desktopMotionPresets?: Array<{ id: string; name: string; motion: BlockMotion; updatedAt: string }>;
+  desktopSceneLayers?: Record<string, Record<string, SceneLayer[]>>;
+  desktopAudienceLooks?: Array<{ id: string; name: string; layout: AudienceLookLayout }>;
+  desktopOutputConfigs?: Array<{ id: string; name: string; displayId: string | null; lookId: string | null; route: "projector" | "confidence" | "stream" | "lobby"; enabled: boolean }>;
+  desktopLivePropPresets?: Array<{ id: string; name: string; prop: LiveProp; updatedAt: string }>;
+  desktopImportedPresentations?: Array<{ id: string; name: string; slides: Array<{ id: string; layers: SceneLayer[] }>; report: { importedText: number; warnings: string[] } }>;
+}) {
+  const [selectedSetlistId, setSelectedSetlistId] = useState<string>(
+    setlists.some((setlist) => setlist.id === initialSetlistId) ? initialSetlistId! : setlists[0]?.id || "",
+  );
   const [activeItemIndex, setActiveItemIndex] = useState<number>(0);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
+  const [selectedSceneLayerId, setSelectedSceneLayerId] = useState<string | null>(null);
+  const [selectedSceneLayerIds, setSelectedSceneLayerIds] = useState<string[]>([]);
+  const [captureSources, setCaptureSources] = useState<Array<{ id: string; name: string; thumbnail?: string }>>([]);
+  const [cameraSources, setCameraSources] = useState<Array<{ id: string; name: string }>>([]);
   const [mediaUrl, setMediaUrl] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"Property" | "Layers" | "Motion" | "Stage">("Property");
+  const [activeTab, setActiveTab] = useState<"Lyrics" | "Property" | "Layers" | "Motion" | "Stage">("Lyrics");
   const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [draftMessage, setDraftMessage] = useState("");
   const [playKey, setPlayKey] = useState<number>(0);
+  const [outputMode, setOutputMode] = useState<"slide" | "clear" | "black" | "logo">("clear");
+  const [outputStateVersion, setOutputStateVersion] = useState(0);
+  const [lanPairing, setLanPairing] = useState<{ url?: string; qrDataUrl?: string } | null>(null);
+  const [cloudPairing, setCloudPairing] = useState<{ url: string; qrDataUrl: string } | null>(null);
+  const [cloudRemoteTopic, setCloudRemoteTopic] = useState<string | null>(null);
+  const [cloudRemoteExpiresAt, setCloudRemoteExpiresAt] = useState<string | null>(null);
+  const [controllerLease, setControllerLease] = useState<{ owner: "remote" | "desktop"; id?: string; expiresAt: number } | null>(null);
+  const [lastRemoteAcknowledgement, setLastRemoteAcknowledgement] = useState<RemoteCommandAcknowledgement | null>(null);
+  const [motionPresets, setMotionPresets] = useState(desktopMotionPresets);
+  const [motionPresetName, setMotionPresetName] = useState("");
+  const [selectedMotionPresetId, setSelectedMotionPresetId] = useState("");
   
   const setlist = useMemo(() => setlists.find(s => s.id === selectedSetlistId) || setlists[0], [selectedSetlistId, setlists]);
   
@@ -31,6 +97,38 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   const [settings, setSettings] = useState<PresentationSettings>(setlist?.presentationSettings?.settings || defaultPresentationSettings);
   const [linesPerSlide, setLinesPerSlide] = useState<number>(setlist?.presentationSettings?.linesPerSlide || 4);
   const [slideOverrides, setSlideOverrides] = useState<Record<string, SlideBlock[]>>(setlist?.presentationSettings?.slideOverrides || {});
+  const [sceneLayers, setSceneLayers] = useState<Record<string, SceneLayer[]>>(desktopSceneLayers[setlist?.id] || {});
+  const [draftLyricsBySetlistSongId, setDraftLyricsBySetlistSongId] = useState<Record<string, string>>(
+    setlist?.presentationSettings?.draftLyricsBySetlistSongId || {},
+  );
+  const [publishedRevision, setPublishedRevision] = useState<number>(setlist?.presentationSettings?.publishedRevision || 0);
+  const [liveSongIndex, setLiveSongIndex] = useState(0);
+  const [liveSlideId, setLiveSlideId] = useState<string | null>(null);
+  const [publishedSnapshot, setPublishedSnapshot] = useState<LivePresentationSnapshot>(() => {
+    const storedSnapshot = setlist?.presentationSettings?.publishedSnapshot;
+    const localBackground = desktopMode ? desktopSetlistBackgrounds[setlist?.id] : undefined;
+    if (isLivePresentationSnapshot(storedSnapshot) && storedSnapshot.setlistId === setlist?.id) {
+      return {
+        ...storedSnapshot,
+        settings: {
+          ...storedSnapshot.settings,
+          backgroundMediaUrl: localBackground?.url,
+          backgroundMediaType: localBackground?.mediaType,
+        },
+      };
+    }
+    return buildLivePresentationSnapshot({
+      setlist: setlist || { id: "", name: "No setlist", songs: [] },
+      revision: setlist?.presentationSettings?.publishedRevision || 0,
+      linesPerSlide: setlist?.presentationSettings?.linesPerSlide || 4,
+      settings: setlist?.presentationSettings?.settings || defaultPresentationSettings,
+      draft: {
+        lyricsBySetlistSongId: setlist?.presentationSettings?.draftLyricsBySetlistSongId || {},
+        slideOverrides: setlist?.presentationSettings?.slideOverrides || {},
+        sceneLayers: desktopSceneLayers[setlist?.id] || {},
+      },
+    });
+  });
 
   // --- History & Undo/Redo State ---
   type HistoryState = { settings: PresentationSettings; slideOverrides: Record<string, SlideBlock[]> };
@@ -39,7 +137,41 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
   
   // --- Stage Display Controls ---
   const [stageMessageInput, setStageMessageInput] = useState("");
+  const [stageFlashStyle, setStageFlashStyle] = useState({ fontSize: 56, color: "#ffffff", backgroundColor: "#dc2626" });
+  const [stageLayoutPresetId, setStageLayoutPresetId] = useState<StageLayoutPresetId>("full");
+
+  useEffect(() => {
+    if (!desktopMode) return;
+    void window.anointedDesktop?.listCaptureSources().then(setCaptureSources).catch(() => setCaptureSources([]));
+    void navigator.mediaDevices?.enumerateDevices?.().then((devices) => setCameraSources(devices.filter((device) => device.kind === "videoinput").map((device, index) => ({ id: device.deviceId, name: device.label || `Camera ${index + 1}` })))).catch(() => setCameraSources([]));
+  }, [desktopMode]);
   const [countdownInput, setCountdownInput] = useState(5);
+  const [countdownTarget, setCountdownTarget] = useState<number | null>(null);
+  const [pausedCountdownMs, setPausedCountdownMs] = useState<number | null>(null);
+  const [liveProp, setLiveProp] = useState<LiveProp | null>(null);
+  const [propText, setPropText] = useState("");
+  const [propSubtitle, setPropSubtitle] = useState("");
+  const [propPresetName, setPropPresetName] = useState("");
+  const [livePropPresets, setLivePropPresets] = useState(desktopLivePropPresets);
+  const [pptxReport, setPptxReport] = useState<{ importedText: number; warnings: string[] } | null>(() => desktopImportedPresentations[0]?.report || null);
+  const [isImportingPptx, setIsImportingPptx] = useState(false);
+  const [savedPptxPresentations, setSavedPptxPresentations] = useState(desktopImportedPresentations);
+  const [importedPptxSlides, setImportedPptxSlides] = useState<PresentationSlide[]>(() => desktopImportedPresentations[0]?.slides.map((slide) => ({ id: slide.id, type: "teaching", content: [], sectionLabel: desktopImportedPresentations[0].name, sceneLayers: slide.layers })) || []);
+
+  // A controller lease must visibly expire even when no other command arrives.
+  useEffect(() => {
+    if (!controllerLease) return;
+    const delay = Math.max(0, controllerLease.expiresAt - Date.now());
+    const timer = window.setTimeout(() => setControllerLease((current) => current?.expiresAt === controllerLease.expiresAt ? null : current), delay);
+    return () => window.clearTimeout(timer);
+  }, [controllerLease]);
+
+  useEffect(() => {
+    if (!cloudRemoteExpiresAt) return;
+    const delay = Math.max(0, Date.parse(cloudRemoteExpiresAt) - Date.now());
+    const timer = window.setTimeout(() => { setCloudRemoteTopic(null); setCloudRemoteExpiresAt(null); setCloudPairing(null); }, delay);
+    return () => window.clearTimeout(timer);
+  }, [cloudRemoteExpiresAt]);
 
   // --- Bible Controls ---
   const [bibleQuery, setBibleQuery] = useState("");
@@ -74,89 +206,143 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
 
   // Update local state when setlist changes
   useEffect(() => {
-    if (setlist?.presentationSettings) {
-      if (setlist.presentationSettings.settings) setSettings(setlist.presentationSettings.settings);
-      if (setlist.presentationSettings.linesPerSlide) setLinesPerSlide(setlist.presentationSettings.linesPerSlide);
-      if (setlist.presentationSettings.slideOverrides) setSlideOverrides(setlist.presentationSettings.slideOverrides);
+    if (!setlist) return;
+    const nextSettings = { ...(setlist.presentationSettings?.settings || defaultPresentationSettings) } as PresentationSettings;
+    if (desktopMode) {
+      const localBackground = desktopSetlistBackgrounds[setlist.id];
+      nextSettings.backgroundMediaUrl = localBackground?.url;
+      nextSettings.backgroundMediaType = localBackground?.mediaType;
     }
-  }, [setlist]);
+    setSettings(nextSettings);
+    if (setlist.presentationSettings?.linesPerSlide) setLinesPerSlide(setlist.presentationSettings.linesPerSlide);
+    if (setlist.presentationSettings?.slideOverrides) setSlideOverrides(setlist.presentationSettings.slideOverrides);
+    setSceneLayers(desktopSceneLayers[setlist.id] || {});
+    const nextDraftLyrics = setlist.presentationSettings?.draftLyricsBySetlistSongId || {};
+    const nextRevision = setlist.presentationSettings?.publishedRevision || 0;
+    setDraftLyricsBySetlistSongId(nextDraftLyrics);
+    setPublishedRevision(nextRevision);
+    setLiveSongIndex(0);
+    setLiveSlideId(null);
+    const storedSnapshot = setlist.presentationSettings?.publishedSnapshot;
+    setPublishedSnapshot(isLivePresentationSnapshot(storedSnapshot) && storedSnapshot.setlistId === setlist.id
+      ? { ...storedSnapshot, settings: nextSettings }
+      : buildLivePresentationSnapshot({
+          setlist,
+          revision: nextRevision,
+          linesPerSlide: setlist.presentationSettings?.linesPerSlide || 4,
+          settings: nextSettings,
+          draft: {
+            lyricsBySetlistSongId: nextDraftLyrics,
+            slideOverrides: setlist.presentationSettings?.slideOverrides || {},
+            sceneLayers: desktopSceneLayers[setlist.id] || {},
+          },
+        }));
+  }, [desktopMode, desktopSceneLayers, desktopSetlistBackgrounds, setlist]);
   
   const supabase = useMemo(() => createClient(), []);
   const channel = useMemo(() => supabase.channel(`setlist_${setlist?.id}`), [setlist?.id, supabase]);
+  const remoteChannelTarget = useMemo(
+    () => resolveRemoteChannelTarget({
+      setlistId: setlist?.id,
+      cloudTopic: cloudRemoteTopic,
+      expiresAt: cloudRemoteExpiresAt,
+    }),
+    [cloudRemoteExpiresAt, cloudRemoteTopic, setlist?.id],
+  );
+  const remoteChannel = useMemo(
+    () => supabase.channel(remoteChannelTarget.topic, remoteChannelTarget.options),
+    [remoteChannelTarget, supabase],
+  );
+  const applyRemoteCommandRef = useRef<(candidate: unknown) => Promise<void>>(async () => {});
+  const desktopChannel = useMemo(
+    () => typeof window !== "undefined" && window.anointedDesktop && setlist?.id ? new BroadcastChannel(`setlist_${setlist.id}`) : null,
+    [setlist],
+  );
+  const broadcast = useCallback((event: string, payload: unknown) => {
+    if (desktopChannel) desktopChannel.postMessage({ event, payload });
+    else channel.send({ type: "broadcast", event, payload });
+  }, [channel, desktopChannel]);
 
   useEffect(() => {
     if (!setlist) return;
+    if (desktopChannel) return () => desktopChannel.close();
     channel.subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [channel, supabase, setlist]);
+  }, [channel, desktopChannel, supabase, setlist]);
 
-  // Sync settings when they change, even if slide doesn't change
-  useEffect(() => {
-    if (!setlist) return;
-    
-    // Construct the active slide payload including any block overrides
-    const activeSlidePayload = activeSlideId ? { 
-      id: activeSlideId,
-      blocks: slideOverrides[activeSlideId]
-    } : null;
-    
-    channel.send({
-      type: "broadcast",
-      event: "settings_sync",
-      payload: { 
-        settings, 
-        linesPerSlide,
-        slide: activeSlidePayload
-      },
-    });
-    
-    channel.send({
-      type: "broadcast",
-      event: "projector_sync",
-      payload: { 
-        settings,
-        // Omit slide here so we don't accidentally push the editor's slide to the live projector
-        // when the user is just tweaking styling properties.
-      },
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings, linesPerSlide, channel, slideOverrides]); // Sync blocks and settings
-
-  const handleSaveSettings = async () => {
+  const saveDraft = async (revision = publishedRevision, snapshot = publishedSnapshot) => {
     if (!setlist) return;
     setIsSaving(true);
-    const payload = { settings, linesPerSlide, slideOverrides };
-    const { error } = await supabase
-      .from("setlists")
-      .update({ presentation_settings: payload as any })
-      .eq("id", setlist.id);
-    setIsSaving(false);
-    if (error) {
-      console.error("Failed to save settings:", error);
-      alert("Failed to save settings.");
+    setDraftMessage("");
+    const { backgroundMediaUrl: _localMediaUrl, backgroundMediaType: _localMediaType, ...syncableSettings } = settings;
+    const payload = {
+      settings: desktopMode ? syncableSettings : settings,
+      linesPerSlide,
+      slideOverrides,
+      draftLyricsBySetlistSongId,
+      publishedRevision: revision,
+      publishedSnapshot: desktopMode
+        ? { ...snapshot, settings: syncableSettings }
+        : snapshot,
+    };
+    try {
+      await savePresenterDraftAction(setlist.id, payload);
+      setDraftMessage(desktopMode ? "Draft saved on this PC and queued for sync." : "Draft saved.");
+      return payload;
+    } catch (error) {
+      console.error("Failed to save Presenter draft:", error);
+      setDraftMessage(error instanceof Error ? error.message : "Failed to save the Presenter draft.");
+      return undefined;
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const pushToProjector = (slide: PresentationSlide | null) => {
-    setActiveSlideId(slide?.id || null);
-    
-    if (slide) {
-       // Attach any existing block overrides to the payload
-       slide.blocks = slideOverrides[slide.id];
-    }
-    
-    channel.send({
-      type: "broadcast",
-      event: "projector_sync",
-      payload: { slide, settings },
-    });
+  const handleSaveSettings = () => saveDraft();
+
+  const liveItem = publishedSnapshot.items[liveSongIndex];
+  const liveSlides = liveItem?.slides || [];
+  const liveActiveSlide = liveSlideId
+    ? liveSlides.find((slide) => slide.id === liveSlideId) || null
+    : null;
+
+  const pushToProjector = async (
+    slide: PublishedPresentationSlide | null,
+    nextOutputMode: "slide" | "clear" | "black" | "logo" = "slide",
+    snapshot = publishedSnapshot,
+    ownerIndexOverride?: number,
+  ) => {
+    const ownerIndex = ownerIndexOverride ?? (slide
+      ? snapshot.items.findIndex((item) => item.slides.some((candidate) => candidate.id === slide.id))
+      : liveSongIndex);
+    const owner = snapshot.items[Math.max(0, ownerIndex)] || snapshot.items[0];
+    const ownerSlides = owner?.slides || [];
+    const slideIndex = slide ? ownerSlides.findIndex((item) => item.id === slide.id) : -1;
+    if (ownerIndex >= 0) setLiveSongIndex(ownerIndex);
+    setLiveSlideId(slide?.id || null);
+    setOutputMode(nextOutputMode);
+    const payload = {
+      slide,
+      nextSlide: slideIndex >= 0 ? ownerSlides[slideIndex + 1] ?? null : null,
+      speakerNotes: owner?.notes || "",
+      settings: snapshot.settings,
+      outputMode: nextOutputMode,
+      activeSlideId: slide?.id || null,
+      snapshotRevision: snapshot.revision,
+    };
+    broadcast("projector_sync", payload);
+    if (desktopMode) await persistDesktopPresenterLiveState(setlist.id, payload);
+    return payload;
   };
 
   const activeItem = setlist?.songs[activeItemIndex];
   
   const slides = useMemo(() => {
+    if (activeItemIndex === -3) {
+      return importedPptxSlides;
+    }
     if (activeItemIndex === -2) {
       return bibleVerses.map(v => ({
          id: `bible-${v.reference.replace(/\s+/g, '-')}`,
@@ -166,10 +352,291 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
       } as PresentationSlide));
     }
     if (!activeItem) return [];
-    return generateSongSlides(activeItem.song.lyricsChords, linesPerSlide);
-  }, [activeItem, linesPerSlide, activeItemIndex, bibleVerses]);
+    const lyricsChords = draftLyricsBySetlistSongId[activeItem.id] ?? activeItem.song.lyricsChords;
+    return generateSongSlides(lyricsChords, linesPerSlide).map((slide) => ({
+      ...slide,
+      id: namespacedSlideId(activeItem.id, slide.id),
+    }));
+  }, [activeItem, activeItemIndex, bibleVerses, draftLyricsBySetlistSongId, importedPptxSlides, linesPerSlide]);
 
   const activeSlide = useMemo(() => slides.find(s => s.id === activeSlideId), [slides, activeSlideId]);
+  const activeSlideIndex = useMemo(() => slides.findIndex((slide) => slide.id === activeSlideId), [slides, activeSlideId]);
+  const nextSlide = activeSlideIndex >= 0 ? slides[activeSlideIndex + 1] ?? null : slides[0] ?? null;
+
+  const sendRemoteEvent = useCallback((event: string, payload: unknown) => {
+    if (desktopChannel) desktopChannel.postMessage({ event, payload });
+    if (!desktopMode || cloudRemoteTopic) {
+      void remoteChannel.send({ type: "broadcast", event, payload });
+    }
+  }, [cloudRemoteTopic, desktopChannel, desktopMode, remoteChannel]);
+
+  const handlePublishSnapshot = async () => {
+    if (!setlist || isPublishing) return;
+    setIsPublishing(true);
+    setDraftMessage("");
+    const nextRevision = publishedRevision + 1;
+    const nextSnapshot = buildLivePresentationSnapshot({
+      setlist,
+      revision: nextRevision,
+      linesPerSlide,
+      settings,
+      draft: {
+        lyricsBySetlistSongId: draftLyricsBySetlistSongId,
+        slideOverrides,
+        sceneLayers,
+      },
+    });
+    const saved = await saveDraft(nextRevision, nextSnapshot);
+    if (!saved) {
+      setIsPublishing(false);
+      return;
+    }
+    const matchingLiveSlide = liveSlideId
+      ? nextSnapshot.items.flatMap((item) => item.slides).find((slide) => slide.id === liveSlideId)
+      : undefined;
+    setPublishedRevision(nextRevision);
+    setPublishedSnapshot(nextSnapshot);
+    sendRemoteEvent("presentation_snapshot", nextSnapshot);
+    if (matchingLiveSlide) {
+      await pushToProjector(matchingLiveSlide, outputMode, nextSnapshot);
+      setDraftMessage(`Update ${nextRevision} published to Worship Remote and the current live slide.`);
+    } else {
+      setDraftMessage(liveSlideId
+        ? `Update ${nextRevision} published to Worship Remote. The live slide was removed, so the current output was left unchanged.`
+        : `Update ${nextRevision} published to Worship Remote.`);
+    }
+    setIsPublishing(false);
+  };
+
+  const handleCreateCloudPairing = async () => {
+    try {
+      setDraftMessage("");
+      const pairing = await createCloudRemotePairing(setlist.id);
+      setCloudRemoteTopic(pairing.channelTopic);
+      setCloudRemoteExpiresAt(pairing.expiresAt);
+      setCloudPairing({ url: pairing.url, qrDataUrl: pairing.qrDataUrl });
+    } catch (error) {
+      setDraftMessage(error instanceof Error ? error.message : "Could not create the phone pairing code.");
+    }
+  };
+
+  const ensureProjector = async (displayId?: string) => {
+    if (!desktopMode || !window.anointedDesktop) return;
+    const status = await window.anointedDesktop.getOutputStatus();
+    if (status.projectorOpen && status.projectorReady && !displayId) return;
+    const result = await window.anointedDesktop.openProjector(setlist.id, displayId);
+    if (!result?.opened || result.ready === false) throw new Error(result?.error || "The projector window could not be opened.");
+    setOutputStateVersion((version) => version + 1);
+  };
+
+  // The Presenter editor remains open as the trusted executor. Remote owns the
+  // live controls and only operates the last explicitly published snapshot.
+  useEffect(() => {
+    if (!setlist) return;
+    const applyCommand = async (candidate: unknown) => {
+      if (!isRemoteCommand(candidate) || candidate.setlistId !== setlist.id) return;
+      const command = candidate;
+      const acknowledge = (status: RemoteCommandAcknowledgement["status"], message: string) => {
+        const acknowledgement: RemoteCommandAcknowledgement = {
+          commandId: command.id,
+          status,
+          message,
+          snapshotRevision: publishedSnapshot.revision,
+          updatedAt: new Date().toISOString(),
+        };
+        setLastRemoteAcknowledgement(acknowledgement);
+        sendRemoteEvent("remote_ack", acknowledgement);
+      };
+      try {
+        const now = Date.now();
+        const currentLease = controllerLease && controllerLease.expiresAt > now ? controllerLease : null;
+        if (command.kind === "claim-control") {
+          if (!command.controllerId) { acknowledge("rejected", "Remote identity is missing."); return; }
+          if (currentLease?.owner === "desktop") { acknowledge("rejected", "Desktop has taken control."); return; }
+          if (currentLease?.owner === "remote" && currentLease.id !== command.controllerId) { acknowledge("rejected", "Another Remote is controlling this service."); return; }
+          setControllerLease({ owner: "remote", id: command.controllerId, expiresAt: now + 5 * 60_000 });
+          sendRemoteEvent("presentation_snapshot", publishedSnapshot);
+          acknowledge("applied", "Remote control granted.");
+          return;
+        }
+        if (!command.controllerId) { acknowledge("rejected", "Remote identity is missing."); return; }
+        if (currentLease?.owner === "desktop") { acknowledge("rejected", "Desktop has taken control."); return; }
+        if (currentLease?.owner === "remote" && currentLease.id !== command.controllerId) { acknowledge("rejected", "Another Remote is controlling this service."); return; }
+        if (command.snapshotRevision !== undefined && command.snapshotRevision !== publishedSnapshot.revision) {
+          sendRemoteEvent("presentation_snapshot", publishedSnapshot);
+          acknowledge("rejected", "The Presenter was updated. Remote content has been refreshed; try the command again.");
+          return;
+        }
+        setControllerLease({ owner: "remote", id: command.controllerId, expiresAt: now + 5 * 60_000 });
+
+        if (command.kind === "select-song") {
+          const requestedIndex = command.payload?.setlistSongId
+            ? publishedSnapshot.items.findIndex((item) => item.setlistSongId === command.payload?.setlistSongId)
+            : Number(command.payload?.songIndex);
+          if (!Number.isInteger(requestedIndex) || requestedIndex < 0 || requestedIndex >= publishedSnapshot.items.length) {
+            acknowledge("rejected", "That lineup item is unavailable.");
+            return;
+          }
+          setLiveSongIndex(requestedIndex);
+          await pushToProjector(null, "clear", publishedSnapshot, requestedIndex);
+          acknowledge("applied", "Lineup item selected and output cleared.");
+          return;
+        }
+
+        const currentItem = publishedSnapshot.items[liveSongIndex] || publishedSnapshot.items[0];
+        const currentSlides = currentItem?.slides || [];
+        const currentIndex = currentSlides.findIndex((slide) => slide.id === liveSlideId);
+        if (command.kind === "select-slide" && command.payload?.slideId) {
+          let selectedSlide: PublishedPresentationSlide | undefined;
+          for (const item of publishedSnapshot.items) {
+            selectedSlide = item.slides.find((slide) => slide.id === command.payload?.slideId);
+            if (selectedSlide) break;
+          }
+          if (!selectedSlide) { acknowledge("rejected", "That slide is unavailable in the published lineup."); return; }
+          await ensureProjector();
+          await pushToProjector(selectedSlide);
+          acknowledge("applied", "Slide presented on the projector.");
+          return;
+        }
+        if (command.kind === "first-slide" || command.kind === "last-slide" || command.kind === "previous-slide" || command.kind === "next-slide" || command.kind === "present") {
+          const target = command.kind === "first-slide"
+            ? currentSlides[0]
+            : command.kind === "last-slide"
+              ? currentSlides[currentSlides.length - 1]
+              : command.kind === "previous-slide"
+                ? currentSlides[Math.max(0, currentIndex - 1)] ?? currentSlides[0]
+                : command.kind === "next-slide"
+                  ? currentSlides[Math.min(currentSlides.length - 1, Math.max(0, currentIndex) + 1)]
+                  : liveActiveSlide ?? currentSlides[0];
+          if (!target) { acknowledge("rejected", "There are no published slides to present."); return; }
+          await ensureProjector();
+          await pushToProjector(target);
+          acknowledge("applied", `${command.kind === "present" ? "Live output" : "Slide"} presented on the projector.`);
+          return;
+        }
+        if (command.kind === "clear" || command.kind === "black" || command.kind === "logo") {
+          await ensureProjector();
+          await pushToProjector(null, command.kind);
+          acknowledge("applied", `${command.kind[0].toUpperCase()}${command.kind.slice(1)} output applied.`);
+          return;
+        }
+        if (command.kind === "refresh-displays") {
+          await window.anointedDesktop?.listDisplays();
+          setOutputStateVersion((version) => version + 1);
+          acknowledge("applied", "Displays refreshed.");
+          return;
+        }
+        if (command.kind === "present-projector") {
+          await ensureProjector(command.payload?.displayId);
+          await pushToProjector(liveActiveSlide, outputMode);
+          acknowledge("applied", "Projector is open and synchronized.");
+          return;
+        }
+        if (command.kind === "present-confidence") {
+          const result = await window.anointedDesktop?.openConfidence(setlist.id, command.payload?.displayId);
+          if (desktopMode && (!result?.opened || result.ready === false)) throw new Error(result?.error || "The confidence display could not be opened.");
+          setOutputStateVersion((version) => version + 1);
+          acknowledge("applied", "Confidence display is open and synchronized.");
+          return;
+        }
+        if (command.kind === "stage-message") {
+          const stageMessage = command.payload?.message || "";
+          const requestedStyle = command.payload?.stageFlashStyle;
+          const nextStageFlashStyle = requestedStyle && Number.isFinite(requestedStyle.fontSize)
+            ? {
+                fontSize: Math.max(16, Math.min(160, requestedStyle.fontSize)),
+                color: requestedStyle.color,
+                backgroundColor: requestedStyle.backgroundColor,
+              }
+            : stageFlashStyle;
+          setStageMessageInput(stageMessage);
+          setStageFlashStyle(nextStageFlashStyle);
+          broadcast("stage_sync", { stageMessage, stageFlashStyle: nextStageFlashStyle });
+          acknowledge("applied", stageMessage ? "Flash note sent." : "Flash note cleared.");
+          return;
+        }
+        if (command.kind === "timer") {
+          if (command.payload?.timerAction === "reset") { setCountdownTarget(null); setPausedCountdownMs(null); broadcast("stage_sync", { countdownTarget: null, countdownPausedMs: null }); }
+          if (command.payload?.timerAction === "pause" && countdownTarget) { const remaining = Math.max(0, countdownTarget - Date.now()); setPausedCountdownMs(remaining); setCountdownTarget(null); broadcast("stage_sync", { countdownTarget: null, countdownPausedMs: remaining }); }
+          if (command.payload?.timerAction === "start") { const duration = Math.max(1, Math.min(240, command.payload?.timerMinutes ?? countdownInput)) * 60_000; const target = Date.now() + (pausedCountdownMs ?? duration); setCountdownTarget(target); setPausedCountdownMs(null); broadcast("stage_sync", { countdownTarget: target, countdownPausedMs: null }); }
+          acknowledge("applied", "Countdown updated.");
+          return;
+        }
+        acknowledge("rejected", "That command is incomplete or unavailable.");
+      } catch (error) {
+        acknowledge("rejected", error instanceof Error ? error.message : "The live output command failed.");
+      }
+    };
+    applyRemoteCommandRef.current = applyCommand;
+    let removeDesktopListener: (() => void) | undefined;
+    if (desktopChannel) {
+      const listener = (event: MessageEvent) => {
+        if (event.data?.event === "remote_command") void applyCommand(event.data.payload);
+        if (event.data?.event === "remote_state_request" || event.data?.event === "presentation_state_request") {
+          sendRemoteEvent("presentation_snapshot", publishedSnapshot);
+          void pushToProjector(liveActiveSlide, outputMode);
+          broadcast("stage_sync", {
+            stageMessage: stageMessageInput,
+            stageFlashStyle,
+            countdownTarget,
+            countdownPausedMs: pausedCountdownMs,
+            stageLayout: stageLayoutPreset(stageLayoutPresetId),
+          });
+        }
+      };
+      desktopChannel.addEventListener("message", listener);
+      const removeLanListener = window.anointedDesktop?.onLanRemoteCommand((command) => { void applyCommand(command); });
+      removeDesktopListener = () => { desktopChannel.removeEventListener("message", listener); removeLanListener?.(); };
+    }
+    return () => { removeDesktopListener?.(); };
+  }, [broadcast, controllerLease, countdownInput, countdownTarget, desktopChannel, desktopMode, liveActiveSlide, liveSlideId, liveSongIndex, outputMode, pausedCountdownMs, publishedSnapshot, sendRemoteEvent, setlist, stageFlashStyle, stageLayoutPresetId, stageMessageInput]);
+
+  useRemoteCommandSubscription(remoteChannel, supabase, (candidate) => applyRemoteCommandRef.current(candidate));
+
+  useEffect(() => {
+    if (!setlist) return;
+    const publishState = async () => {
+      const [desktopStatus, displays] = desktopMode && window.anointedDesktop
+        ? await Promise.all([window.anointedDesktop.getOutputStatus(), window.anointedDesktop.listDisplays()])
+        : [undefined, undefined];
+      const state: RemoteLiveState = {
+        version: REMOTE_PROTOCOL_VERSION,
+        setlistId: setlist.id,
+        activeSongIndex: liveSongIndex,
+        activeSlideId: liveSlideId,
+        snapshotRevision: publishedSnapshot.revision,
+        outputMode,
+        controllerReady: true,
+        projectorOpen: Boolean(desktopStatus?.projectorOpen),
+        projectorReady: Boolean(desktopStatus?.projectorReady ?? desktopStatus?.projectorOpen),
+        confidenceOpen: Boolean(desktopStatus?.confidenceOpen),
+        confidenceReady: Boolean(desktopStatus?.confidenceReady ?? desktopStatus?.confidenceOpen),
+        outputError: desktopStatus?.outputError ?? null,
+        projectorDisplayId: desktopStatus?.projectorDisplayId,
+        confidenceDisplayId: desktopStatus?.confidenceDisplayId,
+        displays,
+        controller: controllerLease && controllerLease.expiresAt > Date.now() ? controllerLease.owner : null,
+        lastAcknowledgement: lastRemoteAcknowledgement,
+        updatedAt: new Date().toISOString(),
+      };
+      sendRemoteEvent("remote_state", state);
+      if (desktopMode && window.anointedDesktop) {
+        window.anointedDesktop.publishLanRemoteState({
+          ...state,
+          setlistName: publishedSnapshot.setlistName,
+          lineup: publishedSnapshot.items.map((item) => ({ title: item.title, setlistSongId: item.setlistSongId })),
+          slides: liveSlides.map((slide) => ({ id: slide.id, type: slide.type, content: slide.content, sectionLabel: slide.sectionLabel })),
+        });
+      }
+    };
+    void publishState();
+    const heartbeat = window.setInterval(() => { void publishState(); }, 2_000);
+    return () => window.clearInterval(heartbeat);
+  }, [controllerLease, desktopChannel, desktopMode, lastRemoteAcknowledgement, liveSlideId, liveSlides, liveSongIndex, outputMode, outputStateVersion, publishedSnapshot, remoteChannel, sendRemoteEvent, setlist]);
+
+  useEffect(() => {
+    sendRemoteEvent("presentation_snapshot", publishedSnapshot);
+  }, [publishedSnapshot, sendRemoteEvent]);
   
   const defaultBlocks = useMemo(() => {
      if (!activeSlide || activeSlide.content.length === 0) return [];
@@ -225,6 +692,26 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
       };
     });
   };
+  const selectedMotion = useMemo(() => selectedBlock ? resolveBlockMotion(selectedBlock, settings) : null, [selectedBlock, settings]);
+  const applyMotionPreset = (motion: BlockMotion, toAllLayers: boolean) => {
+    if (!activeSlideId || activeBlocks.length === 0) return;
+    const targetIds = toAllLayers ? new Set(activeBlocks.map((block) => block.id)) : new Set(selectedBlockIds);
+    if (targetIds.size === 0) return;
+    saveHistoryState();
+    setSlideOverrides((previous) => {
+      const currentBlocks = previous[activeSlideId] || defaultBlocks;
+      return {
+        ...previous,
+        [activeSlideId]: currentBlocks.map((block) => targetIds.has(block.id) ? { ...block, ...motion } : block),
+      };
+    });
+  };
+  const saveMotionPreset = async () => {
+    if (!selectedMotion || !motionPresetName.trim()) return;
+    const presets = await saveDesktopMotionPresetAction(motionPresetName, selectedMotion);
+    setMotionPresets(presets);
+    setMotionPresetName("");
+  };
   const handleUpdateBlock = (blockId: string, updates: Partial<SlideBlock>) => {
     if (!activeSlideId) return;
     saveHistoryState();
@@ -235,6 +722,70 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
         [activeSlideId]: currentBlocks.map(b => b.id === blockId ? { ...b, ...updates } : b)
       };
     });
+  };
+  const updateSceneLayers = async (nextLayers: SceneLayer[]) => {
+    if (!desktopMode || !setlist || !activeSlideId) return;
+    setSceneLayers((previous) => ({ ...previous, [activeSlideId]: nextLayers }));
+    const saved = await saveDesktopSceneLayersAction(setlist.id, activeSlideId, nextLayers);
+    setSceneLayers(saved);
+  };
+  const addSceneLayer = (kind: SceneLayer["kind"], captureSourceId?: string) => {
+    if (!activeSlideId) return;
+    const current = sceneLayers[activeSlideId] || [];
+    const number = current.length + 1;
+    const layer: SceneLayer = {
+      id: crypto.randomUUID(), kind, name: `${kind[0].toUpperCase()}${kind.slice(1)} ${number}`,
+      x: 10 + (number % 5) * 4, y: 10 + (number % 5) * 4, width: kind === "text" ? 50 : 30, height: kind === "text" ? 14 : 20, rotation: 0,
+      text: kind === "text" ? "New text" : undefined, captureSourceId, color: "#ffffff", backgroundColor: kind === "shape" ? "#6d28d9" : "#000000", fontSize: 56, borderRadius: 0, zIndex: current.length,
+    };
+    void updateSceneLayers([...current, layer]);
+    setSelectedSceneLayerId(layer.id);
+    setSelectedSceneLayerIds([layer.id]);
+  };
+  const activeSceneLayers = activeSlideId ? sceneLayers[activeSlideId] ?? activeSlide?.sceneLayers ?? [] : [];
+  const selectedSceneLayer = activeSceneLayers.find((layer) => layer.id === selectedSceneLayerId) || null;
+  const updateSelectedSceneLayer = (updates: Partial<SceneLayer>) => {
+    if (!selectedSceneLayer) return;
+    void updateSceneLayers(activeSceneLayers.map((layer) => layer.id === selectedSceneLayer.id ? { ...layer, ...updates } : layer));
+  };
+  const moveSelectedSceneLayer = (direction: -1 | 1) => {
+    if (!selectedSceneLayer) return;
+    const index = activeSceneLayers.findIndex((layer) => layer.id === selectedSceneLayer.id);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= activeSceneLayers.length) return;
+    const next = [...activeSceneLayers];
+    [next[index], next[target]] = [next[target], next[index]];
+    void updateSceneLayers(next.map((layer, zIndex) => ({ ...layer, zIndex })));
+  };
+  const duplicateSelectedSceneLayer = () => {
+    if (!selectedSceneLayer) return;
+    const copy = { ...selectedSceneLayer, id: crypto.randomUUID(), name: `${selectedSceneLayer.name} copy`, x: Math.min(90, selectedSceneLayer.x + 3), y: Math.min(90, selectedSceneLayer.y + 3), zIndex: activeSceneLayers.length };
+    void updateSceneLayers([...activeSceneLayers, copy]);
+    setSelectedSceneLayerId(copy.id);
+    setSelectedSceneLayerIds([copy.id]);
+  };
+  const selectSceneLayer = (id: string | null, additive = false) => {
+    setSelectedSceneLayerId(id);
+    if (!id) { setSelectedSceneLayerIds([]); return; }
+    setSelectedSceneLayerIds((previous) => additive ? (previous.includes(id) ? previous.filter((item) => item !== id) : [...previous, id]) : [id]);
+  };
+  const setSceneLayerGroup = (grouped: boolean) => {
+    const ids = new Set(selectedSceneLayerIds.length ? selectedSceneLayerIds : selectedSceneLayer ? [selectedSceneLayer.id] : []);
+    if (!ids.size) return;
+    const groupId = selectedSceneLayer?.groupId || crypto.randomUUID();
+    void updateSceneLayers(activeSceneLayers.map((layer) => ids.has(layer.id) ? { ...layer, groupId: grouped ? groupId : undefined } : layer));
+  };
+  const applySceneLayerMotionPreset = (motion: BlockMotion, toAllLayers: boolean) => {
+    if (!selectedSceneLayer) return;
+    const targetIds = toAllLayers ? new Set(activeSceneLayers.map((layer) => layer.id)) : new Set([selectedSceneLayer.id]);
+    void updateSceneLayers(activeSceneLayers.map((layer) => targetIds.has(layer.id) ? { ...layer, motion: { ...motion } } : layer));
+  };
+  const saveSceneLayerMotionPreset = async () => {
+    if (!selectedSceneLayer || !motionPresetName.trim()) return;
+    const motion = resolveBlockMotion(selectedSceneLayer.motion ?? {}, settings);
+    const presets = await saveDesktopMotionPresetAction(motionPresetName, motion);
+    setMotionPresets(presets);
+    setMotionPresetName("");
   };
   const handleUpdateBlocks = (updatesMap: Record<string, Partial<SlideBlock>>) => {
     if (!activeSlideId) return;
@@ -370,7 +921,18 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
         return;
       }
 
-      if (e.code === "Space") {
+      if (desktopMode && (e.ctrlKey || e.metaKey) && e.code === "KeyG" && selectedSceneLayerIds.length > 0) {
+        e.preventDefault();
+        setSceneLayerGroup(!e.shiftKey);
+      } else if (desktopMode && selectedBlockIds.length === 0 && (e.code === "ArrowRight" || e.code === "ArrowLeft")) {
+        const target = e.code === "ArrowRight"
+          ? slides[Math.max(0, activeSlideIndex + 1)]
+          : slides[Math.max(0, activeSlideIndex - 1)];
+        if (target) {
+          e.preventDefault();
+          setActiveSlideId(target.id);
+        }
+      } else if (e.code === "Space") {
         e.preventDefault();
         setPlayKey(Date.now());
       } else if (e.code === "Backspace" || e.code === "Delete") {
@@ -410,7 +972,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedBlockIds, activeSlideId, slideOverrides, past, future]);
+  }, [activeSlideIndex, desktopMode, future, past, selectedBlockIds, selectedSceneLayerIds, activeSlideId, slideOverrides, slides, activeSceneLayers, selectedSceneLayer]);
 
   const handleFetchChapter = async (book: string, chapter: number) => {
     setSelectedBibleChapter(chapter);
@@ -459,7 +1021,6 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                   setSelectedSetlistId(e.target.value);
                   setActiveItemIndex(0);
                   setActiveSlideId(null);
-                  pushToProjector(null);
                }}
                className="bg-[#1a1a1a] border border-white/10 text-white text-sm font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-violet-500"
              >
@@ -471,23 +1032,23 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
         </div>
         
         <div className="flex items-center gap-2">
-          <Link 
-            href={`/setlists/${setlist.id}/remote`}
-            target="_blank"
-            className="flex items-center gap-2 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold transition text-zinc-300"
-          >
+          {desktopMode ? <button onClick={() => void window.anointedDesktop?.openRemote(setlist.id)} className="flex items-center gap-2 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold transition text-zinc-300">
             <Smartphone className="size-4" />
             Worship Remote
-          </Link>
-          <button 
-            onClick={() => pushToProjector(null)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold transition text-amber-400 hover:text-amber-300 ml-4"
-          >
-            <EyeOff className="size-4" />
-            Clear Screen
+          </button> : <button onClick={() => void handleCreateCloudPairing()} className="flex items-center gap-2 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold transition text-zinc-300"><Smartphone className="size-4" />Worship Remote</button>}
+          {desktopMode && <button onClick={() => void handleCreateCloudPairing()} className="rounded border border-violet-400/40 bg-violet-500/15 px-3 py-1.5 text-xs font-bold text-violet-100 hover:bg-violet-500/25">Pair phone</button>}
+          {desktopMode && <button onClick={() => { void window.anointedDesktop?.startLanRemote(setlist.id).then((pairing) => { if (pairing) setLanPairing(pairing); }); }} className="rounded border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/10">Pair Wi-Fi</button>}
+          <button onClick={handleSaveSettings} disabled={isSaving || isPublishing} className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/10 disabled:opacity-40">
+            {isSaving && !isPublishing ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />} Save Draft
+          </button>
+          <button onClick={handlePublishSnapshot} disabled={isSaving || isPublishing} className="inline-flex items-center gap-1 rounded bg-violet-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-violet-500 disabled:opacity-40">
+            {isPublishing ? <Loader2 className="size-3 animate-spin" /> : <Upload className="size-3" />} Push Update
           </button>
         </div>
       </div>
+      {lanPairing && <div className="absolute right-4 top-16 z-50 w-72 rounded-lg border border-violet-400/30 bg-[#181818] p-3 shadow-2xl"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-bold text-white">Pair phone on this Wi-Fi</p><p className="mt-1 text-[10px] text-zinc-400">Scan the one-time QR code. Pairing ends when you stop it or close the app.</p></div><button onClick={() => void window.anointedDesktop?.stopLanRemote().then(() => setLanPairing(null))} className="text-zinc-400 hover:text-white"><X className="size-4" /></button></div>{lanPairing.qrDataUrl ? <img src={lanPairing.qrDataUrl} alt="Phone Remote pairing QR code" className="mx-auto my-3 size-44 rounded bg-white p-2" /> : <p className="mt-3 text-xs text-amber-300">No active Wi-Fi address was detected.</p>}{lanPairing.url && <button onClick={() => void navigator.clipboard?.writeText(lanPairing.url!)} className="w-full truncate rounded bg-white/10 px-2 py-2 text-[10px] text-zinc-200 hover:bg-white/20">Copy pairing link</button>}</div>}
+      {cloudPairing && <div className="absolute right-4 top-16 z-50 w-72 rounded-lg border border-violet-400/30 bg-[#181818] p-3 shadow-2xl"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-bold text-white">Pair phone from anywhere</p><p className="mt-1 text-[10px] text-zinc-400">Scan on the phone, sign in, then control this PC over the internet for 30 minutes.</p></div><button onClick={() => setCloudPairing(null)} className="text-zinc-400 hover:text-white"><X className="size-4" /></button></div><img src={cloudPairing.qrDataUrl} alt="Internet Remote pairing QR code" className="mx-auto my-3 size-44 rounded bg-white p-2" /><button onClick={() => void navigator.clipboard?.writeText(cloudPairing.url)} className="w-full truncate rounded bg-white/10 px-2 py-2 text-[10px] text-zinc-200 hover:bg-white/20">Copy pairing link</button></div>}
+      {draftMessage && activeTab !== "Lyrics" && <div role="status" className="absolute left-1/2 top-16 z-40 max-w-lg -translate-x-1/2 rounded border border-white/10 bg-[#181818] px-4 py-2 text-xs text-zinc-200 shadow-xl">{draftMessage}</div>}
 
       <div className="flex flex-1 overflow-hidden">
         
@@ -496,7 +1057,6 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
            <button onClick={() => setActiveItemIndex(-1)} className={`p-2 rounded-lg ${activeItemIndex === -1 ? 'bg-violet-600/20 text-violet-400' : 'hover:bg-white/5 text-zinc-500 hover:text-zinc-300'}`}><LayoutTemplate className="size-5" /></button>
            <button onClick={() => setActiveItemIndex(0)} className={`p-2 rounded-lg ${activeItemIndex >= 0 ? 'bg-violet-600/20 text-violet-400' : 'hover:bg-white/5 text-zinc-500 hover:text-zinc-300'}`}><Music className="size-5" /></button>
            <button onClick={() => setActiveItemIndex(-2)} className={`p-2 rounded-lg ${activeItemIndex === -2 ? 'bg-violet-600/20 text-violet-400' : 'hover:bg-white/5 text-zinc-500 hover:text-zinc-300'}`}><BookOpen className="size-5" /></button>
-           <button className="p-2 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-zinc-300"><Settings className="size-5" /></button>
         </div>
 
         {/* Keynotes Sidebar: Line up */}
@@ -641,7 +1201,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                                 key={verseNum}
                                 onClick={() => {
                                    const slide = slides.find(s => s.id === slideId);
-                                   if (slide) pushToProjector(slide);
+                                   if (slide) setActiveSlideId(slide.id);
                                    const el = document.getElementById(slideId);
                                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                                 }}
@@ -714,7 +1274,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                     return (
                       <button 
                         key={slide.id}
-                        onClick={() => { setActiveSlideId(slide.id); pushToProjector(slide); }}
+                        onClick={() => setActiveSlideId(slide.id)}
                         className={cn(
                           "w-full flex flex-col rounded-lg overflow-hidden transition text-left border bg-[#18181b]",
                           isActive 
@@ -767,21 +1327,17 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                      value={mediaUrl}
                      onChange={(e) => setMediaUrl(e.target.value)}
                    />
-                   <button 
-                     onClick={() => {
-                        setActiveSlideId("media-url");
-                        channel.send({
-                          type: "broadcast",
-                          event: "projector_sync",
-                          payload: { 
-                            slide: { id: "media-url", type: "teaching", content: [], mediaUrl },
-                            settings
-                          },
-                        });
-                     }}
+	                   <button 
+	                     onClick={() => {
+	                        const mediaSlide: PresentationSlide = { id: "media-url", type: "teaching", content: [], mediaUrl };
+	                        setImportedPptxSlides([mediaSlide]);
+	                        setActiveItemIndex(-3);
+	                        setActiveSlideId(mediaSlide.id);
+	                        setDraftMessage("Media added to the editor draft. Live output remains controlled by Worship Remote.");
+	                     }}
                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition"
                    >
-                     Push to Projector
+	                     Add to Editor Draft
                    </button>
                  </div>
                </div>
@@ -800,20 +1356,23 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        playKey={playKey}
                        selectedBlockIds={selectedBlockIds}
                        onSelectBlock={setSelectedBlockIds}
+                       sceneLayers={desktopMode ? activeSceneLayers : []}
+                       selectedSceneLayerId={selectedSceneLayerId}
+                       selectedSceneLayerIds={selectedSceneLayerIds}
+                       onSelectSceneLayer={selectSceneLayer}
+                       onUpdateSceneLayer={(id, updates) => void updateSceneLayers(activeSceneLayers.map((layer) => layer.id === id ? { ...layer, ...updates } : layer))}
+                       onUpdateSceneLayers={(updates) => void updateSceneLayers(activeSceneLayers.map((layer) => updates[layer.id] ? { ...layer, ...updates[layer.id] } : layer))}
                      />
+                  ) : activeItem && (draftLyricsBySetlistSongId[activeItem.id] ?? activeItem.song.lyricsChords ?? "").trim().length === 0 ? (
+                     <div className="max-w-sm text-center"><p className="font-bold text-amber-300">No lyrics saved for this song</p><p className="mt-2 text-sm text-zinc-500">Add lyrics/chords in the Songs page, then sync this PC.</p></div>
                   ) : (
                      <div className="text-zinc-600 font-bold">Select a slide to edit</div>
                   )}
+                  {desktopMode && <div className="absolute right-4 top-4 rounded border border-white/10 bg-black/40 px-3 py-2 text-right text-[10px]"><p className="font-bold text-zinc-300">Published live: {liveActiveSlide ? `${Math.max(0, liveSlides.findIndex((slide) => slide.id === liveActiveSlide.id)) + 1}/${liveSlides.length}` : outputMode}</p><p className="mt-1 max-w-48 truncate text-zinc-500">Remote revision {publishedSnapshot.revision}</p></div>}
                   
                   {/* Floating properties quick toggle (optional) */}
                   <div className="absolute top-4 left-4 flex gap-2">
-                     <button 
-                       onClick={() => pushToProjector(activeSlide || null)}
-                       title="Push to Projector"
-                       className="bg-black/50 border border-emerald-500/30 text-emerald-400 p-2 rounded hover:bg-emerald-500/20 transition"
-                     >
-                       <MonitorUp className="size-4" />
-                     </button>
+                     <span className="rounded border border-white/10 bg-black/50 px-2 py-1 text-[10px] font-bold text-zinc-400">Editor preview</span>
                   </div>
                </div>
 
@@ -845,7 +1404,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
         <div className="w-[300px] border-l border-white/10 bg-[#121212] flex flex-col shrink-0">
            {/* Tabs */}
            <div className="px-4 pt-4 border-b border-white/5 flex gap-4 shrink-0 overflow-x-auto">
-             {["Property", "Layers", "Motion", "Stage"].map(tab => (
+             {["Lyrics", "Property", "Layers", "Motion", "Stage"].map(tab => (
                <button 
                  key={tab}
                  onClick={() => setActiveTab(tab as any)}
@@ -860,6 +1419,29 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
            </div>
            
            <div className="flex-1 overflow-y-auto">
+              {activeTab === "Lyrics" && (
+                <div className="space-y-4 p-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-violet-200">Setlist lyric draft</p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">Changes apply only to this setlist. Save the draft, then push an update when the Worship Remote should receive it.</p>
+                  </div>
+                  {activeItemIndex >= 0 && activeItem ? <>
+                    <p className="text-sm font-black text-white">{activeItem.song.title}</p>
+                    <textarea
+                      value={draftLyricsBySetlistSongId[activeItem.id] ?? activeItem.song.lyricsChords ?? ""}
+                      onChange={(event) => setDraftLyricsBySetlistSongId((current) => ({ ...current, [activeItem.id]: event.target.value }))}
+                      spellCheck
+                      className="min-h-80 w-full resize-y rounded border border-white/10 bg-[#181818] p-3 font-mono text-xs leading-relaxed text-zinc-100 focus:border-violet-500 focus:outline-none"
+                      placeholder="Add lyrics and chords for this setlist item…"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={handleSaveSettings} disabled={isSaving || isPublishing} className="inline-flex items-center justify-center gap-1 rounded bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/15 disabled:opacity-40"><Save className="size-3" /> Save Draft</button>
+                      <button onClick={handlePublishSnapshot} disabled={isSaving || isPublishing} className="inline-flex items-center justify-center gap-1 rounded bg-violet-600 px-3 py-2 text-xs font-bold text-white hover:bg-violet-500 disabled:opacity-40"><Upload className="size-3" /> Push Update</button>
+                    </div>
+                    {draftMessage && <p role="status" className="rounded border border-white/10 bg-white/5 px-3 py-2 text-[10px] text-zinc-300">{draftMessage}</p>}
+                  </> : <p className="rounded border border-dashed border-white/10 p-4 text-xs text-zinc-500">Select a song from the lineup to edit its lyrics.</p>}
+                </div>
+              )}
               {activeTab === "Property" && (
                 <div className="p-4 space-y-6">
                   {/* Global Shortcut */}
@@ -871,13 +1453,8 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                          Save for Setlist
                        </button>
                     </div>
-                    <Link 
-                      href={`/setlists/${setlist.id}/projector`}
-                      target="_blank"
-                      className="flex items-center justify-center gap-2 w-full py-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold rounded-lg transition"
-                    >
-                      <MonitorUp className="size-4" /> Open Projector Window
-                    </Link>
+                    {desktopMode && <DesktopLiveSourcePanel screens={captureSources} cameras={cameraSources} onAdd={(kind, sourceId) => { setActiveTab("Layers"); addSceneLayer(kind, sourceId); }} />}
+                    <p className="rounded border border-violet-400/20 bg-violet-500/5 px-3 py-2 text-[10px] leading-relaxed text-violet-100">Live output controls are in Worship Remote. This page edits the draft and publishes deliberate updates.</p>
                   </div>
 
                   <hr className="border-white/5" />
@@ -1006,12 +1583,23 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                      </div>
                      
                      <div className="pt-2">
-                       <MediaUploader
-                         currentUrl={settings.backgroundMediaUrl}
-                         currentType={settings.backgroundMediaType}
-                         onUpload={(url, type) => setSettings({ ...settings, backgroundMediaUrl: url, backgroundMediaType: type })}
-                         onClear={() => setSettings({ ...settings, backgroundMediaUrl: undefined, backgroundMediaType: undefined })}
-                       />
+                       {desktopMode ? (
+                         <DesktopBackgroundLibrary
+                           key={setlist.id}
+                           setlistId={setlist.id}
+                           initialAssets={desktopBackgrounds}
+                           initialCollections={desktopBackgroundCollections}
+                           selectedAssetId={desktopSetlistBackgrounds[setlist.id]?.id}
+                           onSelect={(asset) => setSettings({ ...settings, backgroundMediaUrl: asset?.url, backgroundMediaType: asset?.mediaType })}
+                         />
+                       ) : (
+                         <MediaUploader
+                           currentUrl={settings.backgroundMediaUrl}
+                           currentType={settings.backgroundMediaType}
+                           onUpload={(url, type) => setSettings({ ...settings, backgroundMediaUrl: url, backgroundMediaType: type })}
+                           onClear={() => setSettings({ ...settings, backgroundMediaUrl: undefined, backgroundMediaType: undefined })}
+                         />
+                       )}
                      </div>
 
                      <div className="flex items-center justify-between pt-2">
@@ -1029,6 +1617,12 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
 
               {activeTab === "Layers" && (
                 <div className="p-2 space-y-1">
+                   {desktopMode && pptxReport?.warnings.length ? <section className="mb-3 rounded border border-amber-400/20 bg-amber-500/5 p-2"><p className="text-[10px] font-bold uppercase tracking-wider text-amber-200">PowerPoint import report</p><ul className="mt-1 space-y-1 text-[9px] text-amber-100/80">{pptxReport.warnings.map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}</ul></section> : null}
+                   {desktopMode && savedPptxPresentations.length > 0 && <section className="mb-3 rounded border border-white/10 bg-black/20 p-2"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Saved PowerPoint presentations</p>{savedPptxPresentations.map((presentation) => <div key={presentation.id} className="mb-1 flex gap-1"><button onClick={() => { setPptxReport(presentation.report); setImportedPptxSlides(presentation.slides.map((slide) => ({ id: slide.id, type: "teaching", content: [], sectionLabel: presentation.name, sceneLayers: slide.layers }))); setActiveItemIndex(-3); setActiveSlideId(null); }} className="min-w-0 flex-1 truncate rounded bg-white/10 px-2 py-1.5 text-left text-[10px] font-bold hover:bg-white/15">{presentation.name} ({presentation.slides.length})</button><button onClick={async () => { const name = window.prompt("Presentation name", presentation.name); if (name) { await renameDesktopPptxAction(presentation.id, name); setSavedPptxPresentations((items) => items.map((item) => item.id === presentation.id ? { ...item, name: name.trim().replace(/\.pptx$/i, "") } : item)); } }} className="rounded bg-white/10 px-2 text-[9px] font-bold">Rename</button><button onClick={async () => { if (window.confirm(`Delete ${presentation.name}?`)) { await deleteDesktopPptxAction(presentation.id); setSavedPptxPresentations((items) => items.filter((item) => item.id !== presentation.id)); } }} className="rounded bg-red-500/15 px-2 text-[9px] font-bold text-red-200">Delete</button></div>)}</section>}
+                   {desktopMode && activeSlideId && <section className="mb-3 rounded border border-violet-400/20 bg-violet-500/5 p-2"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-violet-200">Local Scene Layers</p><div className="grid grid-cols-2 gap-1"><button onClick={() => addSceneLayer("text")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Text</button><button onClick={() => addSceneLayer("shape")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Shape</button><button onClick={() => addSceneLayer("image")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Image</button><button onClick={() => addSceneLayer("video")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Video</button></div><p className="mt-2 text-[9px] text-zinc-500">Shift-click layers on the canvas to select several before grouping.</p>{activeSceneLayers.map((layer, index) => <button key={layer.id} onClick={(event) => selectSceneLayer(layer.id, event.shiftKey)} className={cn("mt-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[10px]", selectedSceneLayerIds.includes(layer.id) ? "bg-violet-600/30" : "bg-black/20 hover:bg-white/5")}><span className="min-w-0 flex-1 truncate font-semibold">{index + 1}. {layer.name}</span><span onClick={(event) => { event.stopPropagation(); void updateSceneLayers(activeSceneLayers.map((item) => item.id === layer.id ? { ...item, hidden: !item.hidden } : item)); }} className="text-zinc-400 hover:text-white">{layer.hidden ? "Show" : "Hide"}</span><span onClick={(event) => { event.stopPropagation(); void updateSceneLayers(activeSceneLayers.filter((item) => item.id !== layer.id)); }} className="text-red-300 hover:text-red-200">Delete</span></button>)}</section>}
+                   {desktopMode && selectedSceneLayer && <section className="mb-3 space-y-2 rounded border border-white/10 bg-black/20 p-2"><p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Layer editor</p><select value={selectedSceneLayerId || ""} onChange={(event) => setSelectedSceneLayerId(event.target.value)} className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-[10px] text-white">{activeSceneLayers.map((layer, index) => <option key={layer.id} value={layer.id}>{index + 1}. {layer.name}</option>)}</select><input value={selectedSceneLayer.name} onChange={(event) => updateSelectedSceneLayer({ name: event.target.value.slice(0, 80) })} aria-label="Layer name" className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white" />{selectedSceneLayer.kind === "text" && <textarea value={selectedSceneLayer.text || ""} onChange={(event) => updateSelectedSceneLayer({ text: event.target.value })} aria-label="Layer text" className="min-h-16 w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white" />}{(selectedSceneLayer.kind === "image" || selectedSceneLayer.kind === "video") && <><select value={selectedSceneLayer.mediaUrl || ""} onChange={(event) => updateSelectedSceneLayer({ mediaUrl: event.target.value })} aria-label="Choose local background media" className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white"><option value="">Choose PC media</option>{desktopBackgrounds.filter((asset) => asset.mediaType === selectedSceneLayer.kind).map((asset) => <option key={asset.id} value={asset.url}>{asset.displayName}</option>)}</select><input value={selectedSceneLayer.mediaUrl || ""} onChange={(event) => updateSelectedSceneLayer({ mediaUrl: event.target.value })} placeholder="Local media URL" aria-label="Layer media URL" className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white" /></>}<div className="grid grid-cols-2 gap-1">{([ ["x", "X"], ["y", "Y"], ["width", "Width"], ["height", "Height"], ["rotation", "Rotation"], ["fontSize", "Font size"] ] as const).map(([field, label]) => <label key={field} className="text-[9px] text-zinc-500">{label}<input type="number" value={selectedSceneLayer[field] ?? 0} onChange={(event) => updateSelectedSceneLayer({ [field]: Number(event.target.value) || 0 })} className="mt-0.5 w-full rounded border border-white/10 bg-[#171717] px-2 py-1 text-xs text-white" /></label>)}</div><div className="flex gap-1"><button onClick={() => moveSelectedSceneLayer(-1)} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">Bring forward</button><button onClick={() => moveSelectedSceneLayer(1)} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">Send back</button><button onClick={() => updateSelectedSceneLayer({ locked: !selectedSceneLayer.locked })} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">{selectedSceneLayer.locked ? "Unlock" : "Lock"}</button></div></section>}
+                   {desktopMode && selectedSceneLayer && <><div className="mb-3 flex gap-1"><button onClick={duplicateSelectedSceneLayer} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">Duplicate selected layer</button><button onClick={() => updateSelectedSceneLayer({ groupId: selectedSceneLayer.groupId ? undefined : crypto.randomUUID() })} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">{selectedSceneLayer.groupId ? "Ungroup" : "Group"}</button></div><section className="mb-3 space-y-1.5 rounded border border-violet-400/20 bg-violet-500/5 p-2"><p className="text-[10px] font-bold uppercase tracking-wider text-violet-200">Scene layer motion</p><div className="grid grid-cols-2 gap-1"><label className="text-[9px] text-zinc-500">Start (seconds)<input type="number" min="0" value={selectedSceneLayer.startTime || 0} onChange={(event) => updateSelectedSceneLayer({ startTime: Math.max(0, Number(event.target.value) || 0) })} className="mt-0.5 w-full rounded border border-white/10 bg-[#171717] px-2 py-1 text-xs text-white" /></label><label className="text-[9px] text-zinc-500">Duration (seconds)<input type="number" min="0" value={selectedSceneLayer.duration || 0} onChange={(event) => updateSelectedSceneLayer({ duration: Math.max(0, Number(event.target.value) || 0) })} className="mt-0.5 w-full rounded border border-white/10 bg-[#171717] px-2 py-1 text-xs text-white" /></label></div><div className="flex gap-1"><input value={motionPresetName} onChange={(event) => setMotionPresetName(event.target.value)} placeholder="Save current motion as…" className="min-w-0 flex-1 rounded border border-white/10 bg-[#171717] px-2 py-1 text-[10px] text-white" /><button onClick={() => void saveSceneLayerMotionPreset()} disabled={!motionPresetName.trim()} className="rounded bg-violet-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-40">Save</button></div>{motionPresets.length > 0 && <div className="flex gap-1"><select value={selectedMotionPresetId} onChange={(event) => setSelectedMotionPresetId(event.target.value)} className="min-w-0 flex-1 rounded border border-white/10 bg-[#171717] px-2 py-1 text-[10px] text-white"><option value="">Apply saved motion…</option>{motionPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select><button onClick={() => { const preset = motionPresets.find((item) => item.id === selectedMotionPresetId); if (preset) applySceneLayerMotionPreset(preset.motion, false); }} disabled={!selectedMotionPresetId} className="rounded bg-white/10 px-2 py-1 text-[10px] font-bold">Layer</button><button onClick={() => { const preset = motionPresets.find((item) => item.id === selectedMotionPresetId); if (preset) applySceneLayerMotionPreset(preset.motion, true); }} disabled={!selectedMotionPresetId} className="rounded bg-white/10 px-2 py-1 text-[10px] font-bold">All</button></div>}</section></>}
+                   {desktopMode && <section className="mb-3 rounded border border-white/10 bg-black/20 p-2"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">PowerPoint import</p><label className="block cursor-pointer rounded bg-white/10 px-2 py-1.5 text-center text-[10px] font-bold hover:bg-white/15">{isImportingPptx ? "Importing…" : "Import .pptx locally"}<input type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" className="hidden" disabled={isImportingPptx} onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; setIsImportingPptx(true); try { const imported = await importDesktopPptxAction(file); setPptxReport(imported.report); setImportedPptxSlides(imported.slides.map((slide) => ({ id: slide.id, type: "teaching", content: [], sectionLabel: imported.name, sceneLayers: slide.layers }))); setActiveItemIndex(-3); setActiveSlideId(null); } finally { setIsImportingPptx(false); event.currentTarget.value = ""; } }} /></label>{importedPptxSlides.length > 0 && <button onClick={() => setActiveItemIndex(-3)} className="mt-2 w-full rounded bg-violet-600/30 px-2 py-1.5 text-[10px] font-bold text-violet-100">Open imported slides ({importedPptxSlides.length})</button>}{pptxReport && <p className="mt-2 text-[9px] text-zinc-400">Imported {pptxReport.importedText} text layers.{pptxReport.warnings.length ? ` ${pptxReport.warnings[0]}` : ""}</p>}</section>}
                    {activeBlocks.length === 0 ? (
                       <div className="p-4 text-center text-xs text-zinc-500">
                          Click "Chop to Words" to see layers.
@@ -1050,6 +1644,16 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                      <p className="text-xs font-bold text-blue-500">{selectedBlock ? "Layer Override" : "Global Animation"}</p>
                      <button onClick={() => setSettings(defaultPresentationSettings)} className="text-[10px] font-bold text-zinc-400 hover:text-white transition">Reset to Global</button>
                   </div>
+
+                  {desktopMode && <section className="space-y-2 rounded border border-violet-400/20 bg-violet-500/5 p-3">
+                    <div className="flex items-center justify-between gap-2"><p className="text-[10px] font-bold uppercase tracking-wider text-violet-200">Local Motion Presets</p><span className="text-[9px] text-zinc-500">PC only</span></div>
+                    {selectedBlock ? <>
+                      <div className="flex gap-1"><input value={motionPresetName} onChange={(event) => setMotionPresetName(event.target.value)} placeholder="Preset name" className="min-w-0 flex-1 rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white" /><button onClick={() => void saveMotionPreset()} disabled={!motionPresetName.trim()} className="rounded bg-violet-600 px-2 py-1.5 text-[10px] font-bold text-white disabled:opacity-40">Save</button></div>
+                      <p className="text-[9px] text-zinc-500">Saves this layer’s effective entrance and exit motion. Existing slides never change when a preset is edited.</p>
+                    </> : <p className="text-[10px] text-zinc-500">Select a layer to save a reusable motion preset.</p>}
+                    {motionPresets.length > 0 && <div className="flex gap-1"><select value={selectedMotionPresetId} onChange={(event) => setSelectedMotionPresetId(event.target.value)} className="min-w-0 flex-1 rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs text-white"><option value="">Choose a preset</option>{motionPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select><button onClick={() => { const preset = motionPresets.find((item) => item.id === selectedMotionPresetId); if (preset) applyMotionPreset(preset.motion, false); }} disabled={!selectedMotionPresetId || selectedBlockIds.length === 0} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold text-white disabled:opacity-40">Apply layer</button><button onClick={() => { const preset = motionPresets.find((item) => item.id === selectedMotionPresetId); if (preset) applyMotionPreset(preset.motion, true); }} disabled={!selectedMotionPresetId || activeBlocks.length === 0} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold text-white disabled:opacity-40">Apply all</button></div>}
+                    {selectedMotionPresetId && <button onClick={async () => { const presets = await deleteDesktopMotionPresetAction(selectedMotionPresetId); setMotionPresets(presets); setSelectedMotionPresetId(""); }} className="text-[10px] font-semibold text-red-300 hover:text-red-200">Delete selected preset</button>}
+                  </section>}
 
                   {/* SLIDE TRANSITION (Global Only) */}
                   {!selectedBlock && (
@@ -1372,7 +1976,9 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
 
               {activeTab === "Stage" && (
                 <div className="p-4 space-y-6">
-                  <div className="space-y-3 pb-4 border-b border-white/5">
+                  {desktopMode && <section className="space-y-2 rounded border border-violet-400/20 bg-violet-500/5 p-3"><p className="text-[10px] font-bold uppercase tracking-wider text-violet-200">Confidence layout preset</p><select value={stageLayoutPresetId} onChange={(event) => { const id = event.target.value as StageLayoutPresetId; const stageLayout = stageLayoutPreset(id); setStageLayoutPresetId(id); if (setlist) void persistDesktopPresenterLiveState(setlist.id, { stageLayout }); }} className="w-full rounded border border-white/10 bg-[#1a1a1a] px-2 py-2 text-xs text-white"><option value="full">Full service</option><option value="lyrics-chords">Lyrics, chords, notes</option><option value="lyrics-focus">Lyrics focus</option></select><p className="text-[9px] text-zinc-500">Saved locally and restored when Confidence opens.</p></section>}
+                  <p className="rounded border border-violet-400/20 bg-violet-500/5 px-3 py-2 text-[10px] leading-relaxed text-violet-100">Live flash notes, countdowns, and output controls are operated from Worship Remote.</p>
+                  <div className="hidden space-y-3 pb-4 border-b border-white/5">
                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Flash Note</p>
                     <input 
                       type="text" 
@@ -1381,10 +1987,11 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                       onChange={(e) => setStageMessageInput(e.target.value)}
                       className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500"
                     />
+                    <div className="grid grid-cols-[1fr_auto_auto] gap-2"><input type="number" min="16" max="160" value={stageFlashStyle.fontSize} onChange={(e) => setStageFlashStyle({ ...stageFlashStyle, fontSize: Math.max(16, Math.min(160, Number(e.target.value) || 56)) })} aria-label="Flash note font size" className="min-w-0 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white" /><input type="color" value={stageFlashStyle.color} onChange={(e) => setStageFlashStyle({ ...stageFlashStyle, color: e.target.value })} aria-label="Flash note text color" className="h-8 w-9 rounded bg-transparent" /><input type="color" value={stageFlashStyle.backgroundColor} onChange={(e) => setStageFlashStyle({ ...stageFlashStyle, backgroundColor: e.target.value })} aria-label="Flash note background color" className="h-8 w-9 rounded bg-transparent" /></div>
                     <div className="flex gap-2 mt-2">
                        <button 
                          onClick={() => {
-                           channel.send({ type: "broadcast", event: "stage_sync", payload: { stageMessage: stageMessageInput } });
+                           broadcast("stage_sync", { stageMessage: stageMessageInput, stageFlashStyle });
                          }}
                          className="flex-1 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold py-2 rounded transition"
                        >
@@ -1393,7 +2000,7 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                        <button 
                          onClick={() => {
                            setStageMessageInput("");
-                           channel.send({ type: "broadcast", event: "stage_sync", payload: { stageMessage: "" } });
+                           broadcast("stage_sync", { stageMessage: "" });
                          }}
                          className="flex-1 bg-red-900/50 hover:bg-red-800 text-red-200 text-xs font-bold py-2 rounded transition border border-red-900/50"
                        >
@@ -1402,7 +2009,9 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                     </div>
                   </div>
 
-                  <div className="space-y-3">
+                  {desktopMode && <div className="hidden space-y-2 border-b border-white/5 pb-4"><p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Live Prop / Overlay</p><input value={propText} onChange={(event) => setPropText(event.target.value)} placeholder="Title or announcement" className="w-full rounded border border-white/10 bg-[#1a1a1a] px-3 py-2 text-xs text-white" /><input value={propSubtitle} onChange={(event) => setPropSubtitle(event.target.value)} placeholder="Optional subtitle" className="w-full rounded border border-white/10 bg-[#1a1a1a] px-3 py-2 text-xs text-white" /><div className="grid grid-cols-3 gap-1"><button onClick={() => { const prop: LiveProp = { kind: "lower-third", text: propText, subtitle: propSubtitle }; setLiveProp(prop); broadcast("projector_sync", { liveProp: prop }); }} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold">Lower third</button><button onClick={() => { const prop: LiveProp = { kind: "alert", text: propText, subtitle: propSubtitle }; setLiveProp(prop); broadcast("projector_sync", { liveProp: prop }); }} className="rounded bg-red-900/60 px-2 py-1.5 text-[10px] font-bold">Alert</button><button onClick={() => { setLiveProp(null); broadcast("projector_sync", { liveProp: null }); }} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold">Clear prop</button></div><div className="flex gap-1"><input value={propPresetName} onChange={(event) => setPropPresetName(event.target.value)} placeholder="Save prop preset as…" maxLength={80} className="min-w-0 flex-1 rounded border border-white/10 bg-[#1a1a1a] px-2 py-1.5 text-[10px] text-white" /><button onClick={async () => { const prop = liveProp || { kind: "lower-third" as const, text: propText, subtitle: propSubtitle }; const presets = await saveDesktopLivePropPresetAction(propPresetName, prop); setLivePropPresets(presets); setPropPresetName(""); }} disabled={!propPresetName.trim()} className="rounded bg-violet-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-40">Save</button></div>{livePropPresets.length > 0 && <div className="flex flex-wrap gap-1">{livePropPresets.map((preset) => <span key={preset.id} className="inline-flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-[9px]"><button onClick={() => { setLiveProp(preset.prop); setPropText(preset.prop.text || ""); setPropSubtitle(preset.prop.subtitle || ""); broadcast("projector_sync", { liveProp: preset.prop }); }}>{preset.name}</button><button aria-label={`Delete ${preset.name}`} onClick={async () => { const presets = await deleteDesktopLivePropPresetAction(preset.id); setLivePropPresets(presets); }} className="text-red-300">×</button></span>)}</div>}</div>}
+
+                  <div className="hidden space-y-3">
                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Countdown Timer</p>
                     <div className="flex gap-2 items-center">
                        <input 
@@ -1417,19 +2026,33 @@ export default function GlobalPresenterClient({ setlists }: { setlists: any[] })
                     <div className="flex gap-2 mt-2">
                        <button 
                          onClick={() => {
-                           channel.send({ type: "broadcast", event: "stage_sync", payload: { countdownTarget: Date.now() + countdownInput * 60000 } });
+                           const target = Date.now() + (pausedCountdownMs ?? countdownInput * 60000);
+                           setCountdownTarget(target); setPausedCountdownMs(null);
+                           broadcast("stage_sync", { countdownTarget: target, countdownPausedMs: null });
                          }}
                          className="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 rounded transition"
                        >
-                         Start
+                         {pausedCountdownMs !== null ? "Resume" : "Start"}
                        </button>
                        <button 
                          onClick={() => {
-                           channel.send({ type: "broadcast", event: "stage_sync", payload: { countdownTarget: null } });
+                           const remaining = countdownTarget ? Math.max(0, countdownTarget - Date.now()) : null;
+                           setPausedCountdownMs(remaining); setCountdownTarget(null);
+                           broadcast("stage_sync", { countdownTarget: null, countdownPausedMs: remaining });
+                         }}
+                         disabled={!countdownTarget}
+                         className="flex-1 bg-amber-900/50 hover:bg-amber-800 disabled:opacity-40 text-amber-100 text-xs font-bold py-2 rounded transition border border-amber-900/50"
+                       >
+                         Pause
+                       </button>
+                       <button 
+                         onClick={() => {
+                           setCountdownTarget(null); setPausedCountdownMs(null);
+                           broadcast("stage_sync", { countdownTarget: null, countdownPausedMs: null });
                          }}
                          className="flex-1 bg-red-900/50 hover:bg-red-800 text-red-200 text-xs font-bold py-2 rounded transition border border-red-900/50"
                        >
-                         Stop
+                         Reset
                        </button>
                     </div>
                   </div>

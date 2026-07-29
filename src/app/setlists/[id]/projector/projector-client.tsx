@@ -3,15 +3,36 @@
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { defaultPresentationSettings, type PresentationSlide, type PresentationSettings } from "@/lib/domain/presentation";
+import { defaultPresentationSettings, entranceMotionClass, exitMotionClass, resolveBlockMotion, resolveSceneLayerMotion, type LiveProp, type PresentationSlide, type PresentationSettings, type SceneLayer } from "@/lib/domain/presentation";
+import { decodeAudienceLookLayout, type AudienceLookLayout } from "@/lib/desktop/audience-looks";
+import { DesktopLiveSource } from "@/components/desktop-live-source";
+import { ProjectorBackground } from "./projector-background";
 
-export default function ProjectorClient({ setlistId, initialSettings }: { setlistId: string, initialSettings?: PresentationSettings }) {
-  const [activeSlide, setActiveSlide] = useState<PresentationSlide | null>(null);
+function LivePropOverlay({ prop }: { prop: LiveProp | null }) {
+  if (!prop) return null;
+  if (prop.kind === "logo" && prop.imageUrl) return <img src={prop.imageUrl} alt="" className="fixed right-10 top-10 z-[100] max-h-28 max-w-48 object-contain" />;
+  const alert = prop.kind === "alert";
+  return <div className={`fixed bottom-10 left-10 z-[100] max-w-[70vw] rounded-lg px-8 py-5 shadow-2xl ${alert ? "animate-pulse" : ""}`} style={{ backgroundColor: prop.backgroundColor || (alert ? "#b91c1c" : "#111827"), color: prop.color || "#ffffff" }}><p className="text-3xl font-black">{prop.text}</p>{prop.subtitle && <p className="mt-1 text-xl opacity-85">{prop.subtitle}</p>}</div>;
+}
+
+export default function ProjectorClient({ setlistId, initialSettings, initialLiveState = {} }: { setlistId: string, initialSettings?: PresentationSettings; initialLiveState?: Record<string, any> }) {
+  const [activeSlide, setActiveSlide] = useState<PresentationSlide | null>(initialLiveState.slide || null);
   const [prevSlide, setPrevSlide] = useState<PresentationSlide | null>(null);
   const [settings, setSettings] = useState<PresentationSettings>(initialSettings || defaultPresentationSettings);
   const [slideSettings, setSlideSettings] = useState<{ backgroundType?: string; backgroundValue?: string } | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [outputMode, setOutputMode] = useState<"slide" | "clear" | "black" | "logo">(initialLiveState.outputMode || "clear");
+  const [liveProp, setLiveProp] = useState<LiveProp | null>(initialLiveState.liveProp || null);
+  const [lookLayout] = useState<AudienceLookLayout>(() => {
+    if (typeof window === "undefined") return decodeAudienceLookLayout(undefined, "Main Projection");
+    const parameters = new URLSearchParams(window.location.search);
+    return decodeAudienceLookLayout(parameters.get("lookLayout"), parameters.get("look") || "Main Projection");
+  });
   const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    if (window.anointedDesktop) void window.anointedDesktop.markOutputReady("projector");
+  }, []);
 
   useEffect(() => {
     let timeout: NodeJS.Timeout;
@@ -35,6 +56,24 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
   }, []);
 
   useEffect(() => {
+    if (window.anointedDesktop) {
+      const channel = new BroadcastChannel(`setlist_${setlistId}`);
+      const receive = (message: MessageEvent<{ event?: string; payload?: any }>) => {
+        if (message.data?.event !== "projector_sync") return;
+        const payload = message.data.payload;
+        if (!payload) return;
+        if (payload.settings) setSettings(payload.settings);
+        if (payload.slideSettings !== undefined) setSlideSettings(payload.slideSettings);
+        if (payload.slide !== undefined) setActiveSlide(payload.slide as PresentationSlide | null);
+        if (payload.outputMode) setOutputMode(payload.outputMode);
+        if (payload.liveProp !== undefined) setLiveProp(payload.liveProp);
+      };
+      channel.addEventListener("message", receive);
+      channel.postMessage({ event: "presentation_state_request", payload: { output: "projector" } });
+      setIsConnected(true);
+      return () => { channel.removeEventListener("message", receive); channel.close(); };
+    }
+
     const channel = supabase.channel(`setlist_${setlistId}`);
 
     channel
@@ -46,6 +85,10 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
           if (payload.payload.slideSettings !== undefined) {
             setSlideSettings(payload.payload.slideSettings);
           }
+          if (payload.payload.outputMode) {
+            setOutputMode(payload.payload.outputMode);
+          }
+          if (payload.payload.liveProp !== undefined) setLiveProp(payload.payload.liveProp);
           if (payload.payload.slide !== undefined) {
             const newSlide = payload.payload.slide as PresentationSlide | null;
             setActiveSlide(curr => {
@@ -115,13 +158,27 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
     }
   };
 
-  if (!activeSlide) {
+  const backgroundLayer = <ProjectorBackground settings={settings} slideSettings={slideSettings} />;
+
+  if (outputMode === "black") {
+    return <>{backgroundLayer}<div className="fixed inset-0 bg-black" /><LivePropOverlay prop={lookLayout.showProps ? liveProp : null} /></>;
+  }
+
+  if (outputMode === "logo") {
+    return <>{backgroundLayer}<div className="fixed inset-0 flex items-center justify-center bg-black"><img src="/brand/anointed-worship-logo-transparent.png" alt="Anointed Worship" className="max-h-[42vh] max-w-[42vw] object-contain opacity-90" /></div><LivePropOverlay prop={lookLayout.showProps ? liveProp : null} /></>;
+  }
+
+  if (!activeSlide || outputMode === "clear") {
     return (
-      <div className="fixed inset-0 flex items-center justify-center transition-colors duration-300" style={{ backgroundColor: settings.backgroundColor }}>
-        {!isConnected && (
-          <p className="font-mono text-sm" style={{ color: settings.color }}>Waiting for connection...</p>
-        )}
-      </div>
+      <>
+        {backgroundLayer}
+        <div className="fixed inset-0 flex items-center justify-center">
+          {!isConnected && (
+            <p className="font-mono text-sm" style={{ color: settings.color }}>Waiting for connection...</p>
+          )}
+        </div>
+        <LivePropOverlay prop={lookLayout.showProps ? liveProp : null} />
+      </>
     );
   }
 
@@ -132,6 +189,8 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
 
   return (
     <>
+      {backgroundLayer}
+      <LivePropOverlay prop={lookLayout.showProps ? liveProp : null} />
       {slidesToRender.map(({ slide, isPrev }) => {
         let transitionClass = "";
         if (settings.slideTransition === "Crossfade") {
@@ -152,19 +211,19 @@ export default function ProjectorClient({ setlistId, initialSettings }: { setlis
              getExitClass={getExitClass}
              getCurveValue={getCurveValue}
              getAlignmentClass={getAlignmentClass}
-             slideSettings={slideSettings}
+             lookLayout={lookLayout}
           />
         );
-      })}
+        })}
     </>
   );
 }
 
-function SlideRenderer({ slide, settings, slideSettings, transitionClass, getEntranceClass, getExitClass, getCurveValue, getAlignmentClass }: any) {
+function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, getExitClass, getCurveValue, getAlignmentClass, lookLayout }: any) {
   // Handle PDF/Image slides if they are passed as 'media'
   if (slide.mediaUrl) {
     return (
-       <div className={cn("fixed inset-0 flex items-center justify-center overflow-hidden transition-colors duration-300", transitionClass)} style={{ backgroundColor: settings.backgroundColor, animationDuration: '0.5s' }}>
+       <div className={cn("fixed inset-0 flex items-center justify-center overflow-hidden transition-colors duration-300", transitionClass)} style={{ animationDuration: '0.5s' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img 
              src={slide.mediaUrl} 
@@ -175,37 +234,32 @@ function SlideRenderer({ slide, settings, slideSettings, transitionClass, getEnt
     );
   }
 
-  let containerStyle: React.CSSProperties = { 
-    backgroundColor: settings.backgroundColor, 
+  const containerStyle: React.CSSProperties = {
     animationDuration: '0.5s' 
   };
-  
-  if (slideSettings) {
-    if (slideSettings.backgroundType === "color") {
-      containerStyle.backgroundColor = slideSettings.backgroundValue;
-    } else if (slideSettings.backgroundType === "gradient") {
-      containerStyle.background = slideSettings.backgroundValue;
-    }
-  }
 
   return (
     <div 
       className={cn("fixed inset-0 flex flex-col justify-center p-8 sm:p-16 overflow-hidden transition-colors duration-300", transitionClass)} 
       style={containerStyle}
     >
-      {/* Uploaded Background Media */}
-      {(settings.backgroundMediaUrl || (slideSettings?.backgroundType === "image" && slideSettings?.backgroundValue)) && (
-        <div className="absolute inset-0 overflow-hidden -z-10">
-          {settings.backgroundMediaType === "video" && !slideSettings?.backgroundValue ? (
-            <video src={settings.backgroundMediaUrl} className="w-full h-full object-cover opacity-80" autoPlay loop muted playsInline />
-          ) : (
-             // eslint-disable-next-line @next/next/no-img-element
-            <img src={slideSettings?.backgroundValue || settings.backgroundMediaUrl} className="w-full h-full object-cover opacity-80" alt="Background" />
-          )}
-        </div>
-      )}
-      {slide.blocks && slide.blocks.length > 0 ? (
-        <div className="relative w-full h-full">
+      {lookLayout.showSceneLayers && ((slide.sceneLayers || []) as SceneLayer[]).filter((layer) => !layer.hidden).map((layer, index) => {
+        const motion = resolveSceneLayerMotion(layer, settings);
+        const entrance = entranceMotionClass(motion.entranceAnimation);
+        const exit = exitMotionClass(motion.exitAnimation);
+        const exitDelay = (layer.startTime || 0) + (layer.duration || 0) + motion.exitDelay;
+        return <div key={layer.id} className={cn("absolute overflow-hidden", entrance && "fill-mode-both", entrance)} style={{ left: `${layer.x}%`, top: `${layer.y}%`, width: `${layer.width}%`, height: `${layer.height}%`, transform: `rotate(${layer.rotation}deg)`, zIndex: 5 + (layer.zIndex ?? index), borderRadius: layer.shapeType === "ellipse" ? "50%" : `${layer.borderRadius || 0}px`, clipPath: layer.shapeType === "triangle" ? "polygon(50% 0, 100% 100%, 0 100%)" : undefined, backgroundColor: layer.kind === "shape" ? layer.backgroundColor : undefined, animationDelay: entrance ? `${(layer.startTime || 0) + motion.entranceDelay}s` : undefined, animationDuration: entrance ? `${motion.entranceDuration}s` : undefined }}>
+          <div className={cn("h-full w-full", exit && "fill-mode-forwards", exit)} style={{ animationDelay: exit && layer.duration ? `${exitDelay}s` : undefined, animationDuration: exit ? `${motion.exitDuration}s` : undefined }}>
+            {layer.kind === "text" && <div className="h-full w-full whitespace-pre-wrap" style={{ color: layer.color || "#ffffff", backgroundColor: layer.backgroundColor === "#000000" ? undefined : layer.backgroundColor, fontSize: `${layer.fontSize || 56}pt` }}>{layer.text || "Text"}</div>}
+            {layer.kind === "image" && layer.mediaUrl && <img src={layer.mediaUrl} alt="" className="h-full w-full object-contain" />}
+            {layer.kind === "video" && layer.mediaUrl && <video src={layer.mediaUrl} className="h-full w-full object-cover" autoPlay loop muted playsInline />}
+            {layer.kind === "live-camera" && <DesktopLiveSource kind="live-camera" sourceId={layer.captureSourceId} />}
+            {layer.kind === "live-screen" && <DesktopLiveSource kind="live-screen" sourceId={layer.captureSourceId} />}
+          </div>
+        </div>;
+      })}
+      {lookLayout.showLyrics && (slide.blocks && slide.blocks.length > 0 ? (
+        <div className={cn("relative w-full h-full", lookLayout.lyricStyle === "lower-third" && "absolute bottom-12 left-0 right-0 h-[32%] bg-black/60 p-8")}>
           {(() => {
             const maxBlockLength = Math.max(...(slide.blocks || []).map((b: any) => b.text.length), 1);
             const hFit = 2200 / maxBlockLength;
@@ -223,15 +277,15 @@ function SlideRenderer({ slide, settings, slideSettings, transitionClass, getEnt
             const effectiveUnderline = block.underline ?? settings.underline;
 
             // Effective Animations
-            const effEntAnim = block.entranceAnimation ?? settings.entranceAnimation;
-            const effEntDuration = block.entranceDuration ?? (settings.entranceDuration || 1.0);
-            let effEntDelay = block.entranceDelay ?? (settings.entranceDelay || 0);
-            const effEntCurve = block.entranceCurve ?? (settings.entranceCurve || "Ease Out");
-            
-            const effExtAnim = block.exitAnimation ?? settings.exitAnimation;
-            const effExtDuration = block.exitDuration ?? (settings.exitDuration || 1.0);
-            const effExtDelay = block.exitDelay ?? (settings.exitDelay || 0);
-            const effExtCurve = block.exitCurve ?? (settings.exitCurve || "Ease Out");
+            const resolvedMotion = resolveBlockMotion(block, settings);
+            const effEntAnim = resolvedMotion.entranceAnimation;
+            const effEntDuration = resolvedMotion.entranceDuration;
+            let effEntDelay = resolvedMotion.entranceDelay;
+            const effEntCurve = resolvedMotion.entranceCurve;
+            const effExtAnim = resolvedMotion.exitAnimation;
+            const effExtDuration = resolvedMotion.exitDuration;
+            const effExtDelay = resolvedMotion.exitDelay;
+            const effExtCurve = resolvedMotion.exitCurve;
 
             // Apply kinetic stagger delay if Word by Word mode is active globally
             if (settings.kineticMode === "Word by Word") {
@@ -306,7 +360,7 @@ function SlideRenderer({ slide, settings, slideSettings, transitionClass, getEnt
           return (
             <div 
               key={slide.id} 
-              className={cn("w-full flex flex-col", getAlignmentClass())}
+              className={cn("w-full flex flex-col", getAlignmentClass(), lookLayout.lyricStyle === "lower-third" && "absolute bottom-12 left-0 right-0 w-auto bg-black/60 p-8")}
               style={{
                 fontFamily: settings.fontFamily,
                 color: settings.color,
@@ -341,7 +395,7 @@ function SlideRenderer({ slide, settings, slideSettings, transitionClass, getEnt
             </div>
           );
         })()
-      }
+        )}
     </div>
   );
 }

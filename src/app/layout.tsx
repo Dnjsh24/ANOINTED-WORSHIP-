@@ -1,19 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { PwaRegister } from "@/components/pwa-register";
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
 
 const siteUrl = new URL("https://anointed-worship-app.vercel.app");
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
@@ -76,10 +66,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <body className="min-h-full bg-[#0d0d10] text-white">
-        <PwaRegister />
+        <PwaRegister enabled={!isDesktopRuntime()} />
         {children}
       </body>
     </html>

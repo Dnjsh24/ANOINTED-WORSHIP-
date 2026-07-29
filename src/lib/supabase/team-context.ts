@@ -4,6 +4,8 @@ import { resolvePostLoginPath, type PostLoginPath } from "@/lib/domain/post-logi
 import { appName, teamCode } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
+import { getDesktopTeamContext, saveDesktopTeamContext } from "@/lib/desktop/workspace";
 import type { Database } from "@/lib/supabase/database.types";
 import type { TeamRole } from "@/lib/types";
 
@@ -46,13 +48,35 @@ export async function getCurrentTeamContext(): Promise<TeamContext> {
     return demoTeamContext;
   }
 
+  if (isDesktopRuntime()) {
+    const localContext = getDesktopTeamContext();
+    if (localContext) {
+      return localContext;
+    }
+
+    // First desktop sign-in needs the cloud once so the local workspace can be bootstrapped.
+    try {
+      const supabase = await createClient();
+      const cloudContext = await getCurrentTeamContextForClient(supabase);
+      if (cloudContext.userId && cloudContext.teamId && cloudContext.memberId) {
+        saveDesktopTeamContext(cloudContext);
+        // DesktopSyncStatus performs the first content download immediately
+        // after this cached context is available. Keeping that work out of the
+        // auth guard lets an offline restart remain entirely local.
+      }
+      return cloudContext;
+    } catch {
+      return unauthenticatedTeamContext;
+    }
+  }
+
   const supabase = await createClient();
   return getCurrentTeamContextForClient(supabase);
 }
 
 export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Database>): Promise<TeamContext> {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.user?.id) {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user?.id) {
     return unauthenticatedTeamContext;
   }
 
@@ -69,7 +93,7 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
         code
       )
     `)
-    .eq("profile_id", session.user.id)
+    .eq("profile_id", user.id)
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(1)
@@ -78,7 +102,7 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
   const { data: pendingRequest } = await supabase
     .from("join_requests")
     .select("id")
-    .eq("profile_id", session.user.id)
+    .eq("profile_id", user.id)
     .eq("status", "pending")
     .limit(1)
     .maybeSingle();
@@ -86,7 +110,7 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
   if (!member) {
     return {
       ...unauthenticatedTeamContext,
-      userId: session.user.id,
+      userId: user.id,
       hasPendingJoinRequest: Boolean(pendingRequest),
     };
   }
@@ -104,7 +128,7 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
   }
 
   return {
-    userId: session.user.id,
+    userId: user.id,
     teamId: member.team_id,
     memberId: member.id,
     teamName: (member.teams as any)?.name ?? appName,

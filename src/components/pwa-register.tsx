@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { Wifi, WifiOff, X } from "lucide-react";
 
-export function PwaRegister() {
+export function PwaRegister({ enabled = true }: { enabled?: boolean }) {
   const [isOnline, setIsOnline] = useState(true);
   const [showStatusToast, setShowStatusToast] = useState(false);
   const [hasUpdate, setHasUpdate] = useState(false);
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     // 1. Initial connection status
     setIsOnline(navigator.onLine);
 
@@ -103,7 +104,9 @@ export function PwaRegister() {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, []);
+  }, [enabled]);
+
+  if (!enabled) return null;
 
   // Show local push notification helper
   function showLocalNotification(title: string, options: NotificationOptions) {

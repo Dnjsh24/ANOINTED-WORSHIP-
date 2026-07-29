@@ -22,6 +22,12 @@ export interface SlideBlock {
   exitCurve?: string;
 }
 
+/** Motion values which can be copied to one or many desktop-only text layers. */
+export type BlockMotion = Pick<SlideBlock,
+  "entranceAnimation" | "entranceDuration" | "entranceDelay" | "entranceCurve" |
+  "exitAnimation" | "exitDuration" | "exitDelay" | "exitCurve"
+>;
+
 export interface PresentationSlide {
   id: string;
   type: "lyrics" | "teaching" | "blank";
@@ -31,7 +37,59 @@ export interface PresentationSlide {
   sectionLabel?: string;
   notes?: string;
   mediaUrl?: string; // For teaching/image slides
+  sceneLayers?: SceneLayer[];
 }
+
+/** A desktop-only production layer. It never enters the worship sync payload. */
+export type SceneLayer = {
+  id: string;
+  kind: "text" | "shape" | "image" | "video" | "live-camera" | "live-screen";
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  /** Local scene stacking order; higher values render in front. */
+  zIndex?: number;
+  hidden?: boolean;
+  locked?: boolean;
+  text?: string;
+  mediaUrl?: string;
+  captureSourceId?: string;
+  color?: string;
+  backgroundColor?: string;
+  fontSize?: number;
+  borderRadius?: number;
+  shapeType?: "rectangle" | "ellipse" | "triangle";
+  startTime?: number;
+  duration?: number;
+  groupId?: string;
+  /** Copied desktop motion values. They are local to the production scene. */
+  motion?: BlockMotion;
+};
+
+export function resolveSceneLayerMotion(layer: SceneLayer, settings: PresentationSettings): Required<BlockMotion> {
+  return resolveBlockMotion(layer.motion ?? {}, settings);
+}
+
+/** Shared class mapping so preview and projector use the same scene motion. */
+export function entranceMotionClass(effect: string) {
+  return ({ "Appear": "animate-appear", "Fade In": "animate-fade-in", "Slide In Up": "animate-slide-in-up", "Slide In Down": "animate-slide-in-down", "Slide In Left": "animate-slide-in-left", "Slide In Right": "animate-slide-in-right", "Mask In Up": "animate-fade-in-up", "Zoom In": "animate-zoom-in", "Zoom In Bounce": "animate-zoom-in-bounce", "Flip In X": "animate-flip-in-x", "Flip In Y": "animate-flip-in-y", "Rotate In": "animate-rotate-in", "Blur In": "animate-blur-in", "Rise Up": "animate-rise-up", "Drop Down": "animate-drop-down", "Bounce In": "animate-bounce-in", "Skew In Left": "animate-skew-in-left", "Skew In Right": "animate-skew-in-right", "Swing In": "animate-swing-in", "Roll In": "animate-roll-in" } as Record<string, string>)[effect] || "";
+}
+
+export function exitMotionClass(effect: string) {
+  return ({ "Disappear": "opacity-0", "Fade Out": "animate-fade-out", "Slide Out Up": "animate-fade-out-up", "Slide Out Down": "animate-fade-out-down", "Slide Out Left": "animate-slide-out-left", "Slide Out Right": "animate-slide-out-right", "Mask Out Up": "animate-fade-out-up", "Zoom Out": "animate-zoom-out", "Zoom Out Blow": "animate-zoom-out-blow", "Flip Out X": "animate-flip-out-x", "Flip Out Y": "animate-flip-out-y", "Rotate Out": "animate-rotate-out", "Blur Out": "animate-blur-out", "Shrink Up": "animate-shrink-up", "Skew Out Left": "animate-skew-out-left", "Skew Out Right": "animate-skew-out-right", "Bounce Out": "animate-bounce-out" } as Record<string, string>)[effect] || "";
+}
+
+export type LiveProp = {
+  kind: "lower-third" | "alert" | "nursery" | "logo";
+  text?: string;
+  subtitle?: string;
+  backgroundColor?: string;
+  color?: string;
+  imageUrl?: string;
+};
 
 export interface PresentationSettings {
   fontFamily: string;
@@ -62,6 +120,20 @@ export interface PresentationSettings {
   backgroundMediaUrl?: string;
   backgroundMediaType?: "image" | "video";
   slideDurations?: Record<string, number>;
+}
+
+/** Resolve a layer's effective animation once so editor and output agree. */
+export function resolveBlockMotion(block: Partial<BlockMotion>, settings: PresentationSettings): Required<BlockMotion> {
+  return {
+    entranceAnimation: block.entranceAnimation ?? settings.entranceAnimation,
+    entranceDuration: block.entranceDuration ?? settings.entranceDuration,
+    entranceDelay: block.entranceDelay ?? settings.entranceDelay,
+    entranceCurve: block.entranceCurve ?? settings.entranceCurve,
+    exitAnimation: block.exitAnimation ?? settings.exitAnimation,
+    exitDuration: block.exitDuration ?? settings.exitDuration,
+    exitDelay: block.exitDelay ?? settings.exitDelay,
+    exitCurve: block.exitCurve ?? settings.exitCurve,
+  };
 }
 
 export const defaultPresentationSettings: PresentationSettings = {
