@@ -68,53 +68,12 @@ export function SetlistForm({
               <span className="text-xs font-bold text-zinc-300">Event Title *</span>
               <Input name="title" value={serviceTitle} onChange={(event) => setServiceTitle(event.target.value)} placeholder="e.g., Sunday Service" required />
             </label>
-
-            <label className="block space-y-1.5">
-              <span className="text-xs font-bold text-zinc-300">Date *</span>
-              <Input type="date" name="serviceDate" defaultValue={setlist?.date} required />
-            </label>
-
-            <label className="block space-y-1.5">
-              <span className="text-xs font-bold text-zinc-300">Event Type *</span>
-              <div className="relative">
-                <select name="eventType" value={eventType} onChange={(event) => handleEventTypeChange(event.target.value)} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400">
-                  {EVENT_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value} className="bg-[#111014]">{option.label}</option>
-                  ))}
-                </select>
-              </div>
-            </label>
-
-            {showServiceType && (
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold text-zinc-300">Service Type *</span>
-                <div className="relative">
-                  <select name="serviceType" value={serviceType} onChange={(event) => setServiceType(event.target.value)} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400">
-                    {SERVICE_TYPE_OPTIONS.map((option) => (
-                      <option key={option} value={option} className="bg-[#111014]">{option}</option>
-                    ))}
-                  </select>
-                </div>
-              </label>
-            )}
-            {!showServiceType && <input type="hidden" name="serviceType" value="" />}
-
-            <label className="block space-y-1.5">
-              <span className="text-xs font-bold text-zinc-300">Location *</span>
-              <Input name="location" value={location} onChange={(event) => setLocation(event.target.value)} required />
-            </label>
-
-            {/* Call Time & Rehearsal Time row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold text-zinc-300">Call Time *</span>
-                <Input type="time" name="callTime" value={callTime} onChange={(event) => setCallTime(event.target.value)} required />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold text-zinc-300">Rehearsal Time (Optional)</span>
-                <Input type="time" name="rehearsalTime" value={rehearsalTime} onChange={(event) => setRehearsalTime(event.target.value)} required />
-              </label>
-            </div>
+            <input type="hidden" name="serviceDate" value={setlist?.date ?? new Date().toISOString().split("T")[0]} />
+            <input type="hidden" name="eventType" value={eventType} />
+            <input type="hidden" name="serviceType" value={serviceType} />
+            <input type="hidden" name="location" value={location} />
+            <input type="hidden" name="callTime" value={callTime} />
+            <input type="hidden" name="rehearsalTime" value={rehearsalTime} />
 
             <label className="block space-y-1.5 pt-2">
               <span className="text-xs font-bold text-zinc-300">Notes (Optional)</span>
