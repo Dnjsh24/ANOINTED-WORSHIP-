@@ -98,7 +98,7 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
         <div className="mb-10 flex items-center justify-center gap-2">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center gap-2">
-              <div className={`flex size-7 items-center justify-center rounded-full text-xs font-extrabold transition-all ${i === step ? "bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.5)]" : i < step ? "bg-violet-600/30 text-violet-300" : "bg-white/[0.06] text-zinc-500"}`}>
+              <div className={`flex size-7 items-center justify-center rounded-full text-xs font-extrabold transition-all ${i === step ? "bg-violet-600 text-white" : i < step ? "bg-violet-600/30 text-violet-300" : "bg-white/[0.06] text-zinc-500"}`}>
                 {i < step ? <Check className="size-3.5" /> : i + 1}
               </div>
               <span className={`text-xs font-bold ${i === step ? "text-white" : "text-zinc-500"}`}>{s}</span>
@@ -198,7 +198,7 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
                   <button
                     type="button"
                     onClick={() => setStep(1)}
-                    className="w-full rounded-xl bg-violet-600 py-3.5 text-sm font-extrabold text-white transition-all duration-200 hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] active:scale-[0.98]"
+                    className="w-full rounded-xl bg-violet-600 py-3.5 text-sm font-extrabold text-white transition-all duration-200 hover:bg-violet-500 active:scale-[0.98]"
                   >
                     Continue
                   </button>
@@ -264,7 +264,7 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
                     <button
                       type="button"
                       onClick={() => setStep(2)}
-                      className="flex-1 rounded-xl bg-violet-600 py-3.5 text-sm font-extrabold text-white transition-all duration-200 hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]"
+                      className="flex-1 rounded-xl bg-violet-600 py-3.5 text-sm font-extrabold text-white transition-all duration-200 hover:bg-violet-500"
                     >
                       Continue
                     </button>
@@ -322,7 +322,7 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
                       </button>
                       <button
                         type="submit"
-                        className="flex-1 rounded-xl bg-violet-600 py-3.5 text-sm font-extrabold text-white transition-all duration-200 hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] active:scale-[0.98]"
+                        className="flex-1 rounded-xl bg-violet-600 py-3.5 text-sm font-extrabold text-white transition-all duration-200 hover:bg-violet-500 active:scale-[0.98]"
                       >
                         Create Team
                       </button>

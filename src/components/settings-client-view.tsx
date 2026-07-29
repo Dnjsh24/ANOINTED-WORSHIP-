@@ -184,7 +184,7 @@ export function SettingsClientView({
                 </div>
                 <Link
                   href="/members/invite"
-                  className="mt-6 flex w-full items-center justify-center rounded-xl bg-violet-600 py-2.5 text-xs font-bold text-white transition hover:bg-violet-500 hover:shadow-[0_0_15px_rgba(139,92,246,0.3)]"
+                  className="mt-6 flex w-full items-center justify-center rounded-xl bg-violet-600 py-2.5 text-xs font-bold text-white transition hover:bg-violet-500"
                 >
                   Invite Members →
                 </Link>

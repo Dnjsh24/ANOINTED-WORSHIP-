@@ -19,9 +19,15 @@ export default function LoginPage({
     }
     try {
       const supabase = createClient();
+      // The browser opened by Electron cannot share cookies with the embedded
+      // window. Return through the registered app protocol so Electron can load
+      // the callback in its own persistent session and complete PKCE there.
+      const redirectTo = window.anointedDesktop?.isDesktop
+        ? "anointed-worship://auth/callback"
+        : `${window.location.origin}/auth/callback`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
+        options: { redirectTo },
       });
       if (error) {
         window.location.href = "/login?error=google";
@@ -39,7 +45,7 @@ export default function LoginPage({
       <div className="relative z-10 w-full max-w-sm animate-fade-up">
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center">
-          <div className="flex size-16 items-center justify-center rounded-full border border-violet-400/30 bg-violet-500/15 shadow-[0_0_40px_rgba(139,92,246,0.4)] mb-5">
+          <div className="flex size-16 items-center justify-center rounded-full border border-violet-400/30 bg-violet-500/15 mb-5">
             <Music2 className="size-7 text-violet-300" />
           </div>
           <h1 className="text-2xl font-extrabold text-white">Welcome Back</h1>

@@ -86,7 +86,7 @@ export function JoinTeamForm() {
         <div className="mb-10 flex items-center justify-center gap-2">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center gap-2">
-              <div className={`flex size-7 items-center justify-center rounded-full text-xs font-extrabold transition-all ${i === step ? "bg-violet-600 text-white shadow-[0_0_15px_rgba(139,92,246,0.5)]" : "bg-white/[0.06] text-zinc-500"}`}>
+              <div className={`flex size-7 items-center justify-center rounded-full text-xs font-extrabold transition-all ${i === step ? "bg-violet-600 text-white" : "bg-white/[0.06] text-zinc-500"}`}>
                 {i + 1}
               </div>
               <span className={`text-xs font-bold ${i === step ? "text-white" : "text-zinc-500"}`}>{s}</span>
@@ -166,7 +166,7 @@ export function JoinTeamForm() {
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-violet-600 py-3.5 text-sm font-extrabold text-white transition-all duration-200 hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] active:scale-[0.98]"
+              className="w-full rounded-xl bg-violet-600 py-3.5 text-sm font-extrabold text-white transition-all duration-200 hover:bg-violet-500 active:scale-[0.98]"
             >
               Request to Join Team
             </button>

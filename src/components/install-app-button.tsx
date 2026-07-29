@@ -93,7 +93,7 @@ export function InstallAppButton() {
       {isInstallable ? (
         <button
           onClick={handleInstallClick}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-xs font-bold text-white transition-all hover:bg-violet-500 hover:shadow-[0_0_15px_rgba(139,92,246,0.3)] active:scale-[0.98]"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-xs font-bold text-white transition-all hover:bg-violet-500 active:scale-[0.98]"
         >
           <Download className="size-4" />
           Install Web App

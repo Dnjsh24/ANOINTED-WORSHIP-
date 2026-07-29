@@ -295,7 +295,7 @@ export function SongViewer({
           </Link>
           <Link
             href="/setlists"
-            className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white hover:bg-violet-500 hover:shadow-[0_0_12px_rgba(139,92,246,0.3)]"
+            className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white hover:bg-violet-500"
           >
             Add to Setlist
           </Link>

@@ -45,7 +45,7 @@ export function QuickReportButton() {
         type="button"
         aria-label="Report a bug or suggest improvement"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex size-12 items-center justify-center rounded-full bg-violet-500 text-white shadow-[0_0_24px_rgba(139,92,246,0.35)] transition-all duration-200 hover:bg-violet-400 hover:shadow-[0_0_32px_rgba(139,92,246,0.5)] focus:outline-none focus:ring-2 focus:ring-violet-300"
+        className="fixed bottom-6 right-6 z-40 flex size-12 items-center justify-center rounded-full bg-violet-500 text-white transition-all duration-200 hover:bg-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
       >
         <Bug className="size-5" />
       </button>

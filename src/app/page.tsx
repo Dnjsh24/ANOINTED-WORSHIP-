@@ -50,7 +50,7 @@ export default function Home() {
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
               href="/login"
-              className="group inline-flex items-center gap-2.5 rounded-xl bg-violet-600 px-6 py-3.5 text-sm font-bold text-white shadow-[0_0_30px_rgba(139,92,246,0.35)] transition-all duration-200 hover:bg-violet-500 hover:shadow-[0_0_40px_rgba(139,92,246,0.5)]"
+              className="group inline-flex items-center gap-2.5 rounded-xl bg-violet-600 px-6 py-3.5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500"
             >
               <svg className="size-4" viewBox="0 0 24 24" fill="none">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>

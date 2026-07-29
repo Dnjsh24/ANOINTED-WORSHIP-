@@ -103,7 +103,7 @@ export default async function DanceChartDetailPage({ params }: { params: Promise
           {canManageDanceCharts && (
             <Link
               href={`/dance/${chart.id}/edit`}
-              className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-violet-500 hover:shadow-[0_0_15px_rgba(139,92,246,0.4)] active:scale-[0.98]"
+              className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-violet-500 active:scale-[0.98]"
             >
               <Edit2 className="size-3.5" />
               Edit Chart

@@ -18,6 +18,7 @@ import {
   User,
   Users,
   MonitorPlay,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
@@ -31,6 +32,7 @@ import { currentUser as sampleUser, events, setlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -344,6 +346,8 @@ export default async function DashboardPage() {
     { href: "/events", label: "Timeline", sub: "Team schedule", icon: CalendarDays },
     { href: "/messages", label: "Messages", sub: "Team communication", icon: MessageSquare },
     { href: "/presenter", label: "Presenter", sub: "Launch presentation", icon: MonitorPlay },
+    ...(isAdminOrOwner ? [{ href: "/analytics", label: "Analytics", sub: "Team insights", icon: BarChart3 }] : []),
+    ...(isDesktopRuntime() ? [{ href: "/sync", label: "Sync", sub: "Offline data status", icon: RefreshCw }] : []),
     ...(teamContext.canManageMembers ? [{ href: "/members", label: "Members", sub: "Roster & availability", icon: Users }] : []),
     { href: "/songs", label: "Songs", sub: "Team song library", icon: Music },
     { href: "/dance", label: "Dance", sub: "Choreography & steps", icon: Footprints },
@@ -431,14 +435,14 @@ export default async function DashboardPage() {
                 {nextEvent ? (
                   <Link
                     href={`/events/${nextEvent.id}`}
-                    className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]"
+                    className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500"
                   >
                     <CheckCircle2 className="size-4" /> Confirm Availability
                   </Link>
                 ) : (
                   <Link
                     href="/events/new"
-                    className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]"
+                    className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500"
                   >
                     <CalendarDays className="size-4" /> Add Event
                   </Link>
@@ -678,7 +682,7 @@ export default async function DashboardPage() {
             <Link
               key={item.href + item.label}
               href={item.href}
-              className="group flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-[#111014]/80 p-4 text-center transition-all duration-200 hover:border-violet-400/40 hover:bg-white/[0.07] hover:shadow-[0_0_20px_rgba(139,92,246,0.1)]"
+              className="group flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-[#111014]/80 p-4 text-center transition-all duration-200 hover:border-violet-400/40 hover:bg-white/[0.07]"
               style={{ animationDelay: `${260 + i * 30}ms` }}
             >
               <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/10 transition-all duration-200 group-hover:bg-violet-500/20">

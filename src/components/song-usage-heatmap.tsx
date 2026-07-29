@@ -58,7 +58,7 @@ export function SongUsageHeatmap({ dates }: SongUsageHeatmapProps) {
     if (count === 1) return "bg-violet-900/40 border border-violet-800/50";
     if (count === 2) return "bg-violet-700/60 border border-violet-600/50";
     if (count === 3) return "bg-violet-500 border border-violet-400";
-    return "bg-violet-400 border border-violet-300 shadow-[0_0_8px_rgba(167,139,250,0.5)]";
+    return "bg-violet-400 border border-violet-300";
   };
 
   return (

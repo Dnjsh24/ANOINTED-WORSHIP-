@@ -86,7 +86,7 @@ export function SetlistsClient({ setlists }: { setlists: Setlist[] }) {
           </Button>
           <Link
             href="/setlists/new"
-            className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-violet-500 hover:shadow-[0_0_15px_rgba(139,92,246,0.35)]"
+            className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-violet-500"
           >
             <Plus className="size-4" />
             New Setlist

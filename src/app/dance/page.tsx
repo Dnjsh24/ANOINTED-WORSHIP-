@@ -142,7 +142,7 @@ export default async function DanceChartsPage({ searchParams }: { searchParams: 
               ) : (
                 <Link
                   href="/dance?new=true"
-                  className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-violet-500 hover:shadow-[0_0_15px_rgba(139,92,246,0.4)] active:scale-[0.98]"
+                  className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-violet-500 active:scale-[0.98]"
                 >
                   + Add Dance Chart
                 </Link>
