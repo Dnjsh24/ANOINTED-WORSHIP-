@@ -17,6 +17,7 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
   let serviceTemplates: ServiceTemplate[] = fallbackServiceTemplates;
   let setlistTemplates: any[] = [];
   let initialEventType: EventType | undefined;
+  let songs: any[] = [];
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
@@ -92,6 +93,16 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
 
       initialEventType = linkedEvent?.type as EventType | undefined;
     }
+
+    // Fetch songs for the team
+    const { data: dbSongs } = await supabase
+      .from("songs")
+      .select("id, title, original_key, bpm")
+      .eq("team_id", teamContext.teamId)
+      .order("title", { ascending: true });
+    if (dbSongs) {
+      songs = dbSongs;
+    }
   } else if (!hasSupabaseEnv()) {
     // Demo fallback
     teamMembersList = sampleMembers as any[];
@@ -111,7 +122,7 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
         <SetlistTemplatePicker templates={setlistTemplates || []} />
       </div>
       <Panel>
-        <SetlistForm eventId={eventId} initialEventType={initialEventType} templateId={templateId} />
+        <SetlistForm eventId={eventId} initialEventType={initialEventType} templateId={templateId} songs={songs} />
       </Panel>
     </AppShell>
   );

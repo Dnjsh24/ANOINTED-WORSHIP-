@@ -1008,6 +1008,18 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     }
   }
 
+  const songIds = formData.getAll("songIds");
+  if (songIds && songIds.length > 0) {
+    const insertData = songIds.map((id, index) => ({
+      setlist_id: setlistData.id,
+      song_id: id as string,
+      song_order: index + 1,
+      assigned_key: "C",
+      notes: null,
+    }));
+    await context.supabase.from("setlist_songs").insert(insertData);
+  }
+
   await logSetlistChange(context, {
     setlistId: setlistData.id,
     changeType: "created",
