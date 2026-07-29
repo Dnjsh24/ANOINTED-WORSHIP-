@@ -116,46 +116,62 @@ export function MobileIconRail({
               href={tab.href}
               onClick={() => setShowMoreMenu(false)}
               className={cn(
-                "relative flex flex-col items-center justify-center py-2 min-w-[64px]",
+                "relative flex flex-1 flex-col items-center justify-center gap-1 py-1",
                 isActive ? "text-violet-400" : "text-zinc-500 hover:text-zinc-300 transition-colors"
               )}
             >
               <div className="relative">
-                <tab.icon className={cn("size-6 mb-1 transition-transform", isActive && "scale-110")} />
+                <tab.icon className={cn("size-5 transition-transform", isActive && "scale-110")} />
                 {tab.badgeCount !== undefined && tab.badgeCount > 0 && (
                   <span className="absolute -top-1 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0f0e14]">
                     {tab.badgeCount > 9 ? "9+" : tab.badgeCount}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] font-medium">{tab.label}</span>
+              <span className={cn("text-[10px] font-semibold", isActive && "font-bold")}>{tab.label}</span>
             </Link>
           );
         })}
 
         {/* 4th Tab */}
-        <Link
-          href={fourthTab.href}
-          onClick={() => setShowMoreMenu(false)}
-          className="flex flex-col items-center justify-center flex-1 py-1 transition-all duration-200"
-        >
-          <fourthTab.icon className={cn("size-5 transition-transform duration-200", activeLabel === fourthTab.label.toLowerCase() && !showMoreMenu ? "text-violet-400 scale-110" : "text-zinc-500")} />
-          <span className={cn("text-[9px] mt-1 font-bold tracking-tight", activeLabel === fourthTab.label.toLowerCase() && !showMoreMenu ? "text-violet-400 font-extrabold" : "text-zinc-500")}>
-            {fourthTab.label}
-          </span>
-        </Link>
+        {(() => {
+          const isActive = activeLabel === fourthTab.label.toLowerCase() && !showMoreMenu;
+          return (
+            <Link
+              href={fourthTab.href}
+              onClick={() => setShowMoreMenu(false)}
+              className={cn(
+                "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors",
+                isActive ? "text-violet-400" : "text-zinc-500 hover:text-zinc-300"
+              )}
+            >
+              <fourthTab.icon className={cn("size-5 transition-transform", isActive && "scale-110")} />
+              <span className={cn("text-[10px] font-semibold", isActive && "font-bold")}>
+                {fourthTab.label}
+              </span>
+            </Link>
+          );
+        })()}
 
         {/* 5th Tab: More */}
-        <button
-          onClick={toggleMoreMenu}
-          aria-label="Expand navigation"
-          className="flex flex-col items-center justify-center flex-1 py-1 transition-all duration-200 focus:outline-none"
-        >
-          <MoreHorizontal className={cn("size-5 transition-transform duration-200", showMoreMenu || (moreTabActive && !showMoreMenu) ? "text-violet-400 scale-110" : "text-zinc-500")} />
-          <span className={cn("text-[9px] mt-1 font-bold tracking-tight", showMoreMenu || (moreTabActive && !showMoreMenu) ? "text-violet-400 font-extrabold" : "text-zinc-500")}>
-            More
-          </span>
-        </button>
+        {(() => {
+          const isActive = showMoreMenu || moreTabActive;
+          return (
+            <button
+              onClick={toggleMoreMenu}
+              aria-label="Expand navigation"
+              className={cn(
+                "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors focus:outline-none",
+                isActive ? "text-violet-400" : "text-zinc-500 hover:text-zinc-300"
+              )}
+            >
+              <MoreHorizontal className={cn("size-5 transition-transform", isActive && "scale-110")} />
+              <span className={cn("text-[10px] font-semibold", isActive && "font-bold")}>
+                More
+              </span>
+            </button>
+          );
+        })()}
       </nav>
 
       {/* Drawer Overlay for "More" Menu */}
