@@ -543,55 +543,58 @@ export function MessagesClient({
         return;
       }
 
-      const formData = new FormData();
-      formData.set("channelId", activeChannel.id);
-      formData.set("body", body);
-      if (uploadedAttachment?.id) {
-        formData.set("attachmentFileId", uploadedAttachment.id);
-      }
-      if (scheduledFor) {
-        formData.set("scheduledFor", new Date(scheduledFor).toISOString());
-      }
-      if (replyingTo) {
-        formData.set("parentMessageId", replyingTo.id);
-      }
+      try {
+        const formData = new FormData();
+        formData.set("channelId", activeChannel.id);
+        formData.set("body", body);
+        if (uploadedAttachment?.id) {
+          formData.set("attachmentFileId", uploadedAttachment.id);
+        }
+        if (scheduledFor) {
+          formData.set("scheduledFor", new Date(scheduledFor).toISOString());
+        }
+        if (replyingTo) {
+          formData.set("parentMessageId", replyingTo.id);
+        }
 
-      setStatus("Sending...");
-      const result = await sendMessageAction(formData);
+        setStatus("Sending...");
+        const result = await sendMessageAction(formData);
 
-      if (result.ok) {
-        setDraft("");
-        setScheduledFor("");
-        setSelectedAttachment(null);
-        setAttachmentOpen(false);
-        setEmojiOpen(false);
-        setReplyingTo(null);
-        setStatus("Sent!");
-        setTimeout(() => setStatus(""), 2000);
-        setSelectedAttachment(null);
-      }
-      if (!result.ok) {
-        return;
-      }
+        if (result.ok) {
+          setDraft("");
+          setScheduledFor("");
+          setSelectedAttachment(null);
+          setAttachmentOpen(false);
+          setEmojiOpen(false);
+          setReplyingTo(null);
+          setStatus("Sent!");
+          setTimeout(() => setStatus(""), 2000);
 
-      const messageId = typeof result.data?.messageId === "string" ? result.data.messageId : `local-${Date.now()}`;
-      const createdAtValue = typeof result.data?.createdAt === "string" ? result.data.createdAt : null;
-      updateChannelMessages({
-        id: messageId,
-        author: "You",
-        body,
-        createdAt: createdAtValue
-          ? new Date(createdAtValue).toLocaleTimeString("en-US", {
-              hour: "numeric",
-              minute: "2-digit",
-            })
-          : "Now",
-        mine: true,
-        attachment: uploadedAttachment,
-      });
-      setDraft("");
-      clearSelectedAttachment();
-      setSearch("");
+          const messageId = typeof result.data?.messageId === "string" ? result.data.messageId : `local-${Date.now()}`;
+          const createdAtValue = typeof result.data?.createdAt === "string" ? result.data.createdAt : null;
+          updateChannelMessages({
+            id: messageId,
+            author: "You",
+            body,
+            createdAt: createdAtValue
+              ? new Date(createdAtValue).toLocaleTimeString("en-US", {
+                  hour: "numeric",
+                  minute: "2-digit",
+                })
+              : "Now",
+            mine: true,
+            attachment: uploadedAttachment,
+          });
+          clearSelectedAttachment();
+          setSearch("");
+        } else {
+          setStatus(result.message || "Message could not be sent.");
+          setTimeout(() => setStatus(""), 4000);
+        }
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "Failed to send message.");
+        setTimeout(() => setStatus(""), 4000);
+      }
     });
   }
 
