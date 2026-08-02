@@ -52,6 +52,18 @@ describe("website proxy security boundary", () => {
     expect(frameDirective).not.toContain("*");
   });
 
+  it("allows Google OAuth profile photos without opening arbitrary image origins", () => {
+    const csp = buildContentSecurityPolicy("nonce-value", false);
+    const imageDirective = csp
+      .split(";")
+      .find((directive) => directive.trim().startsWith("img-src"));
+    const imageSources = imageDirective?.trim().split(/\s+/) ?? [];
+
+    expect(imageDirective).toContain("https://lh3.googleusercontent.com");
+    expect(imageSources).not.toContain("https:");
+    expect(imageSources).not.toContain("*");
+  });
+
   it("allows unsafe eval only for development debugging", () => {
     expect(buildContentSecurityPolicy("nonce-value", true)).toContain("'unsafe-eval'");
   });

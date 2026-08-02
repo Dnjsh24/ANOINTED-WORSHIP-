@@ -20,6 +20,8 @@ test("responses carry a nonce CSP and production security headers", async ({ req
 
   const csp = response.headers()["content-security-policy"] ?? "";
   const scriptDirective = csp.split(";").find((directive) => directive.trim().startsWith("script-src")) ?? "";
+  const imageDirective = csp.split(";").find((directive) => directive.trim().startsWith("img-src")) ?? "";
+  const imageSources = imageDirective.trim().split(/\s+/);
   expect(scriptDirective).toMatch(/script-src[^;]*'nonce-[^']+'/);
   expect(scriptDirective).not.toContain("'strict-dynamic'");
   expect(csp).toContain("object-src 'none'");
@@ -27,6 +29,9 @@ test("responses carry a nonce CSP and production security headers", async ({ req
   expect(csp).toContain(
     "frame-src https://open.spotify.com https://www.youtube.com https://www.youtube-nocookie.com",
   );
+  expect(imageSources).toContain("https://lh3.googleusercontent.com");
+  expect(imageSources).not.toContain("https:");
+  expect(imageSources).not.toContain("*");
   expect(scriptDirective).not.toContain("'unsafe-inline'");
   expect(response.headers()["x-content-type-options"]).toBe("nosniff");
   expect(response.headers()["referrer-policy"]).toBe("strict-origin-when-cross-origin");

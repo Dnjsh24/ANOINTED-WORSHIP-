@@ -2,7 +2,6 @@
 
 import { Download, FileText, Image as ImageIcon, Menu, MoreHorizontal, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X, Info, CalendarClock } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { addChannelMemberAction, createChannelAction, getOrCreateDirectChannelAction, leaveChannelAction, removeChannelMemberAction, sendMessageAction, markMessagesReadAction } from "@/app/actions";
@@ -947,13 +946,11 @@ export function MessagesClient({
                       <div className="absolute -bottom-2.5 right-0 flex items-center justify-end">
                         {message.reads.filter(r => r.profileId !== currentProfileId).slice(0, 4).map((read, i) => (
                           <div key={read.profileId} className={cn("size-[18px] rounded-full border border-[#111014] bg-zinc-800 shrink-0 shadow-sm", i > 0 && "-ml-1.5")}>
-                            {read.avatarUrl ? (
-                              <Image unoptimized width={18} height={18} src={read.avatarUrl} alt={read.fullName || "User"} className="size-full rounded-full object-cover" />
-                            ) : (
-                              <div className="flex size-full items-center justify-center rounded-full bg-violet-600 text-[8px] font-bold text-white uppercase">
-                                {(read.fullName || "U")[0]}
-                              </div>
-                            )}
+                            <Avatar
+                              name={read.fullName || "User"}
+                              src={read.avatarUrl}
+                              className="size-full border-0 text-[8px]"
+                            />
                           </div>
                         ))}
                         {message.reads.filter(r => r.profileId !== currentProfileId).length > 4 && (
