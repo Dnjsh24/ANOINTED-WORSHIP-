@@ -48,6 +48,25 @@ describe("production smoke", () => {
     );
   });
 
+  it("allows dashboard navigation outside the service worker precache list", async () => {
+    const notificationFetch = async (url) => {
+      const path = new URL(url).pathname;
+      if (path !== "/sw.js") return successfulFetch(url);
+
+      return response(`
+        const CACHE_NAME = "anointed-worship-public-v2";
+        const ASSETS_TO_CACHE = ["/", "/login"];
+        self.addEventListener("notificationclick", (event) => {
+          event.waitUntil(self.clients.openWindow("/dashboard"));
+        });
+      `);
+    };
+
+    await expect(
+      runProductionSmoke("https://worship.example", notificationFetch),
+    ).resolves.toEqual([]);
+  });
+
   it("rejects a non-HTTPS production origin before making requests", async () => {
     const fetchImplementation = () => {
       throw new Error("must not be called");

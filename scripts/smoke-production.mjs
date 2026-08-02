@@ -87,7 +87,10 @@ export async function runProductionSmoke(baseUrlInput, fetchImplementation = fet
     if (!source.includes("anointed-worship-public-v2")) {
       failures.push(failure("service worker", "expected public-v2 cache version was not deployed"));
     }
-    if (/ASSETS_TO_CACHE\s*=\s*\[[\s\S]*["']\/dashboard["']/.test(source)) {
+    const precacheDeclaration = source.match(
+      /(?:const|let|var)\s+ASSETS_TO_CACHE\s*=\s*\[([\s\S]*?)\]\s*;/,
+    );
+    if (precacheDeclaration && /["']\/dashboard["']/.test(precacheDeclaration[1])) {
       failures.push(failure("service worker", "authenticated dashboard is present in the precache list"));
     }
   }
