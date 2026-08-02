@@ -22,7 +22,7 @@ The completed implementation passed these gates sequentially:
 | --- | --- |
 | TypeScript | PASS — `npm run typecheck` |
 | Website lint | PASS, zero warnings — `npm run lint:website` |
-| Full lint | PASS, zero errors; 10 pre-existing desktop-only warnings — `npm run lint` |
+| Full lint | PASS, zero errors and zero warnings — `npm run lint` |
 | Full unit/integration suite | PASS — 63 files, 308 passed, 1 skipped |
 | Website coverage | PASS — 85.10% statements, 81.70% branches, 89.87% functions, 88.10% lines |
 | Production Next.js build | PASS — 43 pages generated |
