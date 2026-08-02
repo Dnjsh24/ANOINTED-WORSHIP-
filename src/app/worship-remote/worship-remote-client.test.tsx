@@ -45,7 +45,21 @@ describe("Worship Remote pairing screen", () => {
     render(<WorshipRemoteClient />);
     expect(screen.getByRole("button", { name: "Scan QR Code" })).toBeInTheDocument();
     expect(screen.getByText(/camera permission/i)).toBeInTheDocument();
-    expect(screen.getByText(/Windows Presenter/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Windows Presenter/i).length).toBeGreaterThan(0);
+  });
+
+  it("closes the QR scanner with Escape and restores focus", async () => {
+    render(<WorshipRemoteClient />);
+    const opener = screen.getByRole("button", { name: "Scan QR Code" });
+    opener.focus();
+    fireEvent.click(opener);
+
+    const closeButton = screen.getByRole("button", { name: "Close QR scanner" });
+    await waitFor(() => expect(closeButton).toHaveFocus());
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
   });
 
   it("keeps a QR pairing in session storage when sign-in is required", async () => {

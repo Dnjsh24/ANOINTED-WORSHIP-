@@ -36,4 +36,9 @@ describe("secure Worship Remote pairing migration", () => {
     expect(sql).toContain("private.can_access_worship_remote_session");
     expect(sql).toContain("realtime.messages.private = true");
   });
+
+  it("does not expose the legacy channel secret for new private sessions", () => {
+    expect(sql).toContain("when session_row.pin_code_hash is null then session_row.channel_secret");
+    expect(sql).toContain("else null::text");
+  });
 });

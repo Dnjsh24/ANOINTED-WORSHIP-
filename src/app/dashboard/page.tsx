@@ -19,6 +19,7 @@ import {
   Users,
   MonitorPlay,
   RefreshCw,
+  Smartphone,
 } from "lucide-react";
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
@@ -404,7 +405,9 @@ export default async function DashboardPage() {
     { href: "/setlists", label: "Setlists", sub: "View and manage", icon: Music },
     { href: "/events", label: "Timeline", sub: "Team schedule", icon: CalendarDays },
     { href: "/messages", label: "Messages", sub: "Team communication", icon: MessageSquare },
-    { href: "/presenter", label: "Presenter", sub: "Launch presentation", icon: MonitorPlay },
+    ...(isDesktopRuntime()
+      ? [{ href: "/presenter", label: "Presenter", sub: "Launch presentation", icon: MonitorPlay }]
+      : [{ href: "/worship-remote", label: "Worship Remote", sub: "Connect to Windows Presenter", icon: Smartphone }]),
     ...(isAdminOrOwner ? [{ href: "/analytics", label: "Analytics", sub: "Team insights", icon: BarChart3 }] : []),
     ...(isDesktopRuntime() ? [{ href: "/sync", label: "Sync", sub: "Offline data status", icon: RefreshCw }] : []),
     ...(teamContext.canManageMembers ? [{ href: "/members", label: "Members", sub: "Roster & availability", icon: Users }] : []),

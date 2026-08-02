@@ -4,11 +4,12 @@ import { Music2 } from "lucide-react";
 import { use } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { resolveSafePostLoginReturnPath } from "@/lib/domain/post-login";
 
 export default function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string; error?: string }>;
+  searchParams: Promise<{ sent?: string; error?: string; next?: string }>;
 }) {
   const params = use(searchParams);
 
@@ -23,9 +24,12 @@ export default function LoginPage({
       // The browser opened by Electron cannot share cookies with the embedded
       // window. Return through the registered app protocol so Electron can load
       // the callback in its own persistent session and complete PKCE there.
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      const returnPath = resolveSafePostLoginReturnPath(params.next, "/dashboard");
+      if (returnPath === "/worship-remote") callbackUrl.searchParams.set("next", returnPath);
       const redirectTo = window.anointedDesktop?.isDesktop
         ? "anointed-worship://auth/callback"
-        : `${window.location.origin}/auth/callback`;
+        : callbackUrl.toString();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo },
@@ -82,7 +86,7 @@ export default function LoginPage({
   );
 }
 
-function LoginStatus({ params }: { params: { sent?: string; error?: string } }) {
+function LoginStatus({ params }: { params: { sent?: string; error?: string; next?: string } }) {
   if (params.error) {
     const message =
       params.error === "config"

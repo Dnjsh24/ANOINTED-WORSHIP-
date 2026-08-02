@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildContentSecurityPolicy,
+  isPublicWebsiteRoute,
   isVerifiedMachineRoute,
 } from "@/lib/supabase/proxy";
 
@@ -53,5 +54,10 @@ describe("website proxy security boundary", () => {
 
   it("allows unsafe eval only for development debugging", () => {
     expect(buildContentSecurityPolicy("nonce-value", true)).toContain("'unsafe-eval'");
+  });
+
+  it("allows pairing entry before sign-in but protects claimed sessions", () => {
+    expect(isPublicWebsiteRoute("/worship-remote")).toBe(true);
+    expect(isPublicWebsiteRoute("/worship-remote/session/session-1")).toBe(false);
   });
 });

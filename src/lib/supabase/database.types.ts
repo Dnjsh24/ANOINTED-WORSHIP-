@@ -2038,36 +2038,42 @@ export type Database = {
       worship_remote_pairing_sessions: {
         Row: {
           channel_secret: string
+          claim_expires_at: string
           created_at: string
           created_by: string
           expires_at: string
           id: string
           paired_by: string | null
           pairing_code_hash: string
+          pin_code_hash: string | null
           revoked_at: string | null
           setlist_id: string
           team_id: string
         }
         Insert: {
           channel_secret: string
+          claim_expires_at?: string
           created_at?: string
           created_by: string
           expires_at: string
           id?: string
           paired_by?: string | null
           pairing_code_hash: string
+          pin_code_hash?: string | null
           revoked_at?: string | null
           setlist_id: string
           team_id: string
         }
         Update: {
           channel_secret?: string
+          claim_expires_at?: string
           created_at?: string
           created_by?: string
           expires_at?: string
           id?: string
           paired_by?: string | null
           pairing_code_hash?: string
+          pin_code_hash?: string | null
           revoked_at?: string | null
           setlist_id?: string
           team_id?: string
@@ -2200,8 +2206,36 @@ export type Database = {
         Args: { p_pairing_code: string; p_session_id: string }
         Returns: {
           channel_secret: string
+          channel_topic: string
           expires_at: string
+          private_channel: boolean
+          session_id: string
           setlist_id: string
+          team_id: string
+        }[]
+      }
+      claim_worship_remote_pairing_by_pin: {
+        Args: { p_pin_code: string }
+        Returns: {
+          channel_topic: string | null
+          error_code: string | null
+          expires_at: string | null
+          private_channel: boolean | null
+          session_id: string | null
+          setlist_id: string | null
+          team_id: string | null
+        }[]
+      }
+      create_worship_remote_pairing: {
+        Args: { p_setlist_id: string }
+        Returns: {
+          channel_topic: string
+          claim_expires_at: string
+          expires_at: string
+          pin_code: string
+          private_channel: boolean
+          qr_token: string
+          session_id: string
         }[]
       }
       create_team_workspace: {
@@ -2248,6 +2282,21 @@ export type Database = {
       review_join_request: {
         Args: { p_decision: string; p_request_id: string }
         Returns: string
+      }
+      resume_worship_remote_pairing: {
+        Args: { p_session_id: string }
+        Returns: {
+          channel_topic: string
+          expires_at: string
+          private_channel: boolean
+          session_id: string
+          setlist_id: string
+          team_id: string
+        }[]
+      }
+      revoke_worship_remote_pairing: {
+        Args: { p_session_id: string }
+        Returns: boolean
       }
       transfer_team_ownership: {
         Args: { p_new_owner_member_id: string; p_team_id: string }

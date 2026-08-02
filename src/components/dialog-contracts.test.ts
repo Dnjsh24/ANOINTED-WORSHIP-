@@ -22,8 +22,8 @@ describe("confirmed dialog accessibility contracts", () => {
 
   it("uses native buttons for setlist template choices", () => {
     const source = readFileSync("src/components/setlist-template-picker.tsx", "utf8");
-    expect(source).toMatch(/<button\s+type="button"\s+key=\{t\.id\}/);
-    expect(source).not.toMatch(/<div\s+key=\{t\.id\}/);
+    expect(source).toContain('<button\n                  type="button"');
+    expect(source).not.toContain('<div \n                  key={t.id}');
   });
 
   it("labels slide swatches and provides minimum-size controls", () => {

@@ -29,7 +29,7 @@ const runId = crypto.randomUUID();
 const codeSuffixA = String(Number.parseInt(runId.slice(0, 8), 16) % 100_000).padStart(5, "0");
 const codeSuffixB = String(Number.parseInt(runId.slice(9, 17).replace("-", ""), 16) % 100_000).padStart(5, "0");
 const password = `Local-only-${runId}!aA1`;
-const userSpecs = ["owner", "admin", "requester"].map((role) => ({
+const userSpecs = ["owner", "admin", "requester", "outsider"].map((role) => ({
   role,
   email: `security-${role}-${runId}@example.test`,
 }));
@@ -245,6 +245,76 @@ try {
   });
   if (validSetlistSong.error) throw validSetlistSong.error;
 
+  phase = "Worship Remote pairing boundaries";
+  const { data: pairing, error: pairingError } = await sessions.requester
+    .rpc("create_worship_remote_pairing", { p_setlist_id: setlistA.id })
+    .single();
+  if (pairingError || !pairing) throw pairingError ?? new Error("Member Remote pairing creation failed");
+  assert(/^\d{6}$/.test(pairing.pin_code), "Remote pairing did not return a six-digit PIN");
+  assert(pairing.private_channel === true, "Remote pairing did not require a private channel");
+
+  const outsiderClaim = await sessions.outsider
+    .rpc("claim_worship_remote_pairing_by_pin", { p_pin_code: pairing.pin_code })
+    .single();
+  if (outsiderClaim.error) throw outsiderClaim.error;
+  assert(outsiderClaim.data?.error_code === "invalid", "A user outside the team learned or claimed a valid Remote PIN");
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const invalidAttempt = await sessions.outsider
+      .rpc("claim_worship_remote_pairing_by_pin", { p_pin_code: "000000" })
+      .single();
+    if (invalidAttempt.error) throw invalidAttempt.error;
+    if (attempt === 3) {
+      assert(invalidAttempt.data?.error_code === "rate_limited", "Remote PIN attempts were not limited after five failures");
+    }
+  }
+
+  const { data: claimedPairing, error: claimError } = await sessions.admin
+    .rpc("claim_worship_remote_pairing_by_pin", { p_pin_code: pairing.pin_code })
+    .single();
+  if (claimError || !claimedPairing?.session_id) throw claimError ?? new Error("Same-team Remote PIN claim failed");
+
+  const repeatedClaim = await sessions.owner
+    .rpc("claim_worship_remote_pairing_by_pin", { p_pin_code: pairing.pin_code })
+    .single();
+  if (repeatedClaim.error) throw repeatedClaim.error;
+  assert(repeatedClaim.data?.error_code === "invalid", "A one-time Remote PIN was claimed twice");
+
+  const { data: resumedPairing, error: resumeError } = await sessions.admin
+    .rpc("resume_worship_remote_pairing", { p_session_id: pairing.session_id })
+    .single();
+  if (resumeError || !resumedPairing) throw resumeError ?? new Error("Paired member could not resume the Remote session");
+
+  const outsiderResume = await sessions.outsider
+    .rpc("resume_worship_remote_pairing", { p_session_id: pairing.session_id });
+  if (outsiderResume.error) throw outsiderResume.error;
+  assert((outsiderResume.data ?? []).length === 0, "A user outside the team resumed the Remote session");
+
+  const { data: revoked, error: revokeError } = await sessions.requester
+    .rpc("revoke_worship_remote_pairing", { p_session_id: pairing.session_id });
+  if (revokeError || revoked !== true) throw revokeError ?? new Error("Presenter creator could not revoke the Remote session");
+
+  const { data: qrPairing, error: qrPairingError } = await sessions.requester
+    .rpc("create_worship_remote_pairing", { p_setlist_id: setlistA.id })
+    .single();
+  if (qrPairingError || !qrPairing) throw qrPairingError ?? new Error("QR Remote pairing creation failed");
+
+  const { data: qrClaim, error: qrClaimError } = await sessions.admin
+    .rpc("claim_worship_remote_pairing", {
+      p_session_id: qrPairing.session_id,
+      p_pairing_code: qrPairing.qr_token,
+    })
+    .single();
+  if (qrClaimError || qrClaim?.session_id !== qrPairing.session_id) {
+    throw qrClaimError ?? new Error("Same-team Remote QR claim failed");
+  }
+  assert(qrClaim.private_channel === true, "New QR pairing did not use a private channel");
+  assert(qrClaim.channel_secret === null, "New QR pairing exposed the legacy channel secret");
+
+  const { data: qrRevoked, error: qrRevokeError } = await sessions.requester
+    .rpc("revoke_worship_remote_pairing", { p_session_id: qrPairing.session_id });
+  if (qrRevokeError || qrRevoked !== true) throw qrRevokeError ?? new Error("QR Remote session could not be revoked");
+
   process.stdout.write(JSON.stringify({
     ok: true,
     checks: [
@@ -258,6 +328,13 @@ try {
       "same-team attendance accepted",
       "cross-team setlist song denied",
       "same-team setlist song accepted",
+      "all-role Remote pairing creation accepted",
+      "cross-team Remote PIN claim denied",
+      "Remote PIN attempts rate limited",
+      "Remote PIN one-time claim enforced",
+      "paired Remote resume scoped",
+      "Presenter Remote revocation enforced",
+      "private Remote QR claim hides legacy channel secret",
     ],
   }, null, 2) + "\n");
 } catch (error) {

@@ -9,6 +9,8 @@ const websiteRoutes = [
   "/teams/join",
   "/pending",
   "/dashboard",
+  "/worship-remote",
+  "/presenter",
   "/announcements",
   "/reminders",
   "/analytics",

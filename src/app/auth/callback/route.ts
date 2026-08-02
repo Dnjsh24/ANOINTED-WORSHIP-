@@ -3,6 +3,7 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getPostLoginRedirectPath } from "@/lib/supabase/team-context";
 import { getSiteUrl } from "@/lib/supabase/env";
+import { resolveSafePostLoginReturnPath } from "@/lib/domain/post-login";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -25,7 +26,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=auth", origin));
   }
 
-  const redirectPath = await getPostLoginRedirectPath(supabase);
+  const fallbackPath = await getPostLoginRedirectPath(supabase);
+  const redirectPath = resolveSafePostLoginReturnPath(
+    requestUrl.searchParams.get("next"),
+    fallbackPath,
+  );
 
   return NextResponse.redirect(new URL(redirectPath, origin));
 }

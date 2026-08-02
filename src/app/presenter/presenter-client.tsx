@@ -4,24 +4,25 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Loader2, Save, X, Music, LayoutTemplate, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Smartphone, Type, BookOpen, Upload } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createOptionalClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { generateSongSlides, defaultPresentationSettings, resolveBlockMotion, type BlockMotion, type EntranceAnimation, type ExitAnimation, type LiveProp, type PresentationSlide, type PresentationSettings, type SceneLayer, type SlideBlock, type SlideTransition } from "@/lib/domain/presentation";
+import { generateSongSlides, defaultPresentationSettings, resolveBlockMotion, type BlockMotion, type LiveProp, type PresentationSlide, type PresentationSettings, type SceneLayer, type SlideBlock } from "@/lib/domain/presentation";
 import KineticCanvas from "./kinetic-canvas";
 import TimelineEditor from "./timeline-editor";
 import { MediaUploader } from "@/components/media-uploader";
 import { DesktopBackgroundLibrary, type DesktopBackgroundAssetClient, type DesktopBackgroundCollectionClient } from "@/components/desktop-background-library";
 import { DesktopLiveSourcePanel } from "@/components/desktop-live-source-panel";
 import { persistDesktopPresenterLiveState } from "./desktop-live-actions";
-import { createCloudRemotePairing } from "./remote-pairing-actions";
+import { createCloudRemotePairing, revokeCloudRemotePairing } from "./remote-pairing-actions";
 import { deleteDesktopMotionPresetAction, saveDesktopMotionPresetAction } from "./desktop-motion-preset-actions";
 import { saveDesktopSceneLayersAction } from "./desktop-scene-layer-actions";
-import { deleteDesktopPptxAction, importDesktopPptxAction, renameDesktopPptxAction } from "./desktop-pptx-actions";
+import { deleteDesktopPptxAction, renameDesktopPptxAction, setDesktopPptxSlideViewModeAction } from "./desktop-pptx-actions";
+import { setDesktopLyricShortcutAction } from "./desktop-lyric-shortcut-actions";
 import { deleteDesktopLivePropPresetAction, saveDesktopLivePropPresetAction } from "./desktop-live-prop-actions";
-import { isRemoteCommand, REMOTE_PROTOCOL_VERSION, type RemoteCommandAcknowledgement, type RemoteLiveState } from "@/lib/presentation/control-protocol";
+import { isRemoteCommand, REMOTE_PROTOCOL_VERSION, type RemoteCommandAcknowledgement, type RemoteContentLibrary, type RemoteLiveSource, type RemoteLiveState } from "@/lib/presentation/control-protocol";
 import { stageLayoutPreset, type StageLayoutPresetId } from "@/lib/desktop/stage-layout";
 import type { AudienceLookLayout } from "@/lib/desktop/audience-looks";
-import { resolveRemoteChannelTarget } from "@/lib/presentation/remote-pairing";
+import { formatRemotePairingPin, resolveRemoteChannelTarget } from "@/lib/presentation/remote-pairing";
 import {
   buildLivePresentationSnapshot,
   isLivePresentationSnapshot,
@@ -31,11 +32,8 @@ import {
 } from "@/lib/presentation/live-snapshot";
 import { useRemoteCommandSubscription } from "@/lib/presentation/use-remote-command-subscription";
 import { savePresenterDraftAction } from "./presentation-draft-actions";
-
-const BIBLE_BOOKS = [
-  { name: "Genesis", chapters: 50, ot: true }, { name: "Exodus", chapters: 40, ot: true }, { name: "Leviticus", chapters: 27, ot: true }, { name: "Numbers", chapters: 36, ot: true }, { name: "Deuteronomy", chapters: 34, ot: true }, { name: "Joshua", chapters: 24, ot: true }, { name: "Judges", chapters: 21, ot: true }, { name: "Ruth", chapters: 4, ot: true }, { name: "1 Samuel", chapters: 31, ot: true }, { name: "2 Samuel", chapters: 24, ot: true }, { name: "1 Kings", chapters: 22, ot: true }, { name: "2 Kings", chapters: 25, ot: true }, { name: "1 Chronicles", chapters: 29, ot: true }, { name: "2 Chronicles", chapters: 36, ot: true }, { name: "Ezra", chapters: 10, ot: true }, { name: "Nehemiah", chapters: 13, ot: true }, { name: "Esther", chapters: 10, ot: true }, { name: "Job", chapters: 42, ot: true }, { name: "Psalms", chapters: 150, ot: true }, { name: "Proverbs", chapters: 31, ot: true }, { name: "Ecclesiastes", chapters: 12, ot: true }, { name: "Song of Solomon", chapters: 8, ot: true }, { name: "Isaiah", chapters: 66, ot: true }, { name: "Jeremiah", chapters: 52, ot: true }, { name: "Lamentations", chapters: 5, ot: true }, { name: "Ezekiel", chapters: 48, ot: true }, { name: "Daniel", chapters: 12, ot: true }, { name: "Hosea", chapters: 14, ot: true }, { name: "Joel", chapters: 3, ot: true }, { name: "Amos", chapters: 9, ot: true }, { name: "Obadiah", chapters: 1, ot: true }, { name: "Jonah", chapters: 4, ot: true }, { name: "Micah", chapters: 7, ot: true }, { name: "Nahum", chapters: 3, ot: true }, { name: "Habakkuk", chapters: 3, ot: true }, { name: "Zephaniah", chapters: 3, ot: true }, { name: "Haggai", chapters: 2, ot: true }, { name: "Zechariah", chapters: 14, ot: true }, { name: "Malachi", chapters: 4, ot: true },
-  { name: "Matthew", chapters: 28, ot: false }, { name: "Mark", chapters: 16, ot: false }, { name: "Luke", chapters: 24, ot: false }, { name: "John", chapters: 21, ot: false }, { name: "Acts", chapters: 28, ot: false }, { name: "Romans", chapters: 16, ot: false }, { name: "1 Corinthians", chapters: 16, ot: false }, { name: "2 Corinthians", chapters: 13, ot: false }, { name: "Galatians", chapters: 6, ot: false }, { name: "Ephesians", chapters: 6, ot: false }, { name: "Philippians", chapters: 4, ot: false }, { name: "Colossians", chapters: 4, ot: false }, { name: "1 Thessalonians", chapters: 5, ot: false }, { name: "2 Thessalonians", chapters: 3, ot: false }, { name: "1 Timothy", chapters: 6, ot: false }, { name: "2 Timothy", chapters: 4, ot: false }, { name: "Titus", chapters: 3, ot: false }, { name: "Philemon", chapters: 1, ot: false }, { name: "Hebrews", chapters: 13, ot: false }, { name: "James", chapters: 5, ot: false }, { name: "1 Peter", chapters: 5, ot: false }, { name: "2 Peter", chapters: 3, ot: false }, { name: "1 John", chapters: 5, ot: false }, { name: "2 John", chapters: 1, ot: false }, { name: "3 John", chapters: 1, ot: false }, { name: "Jude", chapters: 1, ot: false }, { name: "Revelation", chapters: 22, ot: false }
-];
+import { BIBLE_BOOKS } from "@/lib/bible/catalog";
+import { resolveLyricShortcuts } from "@/lib/presentation/lyric-shortcuts";
 
 const PRESENTER_TABS = ["Lyrics", "Property", "Layers", "Motion", "Stage"] as const;
 type PresenterTab = (typeof PRESENTER_TABS)[number];
@@ -56,6 +54,23 @@ function isBibleApiVerse(value: unknown): value is BibleApiVerse {
     && typeof verse.text === "string";
 }
 
+type DesktopTeachingPresentation = {
+  id: string;
+  name: string;
+  kind: "pptx" | "pdf";
+  sizeBytes: number;
+  slides: Array<{
+    id: string;
+    layers: SceneLayer[];
+    mediaUrl?: string;
+    renderedMediaUrl?: string;
+    viewMode?: "original" | "edited";
+    pdfPage?: number;
+    preview?: string;
+  }>;
+  report: { importedText: number; warnings: string[] };
+};
+
 export type PresenterSetlist = {
   id: string;
   name: string;
@@ -63,7 +78,7 @@ export type PresenterSetlist = {
   type: string;
   songs: Array<{
     id: string;
-    order: number | null;
+    order: number;
     assignedKey: string | null;
     song: {
       id?: string;
@@ -84,6 +99,21 @@ export type PresenterSetlist = {
   } | null;
 };
 
+function teachingPresentationSlides(presentation?: DesktopTeachingPresentation): PresentationSlide[] {
+  if (!presentation) return [];
+  return presentation.slides.map((slide) => ({
+    id: slide.id,
+    type: "teaching",
+    content: [],
+    sectionLabel: slide.pdfPage ? `${presentation.name} · Page ${slide.pdfPage}` : presentation.name,
+    sceneLayers: slide.renderedMediaUrl && slide.viewMode !== "edited" ? [] : slide.layers,
+    mediaUrl: slide.renderedMediaUrl && slide.viewMode !== "edited" ? slide.renderedMediaUrl : slide.mediaUrl,
+    mediaKind: slide.pdfPage ? "pdf-page" : slide.renderedMediaUrl || slide.mediaUrl ? "image" : undefined,
+    pdfPage: slide.pdfPage,
+    teachingViewMode: slide.renderedMediaUrl ? slide.viewMode || "original" : undefined,
+  }));
+}
+
 export default function GlobalPresenterClient({
   setlists,
   initialSetlistId,
@@ -94,7 +124,8 @@ export default function GlobalPresenterClient({
   desktopMotionPresets = [],
   desktopSceneLayers = {},
   desktopLivePropPresets = [],
-  desktopImportedPresentations = [],
+  desktopImportedPresentations = {},
+  desktopLyricShortcuts = {},
 }: {
   setlists: PresenterSetlist[];
   initialSetlistId?: string;
@@ -107,7 +138,8 @@ export default function GlobalPresenterClient({
   desktopAudienceLooks?: Array<{ id: string; name: string; layout: AudienceLookLayout }>;
   desktopOutputConfigs?: Array<{ id: string; name: string; displayId: string | null; lookId: string | null; route: "projector" | "confidence" | "stream" | "lobby"; enabled: boolean }>;
   desktopLivePropPresets?: Array<{ id: string; name: string; prop: LiveProp; updatedAt: string }>;
-  desktopImportedPresentations?: Array<{ id: string; name: string; slides: Array<{ id: string; layers: SceneLayer[] }>; report: { importedText: number; warnings: string[] } }>;
+  desktopImportedPresentations?: Record<string, DesktopTeachingPresentation[]>;
+  desktopLyricShortcuts?: Record<string, Array<{ setlistSongId: string; slideId: string; keyCode: string }>>;
 }) {
   const [selectedSetlistId, setSelectedSetlistId] = useState<string>(
     setlists.some((setlist) => setlist.id === initialSetlistId) ? initialSetlistId! : setlists[0]?.id || "",
@@ -120,7 +152,7 @@ export default function GlobalPresenterClient({
   const [captureSources, setCaptureSources] = useState<Array<{ id: string; name: string; thumbnail?: string }>>([]);
   const [cameraSources, setCameraSources] = useState<Array<{ id: string; name: string }>>([]);
   const [mediaUrl, setMediaUrl] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"Lyrics" | "Property" | "Layers" | "Motion" | "Stage">("Lyrics");
+  const [activeTab, setActiveTab] = useState<PresenterTab>("Lyrics");
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
@@ -128,16 +160,18 @@ export default function GlobalPresenterClient({
   const [outputMode, setOutputMode] = useState<"slide" | "clear" | "black" | "logo">("clear");
   const [outputStateVersion, setOutputStateVersion] = useState(0);
   const [lanPairing, setLanPairing] = useState<{ url?: string; qrDataUrl?: string } | null>(null);
-  const [cloudPairing, setCloudPairing] = useState<{ url: string; qrDataUrl: string } | null>(null);
+  const [cloudPairing, setCloudPairing] = useState<Awaited<ReturnType<typeof createCloudRemotePairing>> | null>(null);
   const [cloudRemoteTopic, setCloudRemoteTopic] = useState<string | null>(null);
+  const [cloudRemotePrivate, setCloudRemotePrivate] = useState(false);
   const [cloudRemoteExpiresAt, setCloudRemoteExpiresAt] = useState<string | null>(null);
+  const [pairingClock, setPairingClock] = useState(() => Date.now());
   const [controllerLease, setControllerLease] = useState<{ owner: "remote" | "desktop"; id?: string; expiresAt: number } | null>(null);
   const [lastRemoteAcknowledgement, setLastRemoteAcknowledgement] = useState<RemoteCommandAcknowledgement | null>(null);
   const [motionPresets, setMotionPresets] = useState(desktopMotionPresets);
   const [motionPresetName, setMotionPresetName] = useState("");
   const [selectedMotionPresetId, setSelectedMotionPresetId] = useState("");
   
-  const setlist = useMemo(() => setlists.find(s => s.id === selectedSetlistId) || setlists[0], [selectedSetlistId, setlists])!;
+  const setlist = useMemo(() => setlists.find(s => s.id === selectedSetlistId) || setlists[0], [selectedSetlistId, setlists]);
   
   // Presentation Settings
   const [settings, setSettings] = useState<PresentationSettings>(setlist?.presentationSettings?.settings || defaultPresentationSettings);
@@ -150,6 +184,8 @@ export default function GlobalPresenterClient({
   const [publishedRevision, setPublishedRevision] = useState<number>(setlist?.presentationSettings?.publishedRevision || 0);
   const [liveSongIndex, setLiveSongIndex] = useState(0);
   const [liveSlideId, setLiveSlideId] = useState<string | null>(null);
+  const [liveSource, setLiveSource] = useState<RemoteLiveSource>({ kind: "lineup" });
+  const [liveAuxiliarySlide, setLiveAuxiliarySlide] = useState<PresentationSlide | null>(null);
   const [publishedSnapshot, setPublishedSnapshot] = useState<LivePresentationSnapshot>(() => {
     const storedSnapshot = setlist?.presentationSettings?.publishedSnapshot;
     const localBackground = desktopMode ? desktopSetlistBackgrounds[setlist?.id] : undefined;
@@ -199,10 +235,49 @@ export default function GlobalPresenterClient({
   const [propSubtitle, setPropSubtitle] = useState("");
   const [propPresetName, setPropPresetName] = useState("");
   const [livePropPresets, setLivePropPresets] = useState(desktopLivePropPresets);
-  const [pptxReport, setPptxReport] = useState<{ importedText: number; warnings: string[] } | null>(() => desktopImportedPresentations[0]?.report || null);
+  const initialTeachingPresentations = desktopImportedPresentations[setlist?.id] || [];
+  const teachingPresentationsBySetlistRef = useRef({ ...desktopImportedPresentations });
+  const lyricShortcutsBySetlistRef = useRef({ ...desktopLyricShortcuts });
+  const [pptxReport, setPptxReport] = useState<{ importedText: number; warnings: string[] } | null>(() => initialTeachingPresentations[0]?.report || null);
   const [isImportingPptx, setIsImportingPptx] = useState(false);
-  const [savedPptxPresentations, setSavedPptxPresentations] = useState(desktopImportedPresentations);
-  const [importedPptxSlides, setImportedPptxSlides] = useState<PresentationSlide[]>(() => desktopImportedPresentations[0]?.slides.map((slide) => ({ id: slide.id, type: "teaching", content: [], sectionLabel: desktopImportedPresentations[0].name, sceneLayers: slide.layers })) || []);
+  const [teachingError, setTeachingError] = useState("");
+  const [isTeachingDragActive, setIsTeachingDragActive] = useState(false);
+  const [savedPptxPresentations, setSavedPptxPresentations] = useState<DesktopTeachingPresentation[]>(initialTeachingPresentations);
+  const [selectedTeachingPresentationId, setSelectedTeachingPresentationId] = useState(initialTeachingPresentations[0]?.id || "");
+  const [importedPptxSlides, setImportedPptxSlides] = useState<PresentationSlide[]>(() => teachingPresentationSlides(initialTeachingPresentations[0]));
+  const [lyricShortcutOverrides, setLyricShortcutOverrides] = useState(() => desktopLyricShortcuts[setlist?.id] || []);
+  const remoteContentLibrary = useMemo<RemoteContentLibrary>(() => ({
+    version: 1,
+    setlistId: setlist?.id || "",
+    capabilities: { presentations: desktopMode, bible: true },
+    presentations: desktopMode ? savedPptxPresentations.map((presentation) => ({
+      id: presentation.id,
+      name: presentation.name,
+      slides: presentation.slides.map((slide, index) => {
+        const preview = slide.preview || slide.layers
+          .filter((layer) => layer.kind === "text")
+          .map((layer) => layer.text || "")
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 180);
+        return { id: slide.id, label: `Slide ${index + 1}`, preview };
+      }),
+    })) : [],
+    lyricShortcuts: desktopMode ? publishedSnapshot.items.map((item) => {
+      const custom = Object.fromEntries(
+        lyricShortcutOverrides
+          .filter((shortcut) => shortcut.setlistSongId === item.setlistSongId)
+          .map((shortcut) => [shortcut.slideId, shortcut.keyCode]),
+      );
+      const resolved = resolveLyricShortcuts(item.slides.map((slide) => slide.id), custom);
+      return {
+        setlistSongId: item.setlistSongId,
+        bindings: item.slides.flatMap((slide) => resolved[slide.id] ? [{ slideId: slide.id, keyCode: resolved[slide.id] }] : []),
+      };
+    }) : undefined,
+    updatedAt: new Date().toISOString(),
+  }), [desktopMode, lyricShortcutOverrides, publishedSnapshot.items, savedPptxPresentations, setlist?.id]);
 
   // A controller lease must visibly expire even when no other command arrives.
   useEffect(() => {
@@ -215,9 +290,15 @@ export default function GlobalPresenterClient({
   useEffect(() => {
     if (!cloudRemoteExpiresAt) return;
     const delay = Math.max(0, Date.parse(cloudRemoteExpiresAt) - Date.now());
-    const timer = window.setTimeout(() => { setCloudRemoteTopic(null); setCloudRemoteExpiresAt(null); setCloudPairing(null); }, delay);
+    const timer = window.setTimeout(() => { setCloudRemoteTopic(null); setCloudRemotePrivate(false); setCloudRemoteExpiresAt(null); setCloudPairing(null); }, delay);
     return () => window.clearTimeout(timer);
   }, [cloudRemoteExpiresAt]);
+
+  useEffect(() => {
+    if (!cloudPairing) return;
+    const timer = window.setInterval(() => setPairingClock(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [cloudPairing]);
 
   // --- Bible Controls ---
   const [bibleTranslation, setBibleTranslation] = useState("kjv");
@@ -260,6 +341,7 @@ export default function GlobalPresenterClient({
     }
     const nextDraftLyrics = setlist.presentationSettings?.draftLyricsBySetlistSongId || {};
     const nextRevision = setlist.presentationSettings?.publishedRevision || 0;
+    const nextTeachingPresentations = teachingPresentationsBySetlistRef.current[setlist.id] || [];
     const storedSnapshot = setlist.presentationSettings?.publishedSnapshot;
     const timer = window.setTimeout(() => {
       setSettings(nextSettings);
@@ -270,6 +352,13 @@ export default function GlobalPresenterClient({
       setPublishedRevision(nextRevision);
       setLiveSongIndex(0);
       setLiveSlideId(null);
+      setLiveSource({ kind: "lineup", setlistSongId: setlist.songs[0]?.id });
+      setLiveAuxiliarySlide(null);
+      setSavedPptxPresentations(nextTeachingPresentations);
+      setSelectedTeachingPresentationId(nextTeachingPresentations[0]?.id || "");
+      setImportedPptxSlides(teachingPresentationSlides(nextTeachingPresentations[0]));
+      setPptxReport(nextTeachingPresentations[0]?.report || null);
+      setLyricShortcutOverrides(lyricShortcutsBySetlistRef.current[setlist.id] || []);
       setPublishedSnapshot(isLivePresentationSnapshot(storedSnapshot) && storedSnapshot.setlistId === setlist.id
         ? { ...storedSnapshot, settings: nextSettings }
         : buildLivePresentationSnapshot({
@@ -287,18 +376,19 @@ export default function GlobalPresenterClient({
     return () => window.clearTimeout(timer);
   }, [desktopMode, desktopSceneLayers, desktopSetlistBackgrounds, setlist]);
   
-  const supabase = useMemo(() => createClient(), []);
-  const channel = useMemo(() => supabase.channel(`setlist_${setlist?.id}`), [setlist?.id, supabase]);
+  const supabase = useMemo(() => createOptionalClient(), []);
+  const channel = useMemo(() => supabase?.channel(`setlist_${setlist?.id}`) ?? null, [setlist?.id, supabase]);
   const remoteChannelTarget = useMemo(
     () => resolveRemoteChannelTarget({
       setlistId: setlist?.id,
       cloudTopic: cloudRemoteTopic,
+      cloudPrivate: cloudRemotePrivate,
       expiresAt: cloudRemoteExpiresAt,
     }),
-    [cloudRemoteExpiresAt, cloudRemoteTopic, setlist?.id],
+    [cloudRemoteExpiresAt, cloudRemotePrivate, cloudRemoteTopic, setlist?.id],
   );
   const remoteChannel = useMemo(
-    () => supabase.channel(remoteChannelTarget.topic, remoteChannelTarget.options),
+    () => supabase?.channel(remoteChannelTarget.topic, remoteChannelTarget.options) ?? null,
     [remoteChannelTarget, supabase],
   );
   const applyRemoteCommandRef = useRef<(candidate: unknown) => Promise<void>>(async () => {});
@@ -308,12 +398,13 @@ export default function GlobalPresenterClient({
   );
   const broadcast = useCallback((event: string, payload: unknown) => {
     if (desktopChannel) desktopChannel.postMessage({ event, payload });
-    else channel.send({ type: "broadcast", event, payload });
+    else channel?.send({ type: "broadcast", event, payload });
   }, [channel, desktopChannel]);
 
   useEffect(() => {
     if (!setlist) return;
     if (desktopChannel) return () => desktopChannel.close();
+    if (!channel || !supabase) return;
     channel.subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -357,9 +448,14 @@ export default function GlobalPresenterClient({
   const liveActiveSlide = liveSlideId
     ? liveSlides.find((slide) => slide.id === liveSlideId) || null
     : null;
+  const currentOutputSlide = liveSource.kind === "lineup" ? liveActiveSlide : liveAuxiliarySlide;
+  const remoteLiveSlides = useMemo(
+    () => liveSource.kind === "lineup" ? liveSlides : liveAuxiliarySlide ? [liveAuxiliarySlide] : [],
+    [liveAuxiliarySlide, liveSlides, liveSource.kind],
+  );
 
   const pushToProjector = async (
-    slide: PublishedPresentationSlide | null,
+    slide: PresentationSlide | null,
     nextOutputMode: "slide" | "clear" | "black" | "logo" = "slide",
     snapshot = publishedSnapshot,
     ownerIndexOverride?: number,
@@ -411,11 +507,109 @@ export default function GlobalPresenterClient({
 
   const activeSlide = useMemo(() => slides.find(s => s.id === activeSlideId), [slides, activeSlideId]);
   const activeSlideIndex = useMemo(() => slides.findIndex((slide) => slide.id === activeSlideId), [slides, activeSlideId]);
+  const openTeachingPresentation = (presentation: DesktopTeachingPresentation) => {
+    const nextSlides = teachingPresentationSlides(presentation);
+    setSelectedTeachingPresentationId(presentation.id);
+    setImportedPptxSlides(nextSlides);
+    setPptxReport(presentation.report);
+    setActiveItemIndex(-3);
+    setActiveSlideId(nextSlides[0]?.id || null);
+    setTeachingError("");
+  };
+
+  const importTeachingFiles = async (files: FileList | File[]) => {
+    if (!desktopMode || !setlist || isImportingPptx) return;
+    const candidates = Array.from(files);
+    if (!candidates.length) return;
+    setIsImportingPptx(true);
+    setTeachingError("");
+    try {
+      let latest: DesktopTeachingPresentation | undefined;
+      const importedItems: DesktopTeachingPresentation[] = [];
+      for (const file of candidates) {
+        if (!/\.(?:pdf|pptx)$/i.test(file.name)) throw new Error(`${file.name}: choose a PDF or PowerPoint .pptx file.`);
+        if (!file.size) throw new Error(`${file.name}: the selected file is empty.`);
+        if (file.size > 500 * 1024 * 1024) throw new Error(`${file.name}: Teaching files must be smaller than 500 MB.`);
+        const parameters = new URLSearchParams({ setlistId: setlist.id, name: file.name });
+        const response = await fetch(`/api/desktop/teaching?${parameters}`, {
+          method: "POST",
+          headers: { "content-type": "application/octet-stream" },
+          body: file,
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result?.error || `${file.name} could not be imported.`);
+        latest = result as DesktopTeachingPresentation;
+        importedItems.push(latest);
+      }
+      setSavedPptxPresentations((current) => {
+        const next = [...current, ...importedItems];
+        teachingPresentationsBySetlistRef.current[setlist.id] = next;
+        return next;
+      });
+      if (latest) openTeachingPresentation(latest);
+      setDraftMessage(`${importedItems.length} Teaching file${importedItems.length === 1 ? "" : "s"} saved to ${setlist.name}. Live output was not changed.`);
+    } catch (error) {
+      setTeachingError(error instanceof Error ? error.message : "The Teaching file could not be imported.");
+    } finally {
+      setIsImportingPptx(false);
+      setIsTeachingDragActive(false);
+    }
+  };
+
+  const removeTeachingPresentation = async (presentation: DesktopTeachingPresentation) => {
+    if (!setlist) return;
+    try {
+      await deleteDesktopPptxAction(setlist.id, presentation.id);
+      const remaining = savedPptxPresentations.filter((item) => item.id !== presentation.id);
+      teachingPresentationsBySetlistRef.current[setlist.id] = remaining;
+      setSavedPptxPresentations(remaining);
+      if (selectedTeachingPresentationId === presentation.id) {
+        setSelectedTeachingPresentationId("");
+        setImportedPptxSlides([]);
+        setPptxReport(null);
+        setActiveSlideId(null);
+        setActiveItemIndex(-1);
+      }
+      setDraftMessage(`${presentation.name} was removed from ${setlist.name}.`);
+    } catch (error) {
+      setTeachingError(error instanceof Error ? error.message : "The Teaching file could not be removed.");
+    }
+  };
+
+  const changeTeachingSlideViewMode = async (viewMode: "original" | "edited") => {
+    if (!selectedTeachingPresentationId || !activeSlideId) return;
+    const presentation = savedPptxPresentations.find((item) => item.id === selectedTeachingPresentationId);
+    const storedSlide = presentation?.slides.find((slide) => slide.id === activeSlideId);
+    if (!presentation || !storedSlide?.renderedMediaUrl || storedSlide.viewMode === viewMode) return;
+    setTeachingError("");
+    try {
+      await setDesktopPptxSlideViewModeAction(presentation.id, storedSlide.id, viewMode);
+      const updatedPresentation: DesktopTeachingPresentation = {
+        ...presentation,
+        slides: presentation.slides.map((slide) => slide.id === storedSlide.id ? { ...slide, viewMode } : slide),
+      };
+      for (const [setlistId, teachingFiles] of Object.entries(teachingPresentationsBySetlistRef.current)) {
+        teachingPresentationsBySetlistRef.current[setlistId] = teachingFiles.map((item) =>
+          item.id === presentation.id ? updatedPresentation : item
+        );
+      }
+      setSavedPptxPresentations((current) => current.map((item) => item.id === presentation.id ? updatedPresentation : item));
+      setImportedPptxSlides(teachingPresentationSlides(updatedPresentation));
+      setSelectedSceneLayerId(null);
+      setSelectedSceneLayerIds([]);
+      if (viewMode === "edited") setActiveTab("Layers");
+      setDraftMessage(viewMode === "original"
+        ? "Showing the exact PowerPoint slide. Live output was not changed."
+        : "Edit mode opened. Changes stay local until you present this slide.");
+    } catch (error) {
+      setTeachingError(error instanceof Error ? error.message : "The PowerPoint view could not be changed.");
+    }
+  };
 
   const sendRemoteEvent = useCallback((event: string, payload: unknown) => {
     if (desktopChannel) desktopChannel.postMessage({ event, payload });
     if (!desktopMode || cloudRemoteTopic) {
-      void remoteChannel.send({ type: "broadcast", event, payload });
+      void remoteChannel?.send({ type: "broadcast", event, payload });
     }
   }, [cloudRemoteTopic, desktopChannel, desktopMode, remoteChannel]);
 
@@ -462,11 +656,24 @@ export default function GlobalPresenterClient({
       setDraftMessage("");
       const pairing = await createCloudRemotePairing(setlist.id);
       setCloudRemoteTopic(pairing.channelTopic);
+      setCloudRemotePrivate(pairing.privateChannel);
       setCloudRemoteExpiresAt(pairing.expiresAt);
-      setCloudPairing({ url: pairing.url, qrDataUrl: pairing.qrDataUrl });
+      setPairingClock(Date.now());
+      setCloudPairing(pairing);
     } catch (error) {
       setDraftMessage(error instanceof Error ? error.message : "Could not create the phone pairing code.");
     }
+  };
+
+  const handleStopCloudPairing = async () => {
+    const sessionId = cloudPairing?.sessionId;
+    setCloudPairing(null);
+    setCloudRemoteTopic(null);
+    setCloudRemotePrivate(false);
+    setCloudRemoteExpiresAt(null);
+    if (!sessionId) return;
+    const revoked = await revokeCloudRemotePairing(sessionId);
+    if (!revoked) setDraftMessage("The phone session ended locally, but the server could not confirm revocation.");
   };
 
   const ensureProjector = async (displayId?: string) => {
@@ -509,6 +716,7 @@ export default function GlobalPresenterClient({
           if (currentLease?.owner === "remote" && currentLease.id !== command.controllerId) { acknowledge("rejected", "Another Remote is controlling this service."); return; }
           setControllerLease({ owner: "remote", id: command.controllerId, expiresAt: now + 5 * 60_000 });
           sendRemoteEvent("presentation_snapshot", publishedSnapshot);
+          sendRemoteEvent("remote_library", remoteContentLibrary);
           acknowledge("applied", "Remote control granted.");
           return;
         }
@@ -531,13 +739,89 @@ export default function GlobalPresenterClient({
             return;
           }
           setLiveSongIndex(requestedIndex);
+          setLiveSource({ kind: "lineup", setlistSongId: publishedSnapshot.items[requestedIndex]?.setlistSongId });
+          setLiveAuxiliarySlide(null);
           await projectorActionsRef.current.pushToProjector(null, "clear", publishedSnapshot, requestedIndex);
           acknowledge("applied", "Lineup item selected and output cleared.");
           return;
         }
 
+        if (command.kind === "present-presentation-slide") {
+          const presentation = savedPptxPresentations.find((item) => item.id === command.payload?.presentationId);
+          const storedSlide = presentation?.slides.find((slide) => slide.id === command.payload?.slideId);
+          if (!presentation || !storedSlide) {
+            acknowledge("rejected", "That presentation slide is unavailable on this PC.");
+            return;
+          }
+          const slide = teachingPresentationSlides(presentation).find((item) => item.id === storedSlide.id)!;
+          await projectorActionsRef.current.ensureProjector();
+          setLiveSource({ kind: "presentation", presentationId: presentation.id, presentationName: presentation.name });
+          setLiveAuxiliarySlide(slide);
+          await projectorActionsRef.current.pushToProjector(slide);
+          acknowledge("applied", `${presentation.name} presented on the projector.`);
+          return;
+        }
+
+        if (command.kind === "set-lyric-shortcut") {
+          if (!desktopMode) { acknowledge("rejected", "Lyric shortcuts require the Windows Presenter."); return; }
+          const setlistSongId = command.payload?.setlistSongId;
+          const slideId = command.payload?.slideId;
+          const item = publishedSnapshot.items.find((candidate) => candidate.setlistSongId === setlistSongId);
+          if (!setlistSongId || !item || !slideId || !item.slides.some((slide) => slide.id === slideId)) {
+            acknowledge("rejected", "That lyric slide is unavailable in the published lineup.");
+            return;
+          }
+          await setDesktopLyricShortcutAction({
+            setlistId: setlist.id,
+            setlistSongId,
+            slideId,
+            keyCode: command.payload?.keyCode,
+          });
+          setLyricShortcutOverrides((current) => {
+            const next = [
+              ...current.filter((shortcut) => !(shortcut.setlistSongId === setlistSongId && shortcut.slideId === slideId)
+                && !(command.payload?.keyCode && shortcut.setlistSongId === setlistSongId && shortcut.keyCode === command.payload.keyCode)),
+              ...(command.payload?.keyCode ? [{ setlistSongId, slideId, keyCode: command.payload.keyCode }] : []),
+            ];
+            lyricShortcutsBySetlistRef.current[setlist.id] = next;
+            return next;
+          });
+          acknowledge("applied", command.payload?.keyCode ? "Lyric shortcut saved." : "Lyric shortcut reset to its default.");
+          return;
+        }
+
+        if (command.kind === "present-bible-verse") {
+          const reference = command.payload?.reference?.trim();
+          const text = command.payload?.text?.trim();
+          const translation = command.payload?.translation;
+          if (!reference || !text || !translation) {
+            acknowledge("rejected", "That Bible verse is incomplete.");
+            return;
+          }
+          const slide: PresentationSlide = {
+            id: `remote-bible:${translation}:${reference.replace(/\s+/g, "-")}`,
+            type: "lyrics",
+            content: [text],
+            sectionLabel: `${reference} (${translation.toUpperCase()})`,
+          };
+          await projectorActionsRef.current.ensureProjector();
+          setLiveSource({ kind: "bible", reference, translation });
+          setLiveAuxiliarySlide(slide);
+          await projectorActionsRef.current.pushToProjector(slide);
+          acknowledge("applied", `${reference} presented on the projector.`);
+          return;
+        }
+
         const currentItem = publishedSnapshot.items[liveSongIndex] || publishedSnapshot.items[0];
-        const currentSlides = currentItem?.slides || [];
+        const activePresentation = liveSource.kind === "presentation"
+          ? savedPptxPresentations.find((item) => item.id === liveSource.presentationId)
+          : undefined;
+        const activePresentationSlides = teachingPresentationSlides(activePresentation);
+        const currentSlides: PresentationSlide[] = liveSource.kind === "presentation"
+          ? activePresentationSlides
+          : liveSource.kind === "bible" && liveAuxiliarySlide
+            ? [liveAuxiliarySlide]
+            : currentItem?.slides || [];
         const currentIndex = currentSlides.findIndex((slide) => slide.id === liveSlideId);
         if (command.kind === "select-slide" && command.payload?.slideId) {
           let selectedSlide: PublishedPresentationSlide | undefined;
@@ -547,6 +831,8 @@ export default function GlobalPresenterClient({
           }
           if (!selectedSlide) { acknowledge("rejected", "That slide is unavailable in the published lineup."); return; }
           await projectorActionsRef.current.ensureProjector();
+          setLiveSource({ kind: "lineup", setlistSongId: selectedSlide.setlistSongId });
+          setLiveAuxiliarySlide(null);
           await projectorActionsRef.current.pushToProjector(selectedSlide);
           acknowledge("applied", "Slide presented on the projector.");
           return;
@@ -560,9 +846,10 @@ export default function GlobalPresenterClient({
                 ? currentSlides[Math.max(0, currentIndex - 1)] ?? currentSlides[0]
                 : command.kind === "next-slide"
                   ? currentSlides[Math.min(currentSlides.length - 1, Math.max(0, currentIndex) + 1)]
-                  : liveActiveSlide ?? currentSlides[0];
+                : currentOutputSlide ?? currentSlides[0];
           if (!target) { acknowledge("rejected", "There are no published slides to present."); return; }
           await projectorActionsRef.current.ensureProjector();
+          if (liveSource.kind !== "lineup") setLiveAuxiliarySlide(target);
           await projectorActionsRef.current.pushToProjector(target);
           acknowledge("applied", `${command.kind === "present" ? "Live output" : "Slide"} presented on the projector.`);
           return;
@@ -581,7 +868,7 @@ export default function GlobalPresenterClient({
         }
         if (command.kind === "present-projector") {
           await projectorActionsRef.current.ensureProjector(command.payload?.displayId);
-          await projectorActionsRef.current.pushToProjector(liveActiveSlide, outputMode);
+          await projectorActionsRef.current.pushToProjector(currentOutputSlide, outputMode);
           acknowledge("applied", "Projector is open and synchronized.");
           return;
         }
@@ -627,7 +914,8 @@ export default function GlobalPresenterClient({
         if (event.data?.event === "remote_command") void applyCommand(event.data.payload);
         if (event.data?.event === "remote_state_request" || event.data?.event === "presentation_state_request") {
           sendRemoteEvent("presentation_snapshot", publishedSnapshot);
-          void projectorActionsRef.current.pushToProjector(liveActiveSlide, outputMode);
+          sendRemoteEvent("remote_library", remoteContentLibrary);
+          void projectorActionsRef.current.pushToProjector(currentOutputSlide, outputMode);
           broadcast("stage_sync", {
             stageMessage: stageMessageInput,
             stageFlashStyle,
@@ -642,7 +930,7 @@ export default function GlobalPresenterClient({
       removeDesktopListener = () => { desktopChannel.removeEventListener("message", listener); removeLanListener?.(); };
     }
     return () => { removeDesktopListener?.(); };
-  }, [broadcast, controllerLease, countdownInput, countdownTarget, desktopChannel, desktopMode, liveActiveSlide, liveSlideId, liveSongIndex, outputMode, pausedCountdownMs, publishedSnapshot, sendRemoteEvent, setlist, stageFlashStyle, stageLayoutPresetId, stageMessageInput]);
+  }, [broadcast, controllerLease, countdownInput, countdownTarget, currentOutputSlide, desktopChannel, desktopMode, liveAuxiliarySlide, liveSlideId, liveSongIndex, liveSource, outputMode, pausedCountdownMs, publishedSnapshot, remoteContentLibrary, savedPptxPresentations, sendRemoteEvent, setlist, stageFlashStyle, stageLayoutPresetId, stageMessageInput]);
 
   useRemoteCommandSubscription(remoteChannel, supabase, (candidate) => applyRemoteCommandRef.current(candidate));
 
@@ -669,6 +957,7 @@ export default function GlobalPresenterClient({
         confidenceDisplayId: desktopStatus?.confidenceDisplayId,
         displays,
         controller: controllerLease && controllerLease.expiresAt > Date.now() ? controllerLease.owner : null,
+        activeSource: liveSource,
         lastAcknowledgement: lastRemoteAcknowledgement,
         updatedAt: new Date().toISOString(),
       };
@@ -678,18 +967,23 @@ export default function GlobalPresenterClient({
           ...state,
           setlistName: publishedSnapshot.setlistName,
           lineup: publishedSnapshot.items.map((item) => ({ title: item.title, setlistSongId: item.setlistSongId })),
-          slides: liveSlides.map((slide) => ({ id: slide.id, type: slide.type, content: slide.content, sectionLabel: slide.sectionLabel })),
+          slides: remoteLiveSlides.map((slide) => ({ id: slide.id, type: slide.type, content: slide.content, sectionLabel: slide.sectionLabel })),
+          remoteLibrary: remoteContentLibrary,
         });
       }
     };
     void publishState();
     const heartbeat = window.setInterval(() => { void publishState(); }, 2_000);
     return () => window.clearInterval(heartbeat);
-  }, [controllerLease, desktopChannel, desktopMode, lastRemoteAcknowledgement, liveSlideId, liveSlides, liveSongIndex, outputMode, outputStateVersion, publishedSnapshot, remoteChannel, sendRemoteEvent, setlist]);
+  }, [controllerLease, desktopChannel, desktopMode, lastRemoteAcknowledgement, liveSlideId, liveSongIndex, liveSource, outputMode, outputStateVersion, publishedSnapshot, remoteChannel, remoteContentLibrary, remoteLiveSlides, sendRemoteEvent, setlist]);
 
   useEffect(() => {
     sendRemoteEvent("presentation_snapshot", publishedSnapshot);
   }, [publishedSnapshot, sendRemoteEvent]);
+
+  useEffect(() => {
+    sendRemoteEvent("remote_library", remoteContentLibrary);
+  }, [remoteContentLibrary, sendRemoteEvent]);
   
   const defaultBlocks = useMemo(() => {
      if (!activeSlide || activeSlide.content.length === 0) return [];
@@ -798,7 +1092,12 @@ export default function GlobalPresenterClient({
     setSelectedSceneLayerId(layer.id);
     setSelectedSceneLayerIds([layer.id]);
   };
-  const activeSceneLayers = activeSlideId ? sceneLayers[activeSlideId] ?? activeSlide?.sceneLayers ?? [] : [];
+  const activeSceneLayers = useMemo(
+    () => activeSlideId && activeSlide?.teachingViewMode !== "original"
+      ? sceneLayers[activeSlideId] ?? activeSlide?.sceneLayers ?? []
+      : [],
+    [activeSlide?.sceneLayers, activeSlide?.teachingViewMode, activeSlideId, sceneLayers],
+  );
   const selectedSceneLayer = activeSceneLayers.find((layer) => layer.id === selectedSceneLayerId) || null;
   const updateSelectedSceneLayer = (updates: Partial<SceneLayer>) => {
     if (!selectedSceneLayer) return;
@@ -968,6 +1267,24 @@ export default function GlobalPresenterClient({
       }
     }));
   };
+  const keyboardActionsRef = useRef({
+    handleDeleteBlock,
+    handleDuplicateBlock,
+    redo,
+    saveHistoryState,
+    setSceneLayerGroup,
+    undo,
+  });
+  useEffect(() => {
+    keyboardActionsRef.current = {
+      handleDeleteBlock,
+      handleDuplicateBlock,
+      redo,
+      saveHistoryState,
+      setSceneLayerGroup,
+      undo,
+    };
+  });
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -979,7 +1296,7 @@ export default function GlobalPresenterClient({
 
       if (desktopMode && (e.ctrlKey || e.metaKey) && e.code === "KeyG" && selectedSceneLayerIds.length > 0) {
         e.preventDefault();
-        setSceneLayerGroup(!e.shiftKey);
+        keyboardActionsRef.current.setSceneLayerGroup(!e.shiftKey);
       } else if (desktopMode && selectedBlockIds.length === 0 && (e.code === "ArrowRight" || e.code === "ArrowLeft")) {
         const target = e.code === "ArrowRight"
           ? slides[Math.max(0, activeSlideIndex + 1)]
@@ -993,18 +1310,18 @@ export default function GlobalPresenterClient({
         setPlayKey(Date.now());
       } else if (e.code === "Backspace" || e.code === "Delete") {
         e.preventDefault();
-        handleDeleteBlock();
+        keyboardActionsRef.current.handleDeleteBlock();
       } else if (e.ctrlKey && e.code === "KeyD") {
         e.preventDefault();
-        handleDuplicateBlock();
+        keyboardActionsRef.current.handleDuplicateBlock();
       } else if (e.ctrlKey && e.code === "KeyZ") {
-        if (e.shiftKey) redo();
-        else undo();
+        if (e.shiftKey) keyboardActionsRef.current.redo();
+        else keyboardActionsRef.current.undo();
       } else if (e.ctrlKey && e.code === "KeyY") {
-        redo();
+        keyboardActionsRef.current.redo();
       } else if (e.code.startsWith("Arrow") && selectedBlockIds.length > 0 && activeSlideId) {
         e.preventDefault();
-        saveHistoryState();
+        keyboardActionsRef.current.saveHistoryState();
         setSlideOverrides(prev => {
           const currentBlocks = prev[activeSlideId] || [];
           return {
@@ -1028,7 +1345,7 @@ export default function GlobalPresenterClient({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  });
+  }, [activeSlideIndex, desktopMode, future, past, selectedBlockIds, selectedSceneLayerIds, activeSlideId, slideOverrides, slides, activeSceneLayers, selectedSceneLayer]);
 
   const handleFetchChapter = async (book: string, chapter: number) => {
     setSelectedBibleChapter(chapter);
@@ -1037,23 +1354,29 @@ export default function GlobalPresenterClient({
       const query = `${book} ${chapter}`;
       const params = new URLSearchParams({ q: query, translation: bibleTranslation });
       const res = await fetch(`/api/bible?${params}`);
-      const data: unknown = await res.json();
-      const payload = data && typeof data === "object" ? data as Record<string, unknown> : {};
-      if (!res.ok) throw new Error(typeof payload.error === "string" ? payload.error : "Chapter not found");
-      const verses = Array.isArray(payload.verses) ? payload.verses.filter(isBibleApiVerse) : [];
-      if (verses.length > 0) {
-         const newVerses = verses.map((verse) => ({
+       const data: unknown = await res.json();
+       if (!res.ok) {
+         const message = data && typeof data === "object" && "error" in data && typeof data.error === "string"
+           ? data.error
+           : "Chapter not found";
+         throw new Error(message);
+       }
+       const verses = data && typeof data === "object" && "verses" in data && Array.isArray(data.verses)
+         ? data.verses.filter(isBibleApiVerse)
+         : [];
+       if (verses.length > 0) {
+          const newVerses = verses.map((verse) => ({
            reference: `${verse.book_name} ${verse.chapter}:${verse.verse}`,
            text: verse.text.trim()
-         }));
+          }));
          setBibleVerses(newVerses);
          setActiveItemIndex(-2);
       } else {
         alert("Chapter not found.");
       }
-    } catch (error: unknown) {
-      console.error(error);
-      alert(error instanceof Error ? error.message : "Failed to fetch chapter.");
+    } catch (err: unknown) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to fetch chapter.");
     } finally {
       setIsFetchingBible(false);
     }
@@ -1062,6 +1385,12 @@ export default function GlobalPresenterClient({
   if (!setlist) {
     return <div className="p-8 text-white">No upcoming setlists found.</div>;
   }
+
+  const cloudPairingSecondsRemaining = cloudPairing
+    ? Math.max(0, Math.ceil((Date.parse(cloudPairing.claimExpiresAt) - pairingClock) / 1_000))
+    : 0;
+  const cloudPairingCountdown = `${Math.floor(cloudPairingSecondsRemaining / 60)}:${String(cloudPairingSecondsRemaining % 60).padStart(2, "0")}`;
+  const cloudPhoneConnected = controllerLease?.owner === "remote" && controllerLease.expiresAt > pairingClock;
 
   return (
     <div className="fixed inset-0 h-[100dvh] bg-[#0A0A0A] text-zinc-300 flex flex-col font-sans overflow-hidden">
@@ -1090,10 +1419,10 @@ export default function GlobalPresenterClient({
         </div>
         
         <div className="flex items-center gap-2">
-          {desktopMode ? <button onClick={() => void window.anointedDesktop?.openRemote(setlist.id)} className="flex items-center gap-2 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold transition text-zinc-300">
+          {desktopMode && <button onClick={() => void window.anointedDesktop?.openRemote(setlist.id)} className="flex items-center gap-2 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold transition text-zinc-300">
             <Smartphone className="size-4" />
             Worship Remote
-          </button> : <button onClick={() => void handleCreateCloudPairing()} className="flex items-center gap-2 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold transition text-zinc-300"><Smartphone className="size-4" />Worship Remote</button>}
+          </button>}
           {desktopMode && <button onClick={() => void handleCreateCloudPairing()} className="rounded border border-violet-400/40 bg-violet-500/15 px-3 py-1.5 text-xs font-bold text-violet-100 hover:bg-violet-500/25">Pair phone</button>}
           {desktopMode && <button onClick={() => { void window.anointedDesktop?.startLanRemote(setlist.id).then((pairing) => { if (pairing) setLanPairing(pairing); }); }} className="rounded border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/10">Pair Wi-Fi</button>}
           <button onClick={handleSaveSettings} disabled={isSaving || isPublishing} className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/10 disabled:opacity-40">
@@ -1105,17 +1434,39 @@ export default function GlobalPresenterClient({
         </div>
       </div>
       {lanPairing && <div className="absolute right-4 top-16 z-50 w-72 rounded-lg border border-violet-400/30 bg-[#181818] p-3 shadow-2xl"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-bold text-white">Pair phone on this Wi-Fi</p><p className="mt-1 text-[10px] text-zinc-400">Scan the one-time QR code. Pairing ends when you stop it or close the app.</p></div><button onClick={() => void window.anointedDesktop?.stopLanRemote().then(() => setLanPairing(null))} className="text-zinc-400 hover:text-white"><X className="size-4" /></button></div>{lanPairing.qrDataUrl ? <Image unoptimized width={176} height={176} src={lanPairing.qrDataUrl} alt="Phone Remote pairing QR code" className="mx-auto my-3 size-44 rounded bg-white p-2" /> : <p className="mt-3 text-xs text-amber-300">No active Wi-Fi address was detected.</p>}{lanPairing.url && <button onClick={() => void navigator.clipboard?.writeText(lanPairing.url!)} className="w-full truncate rounded bg-white/10 px-2 py-2 text-[10px] text-zinc-200 hover:bg-white/20">Copy pairing link</button>}</div>}
-      {cloudPairing && <div className="absolute right-4 top-16 z-50 w-72 rounded-lg border border-violet-400/30 bg-[#181818] p-3 shadow-2xl"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-bold text-white">Pair phone from anywhere</p><p className="mt-1 text-[10px] text-zinc-400">Scan on the phone, sign in, then control this PC over the internet for 30 minutes.</p></div><button onClick={() => setCloudPairing(null)} className="text-zinc-400 hover:text-white"><X className="size-4" /></button></div><Image unoptimized width={176} height={176} src={cloudPairing.qrDataUrl} alt="Internet Remote pairing QR code" className="mx-auto my-3 size-44 rounded bg-white p-2" /><button onClick={() => void navigator.clipboard?.writeText(cloudPairing.url)} className="w-full truncate rounded bg-white/10 px-2 py-2 text-[10px] text-zinc-200 hover:bg-white/20">Copy pairing link</button></div>}
+      {cloudPairing && <div className="absolute right-4 top-16 z-50 w-80 rounded-xl border border-violet-400/30 bg-[#181818] p-4 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-black text-white">Pair Worship Remote</p>
+            <p className="mt-1 text-[10px] leading-4 text-zinc-400">Scan or enter the PIN on the website. Sign-in and membership in this team are required.</p>
+          </div>
+          <button type="button" aria-label="Stop phone pairing" onClick={() => void handleStopCloudPairing()} className="rounded p-1 text-zinc-400 hover:bg-white/10 hover:text-white"><X className="size-4" /></button>
+        </div>
+        <div role="status" className={`mt-3 rounded px-2 py-1.5 text-center text-[10px] font-bold ${cloudPhoneConnected ? "bg-emerald-500/15 text-emerald-200" : cloudPairingSecondsRemaining > 0 ? "bg-amber-400/10 text-amber-100" : "bg-red-500/10 text-red-200"}`}>
+          {cloudPhoneConnected ? "Phone connected · session active for up to 8 hours" : cloudPairingSecondsRemaining > 0 ? `Waiting for phone · code expires in ${cloudPairingCountdown}` : "Pairing code expired · create a new code"}
+        </div>
+        <Image unoptimized width={192} height={192} src={cloudPairing.qrDataUrl} alt="Internet Worship Remote pairing QR code" className="mx-auto my-3 size-48 rounded-lg bg-white p-2" />
+        <div className="rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-center">
+          <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500">Six-digit PIN</p>
+          <p className="mt-1 font-mono text-2xl font-black tracking-[0.18em] text-white">{formatRemotePairingPin(cloudPairing.pinCode)}</p>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {cloudPairingSecondsRemaining > 0 || cloudPhoneConnected
+            ? <button type="button" onClick={() => void navigator.clipboard?.writeText(cloudPairing.url)} className="truncate rounded-lg bg-white/10 px-2 py-2 text-[10px] font-bold text-zinc-200 hover:bg-white/20">Copy pairing link</button>
+            : <button type="button" onClick={() => void handleCreateCloudPairing()} className="rounded-lg bg-violet-600 px-2 py-2 text-[10px] font-bold text-white hover:bg-violet-500">Create new code</button>}
+          <button type="button" onClick={() => void handleStopCloudPairing()} className="rounded-lg border border-red-400/20 bg-red-500/10 px-2 py-2 text-[10px] font-bold text-red-200 hover:bg-red-500/20">Stop Remote</button>
+        </div>
+      </div>}
       {draftMessage && activeTab !== "Lyrics" && <div role="status" className="absolute left-1/2 top-16 z-40 max-w-lg -translate-x-1/2 rounded border border-white/10 bg-[#181818] px-4 py-2 text-xs text-zinc-200 shadow-xl">{draftMessage}</div>}
 
       <div className="flex flex-1 overflow-hidden">
         
-        {/* Far Left Nav (Icons) */}
-        <div className="w-14 border-r border-white/5 bg-[#0a0a0a] flex flex-col items-center py-4 gap-4 shrink-0 z-10">
+        {/* The website keeps its legacy icon rail; desktop navigation lives in the lineup. */}
+        {!desktopMode && <div className="w-14 border-r border-white/5 bg-[#0a0a0a] flex flex-col items-center py-4 gap-4 shrink-0 z-10">
            <button onClick={() => setActiveItemIndex(-1)} className={`p-2 rounded-lg ${activeItemIndex === -1 ? 'bg-violet-600/20 text-violet-400' : 'hover:bg-white/5 text-zinc-500 hover:text-zinc-300'}`}><LayoutTemplate className="size-5" /></button>
            <button onClick={() => setActiveItemIndex(0)} className={`p-2 rounded-lg ${activeItemIndex >= 0 ? 'bg-violet-600/20 text-violet-400' : 'hover:bg-white/5 text-zinc-500 hover:text-zinc-300'}`}><Music className="size-5" /></button>
            <button onClick={() => setActiveItemIndex(-2)} className={`p-2 rounded-lg ${activeItemIndex === -2 ? 'bg-violet-600/20 text-violet-400' : 'hover:bg-white/5 text-zinc-500 hover:text-zinc-300'}`}><BookOpen className="size-5" /></button>
-        </div>
+        </div>}
 
         {/* Keynotes Sidebar: Line up */}
         <div className="w-64 border-r border-white/5 bg-[#121212] flex flex-col shrink-0">
@@ -1152,7 +1503,7 @@ export default function GlobalPresenterClient({
             ))}
             
             <div className="pt-4 mt-4 border-t border-white/5">
-               <h3 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 px-3 mb-2">Teaching & Media</h3>
+               <h3 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 px-3 mb-2">{desktopMode ? "Teaching" : "Teaching & Media"}</h3>
                <button
                   onClick={() => setActiveItemIndex(-1)}
                   className={cn(
@@ -1166,10 +1517,44 @@ export default function GlobalPresenterClient({
                      <LayoutTemplate className="size-4" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-sm truncate text-white">Media Viewer</p>
-                    <p className="text-xs font-semibold opacity-70 truncate">PDF / Image</p>
+                    <p className="font-bold text-sm truncate text-white">{desktopMode ? "Teaching" : "Media Viewer"}</p>
+                    <p className="text-xs font-semibold opacity-70 truncate">{desktopMode ? "PDF / PowerPoint" : "PDF / Image"}</p>
                   </div>
                </button>
+               {desktopMode && savedPptxPresentations.map((presentation) => (
+                 <button
+                   key={presentation.id}
+                   type="button"
+                   onClick={() => openTeachingPresentation(presentation)}
+                   className={cn(
+                     "mt-1 flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
+                     activeItemIndex === -3 && selectedTeachingPresentationId === presentation.id
+                       ? "border-emerald-500/30 bg-emerald-600/15 text-emerald-200"
+                       : "border-transparent text-zinc-400 hover:bg-white/5",
+                   )}
+                 >
+                   <div className="flex size-8 shrink-0 items-center justify-center rounded bg-white/10">
+                     <span className="text-[9px] font-black uppercase">{presentation.kind}</span>
+                   </div>
+                   <div className="min-w-0">
+                     <p className="truncate text-xs font-bold text-white">{presentation.name}</p>
+                     <p className="text-[10px] font-semibold opacity-70">{presentation.slides.length} slide{presentation.slides.length === 1 ? "" : "s"}</p>
+                   </div>
+                 </button>
+               ))}
+               {desktopMode && <button
+                 type="button"
+                 onClick={() => { setActiveItemIndex(-2); setActiveSlideId(null); }}
+                 className={cn(
+                   "mt-3 flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors",
+                   activeItemIndex === -2
+                     ? "border-blue-500/30 bg-blue-600/20 text-blue-300"
+                     : "border-transparent text-zinc-400 hover:bg-white/5",
+                 )}
+               >
+                 <div className="flex size-8 shrink-0 items-center justify-center rounded bg-white/10"><BookOpen className="size-4" /></div>
+                 <div className="min-w-0"><p className="truncate text-sm font-bold text-white">Bible</p><p className="truncate text-xs font-semibold opacity-70">KJV / WEB / BBE</p></div>
+               </button>}
             </div>
           </div>
         </div>
@@ -1206,12 +1591,12 @@ export default function GlobalPresenterClient({
                      >
                        <option value="">— Select a Book —</option>
                        <optgroup label="── Old Testament ──">
-                         {BIBLE_BOOKS.filter(b => b.ot).map(b => (
+                          {BIBLE_BOOKS.filter(b => b.testament === "old").map(b => (
                            <option key={b.name} value={b.name}>{b.name}</option>
                          ))}
                        </optgroup>
                        <optgroup label="── New Testament ──">
-                         {BIBLE_BOOKS.filter(b => !b.ot).map(b => (
+                          {BIBLE_BOOKS.filter(b => b.testament === "new").map(b => (
                            <option key={b.name} value={b.name}>{b.name}</option>
                          ))}
                        </optgroup>
@@ -1281,10 +1666,10 @@ export default function GlobalPresenterClient({
               ) : (
                 <div className="h-14 border-b border-white/5 flex items-center justify-between px-4 shrink-0 bg-[#18181b]">
                    <div className="flex flex-col justify-center min-w-0">
-                     <span className="text-xs font-bold text-white truncate">{activeItem?.song.title}</span>
-                     <span className="text-[10px] font-semibold text-zinc-500">Lyrics Reflow</span>
+                     <span className="text-xs font-bold text-white truncate">{activeItemIndex === -3 ? savedPptxPresentations.find((presentation) => presentation.id === selectedTeachingPresentationId)?.name : activeItem?.song.title}</span>
+                     <span className="text-[10px] font-semibold text-zinc-500">{activeItemIndex === -3 ? "Teaching slides" : "Lyrics Reflow"}</span>
                    </div>
-                   <div className="flex bg-black/50 rounded p-0.5 border border-white/10 shrink-0">
+                   {activeItemIndex >= 0 && <div className="flex bg-black/50 rounded p-0.5 border border-white/10 shrink-0">
                       {[1, 2, 4, 8].map(num => (
                         <button
                           key={num}
@@ -1297,7 +1682,7 @@ export default function GlobalPresenterClient({
                           {num}
                         </button>
                       ))}
-                   </div>
+                   </div>}
                 </div>
               )}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -1371,7 +1756,78 @@ export default function GlobalPresenterClient({
         <div className="flex-1 flex flex-col bg-[#0f0f11] overflow-hidden">
           {activeItemIndex === -1 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
-               <div className="max-w-md w-full space-y-6">
+               {desktopMode ? <div className="w-full max-w-3xl space-y-5">
+                 <div>
+                   <LayoutTemplate className="mx-auto size-14 text-emerald-400/60" />
+                   <h2 className="mt-3 text-2xl font-bold text-white">Teaching</h2>
+                   <p className="mt-1 text-sm text-zinc-400">PDF and PowerPoint files are saved with {setlist.name} on this PC.</p>
+                 </div>
+                 <div
+                   onDragEnter={(event) => { event.preventDefault(); setIsTeachingDragActive(true); }}
+                   onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setIsTeachingDragActive(true); }}
+                   onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsTeachingDragActive(false); }}
+                   onDrop={(event) => { event.preventDefault(); setIsTeachingDragActive(false); void importTeachingFiles(event.dataTransfer.files); }}
+                   className={cn(
+                     "rounded-xl border-2 border-dashed p-8 transition-colors",
+                     isTeachingDragActive ? "border-emerald-400 bg-emerald-500/10" : "border-white/15 bg-white/[.02]",
+                   )}
+                 >
+                   <Upload className="mx-auto size-8 text-emerald-400" />
+                   <p className="mt-3 text-sm font-bold text-white">{isImportingPptx ? "Importing Teaching file…" : "Drag and drop PDF or PPTX files here"}</p>
+                   <p className="mt-1 text-xs text-zinc-500">Up to 500 MB per file. Importing never changes live output.</p>
+                   <label className={cn("mx-auto mt-4 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500", isImportingPptx && "pointer-events-none opacity-50")}>
+                     {isImportingPptx ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                     Browse on PC
+                     <input
+                       type="file"
+                       multiple
+                       accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                       className="hidden"
+                       disabled={isImportingPptx}
+                       onChange={(event) => {
+                         const files = event.currentTarget.files;
+                         if (files) void importTeachingFiles(files);
+                         event.currentTarget.value = "";
+                       }}
+                     />
+                   </label>
+                 </div>
+                 {teachingError && <p role="alert" className="rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 text-left text-sm text-red-200">{teachingError}</p>}
+                 {savedPptxPresentations.length ? <div className="grid gap-2 text-left sm:grid-cols-2">
+                   {savedPptxPresentations.map((presentation) => (
+                     <div key={presentation.id} className="rounded-lg border border-white/10 bg-[#181818] p-3">
+                       <button type="button" onClick={() => openTeachingPresentation(presentation)} className="w-full text-left">
+                         <span className="text-[10px] font-black uppercase tracking-wider text-emerald-300">{presentation.kind} · {presentation.slides.length} slides</span>
+                         <span className="mt-1 block truncate text-sm font-bold text-white">{presentation.name}</span>
+                       </button>
+                       <div className="mt-3 flex gap-2">
+                         <button type="button" onClick={() => openTeachingPresentation(presentation)} className="flex-1 rounded bg-emerald-600/20 px-2 py-1.5 text-[10px] font-bold text-emerald-100 hover:bg-emerald-600/30">Open</button>
+                         <button type="button" onClick={async () => {
+                           const nextName = window.prompt("Teaching file name", presentation.name);
+                           if (!nextName?.trim()) return;
+                           try {
+                             await renameDesktopPptxAction(presentation.id, nextName);
+                             setSavedPptxPresentations((current) => {
+                               const renamedName = nextName.trim().slice(0, 120);
+                               for (const [setlistId, teachingFiles] of Object.entries(teachingPresentationsBySetlistRef.current)) {
+                                 teachingPresentationsBySetlistRef.current[setlistId] = teachingFiles.map((item) =>
+                                   item.id === presentation.id ? { ...item, name: renamedName } : item
+                                 );
+                               }
+                               const next = current.map((item) => item.id === presentation.id ? { ...item, name: renamedName } : item);
+                               teachingPresentationsBySetlistRef.current[setlist.id] = next;
+                               return next;
+                             });
+                           } catch (error) {
+                             setTeachingError(error instanceof Error ? error.message : "The Teaching file could not be renamed.");
+                           }
+                         }} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold text-zinc-200 hover:bg-white/15">Rename</button>
+                         <button type="button" onClick={() => void removeTeachingPresentation(presentation)} className="rounded bg-red-500/10 px-2 py-1.5 text-[10px] font-bold text-red-200 hover:bg-red-500/20">Remove</button>
+                       </div>
+                     </div>
+                   ))}
+                 </div> : <p className="rounded-lg border border-dashed border-white/10 p-5 text-sm text-zinc-500">No Teaching files are saved for this setlist yet.</p>}
+               </div> : <div className="max-w-md w-full space-y-6">
                  <LayoutTemplate className="size-16 text-emerald-500/50 mx-auto" />
                  <h2 className="text-2xl font-bold text-white">Media & Teaching</h2>
                  <p className="text-sm text-zinc-400">
@@ -1398,7 +1854,7 @@ export default function GlobalPresenterClient({
 	                     Add to Editor Draft
                    </button>
                  </div>
-               </div>
+               </div>}
             </div>
           ) : (
             <>
@@ -1429,8 +1885,35 @@ export default function GlobalPresenterClient({
                   {desktopMode && <div className="absolute right-4 top-4 rounded border border-white/10 bg-black/40 px-3 py-2 text-right text-[10px]"><p className="font-bold text-zinc-300">Published live: {liveActiveSlide ? `${Math.max(0, liveSlides.findIndex((slide) => slide.id === liveActiveSlide.id)) + 1}/${liveSlides.length}` : outputMode}</p><p className="mt-1 max-w-48 truncate text-zinc-500">Remote revision {publishedSnapshot.revision}</p></div>}
                   
                   {/* Floating properties quick toggle (optional) */}
-                  <div className="absolute top-4 left-4 flex gap-2">
-                     <span className="rounded border border-white/10 bg-black/50 px-2 py-1 text-[10px] font-bold text-zinc-400">Editor preview</span>
+                  <div className="absolute top-4 left-4 flex items-center gap-2">
+                     <span className="rounded border border-white/10 bg-black/50 px-2 py-1 text-[10px] font-bold text-zinc-400">
+                       {activeSlide?.teachingViewMode === "original" ? "Exact PowerPoint preview" : "Editor preview"}
+                     </span>
+                     {activeItemIndex === -3 && activeSlide && !activeSlide.teachingViewMode && savedPptxPresentations.find((item) => item.id === selectedTeachingPresentationId)?.kind === "pptx" && (
+                       <span className="rounded border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-[10px] font-semibold text-amber-200">
+                         Re-import this older PowerPoint to add Original view
+                       </span>
+                     )}
+                     {activeItemIndex === -3 && activeSlide?.teachingViewMode && (
+                       <div role="group" aria-label="PowerPoint slide view" className="flex rounded border border-white/10 bg-black/60 p-0.5">
+                         <button
+                           type="button"
+                           aria-pressed={activeSlide.teachingViewMode === "original"}
+                           onClick={() => void changeTeachingSlideViewMode("original")}
+                           className={cn("rounded px-2 py-1 text-[10px] font-bold", activeSlide.teachingViewMode === "original" ? "bg-emerald-600 text-white" : "text-zinc-400 hover:text-white")}
+                         >
+                           Original
+                         </button>
+                         <button
+                           type="button"
+                           aria-pressed={activeSlide.teachingViewMode === "edited"}
+                           onClick={() => void changeTeachingSlideViewMode("edited")}
+                           className={cn("rounded px-2 py-1 text-[10px] font-bold", activeSlide.teachingViewMode === "edited" ? "bg-violet-600 text-white" : "text-zinc-400 hover:text-white")}
+                         >
+                           Edit slide
+                         </button>
+                       </div>
+                     )}
                   </div>
                </div>
 
@@ -1462,10 +1945,10 @@ export default function GlobalPresenterClient({
         <div className="w-[300px] border-l border-white/10 bg-[#121212] flex flex-col shrink-0">
            {/* Tabs */}
            <div className="px-4 pt-4 border-b border-white/5 flex gap-4 shrink-0 overflow-x-auto">
-             {PRESENTER_TABS.map((tab) => (
+              {PRESENTER_TABS.map((tab) => (
                <button 
                  key={tab}
-                 onClick={() => setActiveTab(tab as PresenterTab)}
+                  onClick={() => setActiveTab(tab)}
                  className={cn(
                    "text-xs font-bold pb-2 border-b-2 transition-colors whitespace-nowrap",
                    activeTab === tab ? "text-white border-white" : "text-zinc-600 border-transparent hover:text-zinc-400"
@@ -1676,14 +2159,12 @@ export default function GlobalPresenterClient({
               {activeTab === "Layers" && (
                 <div className="p-2 space-y-1">
                    {desktopMode && pptxReport?.warnings.length ? <section className="mb-3 rounded border border-amber-400/20 bg-amber-500/5 p-2"><p className="text-[10px] font-bold uppercase tracking-wider text-amber-200">PowerPoint import report</p><ul className="mt-1 space-y-1 text-[9px] text-amber-100/80">{pptxReport.warnings.map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}</ul></section> : null}
-                   {desktopMode && savedPptxPresentations.length > 0 && <section className="mb-3 rounded border border-white/10 bg-black/20 p-2"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Saved PowerPoint presentations</p>{savedPptxPresentations.map((presentation) => <div key={presentation.id} className="mb-1 flex gap-1"><button onClick={() => { setPptxReport(presentation.report); setImportedPptxSlides(presentation.slides.map((slide) => ({ id: slide.id, type: "teaching", content: [], sectionLabel: presentation.name, sceneLayers: slide.layers }))); setActiveItemIndex(-3); setActiveSlideId(null); }} className="min-w-0 flex-1 truncate rounded bg-white/10 px-2 py-1.5 text-left text-[10px] font-bold hover:bg-white/15">{presentation.name} ({presentation.slides.length})</button><button onClick={async () => { const name = window.prompt("Presentation name", presentation.name); if (name) { await renameDesktopPptxAction(presentation.id, name); setSavedPptxPresentations((items) => items.map((item) => item.id === presentation.id ? { ...item, name: name.trim().replace(/\.pptx$/i, "") } : item)); } }} className="rounded bg-white/10 px-2 text-[9px] font-bold">Rename</button><button onClick={async () => { if (window.confirm(`Delete ${presentation.name}?`)) { await deleteDesktopPptxAction(presentation.id); setSavedPptxPresentations((items) => items.filter((item) => item.id !== presentation.id)); } }} className="rounded bg-red-500/15 px-2 text-[9px] font-bold text-red-200">Delete</button></div>)}</section>}
                    {desktopMode && activeSlideId && <section className="mb-3 rounded border border-violet-400/20 bg-violet-500/5 p-2"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-violet-200">Local Scene Layers</p><div className="grid grid-cols-2 gap-1"><button onClick={() => addSceneLayer("text")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Text</button><button onClick={() => addSceneLayer("shape")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Shape</button><button onClick={() => addSceneLayer("image")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Image</button><button onClick={() => addSceneLayer("video")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Video</button></div><p className="mt-2 text-[9px] text-zinc-500">Shift-click layers on the canvas to select several before grouping.</p>{activeSceneLayers.map((layer, index) => <button key={layer.id} onClick={(event) => selectSceneLayer(layer.id, event.shiftKey)} className={cn("mt-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[10px]", selectedSceneLayerIds.includes(layer.id) ? "bg-violet-600/30" : "bg-black/20 hover:bg-white/5")}><span className="min-w-0 flex-1 truncate font-semibold">{index + 1}. {layer.name}</span><span onClick={(event) => { event.stopPropagation(); void updateSceneLayers(activeSceneLayers.map((item) => item.id === layer.id ? { ...item, hidden: !item.hidden } : item)); }} className="text-zinc-400 hover:text-white">{layer.hidden ? "Show" : "Hide"}</span><span onClick={(event) => { event.stopPropagation(); void updateSceneLayers(activeSceneLayers.filter((item) => item.id !== layer.id)); }} className="text-red-300 hover:text-red-200">Delete</span></button>)}</section>}
                    {desktopMode && selectedSceneLayer && <section className="mb-3 space-y-2 rounded border border-white/10 bg-black/20 p-2"><p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Layer editor</p><select value={selectedSceneLayerId || ""} onChange={(event) => setSelectedSceneLayerId(event.target.value)} className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-[10px] text-white">{activeSceneLayers.map((layer, index) => <option key={layer.id} value={layer.id}>{index + 1}. {layer.name}</option>)}</select><input value={selectedSceneLayer.name} onChange={(event) => updateSelectedSceneLayer({ name: event.target.value.slice(0, 80) })} aria-label="Layer name" className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white" />{selectedSceneLayer.kind === "text" && <textarea value={selectedSceneLayer.text || ""} onChange={(event) => updateSelectedSceneLayer({ text: event.target.value })} aria-label="Layer text" className="min-h-16 w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white" />}{(selectedSceneLayer.kind === "image" || selectedSceneLayer.kind === "video") && <><select value={selectedSceneLayer.mediaUrl || ""} onChange={(event) => updateSelectedSceneLayer({ mediaUrl: event.target.value })} aria-label="Choose local background media" className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white"><option value="">Choose PC media</option>{desktopBackgrounds.filter((asset) => asset.mediaType === selectedSceneLayer.kind).map((asset) => <option key={asset.id} value={asset.url}>{asset.displayName}</option>)}</select><input value={selectedSceneLayer.mediaUrl || ""} onChange={(event) => updateSelectedSceneLayer({ mediaUrl: event.target.value })} placeholder="Local media URL" aria-label="Layer media URL" className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white" /></>}<div className="grid grid-cols-2 gap-1">{([ ["x", "X"], ["y", "Y"], ["width", "Width"], ["height", "Height"], ["rotation", "Rotation"], ["fontSize", "Font size"] ] as const).map(([field, label]) => <label key={field} className="text-[9px] text-zinc-500">{label}<input type="number" value={selectedSceneLayer[field] ?? 0} onChange={(event) => updateSelectedSceneLayer({ [field]: Number(event.target.value) || 0 })} className="mt-0.5 w-full rounded border border-white/10 bg-[#171717] px-2 py-1 text-xs text-white" /></label>)}</div><div className="flex gap-1"><button onClick={() => moveSelectedSceneLayer(-1)} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">Bring forward</button><button onClick={() => moveSelectedSceneLayer(1)} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">Send back</button><button onClick={() => updateSelectedSceneLayer({ locked: !selectedSceneLayer.locked })} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">{selectedSceneLayer.locked ? "Unlock" : "Lock"}</button></div></section>}
                    {desktopMode && selectedSceneLayer && <><div className="mb-3 flex gap-1"><button onClick={duplicateSelectedSceneLayer} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">Duplicate selected layer</button><button onClick={() => updateSelectedSceneLayer({ groupId: selectedSceneLayer.groupId ? undefined : crypto.randomUUID() })} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">{selectedSceneLayer.groupId ? "Ungroup" : "Group"}</button></div><section className="mb-3 space-y-1.5 rounded border border-violet-400/20 bg-violet-500/5 p-2"><p className="text-[10px] font-bold uppercase tracking-wider text-violet-200">Scene layer motion</p><div className="grid grid-cols-2 gap-1"><label className="text-[9px] text-zinc-500">Start (seconds)<input type="number" min="0" value={selectedSceneLayer.startTime || 0} onChange={(event) => updateSelectedSceneLayer({ startTime: Math.max(0, Number(event.target.value) || 0) })} className="mt-0.5 w-full rounded border border-white/10 bg-[#171717] px-2 py-1 text-xs text-white" /></label><label className="text-[9px] text-zinc-500">Duration (seconds)<input type="number" min="0" value={selectedSceneLayer.duration || 0} onChange={(event) => updateSelectedSceneLayer({ duration: Math.max(0, Number(event.target.value) || 0) })} className="mt-0.5 w-full rounded border border-white/10 bg-[#171717] px-2 py-1 text-xs text-white" /></label></div><div className="flex gap-1"><input value={motionPresetName} onChange={(event) => setMotionPresetName(event.target.value)} placeholder="Save current motion as…" className="min-w-0 flex-1 rounded border border-white/10 bg-[#171717] px-2 py-1 text-[10px] text-white" /><button onClick={() => void saveSceneLayerMotionPreset()} disabled={!motionPresetName.trim()} className="rounded bg-violet-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-40">Save</button></div>{motionPresets.length > 0 && <div className="flex gap-1"><select value={selectedMotionPresetId} onChange={(event) => setSelectedMotionPresetId(event.target.value)} className="min-w-0 flex-1 rounded border border-white/10 bg-[#171717] px-2 py-1 text-[10px] text-white"><option value="">Apply saved motion…</option>{motionPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select><button onClick={() => { const preset = motionPresets.find((item) => item.id === selectedMotionPresetId); if (preset) applySceneLayerMotionPreset(preset.motion, false); }} disabled={!selectedMotionPresetId} className="rounded bg-white/10 px-2 py-1 text-[10px] font-bold">Layer</button><button onClick={() => { const preset = motionPresets.find((item) => item.id === selectedMotionPresetId); if (preset) applySceneLayerMotionPreset(preset.motion, true); }} disabled={!selectedMotionPresetId} className="rounded bg-white/10 px-2 py-1 text-[10px] font-bold">All</button></div>}</section></>}
-                   {desktopMode && <section className="mb-3 rounded border border-white/10 bg-black/20 p-2"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">PowerPoint import</p><label className="block cursor-pointer rounded bg-white/10 px-2 py-1.5 text-center text-[10px] font-bold hover:bg-white/15">{isImportingPptx ? "Importing…" : "Import .pptx locally"}<input type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" className="hidden" disabled={isImportingPptx} onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; setIsImportingPptx(true); try { const imported = await importDesktopPptxAction(file); setPptxReport(imported.report); setImportedPptxSlides(imported.slides.map((slide) => ({ id: slide.id, type: "teaching", content: [], sectionLabel: imported.name, sceneLayers: slide.layers }))); setActiveItemIndex(-3); setActiveSlideId(null); } finally { setIsImportingPptx(false); event.currentTarget.value = ""; } }} /></label>{importedPptxSlides.length > 0 && <button onClick={() => setActiveItemIndex(-3)} className="mt-2 w-full rounded bg-violet-600/30 px-2 py-1.5 text-[10px] font-bold text-violet-100">Open imported slides ({importedPptxSlides.length})</button>}{pptxReport && <p className="mt-2 text-[9px] text-zinc-400">Imported {pptxReport.importedText} text layers.{pptxReport.warnings.length ? ` ${pptxReport.warnings[0]}` : ""}</p>}</section>}
                    {activeBlocks.length === 0 ? (
                       <div className="p-4 text-center text-xs text-zinc-500">
-                          Click &quot;Chop to Words&quot; to see layers.
+                         Click &quot;Chop to Words&quot; to see layers.
                       </div>
                    ) : (
                       activeBlocks.map((block) => (
@@ -1720,7 +2201,7 @@ export default function GlobalPresenterClient({
                          <select 
                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
                            value={settings.slideTransition || "None"}
-                           onChange={(e) => setSettings({...settings, slideTransition: e.target.value as SlideTransition})}
+                            onChange={(e) => setSettings({...settings, slideTransition: e.target.value as PresentationSettings["slideTransition"]})}
                          >
                            <option value="None">None (Cut)</option>
                            <option value="Crossfade">Crossfade</option>
@@ -1747,7 +2228,7 @@ export default function GlobalPresenterClient({
                           value={selectedBlock?.entranceAnimation ?? settings.entranceAnimation}
                           onChange={(e) => {
                             if (selectedBlock) handleUpdateSelectedBlock({ entranceAnimation: e.target.value });
-                            else setSettings({...settings, entranceAnimation: e.target.value as EntranceAnimation});
+                            else setSettings({...settings, entranceAnimation: e.target.value as PresentationSettings["entranceAnimation"]});
                           }}
                         >
                           <option value="None">None</option>
@@ -1856,7 +2337,7 @@ export default function GlobalPresenterClient({
                           value={selectedBlock?.exitAnimation ?? settings.exitAnimation}
                           onChange={(e) => {
                             if (selectedBlock) handleUpdateSelectedBlock({ exitAnimation: e.target.value });
-                            else setSettings({...settings, exitAnimation: e.target.value as ExitAnimation});
+                            else setSettings({...settings, exitAnimation: e.target.value as PresentationSettings["exitAnimation"]});
                           }}
                         >
                           <option value="None">None</option>

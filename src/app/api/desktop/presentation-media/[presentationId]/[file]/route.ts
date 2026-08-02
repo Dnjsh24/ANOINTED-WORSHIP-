@@ -9,7 +9,7 @@ const filenames = /^[a-zA-Z0-9._-]{1,180}$/;
 
 function contentType(filename: string) {
   const extension = filename.split(".").pop()?.toLowerCase();
-  return ({ png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", mp4: "video/mp4", webm: "video/webm" } as Record<string, string | undefined>)[extension || ""] || "application/octet-stream";
+  return ({ pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", mp4: "video/mp4", webm: "video/webm" } as Record<string, string | undefined>)[extension || ""] || "application/octet-stream";
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ presentationId: string; file: string }> }) {

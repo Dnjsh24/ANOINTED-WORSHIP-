@@ -259,9 +259,33 @@ function initialize(db: DatabaseSync) {
       id TEXT PRIMARY KEY,
       team_id TEXT NOT NULL,
       name TEXT NOT NULL,
+      source_kind TEXT NOT NULL DEFAULT 'pptx' CHECK(source_kind IN ('pptx', 'pdf')),
+      source_file TEXT,
+      size_bytes INTEGER NOT NULL DEFAULT 0,
       presentation_json TEXT NOT NULL,
       report_json TEXT NOT NULL,
       created_at TEXT NOT NULL
+    ) STRICT;
+    CREATE TABLE IF NOT EXISTS desktop_setlist_presentations (
+      team_id TEXT NOT NULL,
+      setlist_id TEXT NOT NULL REFERENCES local_setlists(id) ON DELETE CASCADE,
+      presentation_id TEXT NOT NULL REFERENCES desktop_imported_presentations(id) ON DELETE CASCADE,
+      position INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (team_id, setlist_id, presentation_id)
+    ) STRICT;
+    CREATE INDEX IF NOT EXISTS desktop_setlist_presentations_setlist_idx
+      ON desktop_setlist_presentations(team_id, setlist_id, position, created_at);
+
+    CREATE TABLE IF NOT EXISTS desktop_remote_lyric_shortcuts (
+      team_id TEXT NOT NULL,
+      setlist_id TEXT NOT NULL REFERENCES local_setlists(id) ON DELETE CASCADE,
+      setlist_song_id TEXT NOT NULL,
+      slide_id TEXT NOT NULL,
+      key_code TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (team_id, setlist_id, setlist_song_id, slide_id),
+      UNIQUE (team_id, setlist_id, setlist_song_id, key_code)
     ) STRICT;
 
     CREATE TABLE IF NOT EXISTS bible_verses (
@@ -273,6 +297,43 @@ function initialize(db: DatabaseSync) {
       PRIMARY KEY (translation, book, chapter, verse)
     ) STRICT;
   `);
+
+  // Existing installations created the PowerPoint table before Teaching
+  // metadata was introduced. SQLite's CREATE TABLE IF NOT EXISTS does not add
+  // new columns, so upgrade those databases additively.
+  const importedColumns = new Set(
+    (db.prepare("PRAGMA table_info(desktop_imported_presentations)").all() as Array<{ name: string }>).map((column) => column.name),
+  );
+  if (!importedColumns.has("source_kind")) {
+    db.exec("ALTER TABLE desktop_imported_presentations ADD COLUMN source_kind TEXT NOT NULL DEFAULT 'pptx' CHECK(source_kind IN ('pptx', 'pdf'))");
+  }
+  if (!importedColumns.has("source_file")) {
+    db.exec("ALTER TABLE desktop_imported_presentations ADD COLUMN source_file TEXT");
+  }
+  if (!importedColumns.has("size_bytes")) {
+    db.exec("ALTER TABLE desktop_imported_presentations ADD COLUMN size_bytes INTEGER NOT NULL DEFAULT 0");
+  }
+
+  // Legacy decks were team-global. Associate them with every existing setlist
+  // once so an upgrade never makes a saved presentation disappear. New imports
+  // are associated only with the setlist selected during import.
+  const associationMigration = db.prepare("SELECT value FROM workspace_state WHERE key = ?").get("desktop-teaching-associations-v1") as { value?: string } | undefined;
+  if (!associationMigration) {
+    const migratedAt = new Date().toISOString();
+    db.prepare(`
+      INSERT OR IGNORE INTO desktop_setlist_presentations
+        (team_id, setlist_id, presentation_id, position, created_at)
+      SELECT p.team_id, s.id, p.id, 0, ?
+      FROM desktop_imported_presentations p
+      INNER JOIN local_setlists s ON s.team_id = p.team_id
+      WHERE s.deleted_at IS NULL
+    `).run(migratedAt);
+    db.prepare("INSERT INTO workspace_state (key, value, updated_at) VALUES (?, ?, ?)").run(
+      "desktop-teaching-associations-v1",
+      "complete",
+      migratedAt,
+    );
+  }
 }
 
 export function getDesktopDatabase() {

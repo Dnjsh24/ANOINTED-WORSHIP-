@@ -32,6 +32,14 @@ const MACHINE_ROUTES = new Set([
   "/api/songs/cleanup-trash",
 ]);
 
+export function isPublicWebsiteRoute(pathname: string) {
+  const publicRoutePrefixes = ["/", "/login", "/auth", "/api/health"];
+  if (pathname === "/worship-remote") return true;
+  return publicRoutePrefixes.some((route) =>
+    pathname === route || (route !== "/" && pathname.startsWith(`${route}/`)),
+  );
+}
+
 export function isVerifiedMachineRoute(
   pathname: string,
   headers: Headers,
@@ -202,8 +210,7 @@ export async function updateSession(request: NextRequest) {
     console.warn("Supabase session update failed:", safeErrorDetails(error));
   }
 
-  const publicRoutes = ["/", "/login", "/auth", "/api/health"];
-  const isPublicRoute = publicRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+  const isPublicRoute = isPublicWebsiteRoute(pathname);
   const isAssetRoute = pathname.startsWith("/_next") || pathname.startsWith("/brand") || pathname.includes(".");
 
   if (isAssetRoute) {

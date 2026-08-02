@@ -66,6 +66,24 @@ Never expose `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`, the Upstash token, or t
 7. Exercise authenticated login, team selection, setlists, messages, uploads, cron authorization rejection, offline shell, and reconnect.
 8. Review Supabase security advisors after every schema change.
 
+### Worship Remote release order
+
+The secure internet Worship Remote is additive and does not require a new
+environment variable or paid service. Release it in this order:
+
+1. Apply `supabase/migrations/20260802040000_secure_worship_remote_pairing.sql`
+   in the Supabase SQL editor. Copy only the SQL file contents—do not include
+   any Markdown triple-backtick code-fence lines.
+2. Deploy the backward-compatible website release.
+3. Build and distribute the updated Windows desktop application.
+4. Open Presenter on the PC, choose **Pair Phone**, and verify both QR and
+   six-digit PIN pairing from a signed-in same-team phone.
+5. Test once over the same Wi-Fi and once with the phone on mobile data.
+
+The migration keeps legacy remote topics temporarily so older installed
+desktop builds continue to work. Remove those compatibility policies only in a
+later migration after the updated desktop release is broadly installed.
+
 ## Rollback
 
 Application rollback:

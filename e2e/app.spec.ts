@@ -46,6 +46,29 @@ test("home and setlist screens render core workflow", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Opening Song" })).toBeVisible();
 });
 
+test("website Quick Access opens Worship Remote and Presenter URLs redirect", async ({ page }) => {
+  await page.goto("/dashboard");
+  const remoteLink = page.getByRole("link", { name: /Worship Remote Connect to Windows Presenter/i });
+  await expect(remoteLink).toBeVisible();
+  await remoteLink.click();
+  await expect(page).toHaveURL(/\/worship-remote$/);
+  await expect(page.getByRole("heading", { name: "Worship Remote" })).toBeVisible();
+  await expect(page.getByLabel("Six-digit pairing code")).toBeVisible();
+  const scanButton = page.getByRole("button", { name: "Scan QR Code" });
+  await expect(scanButton).toBeVisible();
+  await scanButton.click();
+  await expect(page.getByRole("dialog", { name: "Scan the Presenter QR code" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close QR scanner" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Scan the Presenter QR code" })).toBeHidden();
+  await expect(scanButton).toBeFocused();
+
+  await page.goto("/presenter");
+  await expect(page).toHaveURL(/\/worship-remote$/);
+  await page.goto("/setlists/sunday-service/presenter");
+  await expect(page).toHaveURL(/\/worship-remote$/);
+});
+
 test("admin can open announcement and reminder composers", async ({ page }) => {
   await page.goto("/announcements");
   await page.getByRole("button", { name: "Add Announcement" }).click();

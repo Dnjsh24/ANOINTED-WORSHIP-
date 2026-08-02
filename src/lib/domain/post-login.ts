@@ -16,3 +16,10 @@ export function resolvePostLoginPath({ hasActiveMembership, hasPendingJoinReques
 
   return "/teams";
 }
+
+export function resolveSafePostLoginReturnPath(
+  candidate: string | null | undefined,
+  fallback: PostLoginPath,
+): PostLoginPath | "/worship-remote" {
+  return candidate === "/worship-remote" ? candidate : fallback;
+}

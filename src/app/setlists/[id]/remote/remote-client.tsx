@@ -37,7 +37,7 @@ import { useDesktopRemoteChannel } from "@/lib/presentation/use-desktop-remote-c
 import { isAllowedLyricShortcut, lyricShortcutLabel, resolveLyricShortcuts } from "@/lib/presentation/lyric-shortcuts";
 
 type Song = { id: string; song: { title: string; lyricsChords: string } };
-type Setlist = {
+export type RemoteSetlist = {
   id: string;
   name: string;
   songs: Song[];
@@ -59,11 +59,13 @@ export default function RemoteClient({
   setlist,
   desktopMode = false,
   cloudTopic,
+  cloudPrivate = false,
   cloudExpiresAt,
 }: {
-  setlist: Setlist;
+  setlist: RemoteSetlist;
   desktopMode?: boolean;
   cloudTopic?: string;
+  cloudPrivate?: boolean;
   cloudExpiresAt?: string;
 }) {
   const [songIndex, setSongIndex] = useState(0);
@@ -107,11 +109,11 @@ export default function RemoteClient({
   const channel = useMemo(
     () => desktopMode || pairingExpired || !supabase
       ? null
-      : supabase.channel(
+        : supabase.channel(
           cloudTopic || `worship-remote:${setlist.id}`,
-          cloudTopic ? undefined : { config: { private: true } },
+          cloudTopic && !cloudPrivate ? undefined : { config: { private: true } },
         ),
-    [cloudTopic, desktopMode, pairingExpired, setlist.id, supabase],
+    [cloudPrivate, cloudTopic, desktopMode, pairingExpired, setlist.id, supabase],
   );
   const desktopChannel = useMemo(
     () => desktopMode && typeof window !== "undefined"
@@ -146,7 +148,7 @@ export default function RemoteClient({
   const activeIndex = live?.activeSlideId
     ? slides.findIndex((slide) => slide.id === live.activeSlideId)
     : -1;
-  const controllerReady = Boolean(live?.controllerReady) && connected;
+  const controllerReady = !pairingExpired && Boolean(live?.controllerReady) && connected;
   const remoteHasControl = controllerReady && live?.controller !== "desktop";
   const selectedPresentation = remoteLibrary?.presentations.find((presentation) => presentation.id === selectedPresentationId)
     || remoteLibrary?.presentations[0];

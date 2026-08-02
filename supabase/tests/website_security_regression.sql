@@ -47,6 +47,8 @@ declare
   unsafe_policy_count integer;
   multiple_policy_group_count integer;
   missing_index_count integer;
+  secure_pairing_function_count integer;
+  unsafe_pairing_function_count integer;
 begin
   select count(*) into visible_count from public.setlist_templates;
   if visible_count <> 1 then
@@ -345,6 +347,76 @@ begin
     'EXECUTE'
   ) then
     raise exception 'anonymous role can execute the remote pairing claim RPC';
+  end if;
+
+  select
+    count(*),
+    count(*) filter (
+      where array_to_string(coalesce(p.proconfig, array[]::text[]), ',')
+        not like '%search_path=""%'
+    )
+  into secure_pairing_function_count, unsafe_pairing_function_count
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public'
+    and p.proname in (
+      'create_worship_remote_pairing',
+      'claim_worship_remote_pairing',
+      'claim_worship_remote_pairing_by_pin',
+      'resume_worship_remote_pairing',
+      'revoke_worship_remote_pairing'
+    );
+
+  if secure_pairing_function_count <> 5 or unsafe_pairing_function_count <> 0 then
+    raise exception 'secure Worship Remote RPCs are missing or do not pin an empty search_path';
+  end if;
+
+  if has_function_privilege('anon', 'public.create_worship_remote_pairing(uuid)', 'EXECUTE')
+    or has_function_privilege('anon', 'public.claim_worship_remote_pairing_by_pin(text)', 'EXECUTE')
+    or has_function_privilege('anon', 'public.resume_worship_remote_pairing(uuid)', 'EXECUTE')
+    or has_function_privilege('anon', 'public.revoke_worship_remote_pairing(uuid)', 'EXECUTE')
+  then
+    raise exception 'anonymous role can execute a secure Worship Remote RPC';
+  end if;
+
+  if not has_function_privilege('authenticated', 'public.create_worship_remote_pairing(uuid)', 'EXECUTE')
+    or not has_function_privilege('authenticated', 'public.claim_worship_remote_pairing_by_pin(text)', 'EXECUTE')
+    or not has_function_privilege('authenticated', 'public.resume_worship_remote_pairing(uuid)', 'EXECUTE')
+    or not has_function_privilege('authenticated', 'public.revoke_worship_remote_pairing(uuid)', 'EXECUTE')
+  then
+    raise exception 'authenticated role cannot execute a secure Worship Remote RPC';
+  end if;
+
+  if has_table_privilege(
+    'authenticated',
+    'private.worship_remote_pairing_attempts',
+    'SELECT,INSERT,UPDATE,DELETE'
+  ) or has_table_privilege(
+    'anon',
+    'private.worship_remote_pairing_attempts',
+    'SELECT,INSERT,UPDATE,DELETE'
+  ) then
+    raise exception 'a client role has direct access to the private PIN-attempt table';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'realtime'
+      and tablename = 'messages'
+      and policyname = 'Worship remote operators can receive private broadcasts'
+      and roles = array['authenticated']::name[]
+      and cmd = 'SELECT'
+  ) or not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'realtime'
+      and tablename = 'messages'
+      and policyname = 'Worship remote operators can send private broadcasts'
+      and roles = array['authenticated']::name[]
+      and cmd = 'INSERT'
+  ) then
+    raise exception 'private Worship Remote Realtime policies are missing or mis-scoped';
   end if;
 end
 $$;
