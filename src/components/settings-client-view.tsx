@@ -2,13 +2,12 @@
 
 import { useState, useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Check, Clipboard, Copy, CreditCard, FileText, Globe, Info, Key, LayoutGrid, Link2, Lock, Plus, Shield, ShieldAlert, Sliders, Users, Users2, Trash2 } from "lucide-react";
+import { Check, Copy, CreditCard, FileText, LayoutGrid, Link2, Lock, Plus, Shield, ShieldAlert, Sliders, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { SettingsForm } from "@/components/settings-form";
-import { Card, Panel } from "@/components/ui/card";
+import { Panel } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { timeAgo } from "@/lib/utils";
-import { updateTeamSettingsAction, deleteTeamAction, leaveTeamAction, createCustomRoleAction, deleteCustomRoleAction } from "@/app/actions";
+import { deleteTeamAction, leaveTeamAction, createCustomRoleAction, deleteCustomRoleAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { initialActionState } from "@/lib/action-state";
 import { can, PERMISSION_LABELS, type Permission } from "@/lib/domain/rbac";
@@ -70,11 +69,9 @@ export function SettingsClientView({
   defaultServiceLocation,
   defaultCallTime,
   defaultRehearsalTime,
-  activityLog = [],
   memberCountsByRole = {},
   totalMembers = 0,
   customRoles = [],
-  customPermissions = [],
 }: {
   teamId: string;
   teamName: string;

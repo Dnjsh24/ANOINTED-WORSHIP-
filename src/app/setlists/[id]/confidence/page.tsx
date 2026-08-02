@@ -4,7 +4,22 @@ import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import { getDesktopPresenterLiveState, getDesktopSetlist } from "@/lib/desktop/workspace";
-import ConfidenceClient from "./confidence-client";
+import ConfidenceClient, { type ConfidenceSetlist } from "./confidence-client";
+import type { Database } from "@/lib/supabase/database.types";
+
+type ConfidenceSetlistSongRow = Pick<
+  Database["public"]["Tables"]["setlist_songs"]["Row"],
+  "id" | "song_order" | "notes"
+> & {
+  song: Pick<
+    Database["public"]["Tables"]["songs"]["Row"],
+    "id" | "title" | "lyrics_chords"
+  > | null;
+};
+
+type ConfidenceSetlistRow = Pick<Database["public"]["Tables"]["setlists"]["Row"], "id"> & {
+  setlist_songs: ConfidenceSetlistSongRow[];
+};
 
 export default async function ConfidenceMonitorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -25,13 +40,14 @@ export default async function ConfidenceMonitorPage({ params }: { params: Promis
   } else if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
-    const { data: dbSetlist } = (await supabase
+    const { data } = await supabase
       .from("setlists")
       .select(`
         *,
         setlist_songs (
           id,
           song_order,
+          notes,
           song:songs (
             id,
             title,
@@ -41,16 +57,26 @@ export default async function ConfidenceMonitorPage({ params }: { params: Promis
       `)
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
-      .maybeSingle()) as any;
+      .maybeSingle();
+    const dbSetlist = data as unknown as ConfidenceSetlistRow | null;
 
     if (dbSetlist) {
       const dbSetlistSongs = dbSetlist.setlist_songs || [];
-      dbSetlistSongs.sort((a: any, b: any) => (a.song_order ?? 0) - (b.song_order ?? 0));
+      dbSetlistSongs.sort((a, b) => (a.song_order ?? 0) - (b.song_order ?? 0));
       
-      const formattedSetlist = {
-        ...dbSetlist,
-        presentationSettings: dbSetlist.presentation_settings || {},
-        songs: dbSetlistSongs,
+      const formattedSetlist: ConfidenceSetlist = {
+        id: dbSetlist.id,
+        songs: dbSetlistSongs.flatMap((setlistSong) => setlistSong.song
+          ? [{
+              id: setlistSong.id,
+              notes: setlistSong.notes || "",
+              song: {
+                id: setlistSong.song.id,
+                title: setlistSong.song.title,
+                lyricsChords: setlistSong.song.lyrics_chords || "",
+              },
+            }]
+          : []),
       };
 
       return <ConfidenceClient setlist={formattedSetlist} />;

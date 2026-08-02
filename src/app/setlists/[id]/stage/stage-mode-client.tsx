@@ -1,21 +1,24 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
+import type { CSSProperties } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, PenTool, Radio, Eraser, Type, Guitar, ChevronsDown } from "lucide-react";
-import { parseLyricsAndChords, transposeProgression, transposeTokens, capoSuggestion } from "@/lib/domain/chords";
+import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, PenTool, Radio, Eraser, Guitar, ChevronsDown } from "lucide-react";
+import { parseLyricsAndChords, transposeProgression, transposeTokens } from "@/lib/domain/chords";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { createOptionalClient } from "@/lib/supabase/client";
 import { updateSetlistSongKeyAction } from "@/app/actions";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MINOR_KEYS = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
+const EASY_GUITAR_KEYS = ["G", "C", "D", "A", "E"];
 
 let audioCtx: AudioContext | null = null;
 function playClick(beat: number, volume: number = 0.5) {
   try {
     if (typeof window === "undefined") return;
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return;
     if (!audioCtx) audioCtx = new AudioContextClass();
     if (audioCtx.state === "suspended") audioCtx.resume();
@@ -51,7 +54,34 @@ function getAbbr(label: string) {
   return label.substring(0, 3).toUpperCase();
 }
 
-export default function StageModeClient({ setlist }: { setlist: any }) {
+export type StageSetlist = {
+  id: string;
+  date: string;
+  type: string;
+  songs: Array<{
+    id: string;
+    order: number | null;
+    assignedKey: string | null;
+    lead: string;
+    youtubeUrl: string | null;
+    arrangement: string | null;
+    song: {
+      id: string | undefined;
+      title: string;
+      bpm: number;
+      originalKey: string;
+      lyricsChords: string;
+    };
+  }>;
+};
+
+type FontScaleStyle = CSSProperties & { "--user-font-scale": number };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+export default function StageModeClient({ setlist }: { setlist: StageSetlist }) {
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isScrolling, setIsScrolling] = useState(false);
@@ -86,37 +116,45 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
 
   // --- Phase 4: Band Leader Sync ---
   const [isBroadcasting, setIsBroadcasting] = useState(false);
-  const supabase = useMemo(() => createClient(), []);
-  const channel = useRef<any>(null);
+  const supabase = useMemo(() => createOptionalClient(), []);
+  const channel = useRef<RealtimeChannel | null>(null);
+
+  // Broadcast to others when the leader changes song.
+  const setSyncedSongIndex = useCallback((updater: number | ((index: number) => number)) => {
+    setCurrentSongIndex((previous) => {
+      const nextIndex = typeof updater === "function" ? updater(previous) : updater;
+      if (isBroadcasting) {
+        channel.current?.send({
+          type: "broadcast",
+          event: "sync_song",
+          payload: { index: nextIndex },
+        });
+      }
+      return nextIndex;
+    });
+  }, [isBroadcasting]);
 
   useEffect(() => {
+    if (!supabase) return;
+
     channel.current = supabase.channel(`setlist_${setlist.id}`)
-      .on("broadcast", { event: "sync_song" }, (payload: any) => {
-        if (!isBroadcasting && typeof payload.payload.index === "number") {
-          setSyncedSongIndex(payload.payload.index);
+      .on("broadcast", { event: "sync_song" }, (event: { payload?: unknown }) => {
+        if (!isBroadcasting && isRecord(event.payload) && typeof event.payload.index === "number") {
+          setSyncedSongIndex(event.payload.index);
         }
       })
-      .on("broadcast", { event: "sync_section" }, (payload: any) => {
-        if (!isBroadcasting && typeof payload.payload.sectionIndex === "number") {
-          const el = document.getElementById(`section-${payload.payload.sectionIndex}`);
+      .on("broadcast", { event: "sync_section" }, (event: { payload?: unknown }) => {
+        if (!isBroadcasting && isRecord(event.payload) && typeof event.payload.sectionIndex === "number") {
+          const el = document.getElementById(`section-${event.payload.sectionIndex}`);
           if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel.current); };
-  }, [setlist.id, isBroadcasting, supabase]);
-
-  // Broadcast to others when leader changes song
-  const setSyncedSongIndex = (updater: number | ((i: number) => number)) => {
-    setCurrentSongIndex((prev) => {
-      const nextIdx = typeof updater === "function" ? updater(prev) : updater;
-      if (isBroadcasting) {
-        channel.current?.send({ type: "broadcast", event: "sync_song", payload: { index: nextIdx } });
-      }
-      return nextIdx;
-    });
-  };
+    return () => {
+      if (channel.current) void supabase.removeChannel(channel.current);
+    };
+  }, [setlist.id, isBroadcasting, setSyncedSongIndex, supabase]);
 
   // --- Phase 4: Scribbles (Canvas) ---
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -181,11 +219,11 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
     };
   }, [currentSongIndex, fontScale, drawMode]);
 
-  const saveScribbles = () => {
+  const saveScribbles = useCallback(() => {
     if (canvasRef.current && currentSong?.id) {
       localStorage.setItem(`scribbles_${setlist.id}_${currentSong.id}`, canvasRef.current.toDataURL());
     }
-  };
+  }, [currentSong, setlist.id]);
 
   const startDrawing = (e: React.PointerEvent) => {
     if (!drawMode || !canvasRef.current) return;
@@ -294,12 +332,15 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
 
   // Reset when song changes
   useEffect(() => {
-    setSelectedKey(currentSetlistSong?.assignedKey || currentSong?.originalKey || "C");
-    setGuitarMode(false);
-    setMetronomePlaying(false);
-    setIsScrolling(false);
+    const timer = window.setTimeout(() => {
+      setSelectedKey(currentSetlistSong?.assignedKey || currentSong?.originalKey || "C");
+      setGuitarMode(false);
+      setMetronomePlaying(false);
+      setIsScrolling(false);
+    }, 0);
     if (scrollAnimationFrameRef.current) cancelAnimationFrame(scrollAnimationFrameRef.current);
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    return () => window.clearTimeout(timer);
   }, [currentSongIndex, currentSetlistSong?.assignedKey, currentSong?.originalKey]);
 
   // Transpose Logic
@@ -325,8 +366,6 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
 
   // Capo Logic (Guitar Mode)
   // Easiest guitar keys: G, C, D, A, E
-  const EASY_GUITAR_KEYS = ["G", "C", "D", "A", "E"];
-  
   const capoData = useMemo(() => {
     if (!guitarMode) return null;
     
@@ -380,7 +419,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
   }, [sections, baseKey, displayKey]);
 
   // Auto Scroll Engine
-  const toggleAutoScroll = () => {
+  const toggleAutoScroll = useCallback(() => {
     if (isScrolling) {
       if (scrollAnimationFrameRef.current) cancelAnimationFrame(scrollAnimationFrameRef.current);
       setIsScrolling(false);
@@ -400,7 +439,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
       scrollAnimationFrameRef.current = requestAnimationFrame(scrollStep);
       setIsScrolling(true);
     }
-  };
+  }, [currentSong?.bpm, isScrolling]);
 
   // Metronome Engine
   useEffect(() => {
@@ -408,8 +447,10 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
     const intervalMs = (60 / currentSong.bpm) * 1000;
     
     let beat = 1;
-    setCurrentBeat(beat);
-    playClick(beat, 0.8);
+    const initialTick = window.setTimeout(() => {
+      setCurrentBeat(beat);
+      playClick(beat, 0.8);
+    }, 0);
 
     const timer = setInterval(() => {
       beat = beat === 4 ? 1 : beat + 1;
@@ -417,7 +458,10 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
       playClick(beat, 0.8);
     }, intervalMs);
 
-    return () => clearInterval(timer);
+    return () => {
+      window.clearTimeout(initialTick);
+      clearInterval(timer);
+    };
   }, [metronomePlaying, currentSong?.bpm]);
 
   // Foot pedal
@@ -435,7 +479,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentSongIndex, setlist.songs.length, isScrolling, currentSong?.bpm]);
+  }, [currentSongIndex, setlist.songs.length, setSyncedSongIndex, toggleAutoScroll]);
 
   const onTouchStart = (e: React.TouchEvent) => {
     setTouchEndX(null);
@@ -487,9 +531,9 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
             </h1>
             <div className="text-xs md:text-sm text-zinc-500 font-semibold leading-none mt-1 flex flex-col gap-1">
               <span>{currentSong.bpm || 70} BPM</span>
-              {currentSong.arrangement && (
-                <span className="text-violet-300 truncate max-w-[200px] md:max-w-md" title={currentSong.arrangement}>
-                  {currentSong.arrangement}
+              {currentSetlistSong.arrangement && (
+                <span className="text-violet-300 truncate max-w-[200px] md:max-w-md" title={currentSetlistSong.arrangement}>
+                  {currentSetlistSong.arrangement}
                 </span>
               )}
             </div>
@@ -653,7 +697,7 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
         {/* Chord Chart Area */}
         <div 
           ref={scrollRef} 
-          style={{ "--user-font-scale": fontScale } as any}
+          style={{ "--user-font-scale": fontScale } as FontScaleStyle}
           className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-10 pb-64 relative"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
@@ -681,12 +725,12 @@ export default function StageModeClient({ setlist }: { setlist: any }) {
                 </div>
               )}
               <div className="space-y-4">
-                {section.lines.map((line: any, lIdx: number) => (
+                {section.lines.map((line, lIdx) => (
                   <div key={lIdx} className="leading-relaxed max-w-full overflow-x-auto no-scrollbar">
                     {line.tokens ? (
                       // ChordPro inline: chord perfectly above each syllable
                       <div className="flex flex-wrap items-end leading-none">
-                        {line.tokens.map((token: any, tIdx: number) => (
+                        {line.tokens.map((token, tIdx) => (
                           <span key={tIdx} className="inline-flex flex-col items-start">
                             <span className="font-mono font-bold text-violet-400 leading-none pb-1 min-h-[1em] block whitespace-pre text-[calc(0.85rem*var(--user-font-scale))]">
                               {token.chord || ""}

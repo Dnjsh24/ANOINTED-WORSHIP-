@@ -3,10 +3,12 @@
 import { useState, useTransition } from "react";
 import { Trash2, AlertTriangle } from "lucide-react";
 import { deleteEventAction } from "@/app/actions";
+import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
 
 export function EventDeleteButton({ eventId }: { eventId: string }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const dialogRef = useAccessibleDialog({ open, onClose: () => setOpen(false) });
 
   return (
     <>
@@ -25,6 +27,11 @@ export function EventDeleteButton({ eventId }: { eventId: string }) {
           onClick={() => setOpen(false)}
         >
           <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-event-title"
+            tabIndex={-1}
             className="mx-4 w-full max-w-md rounded-2xl border border-white/10 bg-[#0f0e14] p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
@@ -33,7 +40,7 @@ export function EventDeleteButton({ eventId }: { eventId: string }) {
                 <AlertTriangle className="size-5 text-red-300" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white">Delete Event</h2>
+                <h2 id="delete-event-title" className="text-lg font-bold text-white">Delete Event</h2>
                 <p className="text-sm text-zinc-400">This action cannot be undone.</p>
               </div>
             </div>

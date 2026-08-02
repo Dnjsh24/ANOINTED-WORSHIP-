@@ -31,15 +31,22 @@ npm run dev
 ## Verification
 
 ```bash
-npm run lint
+npm run security:secrets
+npm audit --omit=dev --audit-level=high
+npm run lint:website
 npm run typecheck
-npm run test:coverage
+npm run test:website
+npm run test:coverage:website
 npm run build
-npm run test:e2e
+E2E_FORCE_DEMO=1 npm run test:e2e
 ```
+
+The website is deployed through Vercel. Release configuration, local database
+verification, smoke checks, monitoring, and rollback instructions are documented
+in [docs/WEBSITE-OPERATIONS.md](docs/WEBSITE-OPERATIONS.md).
 
 ## Notes
 
 - The app renders a complete demo experience without remote Supabase credentials.
 - Private lyrics, chords, practice files, dance notes, messages, and schedules are modeled behind approved team membership in the Supabase migration.
-- `npm audit` currently reports a moderate PostCSS advisory through the installed Next.js dependency. npm only offers a forced breaking change, so the dependency graph is left intact pending a safe Next.js patch release.
+- Supabase migrations and authorization checks must be rehearsed against the isolated local stack before production changes are approved.

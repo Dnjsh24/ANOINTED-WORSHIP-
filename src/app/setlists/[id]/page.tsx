@@ -1,20 +1,16 @@
 import { AlertTriangle, CalendarDays, CheckCircle2, Clock, History, MapPin, UserX, Users } from "lucide-react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AttendanceToggle } from "@/components/attendance-toggle";
 import { AppShell } from "@/components/app-shell";
-import { ChangeKeyButton } from "@/components/change-key-button";
 import { ShareButton } from "@/components/share-button";
 import { LocalTime } from "@/components/local-time";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { Card, Panel } from "@/components/ui/card";
+import { Panel } from "@/components/ui/card";
 import { getSetlistTypeLabel } from "@/lib/domain/event-types";
 import { can } from "@/lib/domain/rbac";
-import { DeleteSongButton } from "@/components/delete-song-button";
-import { EditArrangementButton } from "@/components/edit-arrangement-button";
-import { SetlistSongOrder } from "@/components/setlist-song-order";
+import { SetlistSongOrder, type OrderedSetlistSong } from "@/components/setlist-song-order";
 import {
   buildAssignmentConflicts,
   getMissingSetlistRoles,
@@ -26,14 +22,83 @@ import { setlists as sampleSetlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
-import type { SetlistChangeLog } from "@/lib/types";
+import type { EventType, SetlistChangeLog } from "@/lib/types";
+import type { Database } from "@/lib/supabase/database.types";
+
+type DetailSetlistSong = OrderedSetlistSong & { youtubeUrl: string | null };
+type DetailSetlist = {
+  id: string;
+  name: string;
+  date: string;
+  location: string;
+  callTime: string;
+  rehearsalTime: string;
+  serviceTimes: string[];
+  eventType?: EventType | null;
+  leader: string;
+  songs: DetailSetlistSong[];
+  eventId: string;
+};
+type DetailSetlistSongRow = Pick<
+  Database["public"]["Tables"]["setlist_songs"]["Row"],
+  "id" | "assigned_key" | "song_order" | "notes" | "arrangement" | "band_notes"
+> & {
+  song: Pick<
+    Database["public"]["Tables"]["songs"]["Row"],
+    "id" | "title" | "bpm" | "original_key" | "lyrics_chords" | "youtube_url"
+  > | null;
+};
+type DetailSetlistRow = Pick<
+  Database["public"]["Tables"]["setlists"]["Row"],
+  "id" | "name" | "setlist_date" | "location" | "call_time" | "rehearsal_time" | "service_times" | "event_id"
+> & {
+  events: Pick<Database["public"]["Tables"]["events"]["Row"], "type"> | null;
+  leader: {
+    id: string;
+    profile_id: string;
+    profiles: { id: string; full_name: string } | null;
+  } | null;
+  setlist_songs: DetailSetlistSongRow[];
+};
+type EventAssignmentRow = {
+  team_member_id: string;
+  assignment: string;
+  team_member: {
+    id: string;
+    profile_id: string;
+    profiles: { id: string; full_name: string } | null;
+  } | null;
+};
+type AttendanceRow = Pick<
+  Database["public"]["Tables"]["attendance"]["Row"],
+  "status" | "team_member_id"
+>;
+type ConflictAssignmentRow = {
+  team_member_id: string;
+  assignment: string;
+  event:
+    | Pick<
+        Database["public"]["Tables"]["events"]["Row"],
+        "id" | "name" | "event_date" | "starts_at" | "ends_at"
+      >
+    | Array<Pick<
+        Database["public"]["Tables"]["events"]["Row"],
+        "id" | "name" | "event_date" | "starts_at" | "ends_at"
+      >>;
+};
+
+function hasYoutubeUrl(
+  song: DetailSetlistSong,
+): song is DetailSetlistSong & { youtubeUrl: string } {
+  return typeof song.youtubeUrl === "string" && song.youtubeUrl.length > 0;
+}
 
 export default async function SetlistDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
   const canManageSetlist = can(teamContext.role, "setlists.manage");
 
-  let setlist: any = null;
+  let setlist: DetailSetlist | null = null;
   let teamAssignmentsList: Array<[string, string, string]> = [];
   let assignmentSummaries: SetlistAssignmentSummary[] = [];
   let missingRoles: MissingSetlistRole[] = [];
@@ -48,7 +113,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
     const supabase = await createClient();
 
     // Fetch setlist details, leader profiles and setlist songs with titles/BPMs in a single query
-    const { data: dbSetlist } = (await supabase
+    const { data } = await supabase
       .from("setlists")
       .select(`
         *,
@@ -69,6 +134,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           song_order,
           notes,
           arrangement,
+          band_notes,
           song:songs (
             id,
             title,
@@ -81,32 +147,35 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
       `)
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
-      .maybeSingle()) as any;
+      .maybeSingle();
+    const dbSetlist = data as unknown as DetailSetlistRow | null;
 
     if (dbSetlist) {
       const leaderName = dbSetlist.leader?.profiles?.full_name || "Worship Leader";
       const dbSetlistSongs = dbSetlist.setlist_songs || [];
 
-      const songsList = dbSetlistSongs.map((ss: any) => {
+      const songsList: DetailSetlistSong[] = dbSetlistSongs.flatMap((ss) => {
+        if (!ss.song) return [];
         let leadVocal = "";
         if (ss.notes && ss.notes.startsWith("Lead: ")) {
           leadVocal = ss.notes.replace("Lead: ", "");
         }
-        return {
+        return [{
           id: ss.id,
           order: ss.song_order,
           assignedKey: ss.assigned_key,
           lead: leadVocal,
-          youtubeUrl: ss.song?.youtube_url || null,
+          youtubeUrl: ss.song.youtube_url || null,
           arrangement: ss.arrangement || null,
+          bandNotes: ss.band_notes || null,
           song: {
-            id: ss.song?.id,
-            title: ss.song?.title || "Unknown Song",
-            bpm: ss.song?.bpm || 70,
-            originalKey: ss.song?.original_key || "C",
-            lyrics: ss.song?.lyrics_chords || "",
+            id: ss.song.id,
+            title: ss.song.title,
+            bpm: ss.song.bpm,
+            originalKey: ss.song.original_key,
+            lyrics: ss.song.lyrics_chords || "",
           },
-        };
+        }];
       });
 
       // Fetch event assignments, RSVPs, and counts in parallel
@@ -138,12 +207,12 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             .eq("status", "active"),
         ]);
 
-        const dbAssignments = assignmentsResult.data as any[];
-        const dbAttendance = attendanceResult.data as any[];
+        const dbAssignments = (assignmentsResult.data ?? []) as unknown as EventAssignmentRow[];
+        const dbAttendance = (attendanceResult.data ?? []) as AttendanceRow[];
         const totalMembers = activeMembersResult.count;
 
-        if (dbAssignments) {
-          dbAssignments.forEach((ass: any) => {
+        if (dbAssignments.length > 0) {
+          dbAssignments.forEach((ass) => {
             const profile = ass.team_member?.profiles;
             const name = profile?.full_name || "Unknown";
             const role = ass.assignment;
@@ -154,7 +223,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             });
             const initials = name
               .split(" ")
-              .map((w: any) => w[0]?.toUpperCase() ?? "")
+              .map((word) => word[0]?.toUpperCase() ?? "")
               .join("")
               .slice(0, 2);
 
@@ -176,7 +245,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
 
         const assignedMemberIds = Array.from(new Set(assignmentSummaries.map((assignment) => assignment.memberId).filter(Boolean))) as string[];
         if (assignedMemberIds.length > 0) {
-          const { data: conflictRows } = (await supabase
+          const { data: conflictData } = await supabase
             .from("event_assignments")
             .select(`
               team_member_id,
@@ -195,7 +264,8 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             .neq("event_id", dbSetlist.event_id)
             .eq("events.team_id", teamContext.teamId)
             .eq("events.event_date", dbSetlist.setlist_date)
-            .eq("events.approval_status", "approved")) as any;
+            .eq("events.approval_status", "approved");
+          const conflictRows = conflictData as unknown as ConflictAssignmentRow[] | null;
 
           assignmentConflicts = buildAssignmentConflicts({
             currentEvent: {
@@ -206,7 +276,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
               endsAt: null,
             },
             currentAssignments: assignmentSummaries,
-            otherAssignments: (conflictRows ?? []).map((row: any) => {
+            otherAssignments: (conflictRows ?? []).map((row) => {
               const event = Array.isArray(row.event) ? row.event[0] : row.event;
               const currentMember = assignmentSummaries.find((assignment) => assignment.memberId === row.team_member_id);
 
@@ -227,9 +297,9 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
         }
 
         let respondedCount = 0;
-        if (dbAttendance) {
+        if (dbAttendance.length > 0) {
           respondedCount = dbAttendance.length;
-          dbAttendance.forEach((att: any) => {
+          dbAttendance.forEach((att) => {
             if (att.status === "available") attendingCount += 1;
             else if (att.status === "unavailable") declinedCount += 1;
             else if (att.status === "maybe") pendingCount += 1;
@@ -239,10 +309,10 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
         pendingCount += noResponseCount;
 
         // Resolve current user RSVP status
-        if (teamContext.memberId && dbAttendance) {
-          const myAttendance = dbAttendance.find((att: any) => att.team_member_id === teamContext.memberId);
+        if (teamContext.memberId && dbAttendance.length > 0) {
+          const myAttendance = dbAttendance.find((att) => att.team_member_id === teamContext.memberId);
           if (myAttendance?.status) {
-            myStatus = myAttendance.status as any;
+            myStatus = myAttendance.status;
           }
         }
       }
@@ -299,8 +369,23 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
     }
 
     const sample = sampleSetlists.find((item) => item.id === id) ?? sampleSetlists[0];
-    setlist = sample;
-    setlist.eventId = sample.id;
+    setlist = {
+      id: sample.id,
+      name: sample.name,
+      date: sample.date,
+      location: sample.location,
+      callTime: sample.callTime,
+      rehearsalTime: sample.rehearsalTime,
+      serviceTimes: sample.serviceTimes,
+      eventType: sample.eventType,
+      leader: sample.leader,
+      eventId: sample.eventId || sample.id,
+      songs: sample.songs.map((song) => ({
+        ...song,
+        youtubeUrl: song.song.youtubeUrl || null,
+        bandNotes: song.bandNotes || null,
+      })),
+    };
     teamAssignmentsList = [
       ["Worship Leader", "Worship Leader", "WL"],
       ["Band", "Mark - Acoustic Guitar", "M"],
@@ -361,8 +446,8 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           <ButtonLink href={`/setlists/${setlist.id}/stage`} className="bg-violet-600 hover:bg-violet-500 text-white border-transparent">
             Stage
           </ButtonLink>
-          <ButtonLink href={`/setlists/${setlist.id}/edit`} variant="secondary" className="hidden sm:flex">
-            Edit
+          <ButtonLink href={`/setlists/${setlist.id}/edit`} variant="secondary">
+            Edit Details
           </ButtonLink>
           <ShareButton path={`/setlists/${setlist.id}`} />
         </div>
@@ -446,11 +531,11 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             )}
           </Panel>
 
-          {setlist.songs.filter((s: any) => s.youtubeUrl).length > 0 && (
+          {setlist.songs.filter(hasYoutubeUrl).length > 0 && (
             <Panel className="card-hover h-fit">
               <h2 className="text-lg font-bold">Practice Tools</h2>
               <div className="mt-4 space-y-4">
-                {setlist.songs.filter((s: any) => s.youtubeUrl).map((item: any) => (
+                {setlist.songs.filter(hasYoutubeUrl).map((item) => (
                   <div key={item.id}>
                     <p className="mb-2 text-sm font-bold text-zinc-300">{item.order}. {item.song.title}</p>
                     <div className="relative aspect-video overflow-hidden rounded-lg">
@@ -535,16 +620,4 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
 function extractYoutubeId(url: string): string {
   const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
   return match ? match[1] : "";
-}
-
-function formatHistoryDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Date unavailable";
-
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }

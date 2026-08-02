@@ -1,7 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, Copy, Mail, MapPin, Music2, Trash2, Users } from "lucide-react";
-import Link from "next/link";
+import { Check, ChevronDown, Copy, Mail, MapPin, Music2, Trash2 } from "lucide-react";
 import { use, useState } from "react";
 import { createTeamAction } from "@/app/actions";
 
@@ -352,7 +351,7 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
             </div>
 
             <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-6">
-              <h3 className="text-sm font-bold text-white">What's Next?</h3>
+              <h3 className="text-sm font-bold text-white">What&apos;s Next?</h3>
               <ul className="mt-4 space-y-2.5">
                 {[
                   "Invite your team members",

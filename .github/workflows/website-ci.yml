@@ -1,0 +1,80 @@
+name: Website CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Validate GitHub Actions workflows
+        run: >-
+          docker run --rm
+          --mount "type=bind,source=${GITHUB_WORKSPACE},target=/repo,readonly"
+          -w /repo
+          rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+      - run: npm run security:secrets
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run lint:website
+      - run: npm run typecheck
+      - run: npm run test:website
+      - run: npm run test:coverage:website
+      - run: npm run build
+        env:
+          E2E_FORCE_DEMO: "1"
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e -- --reporter=line
+        env:
+          E2E_FORCE_DEMO: "1"
+
+  local-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx supabase start
+      - run: npx supabase db reset
+      - run: npm run lint:database:website
+      - run: npm run test:supabase:website
+      - run: docker exec -i supabase_db_anointed-worship-setlist psql -U postgres -d postgres -f - < supabase/tests/website_security_regression.sql
+      - if: always()
+        run: npx supabase stop --no-backup

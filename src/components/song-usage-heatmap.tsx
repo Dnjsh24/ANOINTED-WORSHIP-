@@ -1,19 +1,26 @@
 "use client";
 
 import { useMemo } from "react";
-import { format, subDays, startOfWeek, addDays, getDay, parseISO } from "date-fns";
+import { format, subDays, startOfWeek, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface SongUsageHeatmapProps {
   dates: string[]; // ISO date strings
 }
 
+type HeatmapDay = {
+  date: Date;
+  dateStr: string;
+  count: number;
+  active: boolean;
+};
+
 export function SongUsageHeatmap({ dates }: SongUsageHeatmapProps) {
   // Generate a calendar for the last 52 weeks (approx 1 year)
   const weeks = 52;
   const daysInWeek = 7;
   
-  const { grid, maxCount, totalPlays } = useMemo(() => {
+  const { grid, totalPlays } = useMemo(() => {
     // Count plays per date
     const counts: Record<string, number> = {};
     let total = 0;
@@ -24,19 +31,16 @@ export function SongUsageHeatmap({ dates }: SongUsageHeatmapProps) {
       total++;
     }
 
-    // Determine max for color scaling
-    const maxVal = Math.max(...Object.values(counts), 1);
-
     // Build the grid
     const today = new Date();
     // Start from the Sunday 52 weeks ago
     const startDate = startOfWeek(subDays(today, weeks * 7 - 1), { weekStartsOn: 0 });
     
-    const dayGrid: { date: Date; dateStr: string; count: number; active: boolean }[][] = [];
+    const dayGrid: HeatmapDay[][] = [];
     
     let currentDay = startDate;
     for (let w = 0; w < weeks; w++) {
-      const week: any[] = [];
+      const week: HeatmapDay[] = [];
       for (let d = 0; d < daysInWeek; d++) {
         const dateStr = format(currentDay, "yyyy-MM-dd");
         week.push({
@@ -50,7 +54,7 @@ export function SongUsageHeatmap({ dates }: SongUsageHeatmapProps) {
       dayGrid.push(week);
     }
 
-    return { grid: dayGrid, maxCount: maxVal, totalPlays: total };
+    return { grid: dayGrid, totalPlays: total };
   }, [dates]);
 
   const getColorClass = (count: number) => {

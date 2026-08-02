@@ -2,6 +2,7 @@
 
 import { Heart, Play, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useTransition } from "react";
 import { toggleSongFavoriteAction } from "@/app/actions";
 import { SearchBox } from "@/components/search-box";
@@ -94,7 +95,7 @@ export function SongLibraryGrid({ songs }: { songs: Song[] }) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-4 flex-1">
                       {song.imageUrl ? (
-                        <img src={song.imageUrl} alt={song.title} className="size-14 rounded-md object-cover shadow-sm shrink-0" />
+                        <Image unoptimized width={56} height={56} src={song.imageUrl} alt={song.title} className="size-14 rounded-md object-cover shadow-sm shrink-0" />
                       ) : (
                         <div className="size-14 rounded-md bg-white/10 flex items-center justify-center shrink-0">
                           <Heart className="size-5 text-zinc-500 opacity-50" />

@@ -4,36 +4,32 @@ import { useEffect, useState } from "react";
 import { Download, Info, Share, Smartphone } from "lucide-react";
 
 export function InstallAppButton() {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
-    // 1. Detect if already installed (standalone mode)
-    if (
+    const installed =
       window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as any).standalone === true
-    ) {
-      setIsInstalled(true);
-    }
-
-    // 2. Detect iOS
+      window.navigator.standalone === true;
     const userAgent = window.navigator.userAgent.toLowerCase();
-    if (/iphone|ipad|ipod/.test(userAgent)) {
-      setIsIOS(true);
-    }
+    const ios = /iphone|ipad|ipod/.test(userAgent);
+    const environmentTimer = window.setTimeout(() => {
+      setIsInstalled(installed);
+      setIsIOS(ios);
+    }, 0);
 
-    // 3. Listen to beforeinstallprompt event
-    function handleInstallPrompt(e: Event) {
-      e.preventDefault();
-      setDeferredPrompt(e);
+    // Listen to beforeinstallprompt event
+    function handleInstallPrompt(event: Event) {
+      event.preventDefault();
+      setDeferredPrompt(event as BeforeInstallPromptEvent);
       setIsInstallable(true);
     }
 
     window.addEventListener("beforeinstallprompt", handleInstallPrompt);
 
-    // 4. Listen to appinstalled event
+    // Listen to appinstalled event
     function handleAppInstalled() {
       setIsInstalled(true);
       setIsInstallable(false);
@@ -44,6 +40,7 @@ export function InstallAppButton() {
     window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
+      window.clearTimeout(environmentTimer);
       window.removeEventListener("beforeinstallprompt", handleInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
@@ -107,7 +104,7 @@ export function InstallAppButton() {
             <div>
               <p className="text-[11px] font-bold text-zinc-300">Manual Install Required</p>
               <p className="mt-0.5 text-[10px] font-semibold text-zinc-500">
-                Your browser doesn't support automatic installation. Follow the steps below:
+                Your browser doesn&apos;t support automatic installation. Follow the steps below:
               </p>
             </div>
           </div>

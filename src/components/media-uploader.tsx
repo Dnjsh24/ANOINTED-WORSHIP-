@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Upload, X, Loader2, Image as ImageIcon, Film } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { useMemo, useState } from "react";
+import { X, Loader2, Image as ImageIcon, Film } from "lucide-react";
+import { createOptionalClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 interface MediaUploaderProps {
@@ -18,7 +18,7 @@ export function MediaUploader({ currentUrl, currentType, onUpload, onClear }: Me
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const supabase = createClient();
+  const supabase = useMemo(() => createOptionalClient(), []);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -44,14 +44,31 @@ export function MediaUploader({ currentUrl, currentType, onUpload, onClear }: Me
     try {
       setIsUploading(true);
 
+      if (!supabase) {
+        throw new Error("Sign in with Supabase before uploading presentation media.");
+      }
+
       const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id || "anonymous";
+      const userId = userData.user?.id;
+      if (!userId) throw new Error("Sign in before uploading presentation media.");
+
+      const { data: membership, error: membershipError } = await supabase
+        .from("team_members")
+        .select("team_id")
+        .eq("profile_id", userId)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (membershipError || !membership?.team_id) {
+        throw new Error("Join an active team before uploading presentation media.");
+      }
 
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${userId}/${fileName}`;
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `${membership.team_id}/${userId}/${fileName}`;
 
-      const { error: uploadError, data } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("presentation-media")
         .upload(filePath, file, {
           cacheControl: "3600",
@@ -67,8 +84,8 @@ export function MediaUploader({ currentUrl, currentType, onUpload, onClear }: Me
         .getPublicUrl(filePath);
 
       onUpload(publicUrlData.publicUrl, isVideo ? "video" : "image");
-    } catch (err: any) {
-      setError(err.message || "Failed to upload media.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to upload media.");
     } finally {
       setIsUploading(false);
       // Reset input
@@ -91,7 +108,9 @@ export function MediaUploader({ currentUrl, currentType, onUpload, onClear }: Me
           
           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <button
+              type="button"
               onClick={onClear}
+              aria-label="Remove background media"
               className="p-2 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-full transition-colors"
               title="Remove Media"
             >

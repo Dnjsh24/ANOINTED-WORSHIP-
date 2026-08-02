@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+const subscribe = () => () => undefined;
 
 export function LocalTime({ dateIso }: { dateIso: string }) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(subscribe, () => true, () => false);
 
   const d = new Date(dateIso);
   if (Number.isNaN(d.getTime())) return <span>Date unavailable</span>;

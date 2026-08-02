@@ -119,7 +119,7 @@ export function EventForm({
     setSelectedTemplateId(templateId);
     const template = serviceTemplates.find((item) => item.id === templateId);
     if (!template) return;
-    const nextAssignments = normalizeAssignments(template.defaultRoles as any);
+    const nextAssignments = normalizeAssignments(template.defaultRoles);
     setAssignmentValues(nextAssignments);
     setShowSecondKeys(true);
     setExtraBandRows(createAssignmentRows("extra-band", nextAssignments.extraBandMembers, 0));
@@ -130,22 +130,21 @@ export function EventForm({
   // Conflict detection
   useEffect(() => {
     if (!eventDate) {
-      setConflicts([]);
+      queueMicrotask(() => setConflicts([]));
       return;
     }
 
     const assignedIds = new Set<string>();
-    for (const key of Object.keys(assignmentValues)) {
-      const val = (assignmentValues as any)[key];
-      if (Array.isArray(val)) {
-        val.forEach((id) => id && assignedIds.add(id));
-      } else if (val) {
-        assignedIds.add(val);
+    for (const value of Object.values(assignmentValues)) {
+      if (Array.isArray(value)) {
+        value.forEach((id) => id && assignedIds.add(id));
+      } else if (value) {
+        assignedIds.add(value);
       }
     }
 
     if (assignedIds.size === 0) {
-      setConflicts([]);
+      queueMicrotask(() => setConflicts([]));
       return;
     }
 
@@ -529,15 +528,6 @@ function AddAssignmentButton({ label, onClick }: { label: string; onClick: () =>
       {label}
     </button>
   );
-}
-
-function toTimeValue(value?: string) {
-  if (!value) return undefined;
-  const match = value.match(/^(\d{1,2}):(\d{2})/);
-  if (match) return `${match[1].padStart(2, "0")}:${match[2]}`;
-  const date = new Date(`2026-01-01 ${value}`);
-  if (Number.isNaN(date.getTime())) return undefined;
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
 function createAssignmentRows(prefix: string, values: string[] | undefined, minimumRows: number): AssignmentRow[] {

@@ -4,40 +4,16 @@ import { useEffect, useState } from "react";
 import { Wifi, WifiOff, X } from "lucide-react";
 
 export function PwaRegister({ enabled = true }: { enabled?: boolean }) {
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
   const [showStatusToast, setShowStatusToast] = useState(false);
   const [hasUpdate, setHasUpdate] = useState(false);
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
   const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
     if (!enabled) return;
-    // 1. Initial connection status
-    setIsOnline(navigator.onLine);
-
-    async function subscribeToPush(registration: ServiceWorkerRegistration) {
-      if (!("PushManager" in window)) return;
-      
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") return;
-
-      try {
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-        });
-
-        await fetch("/api/web-push/subscribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ subscription }),
-        });
-        console.log("[PWA] Successfully subscribed to web push.");
-      } catch (err) {
-        console.error("[PWA] Failed to subscribe to web push:", err);
-      }
-    }
-
-    // 2. Register Service Worker
+    // 1. Register Service Worker
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
@@ -45,8 +21,10 @@ export function PwaRegister({ enabled = true }: { enabled?: boolean }) {
           console.log("[PWA] Service Worker registered with scope:", reg.scope);
           setSwRegistration(reg);
 
-          // Subscribe to Push Notifications
-          subscribeToPush(reg);
+          if ("Notification" in window && "PushManager" in window &&
+              Notification.permission === "default" && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
+            setShowPushPrompt(true);
+          }
 
           // Check if there is an update waiting
           if (reg.waiting) {
@@ -71,34 +49,22 @@ export function PwaRegister({ enabled = true }: { enabled?: boolean }) {
         });
     }
 
-    // 3. Connection listeners
+    // 2. Connection listeners
     function handleOnline() {
       setIsOnline(true);
       setShowStatusToast(true);
       setTimeout(() => setShowStatusToast(false), 5000);
       
-      // Auto-trigger push notification for reconnection
-      showLocalNotification("Back Online!", {
-        body: "Your worship workspace has successfully reconnected to the server.",
-        icon: "/icon-192.png",
-      });
     }
 
     function handleOffline() {
       setIsOnline(false);
       setShowStatusToast(true);
       
-      // Trigger notification for offline mode
-      showLocalNotification("Connection Offline", {
-        body: "You are currently running in offline mode. Setlists and song library can still be browsed.",
-        icon: "/icon-192.png",
-      });
     }
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-
-    // Request Notification permission on mount is handled in subscribeToPush
 
     return () => {
       window.removeEventListener("online", handleOnline);
@@ -108,14 +74,28 @@ export function PwaRegister({ enabled = true }: { enabled?: boolean }) {
 
   if (!enabled) return null;
 
-  // Show local push notification helper
-  function showLocalNotification(title: string, options: NotificationOptions) {
-    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-      if (swRegistration) {
-        swRegistration.showNotification(title, options);
-      } else {
-        new Notification(title, options);
-      }
+  async function enablePushNotifications() {
+    if (!swRegistration || !("Notification" in window) || !("PushManager" in window)) return;
+    setPushError(null);
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      setPushError("Notifications were not enabled. You can change this in your browser settings.");
+      return;
+    }
+    try {
+      const subscription = await swRegistration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+      });
+      const response = await fetch("/api/web-push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription }),
+      });
+      if (!response.ok) throw new Error("The server could not save this notification subscription.");
+      setShowPushPrompt(false);
+    } catch (error) {
+      setPushError(error instanceof Error ? error.message : "Notifications could not be enabled.");
     }
   }
 
@@ -131,7 +111,7 @@ export function PwaRegister({ enabled = true }: { enabled?: boolean }) {
     <>
       {/* Offline/Online Status Toast */}
       {showStatusToast && (
-        <div className="fixed bottom-20 left-4 right-4 z-50 flex items-center justify-between rounded-xl border border-white/10 bg-[#111014]/95 p-4 shadow-2xl backdrop-blur sm:left-auto sm:right-6 sm:w-80 animate-slide-left">
+        <div role="status" aria-live="polite" className="fixed bottom-20 left-4 right-4 z-50 flex items-center justify-between rounded-xl border border-white/10 bg-[#111014]/95 p-4 shadow-2xl backdrop-blur sm:left-auto sm:right-6 sm:w-80 animate-slide-left">
           <div className="flex items-center gap-3">
             {isOnline ? (
               <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
@@ -147,13 +127,14 @@ export function PwaRegister({ enabled = true }: { enabled?: boolean }) {
                 {isOnline ? "Connected to Internet" : "No Internet Connection"}
               </p>
               <p className="mt-0.5 text-[10px] font-semibold text-zinc-400">
-                {isOnline ? "All setlists and changes are fully synced." : "Using locally cached database offline."}
+                {isOnline ? "Internet access restored. Data will sync when the server responds." : "Some online features are unavailable until you reconnect."}
               </p>
             </div>
           </div>
           <button
             onClick={() => setShowStatusToast(false)}
-            className="rounded-full p-1 text-zinc-500 hover:bg-white/[0.04] hover:text-white"
+            aria-label="Dismiss connection status"
+            className="flex size-6 items-center justify-center rounded-full text-zinc-500 hover:bg-white/[0.04] hover:text-white"
           >
             <X className="size-3.5" />
           </button>
@@ -179,10 +160,27 @@ export function PwaRegister({ enabled = true }: { enabled?: boolean }) {
           </div>
           <button
             onClick={() => setHasUpdate(false)}
-            className="self-start rounded-full p-1 text-violet-400 hover:bg-white/[0.04] hover:text-white"
+            aria-label="Dismiss update notice"
+            className="flex size-6 items-center justify-center self-start rounded-full text-violet-400 hover:bg-white/[0.04] hover:text-white"
           >
             <X className="size-3.5" />
           </button>
+        </div>
+      )}
+
+      {showPushPrompt && (
+        <div className="fixed bottom-20 left-4 right-4 z-50 rounded-xl border border-violet-500/20 bg-[#111014]/95 p-4 shadow-2xl backdrop-blur sm:left-auto sm:right-6 sm:w-80">
+          <p className="text-xs font-bold text-white">Enable ministry notifications?</p>
+          <p className="mt-1 text-[11px] text-zinc-300">Get team and schedule updates on this device.</p>
+          {pushError && <p role="alert" className="mt-2 text-xs text-red-300">{pushError}</p>}
+          <div className="mt-3 flex gap-2">
+            <button type="button" onClick={enablePushNotifications} className="min-h-9 rounded-lg bg-violet-600 px-3 text-xs font-bold text-white hover:bg-violet-500">
+              Enable
+            </button>
+            <button type="button" onClick={() => setShowPushPrompt(false)} className="min-h-9 rounded-lg px-3 text-xs font-bold text-zinc-300 hover:bg-white/[0.06]">
+              Not now
+            </button>
+          </div>
         </div>
       )}
     </>

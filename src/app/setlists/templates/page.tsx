@@ -5,27 +5,41 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { can } from "@/lib/domain/rbac";
+import { getCurrentTeamContext } from "@/lib/supabase/team-context";
+import { hasSupabaseEnv } from "@/lib/supabase/env";
+import type { Database } from "@/lib/supabase/database.types";
+
+type SetlistTemplate = Database["public"]["Tables"]["setlist_templates"]["Row"];
 
 export default async function TemplatesPage() {
   const teamContext = await getRequiredTeamContext();
-  const allowed = ["owner", "admin", "pastor", "worship_leader"].includes(teamContext.role);
+  const allowed = can(teamContext.role, "setlists.manage", teamContext.customPermissions);
   if (!allowed) {
     redirect("/dashboard");
   }
-  const supabase = await createClient();
-
-  const { data: templates } = await supabase
-    .from("setlist_templates")
-    .select("*")
-    .eq("team_id", teamContext.teamId)
-    .order("created_at", { ascending: false });
+  let templates: SetlistTemplate[] = [];
+  if (hasSupabaseEnv()) {
+    const supabase = await createClient();
+    const result = await supabase
+      .from("setlist_templates")
+      .select("*")
+      .eq("team_id", teamContext.teamId)
+      .order("created_at", { ascending: false });
+    templates = result.data ?? [];
+  }
 
   async function deleteTemplate(formData: FormData) {
     "use server";
-    const id = formData.get("id") as string;
-    if (!id) return;
+    if (!hasSupabaseEnv()) return;
+    const id = String(formData.get("id") ?? "");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return;
+    const context = await getCurrentTeamContext();
+    if (!context.userId || !context.teamId || !can(context.role, "setlists.manage", context.customPermissions)) {
+      return;
+    }
     const sb = await createClient();
-    await sb.from("setlist_templates").delete().eq("id", id);
+    await sb.from("setlist_templates").delete().eq("id", id).eq("team_id", context.teamId);
     revalidatePath("/setlists/templates");
   }
 
@@ -48,7 +62,7 @@ export default async function TemplatesPage() {
             
             <form action={deleteTemplate} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
               <input type="hidden" name="id" value={t.id} />
-              <Button type="submit" variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-400/10 !px-2">
+              <Button type="submit" variant="ghost" aria-label={`Delete ${t.name} template`} className="min-h-6 min-w-6 text-red-400 hover:text-red-300 hover:bg-red-400/10 !px-2">
                 <Trash2 className="size-4" />
               </Button>
             </form>

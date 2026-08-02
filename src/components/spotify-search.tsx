@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import Image from "next/image";
 import { Input } from "@/components/ui/input";
-import { Search, Loader2, Play, Square, ExternalLink } from "lucide-react";
+import { Search, Loader2, Play, Square } from "lucide-react";
 
 export type SpotifyTrack = {
   id: string;
@@ -23,16 +24,7 @@ export function SpotifySearch({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   
-  const [playingAudio, setPlayingAudio] = useState<HTMLAudioElement | null>(null);
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (playingAudio) {
-        playingAudio.pause();
-      }
-    };
-  }, [playingAudio]);
 
   const searchSpotify = async (q: string) => {
     setQuery(q);
@@ -57,9 +49,7 @@ export function SpotifySearch({
     }
   };
 
-  const togglePreview = (e: React.MouseEvent, track: SpotifyTrack) => {
-    e.stopPropagation();
-    
+  const togglePreview = (track: SpotifyTrack) => {
     if (playingTrackId === track.id) {
       setPlayingTrackId(null);
     } else {
@@ -90,56 +80,67 @@ export function SpotifySearch({
         <div className="absolute top-full left-0 right-0 mt-1 max-h-[400px] overflow-auto rounded-xl border border-white/10 bg-[#17161b] p-1 shadow-2xl">
           {results.map((track) => (
             <div key={track.id} className="flex flex-col border-b border-white/5 last:border-0">
-              <button
-                type="button"
-                onClick={() => {
-                  onSelect(track);
-                  setOpen(false);
-                  setQuery("");
-                  setPlayingTrackId(null);
-                }}
-                className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-white/5 transition group"
-              >
-                {track.album.images[0]?.url ? (
-                  <img
-                    src={track.album.images[0].url}
-                    alt={track.album.name}
-                    className="size-10 rounded-md object-cover"
-                  />
-                ) : (
-                  <div className="size-10 rounded-md bg-white/10" />
-                )}
-                <div className="flex-1 truncate">
-                  <div className="text-sm font-semibold text-white truncate">
-                    {track.name}
+              <div className="group flex items-center rounded-lg transition hover:bg-white/5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelect(track);
+                    setOpen(false);
+                    setQuery("");
+                    setPlayingTrackId(null);
+                  }}
+                  className="flex min-w-0 flex-1 items-center gap-3 p-2 text-left"
+                >
+                  {track.album.images[0]?.url ? (
+                    <Image
+                      src={track.album.images[0].url}
+                      alt={track.album.name}
+                      width={40}
+                      height={40}
+                      unoptimized
+                      className="size-10 rounded-md object-cover"
+                    />
+                  ) : (
+                    <div className="size-10 rounded-md bg-white/10" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-white">
+                      {track.name}
+                    </div>
+                    <div className="truncate text-xs text-zinc-400">
+                      {track.artists.map((a) => a.name).join(", ")}
+                    </div>
                   </div>
-                  <div className="text-xs text-zinc-400 truncate">
-                    {track.artists.map((a) => a.name).join(", ")}
-                  </div>
-                </div>
-                <div 
-                  onClick={(e) => togglePreview(e, track)}
-                  className="flex size-8 items-center justify-center rounded-full bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-white transition opacity-0 group-hover:opacity-100 mr-1"
-                  title="Preview in browser"
+                </button>
+                <button
+                  type="button"
+                  onClick={() => togglePreview(track)}
+                  aria-label={`${playingTrackId === track.id ? "Hide" : "Show"} Spotify player for ${track.name}`}
+                  aria-expanded={playingTrackId === track.id}
+                  aria-controls={`spotify-player-${track.id}`}
+                  className="mr-2 flex size-9 shrink-0 items-center justify-center rounded-full bg-green-500/10 text-green-400 opacity-100 transition hover:bg-green-500 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400 sm:opacity-70 sm:group-hover:opacity-100"
+                  title={`${playingTrackId === track.id ? "Hide" : "Show"} Spotify player`}
                 >
                   {playingTrackId === track.id ? (
                     <Square className="size-3.5 fill-current" />
                   ) : (
                     <Play className="size-3.5 fill-current ml-0.5" />
                   )}
-                </div>
-              </button>
+                </button>
+              </div>
               {playingTrackId === track.id && (
-                <div className="p-2 animate-fade-in">
-                  <iframe 
-                    src={`https://open.spotify.com/embed/track/${track.id}`} 
-                    width="100%" 
-                    height="80" 
-                    frameBorder="0" 
-                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-                    loading="lazy" 
+                <div id={`spotify-player-${track.id}`} className="p-2 animate-fade-in">
+                  <iframe
+                    src={`https://open.spotify.com/embed/track/${encodeURIComponent(track.id)}`}
+                    title={`Spotify player for ${track.name}`}
+                    width="100%"
+                    height="152"
+                    frameBorder="0"
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy"
+                    referrerPolicy="strict-origin-when-cross-origin"
                     className="rounded-lg"
-                  ></iframe>
+                  />
                 </div>
               )}
             </div>

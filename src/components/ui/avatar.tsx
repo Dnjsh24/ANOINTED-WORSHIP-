@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 export function Avatar({ name, src, className }: { name: string; src?: string | null; className?: string }) {
   const initials = name
@@ -11,9 +12,12 @@ export function Avatar({ name, src, className }: { name: string; src?: string | 
 
   if (src) {
     return (
-      <img
+      <Image
         src={src}
         alt={name}
+        width={36}
+        height={36}
+        unoptimized
         className={cn(
           "inline-flex size-9 shrink-0 object-cover rounded-full border border-white/10",
           className

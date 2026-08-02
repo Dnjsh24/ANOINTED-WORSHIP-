@@ -1,12 +1,11 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { SettingsClientView } from "@/components/settings-client-view";
-import { can, type Permission } from "@/lib/domain/rbac";
 import { teamCode } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
-import type { TeamRole, TeamMember, EventType, CustomRole } from "@/lib/types";
+import type { CustomRole } from "@/lib/types";
 
 function formatTimeForInput(timeStr: string | null): string {
   if (!timeStr) return "08:00";
@@ -88,34 +87,42 @@ export default async function AdminSettingsPage() {
     const activityEntries: ActivityEntry[] = [];
 
     const userIds = new Set<string>();
-    (changesResult.data ?? []).forEach((c: any) => { if (c.changed_by) userIds.add(c.changed_by); });
-    (eventsResult.data ?? []).forEach((e: any) => { if (e.created_by) userIds.add(e.created_by); });
+    (changesResult.data ?? []).forEach((change) => {
+      if (change.changed_by) userIds.add(change.changed_by);
+    });
+    (eventsResult.data ?? []).forEach((event) => {
+      if (event.created_by) userIds.add(event.created_by);
+    });
 
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name")
       .in("id", [...userIds]);
 
-    const profileNameMap = new Map((profiles ?? []).map((p: any) => [p.id, p.full_name]));
+    const profileNameMap = new Map(
+      (profiles ?? []).map((profile) => [profile.id, profile.full_name] as const),
+    );
 
     const teamMembers = teamMembersResult.data ?? [];
-    const roleByProfileId = new Map(teamMembers.map((m: any) => [m.profile_id, m.role ?? "member"]));
+    const roleByProfileId = new Map(
+      teamMembers.map((member) => [member.profile_id, member.role ?? "member"] as const),
+    );
 
-    (changesResult.data ?? []).forEach((c: any) => {
+    (changesResult.data ?? []).forEach((change) => {
       activityEntries.push({
-        user: profileNameMap.get(c.changed_by) ?? "Team Member",
-        action: c.summary,
-        time: c.created_at,
-        role: roleByProfileId.get(c.changed_by) ?? "member",
+        user: profileNameMap.get(change.changed_by ?? "") ?? "Team Member",
+        action: change.summary,
+        time: change.created_at,
+        role: roleByProfileId.get(change.changed_by ?? "") ?? "member",
       });
     });
 
-    (eventsResult.data ?? []).forEach((e: any) => {
+    (eventsResult.data ?? []).forEach((event) => {
       activityEntries.push({
-        user: profileNameMap.get(e.created_by) ?? "Team Member",
-        action: `created event "${e.name}"`,
-        time: e.created_at,
-        role: roleByProfileId.get(e.created_by) ?? "member",
+        user: profileNameMap.get(event.created_by ?? "") ?? "Team Member",
+        action: `created event "${event.name}"`,
+        time: event.created_at,
+        role: roleByProfileId.get(event.created_by ?? "") ?? "member",
       });
     });
 

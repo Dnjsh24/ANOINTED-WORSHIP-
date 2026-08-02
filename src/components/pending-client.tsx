@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Hourglass, Mail, Music2, Users } from "lucide-react";
 import Link from "next/link";
 import { cancelJoinRequestAction, getPendingJoinRequestStatusAction } from "@/app/actions";
-import { createClient } from "@/lib/supabase/client";
+import { createOptionalClient } from "@/lib/supabase/client";
 
 interface PendingClientProps {
   userId: string;
@@ -90,7 +90,8 @@ export function PendingClient({
   useEffect(() => {
     if (userId === "demo-user") return;
 
-    const supabase = createClient();
+    const supabase = createOptionalClient();
+    if (!supabase) return;
     const channel = supabase
       .channel(`pending-request-status-${requestId}`)
       .on(

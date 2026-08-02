@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateProfilePhotoAction } from "@/app/actions";
 import { profileAvatarBucket, profileAvatarStoragePath, validateProfileAvatar } from "@/lib/domain/files";
-import { createClient } from "@/lib/supabase/client";
+import { createOptionalClient } from "@/lib/supabase/client";
 
 export function PhotoPickerButton() {
   const router = useRouter();
@@ -19,11 +19,14 @@ export function PhotoPickerButton() {
       return;
     }
 
+    const supabase = createOptionalClient();
+    if (!supabase) {
+      setStatus("Sign in with Supabase before changing your photo.");
+      return;
+    }
+
     setIsUploading(true);
     setStatus("Uploading photo...");
-
-    const supabase = createClient();
-
     try {
       const {
         data: { user },

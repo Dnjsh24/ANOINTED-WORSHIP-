@@ -5,18 +5,41 @@ import { AppShell } from "@/components/app-shell";
 import { EventDeleteButton } from "@/components/event-delete-button";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { Card, Panel } from "@/components/ui/card";
+import { Panel } from "@/components/ui/card";
 import { AttendanceRoster, type AttendanceRecord } from "@/components/attendance-roster";
 import { can } from "@/lib/domain/rbac";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/supabase/database.types";
+import type { Event } from "@/lib/types";
+import { asEventApprovalStatus } from "@/lib/domain/database-values";
+
+type EventDetailRow = Database["public"]["Tables"]["events"]["Row"] & {
+  event_assignments: Array<{ assignment: string }>;
+  setlists: Array<{ id: string }>;
+};
+
+type AttendanceDetailRow = {
+  status: AttendanceRecord["status"];
+  profile_id: string;
+  profiles:
+    | { id: string; full_name: string | null; avatar_url: string | null }
+    | Array<{ id: string; full_name: string | null; avatar_url: string | null }>
+    | null;
+};
+
+type EventDetailView = Omit<Event, "roster"> & {
+  roster: AttendanceRecord[];
+  totalMembers: number;
+  recurrenceRule: string | null;
+};
 
 export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
 
-  let event = {
+  let event: EventDetailView = {
     id,
     name: "Sunday Worship Service",
     type: "service",
@@ -30,7 +53,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
     pending: 0,
     approvalStatus: "approved",
     notes: null as string | null,
-    roster: {} as any,
+    roster: [] as AttendanceRecord[],
     totalMembers: 0,
     recurrenceRule: null as string | null,
   };
@@ -39,7 +62,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   if (hasSupabaseEnv()) {
     const supabase = await createClient();
-    const { data: dbEvent } = (await supabase
+    const { data: eventData } = await supabase
       .from("events")
       .select(`
         *,
@@ -52,7 +75,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       `)
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
-      .maybeSingle()) as any;
+      .maybeSingle();
+    const dbEvent = eventData as unknown as EventDetailRow | null;
 
     if (dbEvent) {
       // Fetch RSVPs and active members in parallel
@@ -68,18 +92,20 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           .eq("status", "active"),
       ]);
 
-      const dbAttendance = attendanceResult.data;
+      const dbAttendance = attendanceResult.data as unknown as AttendanceDetailRow[] | null;
       const totalMembers = activeMembersResult.count;
 
-      const assignedFromDb = dbEvent.event_assignments ? dbEvent.event_assignments.map((a: any) => a.assignment) : [];
+      const assignedFromDb = dbEvent.event_assignments
+        ? dbEvent.event_assignments.map((assignment) => assignment.assignment)
+        : [];
       const assignedFromDescription = dbEvent.description
         ? dbEvent.description.split(",").map((s: string) => s.trim()).filter(Boolean)
         : [];
       const assigned = assignedFromDb.length > 0 ? assignedFromDb : assignedFromDescription;
-      const confirmed = (dbAttendance || []).filter((a: any) => a.status === "available").length;
+      const confirmed = (dbAttendance || []).filter((attendance) => attendance.status === "available").length;
       const respondedCount = (dbAttendance || []).length;
       const noResponseCount = Math.max(0, (totalMembers || 0) - respondedCount);
-      const pending = (dbAttendance || []).filter((a: any) => a.status === "maybe").length + noResponseCount;
+      const pending = (dbAttendance || []).filter((attendance) => attendance.status === "maybe").length + noResponseCount;
 
       let timeStr = dbEvent.ends_at
         ? `${dbEvent.starts_at.slice(0, 5)} - ${dbEvent.ends_at.slice(0, 5)}`
@@ -93,12 +119,15 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         timeStr = `Rehearsal: ${rehTime} | Service: ${svcTime}`;
       }
 
-      const roster: AttendanceRecord[] = (dbAttendance ?? []).map((row: any) => ({
-        status: row.status,
-        profileId: row.profile_id,
-        fullName: row.profiles?.full_name ?? "Unknown",
-        avatarUrl: row.profiles?.avatar_url,
-      }));
+      const roster: AttendanceRecord[] = (dbAttendance ?? []).map((row) => {
+        const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+        return {
+          status: row.status,
+          profileId: row.profile_id,
+          fullName: profile?.full_name ?? "Unknown",
+          avatarUrl: profile?.avatar_url ?? undefined,
+        };
+      });
 
       event = {
         id: dbEvent.id,
@@ -112,7 +141,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         assignedTeams: assigned.length > 0 ? assigned : ["Worship Team"],
         confirmed,
         pending,
-        approvalStatus: dbEvent.approval_status ?? "approved",
+        approvalStatus: asEventApprovalStatus(dbEvent.approval_status),
         notes: dbEvent.description ?? null,
         roster,
         totalMembers: totalMembers ?? 0,

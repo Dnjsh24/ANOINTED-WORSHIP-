@@ -53,8 +53,7 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
       );
     }
 
-    teamMembersList = (dbMembers ?? []).map((t: any) => {
-      const tm = t as any;
+    teamMembersList = (dbMembers ?? []).map((tm) => {
       const profile = memberProfilesMap[tm.profile_id];
       return {
         id: tm.id,
@@ -79,28 +78,28 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
       .order("created_at", { ascending: true });
 
     if (templateRows && templateRows.length > 0) {
-      serviceTemplates = templateRows.map((row) => mapServiceTemplate(row as any));
+      serviceTemplates = templateRows.map(mapServiceTemplate);
     }
 
 
     // Fetch recent setlists
-    const { data: dbSetlists } = (await supabase
+    const { data: dbSetlists } = await supabase
       .from("setlists")
       .select("id, name, setlist_date")
       .eq("team_id", teamContext.teamId)
       .gte("setlist_date", todayStr)
-      .order("setlist_date", { ascending: true })) as any;
+      .order("setlist_date", { ascending: true });
 
     if (dbSetlists) {
-      setlistsList = dbSetlists.map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        date: s.setlist_date,
+      setlistsList = dbSetlists.map((setlist) => ({
+        id: setlist.id,
+        name: setlist.name,
+        date: setlist.setlist_date,
       }));
     }
   
   } else if (!hasSupabaseEnv()) {
-    teamMembersList = sampleMembers as any[];
+    teamMembersList = sampleMembers;
     // Demo mode fallback
 
     // Demo mode fallback

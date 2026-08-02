@@ -1,27 +1,96 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createOptionalClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { generateSongSlides, type PresentationSlide, type PresentationSettings } from "@/lib/domain/presentation";
+import { generateSongSlides, type PresentationSlide } from "@/lib/domain/presentation";
 import { stageLayoutPreset, type StageLayout } from "@/lib/desktop/stage-layout";
 
-export default function ConfidenceClient({ setlist, initialLiveState = {} }: { setlist: any; initialLiveState?: Record<string, any> }) {
-  const [activeSlideId, setActiveSlideId] = useState<string | null>(initialLiveState.activeSlideId || null);
-  const [liveSlide, setLiveSlide] = useState<PresentationSlide | null>(initialLiveState.slide || null);
-  const [liveNextSlide, setLiveNextSlide] = useState<PresentationSlide | null>(initialLiveState.nextSlide || null);
-  const [liveNotes, setLiveNotes] = useState<string>(initialLiveState.speakerNotes || "");
-  const [settings, setSettings] = useState<PresentationSettings | null>(null);
+type ConfidenceSlide = PresentationSlide & { speakerNotes?: string };
+type StageFlashStyle = { fontSize: number; color: string; backgroundColor: string };
+
+export type ConfidenceSetlist = {
+  id: string;
+  songs: Array<{
+    id: string;
+    notes: string;
+    song: { id: string; title: string; lyricsChords: string };
+  }>;
+};
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function confidenceSlide(value: unknown): ConfidenceSlide | null {
+  const slide = record(value);
+  if (
+    !slide
+    || typeof slide.id !== "string"
+    || !["lyrics", "teaching", "blank"].includes(String(slide.type))
+    || !Array.isArray(slide.content)
+    || !slide.content.every((line) => typeof line === "string")
+  ) return null;
+  return value as ConfidenceSlide;
+}
+
+function mergedStageLayout(value: unknown): StageLayout {
+  const fallback = stageLayoutPreset("full");
+  const layout = record(value);
+  if (!layout) return fallback;
+  return Object.fromEntries(
+    Object.entries(fallback).map(([key, defaultValue]) => [
+      key,
+      typeof layout[key] === "boolean" ? layout[key] : defaultValue,
+    ]),
+  ) as StageLayout;
+}
+
+function stageFlash(value: unknown): StageFlashStyle | null {
+  const flash = record(value);
+  return flash
+    && typeof flash.fontSize === "number"
+    && typeof flash.color === "string"
+    && typeof flash.backgroundColor === "string"
+    ? {
+        fontSize: flash.fontSize,
+        color: flash.color,
+        backgroundColor: flash.backgroundColor,
+      }
+    : null;
+}
+
+export default function ConfidenceClient({
+  setlist,
+  initialLiveState = {},
+}: {
+  setlist: ConfidenceSetlist;
+  initialLiveState?: Record<string, unknown>;
+}) {
+  const [activeSlideId, setActiveSlideId] = useState<string | null>(
+    typeof initialLiveState.activeSlideId === "string" ? initialLiveState.activeSlideId : null,
+  );
+  const [liveSlide, setLiveSlide] = useState<ConfidenceSlide | null>(() => confidenceSlide(initialLiveState.slide));
+  const [liveNextSlide, setLiveNextSlide] = useState<ConfidenceSlide | null>(() => confidenceSlide(initialLiveState.nextSlide));
+  const [liveNotes, setLiveNotes] = useState<string>(
+    typeof initialLiveState.speakerNotes === "string" ? initialLiveState.speakerNotes : "",
+  );
   const [linesPerSlide, setLinesPerSlide] = useState<number>(4);
   const [isConnected, setIsConnected] = useState(false);
-  const [stageLayout, setStageLayout] = useState<StageLayout>(() => ({ ...stageLayoutPreset("full"), ...(initialLiveState.stageLayout || {}) }));
+  const [stageLayout, setStageLayout] = useState<StageLayout>(() => mergedStageLayout(initialLiveState.stageLayout));
   const showChords = stageLayout.showChords;
   const [stageMessage, setStageMessage] = useState("");
   const [stageFlashStyle, setStageFlashStyle] = useState({ fontSize: 56, color: "#ffffff", backgroundColor: "#dc2626" });
-  const [countdownTarget, setCountdownTarget] = useState<number | null>(initialLiveState.countdownTarget || null);
-  const [pausedCountdownMs, setPausedCountdownMs] = useState<number | null>(initialLiveState.countdownPausedMs || null);
+  const [countdownTarget, setCountdownTarget] = useState<number | null>(
+    typeof initialLiveState.countdownTarget === "number" ? initialLiveState.countdownTarget : null,
+  );
+  const [pausedCountdownMs, setPausedCountdownMs] = useState<number | null>(
+    typeof initialLiveState.countdownPausedMs === "number" ? initialLiveState.countdownPausedMs : null,
+  );
   const [now, setNow] = useState(0);
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = useMemo(() => createOptionalClient(), []);
 
   useEffect(() => {
     if (window.anointedDesktop) void window.anointedDesktop.markOutputReady("confidence");
@@ -38,9 +107,9 @@ export default function ConfidenceClient({ setlist, initialLiveState = {} }: { s
 
   // Generate all slides from setlist
   const allSlides = useMemo(() => {
-    let slides: PresentationSlide[] = [];
+    let slides: ConfidenceSlide[] = [];
     if (!setlist?.songs) return slides;
-    setlist.songs.forEach((item: any) => {
+    setlist.songs.forEach((item) => {
       const songSlides = generateSongSlides(item.song.lyricsChords, linesPerSlide).map((slide) => ({ ...slide, speakerNotes: item.notes || "" }));
       slides = slides.concat(songSlides);
     });
@@ -50,69 +119,72 @@ export default function ConfidenceClient({ setlist, initialLiveState = {} }: { s
   useEffect(() => {
     if (window.anointedDesktop) {
       const channel = new BroadcastChannel(`setlist_${setlist.id}`);
-      const receive = (message: MessageEvent<{ event?: string; payload?: any }>) => {
-        const payload = message.data?.payload;
+      const receive = (message: MessageEvent<{ event?: string; payload?: unknown }>) => {
+        const payload = record(message.data?.payload);
         if (!payload) return;
         if (message.data.event === "settings_sync") {
-          if (payload.linesPerSlide) setLinesPerSlide(payload.linesPerSlide);
-          if (payload.settings) setSettings(payload.settings);
+          if (typeof payload.linesPerSlide === "number") setLinesPerSlide(payload.linesPerSlide);
         }
         if (message.data.event === "projector_sync") {
           if (payload.slide !== undefined) {
-            setActiveSlideId(payload.slide?.id || payload.activeSlideId || null);
-            setLiveSlide(payload.slide || null);
-            setLiveNextSlide(payload.nextSlide || null);
-            setLiveNotes(payload.speakerNotes || "");
+            const slide = confidenceSlide(payload.slide);
+            setActiveSlideId(slide?.id || (typeof payload.activeSlideId === "string" ? payload.activeSlideId : null));
+            setLiveSlide(slide);
+            setLiveNextSlide(confidenceSlide(payload.nextSlide));
+            setLiveNotes(typeof payload.speakerNotes === "string" ? payload.speakerNotes : "");
           }
-          if (payload.settings) setSettings(payload.settings);
         }
         if (message.data.event === "stage_sync") {
-          if (payload.stageMessage !== undefined) setStageMessage(payload.stageMessage);
-          if (payload.stageFlashStyle) setStageFlashStyle(payload.stageFlashStyle);
-          if (payload.countdownTarget !== undefined) setCountdownTarget(payload.countdownTarget);
-          if (payload.countdownPausedMs !== undefined) setPausedCountdownMs(payload.countdownPausedMs);
-          if (payload.stageLayout) setStageLayout({ ...stageLayoutPreset("full"), ...payload.stageLayout });
+          if (typeof payload.stageMessage === "string") setStageMessage(payload.stageMessage);
+          const flash = stageFlash(payload.stageFlashStyle);
+          if (flash) setStageFlashStyle(flash);
+          if (payload.countdownTarget === null || typeof payload.countdownTarget === "number") setCountdownTarget(payload.countdownTarget);
+          if (payload.countdownPausedMs === null || typeof payload.countdownPausedMs === "number") setPausedCountdownMs(payload.countdownPausedMs);
+          if (payload.stageLayout) setStageLayout(mergedStageLayout(payload.stageLayout));
         }
       };
       channel.addEventListener("message", receive);
       channel.postMessage({ event: "presentation_state_request", payload: { output: "confidence" } });
-      setIsConnected(true);
+      queueMicrotask(() => setIsConnected(true));
       return () => { channel.removeEventListener("message", receive); channel.close(); };
     }
+    if (!supabase) return;
     const channel = supabase.channel(`setlist_${setlist.id}`);
 
     channel
-      .on("broadcast", { event: "settings_sync" }, (payload: any) => {
-        if (payload.payload?.linesPerSlide) {
-          setLinesPerSlide(payload.payload.linesPerSlide);
-        }
-        if (payload.payload?.settings) {
-          setSettings(payload.payload.settings);
+      .on("broadcast", { event: "settings_sync" }, (event: { payload?: unknown }) => {
+        const payload = record(event.payload);
+        if (typeof payload?.linesPerSlide === "number") {
+          setLinesPerSlide(payload.linesPerSlide);
         }
       })
-      .on("broadcast", { event: "projector_sync" }, (payload: any) => {
-        if (payload.payload) {
-          if (payload.payload.slide !== undefined) {
-            setActiveSlideId(payload.payload.slide?.id || null);
-            setLiveSlide(payload.payload.slide || null);
-            setLiveNextSlide(payload.payload.nextSlide || null);
-            setLiveNotes(payload.payload.speakerNotes || "");
+      .on("broadcast", { event: "projector_sync" }, (event: { payload?: unknown }) => {
+        const payload = record(event.payload);
+        if (payload) {
+          if (payload.slide !== undefined) {
+            const slide = confidenceSlide(payload.slide);
+            setActiveSlideId(slide?.id || null);
+            setLiveSlide(slide);
+            setLiveNextSlide(confidenceSlide(payload.nextSlide));
+            setLiveNotes(typeof payload.speakerNotes === "string" ? payload.speakerNotes : "");
           }
         }
       })
-      .on("broadcast", { event: "stage_sync" }, (payload: any) => {
-        if (payload.payload) {
-          if (payload.payload.stageMessage !== undefined) {
-            setStageMessage(payload.payload.stageMessage);
+      .on("broadcast", { event: "stage_sync" }, (event: { payload?: unknown }) => {
+        const payload = record(event.payload);
+        if (payload) {
+          if (typeof payload.stageMessage === "string") {
+            setStageMessage(payload.stageMessage);
           }
-          if (payload.payload.stageFlashStyle) setStageFlashStyle(payload.payload.stageFlashStyle);
-          if (payload.payload.countdownTarget !== undefined) {
-            setCountdownTarget(payload.payload.countdownTarget);
+          const flash = stageFlash(payload.stageFlashStyle);
+          if (flash) setStageFlashStyle(flash);
+          if (payload.countdownTarget === null || typeof payload.countdownTarget === "number") {
+            setCountdownTarget(payload.countdownTarget);
           }
-          if (payload.payload.countdownPausedMs !== undefined) {
-            setPausedCountdownMs(payload.payload.countdownPausedMs);
+          if (payload.countdownPausedMs === null || typeof payload.countdownPausedMs === "number") {
+            setPausedCountdownMs(payload.countdownPausedMs);
           }
-          if (payload.payload.stageLayout) setStageLayout({ ...stageLayoutPreset("full"), ...payload.payload.stageLayout });
+          if (payload.stageLayout) setStageLayout(mergedStageLayout(payload.stageLayout));
         }
       })
       .subscribe((status) => {
@@ -218,7 +290,7 @@ export default function ConfidenceClient({ setlist, initialLiveState = {} }: { s
           <p className="text-2xl text-zinc-600 font-bold uppercase tracking-widest mt-8">End of Presentation</p>
         ) : null}
       </div>}
-      {stageLayout.showNotes && (liveNotes || (currentSlide as any)?.speakerNotes) && <div className="absolute bottom-4 left-4 right-4 rounded bg-white/5 px-4 py-2 text-center text-lg font-semibold text-amber-200">{liveNotes || (currentSlide as any).speakerNotes}</div>}
+      {stageLayout.showNotes && (liveNotes || currentSlide?.speakerNotes) && <div className="absolute bottom-4 left-4 right-4 rounded bg-white/5 px-4 py-2 text-center text-lg font-semibold text-amber-200">{liveNotes || currentSlide?.speakerNotes}</div>}
     </div>
   );
 }

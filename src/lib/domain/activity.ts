@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import type { Json } from "@/lib/supabase/database.types";
+import { safeErrorDetails } from "@/lib/server/safe-error";
 
 export async function logActivity({
   teamId,
@@ -13,7 +15,7 @@ export async function logActivity({
   action: string;
   targetType: string;
   targetId?: string;
-  details?: any;
+  details?: Json;
 }) {
   const supabase = await createClient();
   const { error } = await supabase.from("activity_logs").insert({
@@ -26,6 +28,6 @@ export async function logActivity({
   });
 
   if (error) {
-    console.error("Failed to log activity:", error);
+    console.error("Failed to log activity:", safeErrorDetails(error));
   }
 }

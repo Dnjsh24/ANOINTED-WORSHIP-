@@ -10,6 +10,32 @@ import { members, pendingRequests } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+import type { TeamRole } from "@/lib/types";
+
+type MemberProfileRow = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+};
+
+type MemberDetailRow = {
+  id: string;
+  profile_id: string;
+  role: TeamRole | null;
+  status: "active" | "inactive" | null;
+  ministry: string | null;
+  ministries: string[] | null;
+  profiles: MemberProfileRow | MemberProfileRow[] | null;
+};
+
+type PendingJoinRequestRow = {
+  id: string;
+  profile_id: string | null;
+  requested_role: TeamRole | null;
+  created_at: string;
+  profiles: MemberProfileRow | MemberProfileRow[] | null;
+};
 
 export default async function MemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,12 +53,13 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
 
   if (hasSupabaseEnv()) {
     const supabase = await createClient();
-    const { data: dbMember } = (await supabase
+    const { data: memberData } = await supabase
       .from("team_members")
       .select("id, profile_id, role, status, ministry, ministries, profiles ( id, full_name, email, avatar_url )")
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
-      .maybeSingle()) as any;
+      .maybeSingle();
+    const dbMember = memberData as unknown as MemberDetailRow | null;
 
     if (dbMember) {
       const profile = Array.isArray(dbMember.profiles) ? dbMember.profiles[0] : dbMember.profiles;
@@ -61,13 +88,14 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
 
       request = undefined;
     } else {
-      const { data: dbRequest } = (await supabase
+      const { data: requestData } = await supabase
         .from("join_requests")
         .select(joinRequestWithRequesterProfileSelect)
         .eq("id", id)
         .eq("team_id", teamContext.teamId)
         .eq("status", "pending")
-        .maybeSingle()) as any;
+        .maybeSingle();
+      const dbRequest = requestData as unknown as PendingJoinRequestRow | null;
 
       if (!dbRequest) {
         notFound();

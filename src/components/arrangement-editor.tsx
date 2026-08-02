@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
+import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
 import { createPortal } from "react-dom";
 import {
   DndContext,
@@ -96,64 +97,39 @@ function SortableItem({ id, value, onRemove, isActive }: SortableItemProps) {
   );
 }
 
+function initialEditorContent(initialArrangement: string, lyrics?: string) {
+  const parsedLyrics = lyrics ? parseLyricsAndChords(lyrics) : [];
+  const values = initialArrangement
+    ? initialArrangement.split(",").map((section) => section.trim()).filter(Boolean)
+    : parsedLyrics.map((section) => section.label);
+  const timestamp = Date.now();
+  return {
+    parsedLyrics,
+    sections: values.map((value, index) => ({
+      id: `section-${index}-${timestamp}`,
+      value,
+    })),
+  };
+}
+
 export function ArrangementEditor({
-  isOpen,
   onClose,
   onSave,
   songTitle,
   initialArrangement,
   lyrics,
 }: {
-  isOpen: boolean;
   onClose: () => void;
   onSave: (newArrangement: string) => void;
   songTitle: string;
   initialArrangement: string;
   lyrics?: string;
 }) {
-  const [isMounted, setIsMounted] = useState(false);
-  const [sections, setSections] = useState<{ id: string; value: string }[]>([]);
-  const [parsedLyrics, setParsedLyrics] = useState<SongSection[]>([]);
+  const [initialContent] = useState(() => initialEditorContent(initialArrangement, lyrics));
+  const [sections, setSections] = useState<{ id: string; value: string }[]>(initialContent.sections);
+  const [parsedLyrics] = useState<SongSection[]>(initialContent.parsedLyrics);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isOpen) {
-      let currentParsedLyrics: SongSection[] = [];
-      if (lyrics) {
-        currentParsedLyrics = parseLyricsAndChords(lyrics);
-        setParsedLyrics(currentParsedLyrics);
-      } else {
-        setParsedLyrics([]);
-      }
-
-      if (initialArrangement) {
-        const parsed = initialArrangement
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean);
-        setSections(
-          parsed.map((value, index) => ({
-            id: `section-${index}-${Date.now()}`,
-            value,
-          }))
-        );
-      } else if (currentParsedLyrics.length > 0) {
-        // Pre-populate from original song sequence if no custom arrangement exists
-        setSections(
-          currentParsedLyrics.map((sec, index) => ({
-            id: `section-${index}-${Date.now()}`,
-            value: sec.label,
-          }))
-        );
-      } else {
-        setSections([]);
-      }
-    }
-  }, [isOpen, initialArrangement, lyrics]);
+  const dialogRef = useAccessibleDialog({ open: true, onClose });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -196,8 +172,6 @@ export function ArrangementEditor({
     onClose();
   };
 
-  if (!isOpen || !isMounted) return null;
-
   // Find lyrics for current section sequence
   // If user is dragging or hovering a section, we can show that. But for now, we just map the whole arrangement.
   // Wait, if we map the whole arrangement, we can just render the lyrics blocks in the arranged sequence!
@@ -218,13 +192,18 @@ export function ArrangementEditor({
   const modalContent = (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-0">
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="arrangement-editor-title"
+        tabIndex={-1}
         className="w-full sm:w-[900px] max-w-[95vw] h-[85vh] sm:max-h-[85vh] bg-zinc-950 border border-zinc-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-zinc-800/60 bg-zinc-900/50">
           <div>
-            <h2 className="text-xl font-bold text-white tracking-tight">
+            <h2 id="arrangement-editor-title" className="text-xl font-bold text-white tracking-tight">
               Edit Arrangement
             </h2>
             <p className="text-sm text-zinc-400 mt-0.5 line-clamp-1">
@@ -232,6 +211,8 @@ export function ArrangementEditor({
             </p>
           </div>
           <button
+            type="button"
+            aria-label="Close arrangement editor"
             onClick={onClose}
             className="p-2 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-full transition"
           >

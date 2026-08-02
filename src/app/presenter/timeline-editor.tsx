@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import type { SlideBlock } from "@/lib/domain/presentation";
 import { cn } from "@/lib/utils";
-import { Scissors, Merge, RotateCcw, Play, Undo2, Redo2 } from "lucide-react";
+import { Scissors, RotateCcw, Play, Undo2, Redo2 } from "lucide-react";
 
 interface TimelineEditorProps {
   blocks: SlideBlock[];
@@ -26,7 +26,7 @@ interface TimelineEditorProps {
 }
 
 export default function TimelineEditor({ 
-  blocks, onUpdateBlock, onUpdateBlocks, onChopToWords, onReset, onPlay, playKey = 0,
+  blocks, onUpdateBlock, onChopToWords, onReset, onPlay, playKey = 0,
   totalDuration = 10, onUpdateDuration, selectedBlockIds = [], onSelectBlock, onDuplicateBlock, onDeleteBlock,
   onUndo, onRedo, canUndo = false, canRedo = false
 }: TimelineEditorProps) {
@@ -42,23 +42,22 @@ export default function TimelineEditor({
 
   useEffect(() => {
     if (playKey > 0) {
-      setPlayProgress(0);
       const startTime = Date.now();
-      
+      let frameId = 0;
       const updateProgress = () => {
         const elapsed = (Date.now() - startTime) / 1000; // in seconds
         if (elapsed >= TOTAL_DURATION_SEC) {
           setPlayProgress(0);
         } else {
           setPlayProgress((elapsed / TOTAL_DURATION_SEC) * 100);
-          requestAnimationFrame(updateProgress);
+          frameId = requestAnimationFrame(updateProgress);
         }
       };
       
-      const frameId = requestAnimationFrame(updateProgress);
+      frameId = requestAnimationFrame(updateProgress);
       return () => cancelAnimationFrame(frameId);
     } else {
-      setPlayProgress(0);
+      queueMicrotask(() => setPlayProgress(0));
     }
   }, [playKey, TOTAL_DURATION_SEC]);
 
@@ -81,8 +80,8 @@ export default function TimelineEditor({
           newDuration = Math.max(0.1, Math.min(TOTAL_DURATION_SEC - startBlockTime, newDuration));
           onUpdateBlock(resizingBlock, { duration: newDuration });
         } else if (resizeEdge === 'left') {
-          let newTime = startBlockTime + dxTime;
-          let newDuration = startBlockDuration - dxTime;
+          const newTime = startBlockTime + dxTime;
+          const newDuration = startBlockDuration - dxTime;
           
           if (newDuration >= 0.1 && newTime >= 0) {
             onUpdateBlock(resizingBlock, { startTime: newTime, duration: newDuration });
@@ -207,7 +206,7 @@ export default function TimelineEditor({
       <div className="flex-1 flex overflow-hidden">
         {/* Track labels (Left) */}
         <div className="w-24 border-r border-white/5 bg-[#121212] overflow-y-auto hidden sm:block z-10">
-          {blocks.map((block, i) => (
+          {blocks.map((block) => (
             <div 
               key={block.id} 
               className={cn(
@@ -248,7 +247,7 @@ export default function TimelineEditor({
           </div>
           
           <div className="absolute inset-0 pt-6">
-            {blocks.map((block, i) => {
+            {blocks.map((block) => {
               const leftPercent = (block.startTime / TOTAL_DURATION_SEC) * 100;
               const widthPercent = (block.duration / TOTAL_DURATION_SEC) * 100;
               

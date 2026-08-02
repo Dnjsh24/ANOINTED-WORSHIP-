@@ -10,38 +10,32 @@ export function OfflinePreloader({ setlistId, songIds }: { setlistId: string; so
 
   useEffect(() => {
     if (!setlistId || typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-    
+
+    const prefetchData = async () => {
+      setStatus("loading");
+      try {
+        const urlsToPrepare = [
+          `/setlists/${setlistId}`,
+          ...songIds.map((id) => `/songs/${id}`),
+        ];
+
+        // Keep navigation warm for this signed-in browser session. Private HTML
+        // and RSC responses are deliberately not persisted in the service worker.
+        urlsToPrepare.forEach((url) => router.prefetch(url));
+        setStatus("done");
+      } catch (error) {
+        console.error("[PWA] Preload error:", error);
+        setStatus("idle");
+      }
+    };
+
     // Slight delay so we don't block the main render
     const timer = setTimeout(() => {
-      prefetchData();
+      void prefetchData();
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [setlistId, songIds]);
-
-  async function prefetchData() {
-    setStatus("loading");
-    try {
-      const urlsToCache = [
-        `/setlists/${setlistId}`,
-        ...songIds.map(id => `/songs/${id}`)
-      ];
-
-      // Next.js router.prefetch will fetch the RSC payload
-      // We also do a normal fetch to cache the HTML for direct offline loads
-      await Promise.all([
-        ...urlsToCache.map(url => {
-          router.prefetch(url);
-          return fetch(url, { headers: { "X-Prefetch": "true" } }).catch(() => {});
-        })
-      ]);
-      
-      setStatus("done");
-    } catch (e) {
-      console.error("[PWA] Preload error:", e);
-      setStatus("idle");
-    }
-  }
+  }, [router, setlistId, songIds]);
 
   if (status === "idle") return null;
 
@@ -50,12 +44,12 @@ export function OfflinePreloader({ setlistId, songIds }: { setlistId: string; so
       {status === "loading" ? (
         <>
           <DownloadCloud className="size-3.5 text-violet-400 animate-pulse" />
-          <span className="text-zinc-300">Caching...</span>
+          <span className="text-zinc-300">Preparing...</span>
         </>
       ) : (
         <>
           <CheckCircle2 className="size-3.5 text-emerald-400" />
-          <span className="text-emerald-100">Available Offline</span>
+          <span className="text-emerald-100">Ready to open</span>
         </>
       )}
     </div>

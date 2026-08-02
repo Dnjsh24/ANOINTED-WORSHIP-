@@ -12,10 +12,30 @@ import {
   resolveSetlistEventType,
 } from "@/lib/domain/event-types";
 import type { EventType, Setlist } from "@/lib/types";
-import { DndContext, useDraggable, useDroppable } from "@dnd-kit/core";
+import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core";
 import { Trash2 } from "lucide-react";
 
-function DraggableSong({ song }: { song: any }) {
+export type SetlistFormSong = {
+  id: string;
+  title: string;
+  original_key: string;
+  bpm: number | null;
+};
+
+function isSetlistFormSong(value: unknown): value is SetlistFormSong {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      "id" in value &&
+      typeof value.id === "string" &&
+      "title" in value &&
+      typeof value.title === "string" &&
+      "original_key" in value &&
+      typeof value.original_key === "string",
+  );
+}
+
+function DraggableSong({ song }: { song: SetlistFormSong }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: `song-${song.id}`,
     data: song,
@@ -29,7 +49,7 @@ function DraggableSong({ song }: { song: any }) {
   );
 }
 
-function DroppableZone({ selectedSongs, onRemove }: { selectedSongs: any[], onRemove: (id: string) => void }) {
+function DroppableZone({ selectedSongs, onRemove }: { selectedSongs: SetlistFormSong[]; onRemove: (id: string) => void }) {
   const { isOver, setNodeRef } = useDroppable({ id: "setlist-dropzone" });
   return (
     <div className="mt-4">
@@ -73,7 +93,7 @@ export function SetlistForm({
   eventId?: string;
   initialEventType?: EventType;
   templateId?: string;
-  songs?: any[];
+  songs?: SetlistFormSong[];
   }) {
   const action = setlist ? updateSetlistAction : createSetlistAction;
   const [state, formAction] = useActionState(action, initialActionState);
@@ -83,20 +103,20 @@ export function SetlistForm({
   const [location] = useState(setlist?.location ?? "Main Sanctuary");
   const [callTime] = useState(toTimeValue(setlist?.callTime) ?? "09:00");
   const [rehearsalTime] = useState(toTimeValue(setlist?.rehearsalTime) ?? "08:00");
-  const [selectedSongs, setSelectedSongs] = useState<any[]>([]);
+  const [selectedSongs, setSelectedSongs] = useState<SetlistFormSong[]>([]);
 
-  function handleDragEnd(event: any) {
+  function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (over && over.id === "setlist-dropzone") {
        const song = active.data.current;
-       if (!selectedSongs.some(s => s.id === song.id)) {
+       if (isSetlistFormSong(song) && !selectedSongs.some(s => s.id === song.id)) {
          setSelectedSongs([...selectedSongs, song]);
        }
     }
   }
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
+    <DndContext id="setlist-form-dnd" onDragEnd={handleDragEnd}>
       <div className="animate-fade-in">
         <form action={formAction} className="space-y-6">
           {setlist && <input type="hidden" name="setlistId" value={setlist.id} />}

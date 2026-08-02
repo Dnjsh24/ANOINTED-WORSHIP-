@@ -2,11 +2,10 @@
 
 import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Song } from "@/lib/types";
-import { ChevronDown, Folder, Plus, Search, SlidersHorizontal, Loader2, X, Music, CheckCircle2 } from "lucide-react";
+import { Plus, Search, SlidersHorizontal, Loader2, X, Music, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addMultipleSetlistSongsAction } from "@/app/actions";
 

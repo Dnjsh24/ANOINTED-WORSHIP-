@@ -1,10 +1,11 @@
 "use client";
 
-import { Download, FileText, Image as ImageIcon, Menu, MoreVertical, MoreHorizontal, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X, Info, CalendarClock } from "lucide-react";
+import { Download, FileText, Image as ImageIcon, Menu, MoreHorizontal, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X, Info, CalendarClock } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { addChannelMemberAction, createChannelAction, getOrCreateDirectChannelAction, leaveChannelAction, removeChannelMemberAction, sendMessageAction, updateChannelPreferenceAction, markMessagesReadAction } from "@/app/actions";
+import { addChannelMemberAction, createChannelAction, getOrCreateDirectChannelAction, leaveChannelAction, removeChannelMemberAction, sendMessageAction, markMessagesReadAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,9 +14,9 @@ import { initialActionState } from "@/lib/action-state";
 import { fileKindLabel, formatFileSize, inferPracticeFileMimeType, isImageMimeType, storagePath, validatePracticeFile } from "@/lib/domain/files";
 import type { Message } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { createOptionalClient } from "@/lib/supabase/client";
 
-type Channel = {
+export type MessagesChannel = {
   id: string;
   name: string;
   type?: string;
@@ -26,7 +27,7 @@ type Channel = {
   avatarUrl?: string | null;
 };
 
-type TeamMember = {
+export type MessagesTeamMember = {
   memberId: string;
   profileId: string;
   fullName: string;
@@ -35,7 +36,7 @@ type TeamMember = {
   avatarUrl?: string | null;
 };
 
-type ChannelMembership = {
+export type MessagesChannelMembership = {
   channelId: string;
   memberId: string;
 };
@@ -63,19 +64,20 @@ export function MessagesClient({
   role,
   allChannelMemberships = [],
 }: {
-  channels: Channel[];
-  teamMembers?: TeamMember[];
+  channels: MessagesChannel[];
+  teamMembers?: MessagesTeamMember[];
   currentMemberId: string;
   currentProfileId: string;
   teamId: string;
   role: string;
-  allChannelMemberships?: ChannelMembership[];
+  allChannelMemberships?: MessagesChannelMembership[];
 }) {
   const router = useRouter();
   const [activeChannelId, setActiveChannelId] = useState(channels[0]?.id || "");
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [channelList, setChannelList] = useState(channels);
-  const [memberships, setMemberships] = useState<ChannelMembership[]>(allChannelMemberships);
+  const [previousChannels, setPreviousChannels] = useState(channels);
+  const [memberships, setMemberships] = useState<MessagesChannelMembership[]>(allChannelMemberships);
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
@@ -99,6 +101,15 @@ export function MessagesClient({
   const [onlineMemberIds, setOnlineMemberIds] = useState<string[]>([]);
 
   useEffect(() => {
+    if (!sidebarExpanded) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSidebarExpanded(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [sidebarExpanded]);
+
+  useEffect(() => {
     return () => {
       if (selectedAttachment?.previewUrl) {
         URL.revokeObjectURL(selectedAttachment.previewUrl);
@@ -107,7 +118,8 @@ export function MessagesClient({
   }, [selectedAttachment]);
 
   useEffect(() => {
-    const supabase = createClient();
+    const supabase = createOptionalClient();
+    if (!supabase) return;
     const presenceChannel = supabase.channel(`online-presence-${activeChannelId}`, {
       config: { presence: { key: currentMemberId } }
     });
@@ -167,7 +179,8 @@ export function MessagesClient({
 
   // Subscribe to real-time message inserts — runs once only (no channelList dep)
   useEffect(() => {
-    const supabase = createClient();
+    const supabase = createOptionalClient();
+    if (!supabase) return;
 
     const realtimeChannel = supabase
       .channel("messages-realtime", { config: { broadcast: { self: false } } })
@@ -269,13 +282,14 @@ export function MessagesClient({
     };
   }, [router]);
 
-  // Sync channel list when server re-fetches (e.g. navigation)
-  useEffect(() => {
+  // Adjust local state before children render when the server sends a new list.
+  if (channels !== previousChannels) {
+    setPreviousChannels(channels);
     setChannelList(channels);
     if (channels.length > 0 && !activeChannelId) {
       setActiveChannelId(channels[0].id);
     }
-  }, [channels]);
+  }
 
   const activeChannel = channelList.find((channel) => channel.id === activeChannelId) ?? channelList[0] ?? { id: "", name: "No Channel", membersOnline: 0, preview: "", messages: [] };
   const activeMessageCount = activeChannel.messages.length;
@@ -318,7 +332,7 @@ export function MessagesClient({
         markMessagesReadAction(activeChannelId, []);
       });
     }
-  }, [activeChannelId, activeMessageCount, currentProfileId]);
+  }, [activeChannel.messages, activeChannelId, activeMessageCount, currentProfileId]);
 
   const activeChannelFiles = useMemo(() => {
     const seen = new Set<string>();
@@ -420,7 +434,10 @@ export function MessagesClient({
       throw new Error("Sign in with Supabase to attach files.");
     }
 
-    const supabase = createClient();
+    const supabase = createOptionalClient();
+    if (!supabase) {
+      throw new Error("Sign in with Supabase to attach files.");
+    }
     const objectId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`;
     const mimeType = inferPracticeFileMimeType(attachment.file);
     const path = storagePath(teamId, "messages", objectId, attachment.file.name);
@@ -477,7 +494,7 @@ export function MessagesClient({
         const exists = channelList.some((c) => c.id === chanId);
         if (!exists) {
           const member = teamMembers.find((m) => m.memberId === otherMemberId);
-          const nextChannel: Channel = {
+          const nextChannel: MessagesChannel = {
             id: chanId,
             name: member ? member.fullName : "Direct Message",
             membersOnline: 2,
@@ -626,14 +643,6 @@ export function MessagesClient({
     });
   }
 
-  async function toggleMute(muted: boolean) {
-    const formData = new FormData();
-    formData.set("channelId", activeChannel.id);
-    formData.set("muted", String(muted));
-    const result = await updateChannelPreferenceAction(formData);
-    setStatus(result.message);
-  }
-
   async function leaveChannel() {
     const formData = new FormData();
     formData.set("channelId", activeChannel.id);
@@ -642,7 +651,7 @@ export function MessagesClient({
   }
 
   return (
-    <div className="relative flex h-[calc(100dvh-120px-env(safe-area-inset-bottom))] md:h-[calc(100dvh-8rem)] min-h-[400px] md:min-h-[600px] overflow-hidden rounded-lg border border-white/10 bg-[#111014]">
+    <div className="relative flex w-full max-w-full h-[calc(100dvh-120px-env(safe-area-inset-bottom))] md:h-[calc(100dvh-8rem)] min-h-[400px] md:min-h-[600px] overflow-hidden rounded-lg border border-white/10 bg-[#111014]">
       <aside
         className={cn(
           "transition-all duration-300 bg-[#201f24] flex flex-col border-r border-white/10 shrink-0 h-full overflow-y-auto absolute z-20 md:static md:translate-x-0",
@@ -780,7 +789,7 @@ export function MessagesClient({
         />
       )}
 
-      <section aria-label={`${activeChannel.name} conversation`} className="flex flex-1 flex-col h-full overflow-hidden bg-[#111014] relative z-0">
+      <section aria-label={`${activeChannel.name} conversation`} className="relative z-0 flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-[#111014]">
         <header className="flex h-16 items-center justify-between border-b border-white/10 bg-[#1d1b20] px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <button
@@ -939,7 +948,7 @@ export function MessagesClient({
                         {message.reads.filter(r => r.profileId !== currentProfileId).slice(0, 4).map((read, i) => (
                           <div key={read.profileId} className={cn("size-[18px] rounded-full border border-[#111014] bg-zinc-800 shrink-0 shadow-sm", i > 0 && "-ml-1.5")}>
                             {read.avatarUrl ? (
-                              <img src={read.avatarUrl} alt={read.fullName || "User"} className="size-full rounded-full object-cover" />
+                              <Image unoptimized width={18} height={18} src={read.avatarUrl} alt={read.fullName || "User"} className="size-full rounded-full object-cover" />
                             ) : (
                               <div className="flex size-full items-center justify-center rounded-full bg-violet-600 text-[8px] font-bold text-white uppercase">
                                 {(read.fullName || "U")[0]}
@@ -1011,7 +1020,11 @@ export function MessagesClient({
               {/* Scroll anchor — realtime messages scroll here */}
               <div ref={bottomRef} />
             </div>
-            {status && <p className="px-4 pb-2 text-sm font-bold text-emerald-300">{status}</p>}
+            {status && (
+              <p role="status" aria-live="polite" className="px-4 pb-2 text-sm font-bold text-emerald-300">
+                {status}
+              </p>
+            )}
             <div className="border-t border-white/10 bg-[#111014] p-4">
               {replyingTo && (
                 <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2">

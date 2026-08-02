@@ -1,34 +1,89 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
+import Image from "next/image";
+import { createOptionalClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { defaultPresentationSettings, entranceMotionClass, exitMotionClass, resolveBlockMotion, resolveSceneLayerMotion, type LiveProp, type PresentationSlide, type PresentationSettings, type SceneLayer } from "@/lib/domain/presentation";
 import { decodeAudienceLookLayout, type AudienceLookLayout } from "@/lib/desktop/audience-looks";
 import { DesktopLiveSource } from "@/components/desktop-live-source";
+import { PdfPageCanvas } from "@/components/pdf-page-canvas";
 import { ProjectorBackground } from "./projector-background";
+
+type ProjectorOutputMode = "slide" | "clear" | "black" | "logo";
+
+export type ProjectorLiveState = {
+  slide?: PresentationSlide | null;
+  outputMode?: ProjectorOutputMode;
+  liveProp?: LiveProp | null;
+};
+
+type ProjectorSyncPayload = ProjectorLiveState & {
+  settings?: PresentationSettings;
+  slideSettings?: { backgroundType?: string; backgroundValue?: string } | null;
+};
 
 function LivePropOverlay({ prop }: { prop: LiveProp | null }) {
   if (!prop) return null;
-  if (prop.kind === "logo" && prop.imageUrl) return <img src={prop.imageUrl} alt="" className="fixed right-10 top-10 z-[100] max-h-28 max-w-48 object-contain" />;
+  if (prop.kind === "logo" && prop.imageUrl) return <Image unoptimized width={192} height={112} src={prop.imageUrl} alt="" className="fixed right-10 top-10 z-[100] h-auto w-auto max-h-28 max-w-48 object-contain" />;
   const alert = prop.kind === "alert";
   return <div className={`fixed bottom-10 left-10 z-[100] max-w-[70vw] rounded-lg px-8 py-5 shadow-2xl ${alert ? "animate-pulse" : ""}`} style={{ backgroundColor: prop.backgroundColor || (alert ? "#b91c1c" : "#111827"), color: prop.color || "#ffffff" }}><p className="text-3xl font-black">{prop.text}</p>{prop.subtitle && <p className="mt-1 text-xl opacity-85">{prop.subtitle}</p>}</div>;
 }
 
-export default function ProjectorClient({ setlistId, initialSettings, initialLiveState = {} }: { setlistId: string, initialSettings?: PresentationSettings; initialLiveState?: Record<string, any> }) {
+export default function ProjectorClient({ setlistId, initialSettings, initialLiveState = {} }: { setlistId: string, initialSettings?: PresentationSettings; initialLiveState?: ProjectorLiveState }) {
   const [activeSlide, setActiveSlide] = useState<PresentationSlide | null>(initialLiveState.slide || null);
   const [prevSlide, setPrevSlide] = useState<PresentationSlide | null>(null);
   const [settings, setSettings] = useState<PresentationSettings>(initialSettings || defaultPresentationSettings);
   const [slideSettings, setSlideSettings] = useState<{ backgroundType?: string; backgroundValue?: string } | null>(null);
+  const [resolvedSlideSettings, setResolvedSlideSettings] = useState<{ backgroundType?: string; backgroundValue?: string } | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [outputMode, setOutputMode] = useState<"slide" | "clear" | "black" | "logo">(initialLiveState.outputMode || "clear");
+  const [outputMode, setOutputMode] = useState<ProjectorOutputMode>(initialLiveState.outputMode || "clear");
   const [liveProp, setLiveProp] = useState<LiveProp | null>(initialLiveState.liveProp || null);
   const [lookLayout] = useState<AudienceLookLayout>(() => {
     if (typeof window === "undefined") return decodeAudienceLookLayout(undefined, "Main Projection");
     const parameters = new URLSearchParams(window.location.search);
     return decodeAudienceLookLayout(parameters.get("lookLayout"), parameters.get("look") || "Main Projection");
   });
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = useMemo(() => createOptionalClient(), []);
+
+  useEffect(() => {
+    let active = true;
+    if (slideSettings?.backgroundType !== "image" || !slideSettings.backgroundValue) {
+      queueMicrotask(() => {
+        if (active) setResolvedSlideSettings(slideSettings);
+      });
+      return () => { active = false; };
+    }
+
+    const objectPath = slideSettings.backgroundValue;
+    if (/^(?:https?:\/\/|\/)/i.test(objectPath)) {
+      queueMicrotask(() => {
+        if (active) setResolvedSlideSettings(slideSettings);
+      });
+      return () => { active = false; };
+    }
+
+    if (!supabase) {
+      queueMicrotask(() => {
+        if (active) setResolvedSlideSettings(null);
+      });
+      return () => { active = false; };
+    }
+
+    void supabase.storage
+      .from("presentation-media")
+      .createSignedUrl(objectPath, 15 * 60)
+      .then(({ data, error }) => {
+        if (!active) return;
+        setResolvedSlideSettings(
+          !error && data?.signedUrl
+            ? { ...slideSettings, backgroundValue: data.signedUrl }
+            : null,
+        );
+      });
+
+    return () => { active = false; };
+  }, [slideSettings, supabase]);
 
   useEffect(() => {
     if (window.anointedDesktop) void window.anointedDesktop.markOutputReady("projector");
@@ -58,7 +113,7 @@ export default function ProjectorClient({ setlistId, initialSettings, initialLiv
   useEffect(() => {
     if (window.anointedDesktop) {
       const channel = new BroadcastChannel(`setlist_${setlistId}`);
-      const receive = (message: MessageEvent<{ event?: string; payload?: any }>) => {
+      const receive = (message: MessageEvent<{ event?: string; payload?: ProjectorSyncPayload }>) => {
         if (message.data?.event !== "projector_sync") return;
         const payload = message.data.payload;
         if (!payload) return;
@@ -70,29 +125,32 @@ export default function ProjectorClient({ setlistId, initialSettings, initialLiv
       };
       channel.addEventListener("message", receive);
       channel.postMessage({ event: "presentation_state_request", payload: { output: "projector" } });
-      setIsConnected(true);
+      queueMicrotask(() => setIsConnected(true));
       return () => { channel.removeEventListener("message", receive); channel.close(); };
     }
+
+    if (!supabase) return;
 
     const channel = supabase.channel(`setlist_${setlistId}`);
 
     channel
-      .on("broadcast", { event: "projector_sync" }, (payload: any) => {
-        if (payload.payload) {
-          if (payload.payload.settings) {
-            setSettings(payload.payload.settings);
+      .on("broadcast", { event: "projector_sync" }, (message) => {
+        const payload = message.payload as ProjectorSyncPayload | undefined;
+        if (payload) {
+          if (payload.settings) {
+            setSettings(payload.settings);
           }
-          if (payload.payload.slideSettings !== undefined) {
-            setSlideSettings(payload.payload.slideSettings);
+          if (payload.slideSettings !== undefined) {
+            setSlideSettings(payload.slideSettings);
           }
-          if (payload.payload.outputMode) {
-            setOutputMode(payload.payload.outputMode);
+          if (payload.outputMode) {
+            setOutputMode(payload.outputMode);
           }
-          if (payload.payload.liveProp !== undefined) setLiveProp(payload.payload.liveProp);
-          if (payload.payload.slide !== undefined) {
-            const newSlide = payload.payload.slide as PresentationSlide | null;
+          if (payload.liveProp !== undefined) setLiveProp(payload.liveProp);
+          if (payload.slide !== undefined) {
+            const newSlide = payload.slide;
             setActiveSlide(curr => {
-              if (curr && newSlide && curr.id !== newSlide.id && payload.payload.settings?.slideTransition !== "None") {
+              if (curr && newSlide && curr.id !== newSlide.id && payload.settings?.slideTransition !== "None") {
                 setPrevSlide(curr);
                 setTimeout(() => {
                   setPrevSlide(null);
@@ -158,14 +216,14 @@ export default function ProjectorClient({ setlistId, initialSettings, initialLiv
     }
   };
 
-  const backgroundLayer = <ProjectorBackground settings={settings} slideSettings={slideSettings} />;
+  const backgroundLayer = <ProjectorBackground settings={settings} slideSettings={resolvedSlideSettings} />;
 
   if (outputMode === "black") {
     return <>{backgroundLayer}<div className="fixed inset-0 bg-black" /><LivePropOverlay prop={lookLayout.showProps ? liveProp : null} /></>;
   }
 
   if (outputMode === "logo") {
-    return <>{backgroundLayer}<div className="fixed inset-0 flex items-center justify-center bg-black"><img src="/brand/anointed-worship-logo-transparent.png" alt="Anointed Worship" className="max-h-[42vh] max-w-[42vw] object-contain opacity-90" /></div><LivePropOverlay prop={lookLayout.showProps ? liveProp : null} /></>;
+    return <>{backgroundLayer}<div className="fixed inset-0 flex items-center justify-center bg-black"><Image width={1024} height={1024} src="/brand/anointed-worship-logo-transparent.png" alt="Anointed Worship" className="h-auto w-auto max-h-[42vh] max-w-[42vw] object-contain opacity-90" /></div><LivePropOverlay prop={lookLayout.showProps ? liveProp : null} /></>;
   }
 
   if (!activeSlide || outputMode === "clear") {
@@ -219,11 +277,36 @@ export default function ProjectorClient({ setlistId, initialSettings, initialLiv
   );
 }
 
-function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, getExitClass, getCurveValue, getAlignmentClass, lookLayout }: any) {
+function SlideRenderer({
+  slide,
+  settings,
+  transitionClass,
+  getEntranceClass,
+  getExitClass,
+  getCurveValue,
+  getAlignmentClass,
+  lookLayout,
+}: {
+  slide: PresentationSlide;
+  settings: PresentationSettings;
+  transitionClass: string;
+  getEntranceClass: (effect: string) => string;
+  getExitClass: (effect: string) => string;
+  getCurveValue: (curve: string) => string;
+  getAlignmentClass: () => string;
+  lookLayout: AudienceLookLayout;
+}) {
+  if (slide.mediaKind === "pdf-page" && slide.mediaUrl && slide.pdfPage) {
+    return (
+      <div className={cn("fixed inset-0 overflow-hidden", transitionClass)} style={{ animationDuration: "0.5s" }}>
+        <PdfPageCanvas url={slide.mediaUrl} pageNumber={slide.pdfPage} label={`${slide.sectionLabel || "PDF"} page ${slide.pdfPage}`} />
+      </div>
+    );
+  }
   // Handle PDF/Image slides if they are passed as 'media'
   if (slide.mediaUrl) {
     return (
-       <div className={cn("fixed inset-0 flex items-center justify-center overflow-hidden transition-colors duration-300", transitionClass)} style={{ animationDuration: '0.5s' }}>
+       <div className={cn("fixed inset-0 flex items-center justify-center overflow-hidden bg-black transition-colors duration-300", transitionClass)} style={{ animationDuration: '0.5s' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img 
              src={slide.mediaUrl} 
@@ -251,7 +334,7 @@ function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, get
         return <div key={layer.id} className={cn("absolute overflow-hidden", entrance && "fill-mode-both", entrance)} style={{ left: `${layer.x}%`, top: `${layer.y}%`, width: `${layer.width}%`, height: `${layer.height}%`, transform: `rotate(${layer.rotation}deg)`, zIndex: 5 + (layer.zIndex ?? index), borderRadius: layer.shapeType === "ellipse" ? "50%" : `${layer.borderRadius || 0}px`, clipPath: layer.shapeType === "triangle" ? "polygon(50% 0, 100% 100%, 0 100%)" : undefined, backgroundColor: layer.kind === "shape" ? layer.backgroundColor : undefined, animationDelay: entrance ? `${(layer.startTime || 0) + motion.entranceDelay}s` : undefined, animationDuration: entrance ? `${motion.entranceDuration}s` : undefined }}>
           <div className={cn("h-full w-full", exit && "fill-mode-forwards", exit)} style={{ animationDelay: exit && layer.duration ? `${exitDelay}s` : undefined, animationDuration: exit ? `${motion.exitDuration}s` : undefined }}>
             {layer.kind === "text" && <div className="h-full w-full whitespace-pre-wrap" style={{ color: layer.color || "#ffffff", backgroundColor: layer.backgroundColor === "#000000" ? undefined : layer.backgroundColor, fontSize: `${layer.fontSize || 56}pt` }}>{layer.text || "Text"}</div>}
-            {layer.kind === "image" && layer.mediaUrl && <img src={layer.mediaUrl} alt="" className="h-full w-full object-contain" />}
+            {layer.kind === "image" && layer.mediaUrl && <Image unoptimized fill sizes="100vw" src={layer.mediaUrl} alt="" className="object-contain" />}
             {layer.kind === "video" && layer.mediaUrl && <video src={layer.mediaUrl} className="h-full w-full object-cover" autoPlay loop muted playsInline />}
             {layer.kind === "live-camera" && <DesktopLiveSource kind="live-camera" sourceId={layer.captureSourceId} />}
             {layer.kind === "live-screen" && <DesktopLiveSource kind="live-screen" sourceId={layer.captureSourceId} />}
@@ -261,12 +344,12 @@ function SlideRenderer({ slide, settings, transitionClass, getEntranceClass, get
       {lookLayout.showLyrics && (slide.blocks && slide.blocks.length > 0 ? (
         <div className={cn("relative w-full h-full", lookLayout.lyricStyle === "lower-third" && "absolute bottom-12 left-0 right-0 h-[32%] bg-black/60 p-8")}>
           {(() => {
-            const maxBlockLength = Math.max(...(slide.blocks || []).map((b: any) => b.text.length), 1);
+            const maxBlockLength = Math.max(...(slide.blocks || []).map((block) => block.text.length), 1);
             const hFit = 2200 / maxBlockLength;
             const vFit = 810 / (Math.max(1, slide.blocks?.length || 1) * 1.3);
             const maxAllowedFontSize = Math.min(hFit, vFit);
 
-            return slide.blocks.map((block: any, index: number) => {
+            return slide.blocks.map((block, index) => {
               const effectiveFontFamily = block.fontFamily || settings.fontFamily;
               // Respect block-level explicit overrides without capping, cap otherwise
               const effectiveFontSize = block.fontSize !== undefined 

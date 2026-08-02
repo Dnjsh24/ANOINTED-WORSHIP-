@@ -4,18 +4,19 @@ import { Check, Copy, RefreshCw, UserPlus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, useEffect } from "react";
-import { regenerateTeamCodeAction, reviewJoinRequestAction, updateMemberRoleAction, removeTeamMemberAction, bulkApproveJoinRequestsAction } from "@/app/actions";
+import { bulkApproveJoinRequestsAction, regenerateTeamCodeAction, removeTeamMemberAction, reviewJoinRequestAction, transferTeamOwnershipAction, updateMemberRoleAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
-import { Card, Panel } from "@/components/ui/card";
+import { Panel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
 import {
   joinRequestWithRequesterProfileSelect,
   normalizeJoinRequest,
   type RawJoinRequest,
 } from "@/lib/domain/join-requests";
-import { createClient } from "@/lib/supabase/client";
+import { createOptionalClient } from "@/lib/supabase/client";
 import { teamRoles, type JoinRequestSummary, type TeamMember, type TeamRole, type CustomRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -24,19 +25,23 @@ export function MembersClient({
   pendingRequests,
   teamCode,
   teamId,
+  currentUserRole,
   customRoles = [],
 }: {
   members: TeamMember[];
   pendingRequests: JoinRequestSummary[];
   teamCode: string;
   teamId: string | null;
+  currentUserRole: TeamRole | string;
   customRoles?: CustomRole[];
 }) {
   const router = useRouter();
   const [requests, setRequests] = useState(pendingRequests);
+  const [previousPendingRequests, setPreviousPendingRequests] = useState(pendingRequests);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [memberList, setMemberList] = useState(members);
+  const [previousMembers, setPreviousMembers] = useState(members);
   const [roleValues, setRoleValues] = useState<Record<string, TeamRole>>(() =>
     Object.fromEntries(members.map((member) => [member.id, member.role])) as Record<string, TeamRole>,
   );
@@ -45,6 +50,10 @@ export function MembersClient({
   const [onlineMemberUserIds, setOnlineMemberUserIds] = useState<string[]>([]);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set());
+  const memberDialogRef = useAccessibleDialog({
+    open: selectedMember !== null,
+    onClose: () => setSelectedMember(null),
+  });
 
   function toggleRequest(id: string) {
     const next = new Set(selectedRequests);
@@ -70,17 +79,26 @@ export function MembersClient({
     });
   }
 
-  useEffect(() => {
+  if (pendingRequests !== previousPendingRequests) {
+    setPreviousPendingRequests(pendingRequests);
     setRequests(pendingRequests);
-  }, [pendingRequests]);
+  }
+
+  if (members !== previousMembers) {
+    setPreviousMembers(members);
+    setMemberList(members);
+    setRoleValues(Object.fromEntries(members.map((member) => [member.id, member.role])));
+  }
 
   useEffect(() => {
     if (!teamId) return;
 
     const activeTeamId = teamId;
-    const supabase = createClient();
+    const supabase = createOptionalClient();
+    if (!supabase) return;
+    const client = supabase;
     async function refreshPendingRequests() {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from("join_requests")
         .select(joinRequestWithRequesterProfileSelect)
         .eq("team_id", activeTeamId)
@@ -96,7 +114,7 @@ export function MembersClient({
       router.refresh();
     }
 
-    const channel = supabase
+    const channel = client
       .channel(`team-join-requests-${activeTeamId}`)
       .on(
         "postgres_changes",
@@ -107,7 +125,7 @@ export function MembersClient({
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { client.removeChannel(channel); };
   }, [router, teamId]);
 
   useEffect(() => {
@@ -118,17 +136,12 @@ export function MembersClient({
 
     window.addEventListener("online-users-changed", handleOnlineUsersChanged);
 
-    if ((window as any).__onlineUsers) {
-      setOnlineMemberUserIds((window as any).__onlineUsers);
+    if (window.__onlineUsers) {
+      queueMicrotask(() => setOnlineMemberUserIds(window.__onlineUsers ?? []));
     }
 
     return () => { window.removeEventListener("online-users-changed", handleOnlineUsersChanged); };
   }, []);
-
-  useEffect(() => {
-    setMemberList(members);
-    setRoleValues(Object.fromEntries(members.map((member) => [member.id, member.role])));
-  }, [members]);
 
   const filteredMembers = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -184,6 +197,28 @@ export function MembersClient({
     });
   }
 
+  function transferOwnership(member: TeamMember) {
+    if (!window.confirm(`Transfer team ownership to ${member.profile.fullName}? You will become an admin.`)) return;
+
+    const formData = new FormData();
+    formData.set("memberId", member.id);
+    startTransition(async () => {
+      const result = await transferTeamOwnershipAction(formData);
+      setStatus(result.message);
+      if (result.ok) {
+        setMemberList((current) => current.map((item) => ({
+          ...item,
+          role: item.id === member.id ? "owner" : item.role === "owner" ? "admin" : item.role,
+        })));
+        setRoleValues((current) => Object.fromEntries(
+          Object.entries(current).map(([id, role]) => [id, id === member.id ? "owner" : role === "owner" ? "admin" : role]),
+        ) as Record<string, TeamRole>);
+        setSelectedMember((current) => current?.id === member.id ? { ...current, role: "owner" } : current);
+        router.refresh();
+      }
+    });
+  }
+
   const roleCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     teamRoles.forEach((role) => { counts[role] = 0; });
@@ -213,7 +248,7 @@ export function MembersClient({
         </ButtonLink>
       </div>
 
-      {status && <p className="mt-4 text-sm font-bold text-emerald-300">{status}</p>}
+      {status && <p aria-live="polite" className="mt-4 text-sm font-bold text-emerald-300">{status}</p>}
 
       {/* 3-Column main layout */}
       <section className="mt-7 grid gap-6 lg:grid-cols-[300px_1fr_300px]">
@@ -358,7 +393,12 @@ export function MembersClient({
 
                   return (
                     <div key={member.id} className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_32px] items-center px-4 py-3 text-xs font-semibold group">
-                      <button onClick={() => setSelectedMember(member)} className="flex items-center gap-3 hover:text-violet-300 transition-colors min-w-0 text-left">
+                      <button
+                        type="button"
+                        aria-label={`View ${member.profile.fullName}`}
+                        onClick={() => setSelectedMember(member)}
+                        className="flex items-center gap-3 hover:text-violet-300 transition-colors min-w-0 text-left"
+                      >
                         <Avatar name={member.profile.fullName} src={member.profile.avatarUrl} className="size-8" />
                         <span className="min-w-0">
                           <span className="block font-bold text-white truncate">{member.profile.fullName}</span>
@@ -375,11 +415,14 @@ export function MembersClient({
                       <select
                         aria-label={`Role for ${member.profile.fullName}`}
                         value={roleValues[member.id] ?? member.role}
-                        disabled={isPending}
+                        disabled={isPending || member.role === "owner"}
                         onChange={(event) => updateRole(member.id, event.target.value as TeamRole)}
                         className="h-8 w-full max-w-[130px] rounded-lg border border-white/10 bg-white/[0.04] px-2 text-[11px] font-bold text-white outline-none focus:border-violet-400"
                       >
-                        {teamRoles.map((role) => (
+                        {member.role === "owner" && (
+                          <option value="owner" className="bg-[#111014] text-white">owner</option>
+                        )}
+                        {teamRoles.filter((role) => role !== "owner").map((role) => (
                           <option key={role} value={role} className="bg-[#111014] text-white">
                             {role.replace("_", " ")}
                           </option>
@@ -400,7 +443,7 @@ export function MembersClient({
                       <span className="font-bold text-zinc-200 pl-4">{member.attendanceRate}%</span>
                       <button
                         type="button"
-                        disabled={isPending}
+                        disabled={isPending || member.role === "owner"}
                         onClick={() => kickMember(member.id)}
                         className="flex size-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition ml-auto opacity-0 group-hover:opacity-100 disabled:opacity-50"
                         aria-label={`Remove ${member.profile.fullName}`}
@@ -462,15 +505,27 @@ export function MembersClient({
       {selectedMember && (
         <div className="fixed inset-0 z-[100] flex justify-end">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedMember(null)} />
-          <div className="relative w-full max-w-sm bg-[#0a0a0a] border-l border-white/10 h-full animate-slide-in-right overflow-y-auto">
+          <div
+            ref={memberDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="member-profile-title"
+            tabIndex={-1}
+            className="relative w-full max-w-sm bg-[#0a0a0a] border-l border-white/10 h-full animate-slide-in-right overflow-y-auto"
+          >
             <div className="p-6">
-              <button className="absolute top-4 right-4 text-zinc-400 hover:text-white" onClick={() => setSelectedMember(null)}>
+              <button
+                type="button"
+                aria-label="Close member profile"
+                className="absolute top-4 right-4 text-zinc-400 hover:text-white"
+                onClick={() => setSelectedMember(null)}
+              >
                 <X className="size-5" />
               </button>
               
               <div className="text-center mt-6">
                 <Avatar name={selectedMember.profile.fullName} src={selectedMember.profile.avatarUrl} className="size-24 mx-auto text-3xl" />
-                <h2 className="mt-4 text-2xl font-bold">{selectedMember.profile.fullName}</h2>
+                <h2 id="member-profile-title" className="mt-4 text-2xl font-bold">{selectedMember.profile.fullName}</h2>
                 <p className="text-zinc-400">{selectedMember.profile.email}</p>
               </div>
               
@@ -504,6 +559,16 @@ export function MembersClient({
               </div>
               
               <div className="mt-8">
+                {currentUserRole === "owner" && selectedMember.role !== "owner" && (
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => transferOwnership(selectedMember)}
+                    className="mb-3 flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 text-sm font-bold text-amber-200 transition hover:bg-amber-400/20 disabled:opacity-50"
+                  >
+                    Transfer ownership
+                  </button>
+                )}
                 <ButtonLink href={`/members/${selectedMember.id}`} className="w-full justify-center">
                   Full Profile
                 </ButtonLink>

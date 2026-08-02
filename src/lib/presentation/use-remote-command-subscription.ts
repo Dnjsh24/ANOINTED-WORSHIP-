@@ -16,8 +16,8 @@ type RemoteChannelClient<TChannel> = {
 };
 
 export function useRemoteCommandSubscription<TChannel extends RemoteCommandChannel>(
-  channel: TChannel,
-  client: RemoteChannelClient<TChannel>,
+  channel: TChannel | null,
+  client: RemoteChannelClient<TChannel> | null,
   onCommand: (candidate: unknown) => void | Promise<void>,
 ) {
   const commandHandlerRef = useRef(onCommand);
@@ -27,6 +27,8 @@ export function useRemoteCommandSubscription<TChannel extends RemoteCommandChann
   }, [onCommand]);
 
   useEffect(() => {
+    if (!channel || !client) return;
+
     const cloudListener = (event: { payload: unknown }) => {
       void commandHandlerRef.current(event.payload);
     };

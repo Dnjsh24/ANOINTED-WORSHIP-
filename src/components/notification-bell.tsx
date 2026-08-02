@@ -2,14 +2,16 @@
 
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useMemo, useState } from "react";
+import { createOptionalClient } from "@/lib/supabase/client";
 
 export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
-  const supabase = createClient();
+  const supabase = useMemo(() => createOptionalClient(), []);
 
   useEffect(() => {
+    if (!supabase) return;
+
     const fetchUnreadCount = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -24,7 +26,7 @@ export function NotificationBell() {
     };
 
     fetchUnreadCount();
-  }, []);
+  }, [supabase]);
 
   return (
     <Button variant="ghost" className="relative !px-2">

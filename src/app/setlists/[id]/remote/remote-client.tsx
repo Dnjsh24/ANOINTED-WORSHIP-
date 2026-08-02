@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  BookOpen,
   ChevronsDown,
   ChevronsUp,
+  FolderOpen,
+  Loader2,
   Moon,
   Music,
   Play,
@@ -14,13 +17,16 @@ import {
   SunMedium,
   Tv2,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createOptionalClient } from "@/lib/supabase/client";
 import {
   newRemoteCommand,
+  isRemoteContentLibrary,
   type RemoteCommandAcknowledgement,
+  type RemoteContentLibrary,
   type RemoteLiveState,
   type RemoteStageFlashStyle,
 } from "@/lib/presentation/control-protocol";
+import { BIBLE_BOOKS, BIBLE_TRANSLATIONS, bibleBookChapterCount, type BibleTranslation } from "@/lib/bible/catalog";
 import { isRemotePairingActive } from "@/lib/presentation/remote-pairing";
 import {
   buildLivePresentationSnapshot,
@@ -28,6 +34,7 @@ import {
   type LivePresentationSnapshot,
 } from "@/lib/presentation/live-snapshot";
 import { useDesktopRemoteChannel } from "@/lib/presentation/use-desktop-remote-channel";
+import { isAllowedLyricShortcut, lyricShortcutLabel, resolveLyricShortcuts } from "@/lib/presentation/lyric-shortcuts";
 
 type Song = { id: string; song: { title: string; lyricsChords: string } };
 type Setlist = {
@@ -39,6 +46,8 @@ type Setlist = {
     draftLyricsBySetlistSongId?: Record<string, string>;
   };
 };
+type RemoteSourcePanel = "lineup" | "presentation" | "bible";
+type BibleVerse = { reference: string; text: string };
 
 const defaultFlashStyle: RemoteStageFlashStyle = {
   fontSize: 56,
@@ -58,6 +67,16 @@ export default function RemoteClient({
   cloudExpiresAt?: string;
 }) {
   const [songIndex, setSongIndex] = useState(0);
+  const [activeSourcePanel, setActiveSourcePanel] = useState<RemoteSourcePanel>("lineup");
+  const [remoteLibrary, setRemoteLibrary] = useState<RemoteContentLibrary | null>(null);
+  const [selectedPresentationId, setSelectedPresentationId] = useState("");
+  const [bibleTranslation, setBibleTranslation] = useState<BibleTranslation>("kjv");
+  const [selectedBibleBook, setSelectedBibleBook] = useState("");
+  const [selectedBibleChapter, setSelectedBibleChapter] = useState<number | null>(null);
+  const [bibleVerses, setBibleVerses] = useState<BibleVerse[]>([]);
+  const [isFetchingBible, setIsFetchingBible] = useState(false);
+  const [bibleError, setBibleError] = useState("");
+  const workspaceRef = useRef<HTMLElement>(null);
   const [live, setLive] = useState<RemoteLiveState | null>(null);
   const [connected, setConnected] = useState(false);
   const [lastStateAt, setLastStateAt] = useState(0);
@@ -69,23 +88,24 @@ export default function RemoteClient({
   const [confidenceDisplayId, setConfidenceDisplayId] = useState("");
   const [pairingExpired, setPairingExpired] = useState(() => !isRemotePairingActive(cloudExpiresAt));
   const [controllerId, setControllerId] = useState("");
+  const [capturingShortcutSlideId, setCapturingShortcutSlideId] = useState("");
   const controllerIdRef = useRef("");
   useEffect(() => {
     const key = "anointed-worship-remote-controller";
     const existing = window.localStorage.getItem(key);
     if (existing) {
       controllerIdRef.current = existing;
-      setControllerId(existing);
+      queueMicrotask(() => setControllerId(existing));
       return;
     }
     const next = crypto.randomUUID();
     window.localStorage.setItem(key, next);
     controllerIdRef.current = next;
-    setControllerId(next);
+    queueMicrotask(() => setControllerId(next));
   }, []);
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = useMemo(() => createOptionalClient(), []);
   const channel = useMemo(
-    () => desktopMode || pairingExpired
+    () => desktopMode || pairingExpired || !supabase
       ? null
       : supabase.channel(
           cloudTopic || `worship-remote:${setlist.id}`,
@@ -122,12 +142,20 @@ export default function RemoteClient({
     }),
   );
   const activeSong = snapshot.items[songIndex];
-  const slides = activeSong?.slides || [];
+  const slides = useMemo(() => activeSong?.slides || [], [activeSong?.slides]);
   const activeIndex = live?.activeSlideId
     ? slides.findIndex((slide) => slide.id === live.activeSlideId)
     : -1;
   const controllerReady = Boolean(live?.controllerReady) && connected;
   const remoteHasControl = controllerReady && live?.controller !== "desktop";
+  const selectedPresentation = remoteLibrary?.presentations.find((presentation) => presentation.id === selectedPresentationId)
+    || remoteLibrary?.presentations[0];
+  const activeShortcutBindings = useMemo(() => {
+    const bindings = remoteLibrary?.lyricShortcuts?.find((item) => item.setlistSongId === activeSong?.setlistSongId)?.bindings;
+    return bindings
+      ? Object.fromEntries(bindings.map((binding) => [binding.slideId, binding.keyCode]))
+      : resolveLyricShortcuts(slides.map((slide) => slide.id), {});
+  }, [activeSong?.setlistSongId, remoteLibrary?.lyricShortcuts, slides]);
 
   useDesktopRemoteChannel(desktopChannel, (event) => {
     if (event.data?.event === "remote_state") {
@@ -138,6 +166,9 @@ export default function RemoteClient({
     }
     if (event.data?.event === "presentation_snapshot" && isLivePresentationSnapshot(event.data.payload)) {
       setSnapshot(event.data.payload);
+    }
+    if (event.data?.event === "remote_library" && isRemoteContentLibrary(event.data.payload) && event.data.payload.setlistId === setlist.id) {
+      setRemoteLibrary(event.data.payload);
     }
     if (event.data?.event === "remote_ack") setLastAcknowledgement(event.data.payload);
   });
@@ -155,16 +186,19 @@ export default function RemoteClient({
     const timer = window.setTimeout(() => setPairingExpired(true), delay);
     return () => window.clearTimeout(timer);
   }, [cloudExpiresAt]);
-  const displays = live?.displays || [];
+  const displays = useMemo(() => live?.displays || [], [live?.displays]);
 
   useEffect(() => {
     if (!displays.length) return;
-    setProjectorDisplayId((current) => current || live?.projectorDisplayId || displays.find((display) => !display.primary)?.id || displays[0].id);
-    setConfidenceDisplayId((current) => current || live?.confidenceDisplayId || displays.find((display) => !display.primary)?.id || displays[0].id);
+    const timer = window.setTimeout(() => {
+      setProjectorDisplayId((current) => current || live?.projectorDisplayId || displays.find((display) => !display.primary)?.id || displays[0].id);
+      setConfidenceDisplayId((current) => current || live?.confidenceDisplayId || displays.find((display) => !display.primary)?.id || displays[0].id);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [displays, live?.confidenceDisplayId, live?.projectorDisplayId]);
 
   useEffect(() => {
-    if (!channel) return;
+    if (!channel || !supabase) return;
     channel
       .on("broadcast", { event: "remote_state" }, (event) => {
         const state = event.payload as RemoteLiveState;
@@ -174,6 +208,9 @@ export default function RemoteClient({
       })
       .on("broadcast", { event: "presentation_snapshot" }, (event) => {
         if (isLivePresentationSnapshot(event.payload)) setSnapshot(event.payload);
+      })
+      .on("broadcast", { event: "remote_library" }, (event) => {
+        if (isRemoteContentLibrary(event.payload) && event.payload.setlistId === setlist.id) setRemoteLibrary(event.payload);
       })
       .on("broadcast", { event: "remote_ack" }, (event) => setLastAcknowledgement(event.payload as RemoteCommandAcknowledgement))
       .subscribe((status) => {
@@ -186,7 +223,7 @@ export default function RemoteClient({
     return () => { supabase.removeChannel(channel); };
   }, [channel, setlist.id, supabase]);
 
-  const send = (
+  const send = useCallback((
     kind: Parameters<typeof newRemoteCommand>[1],
     payload?: Parameters<typeof newRemoteCommand>[2],
   ) => {
@@ -194,11 +231,94 @@ export default function RemoteClient({
     const command = newRemoteCommand(setlist.id, kind, payload, controllerId, snapshot.revision);
     if (desktopChannel) desktopChannel.postMessage({ event: "remote_command", payload: command });
     else channel?.send({ type: "broadcast", event: "remote_command", payload: command });
-  };
+  }, [channel, controllerId, desktopChannel, pairingExpired, setlist.id, snapshot.revision]);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target;
+      const isTyping = target instanceof Element && target.matches("input, textarea, select, [contenteditable='true']");
+
+      if (capturingShortcutSlideId) {
+        if (event.code === "Escape") {
+          event.preventDefault();
+          setCapturingShortcutSlideId("");
+          return;
+        }
+        if (event.code === "Backspace" || event.code === "Delete") {
+          event.preventDefault();
+          send("set-lyric-shortcut", {
+            setlistSongId: activeSong?.setlistSongId,
+            slideId: capturingShortcutSlideId,
+          });
+          setCapturingShortcutSlideId("");
+          return;
+        }
+        if (!isAllowedLyricShortcut(event.code) || !activeSong?.setlistSongId) return;
+        event.preventDefault();
+        send("set-lyric-shortcut", {
+          setlistSongId: activeSong.setlistSongId,
+          slideId: capturingShortcutSlideId,
+          keyCode: event.code,
+        });
+        setCapturingShortcutSlideId("");
+        return;
+      }
+
+      if (isTyping || activeSourcePanel !== "lineup" || !remoteHasControl) return;
+      const slideId = Object.entries(activeShortcutBindings).find(([, keyCode]) => keyCode === event.code)?.[0];
+      if (!slideId) return;
+      event.preventDefault();
+      send("select-slide", { slideId });
+    };
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [activeShortcutBindings, activeSong?.setlistSongId, activeSourcePanel, capturingShortcutSlideId, remoteHasControl, send]);
 
   const selectSong = (index: number) => {
+    setActiveSourcePanel("lineup");
     setSongIndex(index);
     send("select-song", { songIndex: index, setlistSongId: snapshot.items[index]?.setlistSongId });
+  };
+
+  const openSourcePanel = (source: RemoteSourcePanel) => {
+    setActiveSourcePanel(source);
+    if (source !== "lineup" && typeof window !== "undefined" && window.innerWidth < 1024) {
+      window.requestAnimationFrame(() => workspaceRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" }));
+    }
+  };
+
+  const fetchBibleChapter = async (book: string, chapter: number, translation: BibleTranslation = bibleTranslation) => {
+    setSelectedBibleChapter(chapter);
+    setIsFetchingBible(true);
+    setBibleError("");
+    setBibleVerses([]);
+    try {
+      const params = new URLSearchParams({ q: `${book} ${chapter}`, translation });
+      const response = await fetch(`/api/bible?${params}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Bible passage unavailable.");
+      const verses = Array.isArray(data?.verses)
+        ? data.verses.map((verse: { book_name?: string; chapter?: number; verse?: number; text?: string }) => ({
+            reference: `${verse.book_name || book} ${verse.chapter || chapter}:${verse.verse || ""}`.replace(/:$/, ""),
+            text: String(verse.text || "").trim(),
+          })).filter((verse: BibleVerse) => verse.text)
+        : [];
+      if (!verses.length) throw new Error("No verses were found for this chapter.");
+      setBibleVerses(verses);
+    } catch (error) {
+      setBibleError(error instanceof Error ? error.message : "Failed to load this Bible chapter.");
+    } finally {
+      setIsFetchingBible(false);
+    }
+  };
+
+  const presentBibleVerse = (verse: BibleVerse) => {
+    send("present-bible-verse", {
+      reference: verse.reference,
+      text: verse.text,
+      translation: bibleTranslation,
+    });
   };
 
   useEffect(() => {
@@ -247,33 +367,150 @@ export default function RemoteClient({
           type="button"
           disabled={!remoteHasControl || pairingExpired}
           onClick={() => selectSong(index)}
-          className={`mb-1 block w-full rounded px-3 py-2 text-left text-sm font-bold disabled:opacity-40 ${songIndex === index ? "bg-violet-600 text-white" : "hover:bg-white/10"}`}
+          className={`mb-1 block w-full rounded px-3 py-2 text-left text-sm font-bold disabled:opacity-40 ${activeSourcePanel === "lineup" && songIndex === index ? "bg-violet-600 text-white" : "hover:bg-white/10"}`}
         >{index + 1}. {song.title}</button>)}
-      </section>
 
-      <section className="rounded border border-white/10 bg-white/[.03] p-3">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <h2 className="font-black">{activeSong?.title || "No song"}</h2>
-            <p className="text-xs text-zinc-500">{activeIndex >= 0 ? `Slide ${activeIndex + 1} of ${slides.length}` : `${slides.length} slides`}</p>
-          </div>
-          <button type="button" disabled={!remoteHasControl} onClick={() => send("present")} className="inline-flex items-center gap-1 rounded bg-violet-600 px-3 py-2 text-xs font-bold disabled:opacity-40">
-            <Presentation className="size-3.5" /> Present
+        <div className="mt-3 border-t border-white/10 pt-3">
+          <button
+            type="button"
+            onClick={() => openSourcePanel("presentation")}
+            aria-pressed={activeSourcePanel === "presentation"}
+            className={`mb-1 flex w-full items-center gap-3 rounded border px-3 py-3 text-left ${activeSourcePanel === "presentation" ? "border-violet-400 bg-violet-500/15 text-white" : "border-white/10 hover:bg-white/10"}`}
+          >
+            <FolderOpen className="size-4 text-violet-300" />
+            <span><span className="block text-sm font-bold">Presentation</span><span className="block text-[10px] text-zinc-500">{remoteLibrary?.presentations.length ?? 0} saved deck{remoteLibrary?.presentations.length === 1 ? "" : "s"}</span></span>
+          </button>
+          <button
+            type="button"
+            onClick={() => openSourcePanel("bible")}
+            aria-pressed={activeSourcePanel === "bible"}
+            className={`flex w-full items-center gap-3 rounded border px-3 py-3 text-left ${activeSourcePanel === "bible" ? "border-violet-400 bg-violet-500/15 text-white" : "border-white/10 hover:bg-white/10"}`}
+          >
+            <BookOpen className="size-4 text-violet-300" />
+            <span><span className="block text-sm font-bold">Bible</span><span className="block text-[10px] text-zinc-500">KJV · WEB · BBE</span></span>
           </button>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {slides.map((slide) => <button
-            key={slide.id}
-            type="button"
-            disabled={!remoteHasControl}
-            onClick={() => send("select-slide", { slideId: slide.id })}
-            className={`rounded border p-3 text-left disabled:opacity-40 ${live?.activeSlideId === slide.id ? "border-violet-400 bg-violet-400/10" : "border-white/10 hover:bg-white/5"}`}
-          >
-            <span className="mb-1 block text-[10px] font-bold uppercase text-violet-200">{slide.sectionLabel || "Slide"}</span>
-            {slide.content.map((line, index) => <span className="block text-sm font-semibold" key={index}>{line || "(instrumental)"}</span>)}
-          </button>)}
-        </div>
-        {!slides.length && <p className="rounded border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">No lyrics saved for this song.</p>}
+      </section>
+
+      <section ref={workspaceRef} tabIndex={-1} aria-label={`${activeSourcePanel} controls`} className="scroll-mt-16 rounded border border-white/10 bg-white/[.03] p-3 outline-none">
+        {activeSourcePanel === "lineup" && <>
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="font-black">{activeSong?.title || "No song"}</h2>
+              <p className="text-xs text-zinc-500">{activeIndex >= 0 ? `Slide ${activeIndex + 1} of ${slides.length}` : `${slides.length} slides`}</p>
+            </div>
+            <button type="button" disabled={!remoteHasControl} onClick={() => send("present")} className="inline-flex items-center gap-1 rounded bg-violet-600 px-3 py-2 text-xs font-bold disabled:opacity-40">
+              <Presentation className="size-3.5" /> Present
+            </button>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {slides.map((slide) => <div key={slide.id} className={`relative rounded border ${live?.activeSlideId === slide.id ? "border-violet-400 bg-violet-400/10" : "border-white/10 hover:bg-white/5"}`}>
+              <button
+                type="button"
+                disabled={!remoteHasControl}
+                onClick={() => send("select-slide", { slideId: slide.id })}
+                className="w-full rounded p-3 pr-14 text-left disabled:opacity-40"
+              >
+                <span className="mb-1 block text-[10px] font-bold uppercase text-violet-200">{slide.sectionLabel || "Slide"}</span>
+                {slide.content.map((line, index) => <span className="block text-sm font-semibold" key={index}>{line || "(instrumental)"}</span>)}
+              </button>
+              <button
+                type="button"
+                disabled={!remoteHasControl}
+                aria-label={`Change keyboard shortcut for ${slide.sectionLabel || "slide"}`}
+                title="Change shortcut. Press Backspace to reset."
+                onClick={() => setCapturingShortcutSlideId(slide.id)}
+                className={`absolute right-2 top-2 min-w-9 rounded border px-2 py-1 font-mono text-xs font-black disabled:opacity-40 ${capturingShortcutSlideId === slide.id ? "border-amber-300 bg-amber-400/20 text-amber-100" : "border-violet-400/30 bg-violet-500/15 text-violet-100"}`}
+              >
+                {capturingShortcutSlideId === slide.id ? "…" : lyricShortcutLabel(activeShortcutBindings[slide.id] || "—")}
+              </button>
+            </div>)}
+          </div>
+          {capturingShortcutSlideId && <p role="status" className="mt-2 rounded border border-amber-300/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">Press a number or letter. Escape cancels; Backspace restores the default.</p>}
+          {!slides.length && <p className="rounded border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">No lyrics saved for this song.</p>}
+        </>}
+
+        {activeSourcePanel === "presentation" && <>
+          <div className="mb-3">
+            <h2 className="font-black">Presentation</h2>
+            <p className="text-xs text-zinc-500">Saved decks stay on the Presenter PC. Tap a slide to present it.</p>
+          </div>
+          {!remoteLibrary && <p role="status" className="rounded border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">Waiting for the Presenter library…</p>}
+          {remoteLibrary && !remoteLibrary.capabilities.presentations && <p className="rounded border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">Saved presentations require the Windows Presenter.</p>}
+          {remoteLibrary?.capabilities.presentations && remoteLibrary.presentations.length === 0 && <p className="rounded border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">No saved presentations are available. Import a PDF or PowerPoint file under Teaching on the Presenter PC.</p>}
+          {remoteLibrary && remoteLibrary.presentations.length > 0 && <>
+            <label className="mb-3 block text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+              Saved deck
+              <select value={selectedPresentation?.id || ""} onChange={(event) => setSelectedPresentationId(event.target.value)} className="mt-1 w-full rounded border border-white/10 bg-[#181818] px-3 py-2 text-sm text-white">
+                {remoteLibrary.presentations.map((presentation) => <option key={presentation.id} value={presentation.id}>{presentation.name} ({presentation.slides.length})</option>)}
+              </select>
+            </label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {selectedPresentation?.slides.map((slide) => <button
+                key={slide.id}
+                type="button"
+                disabled={!remoteHasControl}
+                onClick={() => send("present-presentation-slide", { presentationId: selectedPresentation.id, slideId: slide.id })}
+                className={`rounded border p-3 text-left disabled:opacity-40 ${live?.activeSource?.kind === "presentation" && live.activeSource.presentationId === selectedPresentation.id && live.activeSlideId === slide.id ? "border-violet-400 bg-violet-400/10" : "border-white/10 hover:bg-white/5"}`}
+              >
+                <span className="mb-1 block text-[10px] font-bold uppercase text-violet-200">{slide.label}</span>
+                <span className="block text-sm font-semibold text-zinc-200">{slide.preview || "Visual or media slide"}</span>
+              </button>)}
+            </div>
+            {selectedPresentation && !selectedPresentation.slides.length && <p className="rounded border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">This presentation has no slides.</p>}
+          </>}
+        </>}
+
+        {activeSourcePanel === "bible" && <>
+          <div className="mb-3">
+            <h2 className="font-black">Bible</h2>
+            <p className="text-xs text-zinc-500">Browse freely. Only tapping a verse changes live output.</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Translation
+              <select value={bibleTranslation} onChange={(event) => {
+                const translation = event.target.value as BibleTranslation;
+                setBibleTranslation(translation);
+                if (selectedBibleBook && selectedBibleChapter) void fetchBibleChapter(selectedBibleBook, selectedBibleChapter, translation);
+              }} className="mt-1 w-full rounded border border-white/10 bg-[#181818] px-3 py-2 text-sm text-white">
+                {BIBLE_TRANSLATIONS.map((translation) => <option key={translation.id} value={translation.id}>{translation.label}</option>)}
+              </select>
+            </label>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Book
+              <select value={selectedBibleBook} onChange={(event) => {
+                setSelectedBibleBook(event.target.value);
+                setSelectedBibleChapter(null);
+                setBibleVerses([]);
+                setBibleError("");
+              }} className="mt-1 w-full rounded border border-white/10 bg-[#181818] px-3 py-2 text-sm text-white">
+                <option value="">Choose a book</option>
+                <optgroup label="Old Testament">{BIBLE_BOOKS.filter((book) => book.testament === "old").map((book) => <option key={book.name} value={book.name}>{book.name}</option>)}</optgroup>
+                <optgroup label="New Testament">{BIBLE_BOOKS.filter((book) => book.testament === "new").map((book) => <option key={book.name} value={book.name}>{book.name}</option>)}</optgroup>
+              </select>
+            </label>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Chapter
+              <select disabled={!selectedBibleBook || isFetchingBible} value={selectedBibleChapter || ""} onChange={(event) => void fetchBibleChapter(selectedBibleBook, Number(event.target.value))} className="mt-1 w-full rounded border border-white/10 bg-[#181818] px-3 py-2 text-sm text-white disabled:opacity-40">
+                <option value="">Choose a chapter</option>
+                {Array.from({ length: bibleBookChapterCount(selectedBibleBook) }, (_, index) => index + 1).map((chapter) => <option key={chapter} value={chapter}>{chapter}</option>)}
+              </select>
+            </label>
+          </div>
+          {isFetchingBible && <p role="status" className="mt-4 flex items-center justify-center gap-2 rounded border border-white/10 p-6 text-sm text-zinc-400"><Loader2 className="size-4 animate-spin" /> Loading chapter…</p>}
+          {bibleError && <p role="alert" className="mt-4 rounded border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-200">{bibleError}</p>}
+          {!isFetchingBible && !bibleError && selectedBibleChapter && bibleVerses.length > 0 && <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {bibleVerses.map((verse) => <button
+              key={verse.reference}
+              type="button"
+              disabled={!remoteHasControl}
+              onClick={() => presentBibleVerse(verse)}
+              className={`rounded border p-3 text-left disabled:opacity-40 ${live?.activeSource?.kind === "bible" && live.activeSource.reference === verse.reference ? "border-violet-400 bg-violet-400/10" : "border-white/10 hover:bg-white/5"}`}
+            >
+              <span className="mb-1 block text-[10px] font-bold uppercase text-violet-200">{verse.reference}</span>
+              <span className="block text-sm leading-relaxed text-zinc-200">{verse.text}</span>
+            </button>)}
+          </div>}
+          {!selectedBibleBook && <p className="mt-4 rounded border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">Choose a translation, book, and chapter.</p>}
+        </>}
       </section>
 
       <aside className="space-y-3">

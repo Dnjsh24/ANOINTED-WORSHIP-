@@ -10,7 +10,26 @@ import { listDesktopSceneLayers } from "@/lib/desktop/scene-layers";
 import { seedDesktopProductionLayout } from "@/lib/desktop/production-layout";
 import { listDesktopLivePropPresets } from "@/lib/desktop/live-props";
 import { listImportedPresentations } from "@/lib/desktop/pptx-import";
-import PresenterClient from "./presenter-client";
+import PresenterClient, { type PresenterSetlist } from "./presenter-client";
+import type { Database } from "@/lib/supabase/database.types";
+
+type PresenterSetlistSongRow = Pick<
+  Database["public"]["Tables"]["setlist_songs"]["Row"],
+  "id" | "assigned_key" | "song_order" | "notes" | "arrangement"
+> & {
+  song: Pick<
+    Database["public"]["Tables"]["songs"]["Row"],
+    "id" | "title" | "bpm" | "original_key" | "lyrics_chords"
+  > | null;
+};
+
+type PresenterSetlistRow = Pick<
+  Database["public"]["Tables"]["setlists"]["Row"],
+  "id" | "name" | "setlist_date" | "presentation_settings"
+> & {
+  events: Pick<Database["public"]["Tables"]["events"]["Row"], "type"> | null;
+  setlist_songs: PresenterSetlistSongRow[];
+};
 
 export default async function GlobalPresenterPage({
   searchParams,
@@ -41,7 +60,9 @@ export default async function GlobalPresenterPage({
           notes: item.bandNotes || item.lead || "",
         },
       })),
-      presentationSettings: (setlist as any).presentationSettings,
+      presentationSettings: (
+        "presentationSettings" in setlist ? setlist.presentationSettings : undefined
+      ) as PresenterSetlist["presentationSettings"],
     }));
     const initialBackgrounds = listDesktopBackgroundAssets(teamContext.teamId);
     const backgroundCollections = listDesktopBackgroundCollections(teamContext.teamId);
@@ -59,7 +80,7 @@ export default async function GlobalPresenterPage({
     const supabase = await createClient();
 
     // Fetch all upcoming setlists for the team
-    const { data: dbSetlists } = await supabase
+    const { data } = await supabase
       .from("setlists")
       .select(`
         *,
@@ -84,13 +105,14 @@ export default async function GlobalPresenterPage({
       .eq("team_id", teamContext.teamId)
       .order("setlist_date", { ascending: false })
       .limit(10); // Fetching the 10 most recent/upcoming setlists for the dropdown
+    const dbSetlists = data as unknown as PresenterSetlistRow[] | null;
 
     if (dbSetlists) {
-      const setlists = dbSetlists.map((dbSetlist: any) => {
+      const setlists = dbSetlists.map((dbSetlist) => {
         const dbSetlistSongs = dbSetlist.setlist_songs || [];
-        dbSetlistSongs.sort((a: any, b: any) => (a.song_order ?? 0) - (b.song_order ?? 0));
+        dbSetlistSongs.sort((a, b) => (a.song_order ?? 0) - (b.song_order ?? 0));
 
-        const songsList = dbSetlistSongs.map((ss: any) => ({
+        const songsList = dbSetlistSongs.map((ss) => ({
           id: ss.id,
           order: ss.song_order,
           assignedKey: ss.assigned_key,
@@ -109,7 +131,7 @@ export default async function GlobalPresenterPage({
           date: dbSetlist.setlist_date,
           type: dbSetlist.events?.type || "sunday_service",
           songs: songsList,
-          presentationSettings: dbSetlist.presentation_settings,
+          presentationSettings: dbSetlist.presentation_settings as PresenterSetlist["presentationSettings"],
         };
       });
 

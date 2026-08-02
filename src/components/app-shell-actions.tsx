@@ -4,7 +4,7 @@ import { Bell, Settings } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { createOptionalClient } from "@/lib/supabase/client";
 
 const baseNotifications = [
   { title: "Upcoming event", body: "Sunday Morning Worship is coming up.", href: "/events/event-sunday" },
@@ -57,7 +57,8 @@ export function AppShellActions({
   useEffect(() => {
     if (!userId || !teamId) return;
 
-    const supabase = createClient();
+    const supabase = createOptionalClient();
+    if (!supabase) return;
     const presenceChannel = supabase.channel(`online-users-${teamId}`, {
       config: { presence: { key: userId } }
     });
@@ -66,7 +67,7 @@ export function AppShellActions({
       .on("presence", { event: "sync" }, () => {
         const state = presenceChannel.presenceState();
         const onlineIds = Object.keys(state);
-        (window as any).__onlineUsers = onlineIds;
+        window.__onlineUsers = onlineIds;
         window.dispatchEvent(new CustomEvent("online-users-changed", { detail: onlineIds }));
       })
       .subscribe(async (status) => {
@@ -87,11 +88,13 @@ export function AppShellActions({
     if (!teamId || !userId || !canManageTeam) return;
 
     const activeTeamId = teamId;
-    const supabase = createClient();
+    const supabase = createOptionalClient();
+    if (!supabase) return;
+    const client = supabase;
     let active = true;
 
     async function refreshPendingRequestCount() {
-      const { count } = await supabase
+      const { count } = await client
         .from("join_requests")
         .select("id", { count: "exact", head: true })
         .eq("team_id", activeTeamId)
@@ -104,7 +107,7 @@ export function AppShellActions({
 
     void refreshPendingRequestCount();
 
-    const channel = supabase
+    const channel = client
       .channel(`pending-request-count-${activeTeamId}`)
       .on(
         "postgres_changes",
@@ -117,7 +120,7 @@ export function AppShellActions({
 
     return () => {
       active = false;
-      supabase.removeChannel(channel);
+      client.removeChannel(channel);
     };
   }, [teamId, userId, canManageTeam]);
 
@@ -126,11 +129,13 @@ export function AppShellActions({
 
     const activeTeamId = teamId;
     const activeUserId = userId;
-    const supabase = createClient();
+    const supabase = createOptionalClient();
+    if (!supabase) return;
+    const client = supabase;
     let active = true;
 
     async function refreshUnreadReminderCount() {
-      const { count } = await supabase
+      const { count } = await client
         .from("notifications")
         .select("id", { count: "exact", head: true })
         .eq("team_id", activeTeamId)
@@ -145,7 +150,7 @@ export function AppShellActions({
 
     void refreshUnreadReminderCount();
 
-    const channel = supabase
+    const channel = client
       .channel(`unread-reminder-count-${activeTeamId}-${activeUserId}`)
       .on(
         "postgres_changes",
@@ -158,7 +163,7 @@ export function AppShellActions({
 
     return () => {
       active = false;
-      supabase.removeChannel(channel);
+      client.removeChannel(channel);
     };
   }, [teamId, userId]);
 

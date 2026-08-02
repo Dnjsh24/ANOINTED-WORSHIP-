@@ -7,6 +7,7 @@ import { can } from "@/lib/domain/rbac";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+import { safeErrorDetails } from "@/lib/server/safe-error";
 
 export default async function SongsTrashPage() {
   const teamContext = await getRequiredTeamContext();
@@ -28,7 +29,10 @@ export default async function SongsTrashPage() {
 
     // Fallback if the remote database hasn't had the migration applied yet
     if (error && error.message.includes("column")) {
-      console.warn("Migration missing on remote DB, falling back to safe query:", error);
+      console.warn(
+        "Migration missing on remote DB, falling back to safe query:",
+        safeErrorDetails(error),
+      );
     } else if (dbSongs) {
       trashedSongs = dbSongs.map((s) => ({
         id: s.id,

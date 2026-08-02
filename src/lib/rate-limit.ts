@@ -1,68 +1,107 @@
-/**
- * In-memory sliding window rate limiter.
- *
- * Each unique `key` (typically an IP address) gets a list of request
- * timestamps. On every call, timestamps older than `windowMs` are pruned
- * before checking the count. This gives a true sliding window without
- * needing Redis or any external dependency.
- *
- * ⚠️  Limitation: counters are per-process. On multi-instance deployments
- *    (e.g. Vercel serverless) each instance maintains its own counter.
- *    For single-instance hosts (Render) this is fully effective.
- */
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+import { safeErrorDetails } from "@/lib/server/safe-error";
 
-interface RateLimitResult {
-  /** true when the request is allowed, false when the limit is exceeded */
+export interface RateLimitResult {
   allowed: boolean;
-  /** how many requests remain in the current window */
   remaining: number;
-  /** Unix ms timestamp when the oldest request in the window expires */
   resetAt: number;
+  strategy: "distributed" | "local-fallback" | "fail-closed";
 }
 
-// Map<key, sorted list of request timestamps (ms)>
-const store = new Map<string, number[]>();
+const localStore = new Map<string, number[]>();
+const distributedLimiters = new Map<string, Ratelimit>();
 
-// Prune the store every 5 minutes to prevent unbounded memory growth.
-const PRUNE_INTERVAL_MS = 5 * 60 * 1000;
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, timestamps] of store.entries()) {
-    // Remove entries whose entire window has expired (max window = 60s here).
-    if (timestamps.length === 0 || now - timestamps[timestamps.length - 1] > 60_000) {
-      store.delete(key);
-    }
-  }
-}, PRUNE_INTERVAL_MS);
+function hasDistributedRateLimitEnv() {
+  return Boolean(
+    process.env.UPSTASH_REDIS_REST_URL?.trim() &&
+      process.env.UPSTASH_REDIS_REST_TOKEN?.trim(),
+  );
+}
 
-/**
- * Check and record a rate-limit hit for the given key.
- *
- * @param key      Unique identifier — typically the client IP address.
- * @param max      Maximum number of requests allowed within `windowMs`.
- * @param windowMs Size of the sliding window in milliseconds.
- */
-export function rateLimit(key: string, max: number, windowMs: number): RateLimitResult {
+function isProductionRuntime() {
+  return process.env.VERCEL_ENV === "production";
+}
+
+function failClosed(windowMs: number): RateLimitResult {
+  return {
+    allowed: false,
+    remaining: 0,
+    resetAt: Date.now() + windowMs,
+    strategy: "fail-closed",
+  };
+}
+
+function localRateLimit(key: string, max: number, windowMs: number): RateLimitResult {
   const now = Date.now();
   const windowStart = now - windowMs;
-
-  // Retrieve or create the timestamp list for this key.
-  let timestamps = store.get(key) ?? [];
-
-  // Prune timestamps that have fallen outside the current window.
-  timestamps = timestamps.filter((t) => t > windowStart);
-
+  const timestamps = (localStore.get(key) ?? []).filter((timestamp) => timestamp > windowStart);
   const allowed = timestamps.length < max;
 
   if (allowed) {
     timestamps.push(now);
   }
 
-  store.set(key, timestamps);
+  if (timestamps.length > 0) {
+    localStore.set(key, timestamps);
+  } else {
+    localStore.delete(key);
+  }
 
-  const oldest = timestamps[0] ?? now;
-  const resetAt = oldest + windowMs;
-  const remaining = Math.max(0, max - timestamps.length);
+  return {
+    allowed,
+    remaining: Math.max(0, max - timestamps.length),
+    resetAt: (timestamps[0] ?? now) + windowMs,
+    strategy: "local-fallback",
+  };
+}
 
-  return { allowed, remaining, resetAt };
+function getDistributedLimiter(max: number, windowMs: number) {
+  const limiterKey = `${max}:${windowMs}`;
+  const existing = distributedLimiters.get(limiterKey);
+  if (existing) {
+    return existing;
+  }
+
+  const limiter = new Ratelimit({
+    redis: Redis.fromEnv(),
+    limiter: Ratelimit.slidingWindow(max, `${windowMs} ms`),
+    prefix: `anointed-worship:rate-limit:${limiterKey}`,
+    timeout: 1_000,
+    analytics: false,
+  });
+  distributedLimiters.set(limiterKey, limiter);
+  return limiter;
+}
+
+/**
+ * Applies an atomic shared sliding-window limit when Upstash is configured.
+ * Local/demo environments retain an in-process fallback so development does
+ * not depend on an external service.
+ */
+export async function rateLimit(key: string, max: number, windowMs: number): Promise<RateLimitResult> {
+  if (!hasDistributedRateLimitEnv()) {
+    if (isProductionRuntime()) {
+      return failClosed(windowMs);
+    }
+    return localRateLimit(key, max, windowMs);
+  }
+
+  try {
+    const result = await getDistributedLimiter(max, windowMs).limit(key);
+    return {
+      allowed: result.success,
+      remaining: result.remaining,
+      resetAt: result.reset,
+      strategy: "distributed",
+    };
+  } catch (error) {
+    console.error(
+      "Distributed rate limit check failed; using local fallback.",
+      safeErrorDetails(error),
+    );
+    return isProductionRuntime()
+      ? failClosed(windowMs)
+      : localRateLimit(key, max, windowMs);
+  }
 }

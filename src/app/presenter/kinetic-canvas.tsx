@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import { entranceMotionClass, exitMotionClass, resolveBlockMotion, resolveSceneLayerMotion, type SceneLayer, type SlideBlock, type PresentationSettings, type PresentationSlide } from "@/lib/domain/presentation";
 import { cn } from "@/lib/utils";
 import { DesktopLiveSource } from "@/components/desktop-live-source";
+import { PdfPageCanvas } from "@/components/pdf-page-canvas";
 
 interface KineticCanvasProps {
   blocks: SlideBlock[];
@@ -51,14 +53,17 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
 
   useEffect(() => {
     if (playKey > 0) {
-      setIsCurrentlyPlaying(true);
+      const activationFrame = requestAnimationFrame(() => setIsCurrentlyPlaying(true));
       const totalDuration = settings.slideDurations?.[slide.id] || 10;
       const timer = setTimeout(() => {
         setIsCurrentlyPlaying(false);
       }, totalDuration * 1000); // Reset to edit mode after timeline ends
-      return () => clearTimeout(timer);
+      return () => {
+        cancelAnimationFrame(activationFrame);
+        clearTimeout(timer);
+      };
     } else {
-      setIsCurrentlyPlaying(false);
+      queueMicrotask(() => setIsCurrentlyPlaying(false));
     }
   }, [playKey, settings.slideDurations, slide.id]);
 
@@ -260,8 +265,20 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
       style={{ backgroundColor: settings.backgroundColor }}
       onPointerDown={handleBackgroundPointerDown}
     >
+      {slide?.mediaKind === "pdf-page" && slide.mediaUrl && slide.pdfPage && (
+        <PdfPageCanvas
+          url={slide.mediaUrl}
+          pageNumber={slide.pdfPage}
+          label={`${slide.sectionLabel || "PDF"} page ${slide.pdfPage}`}
+          className="absolute inset-0 z-10"
+        />
+      )}
+      {slide?.mediaKind === "image" && slide.mediaUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={slide.mediaUrl} alt={slide.sectionLabel || "Teaching slide"} className="absolute inset-0 z-10 h-full w-full bg-black object-contain" />
+      )}
       {/* Grid background (fallback) */}
-      {!settings.backgroundMediaUrl && (
+      {!settings.backgroundMediaUrl && !slide?.mediaUrl && (
         <div id="kinetic-canvas-bg" className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
       )}
       
@@ -296,7 +313,7 @@ export default function KineticCanvas({ blocks, settings, slide, onUpdateBlock, 
         return <button key={layer.id} type="button" onPointerDown={(event) => { event.stopPropagation(); onSelectSceneLayer?.(layer.id, event.shiftKey || event.ctrlKey || event.metaKey); if (!layer.locked) { setDraggingSceneLayer(layer); setInitialSceneLayers(layer.groupId ? sceneLayers.filter((candidate) => candidate.groupId === layer.groupId && !candidate.locked) : [layer]); setStartPos({ x: event.clientX, y: event.clientY }); setStartBlockPos({ x: layer.x, y: layer.y }); } }} className={cn("absolute overflow-hidden text-left", selectedSceneLayerIds.includes(layer.id) && "ring-2 ring-violet-400", isCurrentlyPlaying && entrance && "fill-mode-both", isCurrentlyPlaying && entrance)} style={{ left: `${layer.x}%`, top: `${layer.y}%`, width: `${layer.width}%`, height: `${layer.height}%`, transform: `rotate(${layer.rotation}deg)`, backgroundColor: layer.kind === "shape" ? layer.backgroundColor : undefined, borderRadius: `${layer.borderRadius || 0}px`, zIndex: 20 + (layer.zIndex ?? 0), animationDelay: isCurrentlyPlaying && entrance ? `${(layer.startTime || 0) + motion.entranceDelay}s` : undefined, animationDuration: isCurrentlyPlaying && entrance ? `${motion.entranceDuration}s` : undefined }}>
           <span className={cn("block h-full w-full", isCurrentlyPlaying && exit && "fill-mode-forwards", isCurrentlyPlaying && exit)} style={{ animationDelay: isCurrentlyPlaying && exit && layer.duration ? `${(layer.startTime || 0) + layer.duration + motion.exitDelay}s` : undefined, animationDuration: isCurrentlyPlaying && exit ? `${motion.exitDuration}s` : undefined }}>
             {layer.kind === "text" && <span style={{ color: layer.color || "#fff", fontSize: `${Math.max(10, (layer.fontSize || 56) * .4)}pt` }}>{layer.text || "Text"}</span>}
-            {layer.kind === "image" && layer.mediaUrl && <img src={layer.mediaUrl} alt="" className="h-full w-full object-contain" />}
+            {layer.kind === "image" && layer.mediaUrl && <Image unoptimized fill sizes="100vw" src={layer.mediaUrl} alt="" className="object-contain" />}
             {layer.kind === "video" && layer.mediaUrl && <video src={layer.mediaUrl} className="h-full w-full object-cover" muted />}
             {layer.kind === "live-camera" && <DesktopLiveSource kind="live-camera" sourceId={layer.captureSourceId} />}
             {layer.kind === "live-screen" && <DesktopLiveSource kind="live-screen" sourceId={layer.captureSourceId} />}

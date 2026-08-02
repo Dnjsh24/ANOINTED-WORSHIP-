@@ -3,6 +3,7 @@
 import { Music2 } from "lucide-react";
 import { use } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { hasSupabaseEnv } from "@/lib/supabase/env";
 
 export default function LoginPage({
   searchParams,
@@ -13,7 +14,7 @@ export default function LoginPage({
 
   async function handleGoogleSignIn(event: React.FormEvent) {
     event.preventDefault();
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    if (!hasSupabaseEnv()) {
       window.location.href = "/login?error=config";
       return;
     }

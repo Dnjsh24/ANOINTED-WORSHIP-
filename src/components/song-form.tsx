@@ -13,10 +13,15 @@ import { Key, Mic, MicOff, Music, Trash2, AlertTriangle } from "lucide-react";
 import { detectKeyFromText } from "@/lib/detect-key-from-chords";
 import { VoiceKeyDetector } from "@/lib/voice-key-detector";
 import { SpotifySearch, type SpotifyTrack } from "./spotify-search";
+import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
 
 export function SongForm({ song }: { song?: Song }) {
   const [state, formAction] = useActionState(song ? updateSongAction : createSongAction, initialActionState);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const deleteDialogRef = useAccessibleDialog({
+    open: deleteModalOpen,
+    onClose: () => setDeleteModalOpen(false),
+  });
   const [pendingDelete, startDeleteTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<"chords" | "lyrics">("chords");
   const [tags, setTags] = useState(song?.tags?.join(", ") ?? "Worship, Contemporary");
@@ -137,8 +142,9 @@ export function SongForm({ song }: { song?: Song }) {
       setImportUrl("");
       setActiveTab("chords");
       handleDetectKeyFromChords();
-    } catch (err: any) {
-      setSongStatus("Import failed: " + err.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown failure";
+      setSongStatus(`Import failed: ${message}`);
     } finally {
       setIsImporting(false);
     }
@@ -477,6 +483,11 @@ export function SongForm({ song }: { song?: Song }) {
                   onClick={() => setDeleteModalOpen(false)}
                 >
                   <div
+                    ref={deleteDialogRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="delete-song-title"
+                    tabIndex={-1}
                     className="mx-4 w-full max-w-md rounded-2xl border border-white/10 bg-[#0f0e14] p-6 shadow-2xl"
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -485,7 +496,7 @@ export function SongForm({ song }: { song?: Song }) {
                         <AlertTriangle className="size-5 text-red-300" />
                       </div>
                       <div>
-                        <h2 className="text-lg font-bold text-white">Delete Song</h2>
+                        <h2 id="delete-song-title" className="text-lg font-bold text-white">Delete Song</h2>
                         <p className="text-sm text-zinc-400">This action cannot be undone.</p>
                       </div>
                     </div>

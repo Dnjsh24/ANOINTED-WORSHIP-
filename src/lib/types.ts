@@ -174,7 +174,7 @@ export interface Event {
   setlistId?: string;
   myStatus?: "available" | "maybe" | "unavailable" | "pending" | "no_response";
   notes?: string | null;
-  roster?: any;
+  roster?: unknown;
 }
 
 export interface Announcement {

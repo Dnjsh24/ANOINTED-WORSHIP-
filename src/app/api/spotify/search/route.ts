@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { safeErrorDetails } from "@/lib/server/safe-error";
+import {
+  getSpotifyAccessToken,
+  parseSpotifySearchQuery,
+  searchSpotifyTracks,
+} from "@/lib/server/spotify";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const query = searchParams.get("q");
-
-  if (!query) {
+  let query: string;
+  try {
+    query = parseSpotifySearchQuery(searchParams.get("q"));
+  } catch (error) {
     return NextResponse.json(
-      { error: "Query parameter 'q' is required" },
+      { error: error instanceof Error ? error.message : "Invalid Spotify search query." },
       { status: 400 }
     );
   }
@@ -22,61 +29,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 1. Get Access Token
-    const tokenResponse = await fetch(
-      "https://accounts.spotify.com/api/token",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization:
-            "Basic " +
-            Buffer.from(clientId + ":" + clientSecret).toString("base64"),
-        },
-        body: "grant_type=client_credentials",
-      }
-    );
-
-    if (!tokenResponse.ok) {
-      console.error("Failed to get Spotify token", await tokenResponse.text());
-      return NextResponse.json(
-        { error: "Failed to authenticate with Spotify" },
-        { status: 500 }
-      );
-    }
-
-    const { access_token } = await tokenResponse.json();
-
-    // 2. Search Spotify
-    const searchResponse = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(
-        query
-      )}&type=track&limit=5`,
-      {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-        },
-      }
-    );
-
-    if (!searchResponse.ok) {
-      console.error(
-        "Failed to search Spotify",
-        await searchResponse.text()
-      );
-      return NextResponse.json(
-        { error: "Failed to search Spotify" },
-        { status: 500 }
-      );
-    }
-
-    const searchData = await searchResponse.json();
-    return NextResponse.json(searchData.tracks.items);
+    const accessToken = await getSpotifyAccessToken(clientId, clientSecret);
+    return NextResponse.json(await searchSpotifyTracks(query, accessToken));
   } catch (error) {
-    console.error("Error in Spotify search API:", error);
+    console.error("Error in Spotify search API:", safeErrorDetails(error));
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      { error: "Spotify is temporarily unavailable" },
+      { status: error instanceof DOMException && error.name === "AbortError" ? 504 : 502 }
     );
   }
 }

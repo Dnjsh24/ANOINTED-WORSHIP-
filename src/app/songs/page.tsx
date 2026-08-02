@@ -1,7 +1,6 @@
 import { Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { SongLibraryGrid } from "@/components/song-library-grid";
-import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { can } from "@/lib/domain/rbac";
 import { songs as sampleSongs } from "@/lib/sample-data";
@@ -11,6 +10,29 @@ import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import { listDesktopSongs } from "@/lib/desktop/workspace";
 import type { Song } from "@/lib/types";
+import { safeErrorDetails } from "@/lib/server/safe-error";
+
+type SongListRow = {
+  id: string;
+  title: string;
+  artist: string;
+  original_key: string;
+  bpm: number | null;
+  time_signature: string | null;
+  tags: string[] | null;
+  youtube_url: string | null;
+  image_url?: string | null;
+  album?: string | null;
+  setlist_songs: unknown;
+};
+
+function playCountFromRelation(value: unknown): number {
+  const relation = Array.isArray(value) ? value[0] : value;
+  if (!relation || typeof relation !== "object" || !("count" in relation)) {
+    return 0;
+  }
+  return typeof relation.count === "number" ? relation.count : 0;
+}
 
 export default async function SongsPage() {
   const teamContext = await getRequiredTeamContext();
@@ -23,23 +45,28 @@ export default async function SongsPage() {
     totalSongsCount = songsList.length;
   } else if (hasSupabaseEnv() && teamContext.teamId) {
     const supabase = await createClient();
-    let { data: dbSongs, error } = await supabase
+    const initialResult = await supabase
       .from("songs")
       .select("id, title, artist, original_key, bpm, time_signature, tags, youtube_url, image_url, album, setlist_songs(count)")
       .is("deleted_at", null)
       .eq("team_id", teamContext.teamId)
       .order("title");
+    const { error } = initialResult;
+    let dbSongs = initialResult.data as SongListRow[] | null;
 
     // Fallback if the remote database hasn't had the migration applied yet
     if (error && error.message.includes("column")) {
-      console.warn("Migration missing on remote DB, falling back to safe query:", error);
+      console.warn(
+        "Migration missing on remote DB, falling back to safe query:",
+        safeErrorDetails(error),
+      );
       const fallback = await supabase
         .from("songs")
         .select("id, title, artist, original_key, bpm, time_signature, tags, youtube_url, setlist_songs(count)")
         .eq("team_id", teamContext.teamId)
         .order("title");
       
-      dbSongs = fallback.data as any;
+      dbSongs = fallback.data as SongListRow[] | null;
     }
 
     if (dbSongs) {
@@ -50,14 +77,14 @@ export default async function SongsPage() {
         originalKey: s.original_key,
         currentKey: s.original_key,
         bpm: s.bpm,
-        timeSignature: s.time_signature,
+        timeSignature: s.time_signature ?? "4/4",
         tags: s.tags || [],
         favorite: false,
         sections: [],
         youtubeUrl: s.youtube_url ?? undefined,
         imageUrl: s.image_url ?? undefined,
         album: s.album ?? undefined,
-        playCount: Array.isArray(s.setlist_songs) ? (s.setlist_songs[0]?.count ?? 0) : ((s.setlist_songs as any)?.count ?? 0),
+        playCount: playCountFromRelation(s.setlist_songs),
       }));
       totalSongsCount = dbSongs.length;
     }

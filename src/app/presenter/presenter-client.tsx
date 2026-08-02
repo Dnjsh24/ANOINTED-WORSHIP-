@@ -2,10 +2,11 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Loader2, Save, X, Play, Music, LayoutTemplate, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Smartphone, Type, BookOpen, Upload } from "lucide-react";
+import Image from "next/image";
+import { Loader2, Save, X, Music, LayoutTemplate, AlignLeft, AlignCenter, AlignRight, Bold, Italic, Underline, Smartphone, Type, BookOpen, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { generateSongSlides, defaultPresentationSettings, resolveBlockMotion, type BlockMotion, type LiveProp, type PresentationSlide, type PresentationSettings, type SceneLayer, type SlideBlock } from "@/lib/domain/presentation";
+import { generateSongSlides, defaultPresentationSettings, resolveBlockMotion, type BlockMotion, type EntranceAnimation, type ExitAnimation, type LiveProp, type PresentationSlide, type PresentationSettings, type SceneLayer, type SlideBlock, type SlideTransition } from "@/lib/domain/presentation";
 import KineticCanvas from "./kinetic-canvas";
 import TimelineEditor from "./timeline-editor";
 import { MediaUploader } from "@/components/media-uploader";
@@ -36,6 +37,53 @@ const BIBLE_BOOKS = [
   { name: "Matthew", chapters: 28, ot: false }, { name: "Mark", chapters: 16, ot: false }, { name: "Luke", chapters: 24, ot: false }, { name: "John", chapters: 21, ot: false }, { name: "Acts", chapters: 28, ot: false }, { name: "Romans", chapters: 16, ot: false }, { name: "1 Corinthians", chapters: 16, ot: false }, { name: "2 Corinthians", chapters: 13, ot: false }, { name: "Galatians", chapters: 6, ot: false }, { name: "Ephesians", chapters: 6, ot: false }, { name: "Philippians", chapters: 4, ot: false }, { name: "Colossians", chapters: 4, ot: false }, { name: "1 Thessalonians", chapters: 5, ot: false }, { name: "2 Thessalonians", chapters: 3, ot: false }, { name: "1 Timothy", chapters: 6, ot: false }, { name: "2 Timothy", chapters: 4, ot: false }, { name: "Titus", chapters: 3, ot: false }, { name: "Philemon", chapters: 1, ot: false }, { name: "Hebrews", chapters: 13, ot: false }, { name: "James", chapters: 5, ot: false }, { name: "1 Peter", chapters: 5, ot: false }, { name: "2 Peter", chapters: 3, ot: false }, { name: "1 John", chapters: 5, ot: false }, { name: "2 John", chapters: 1, ot: false }, { name: "3 John", chapters: 1, ot: false }, { name: "Jude", chapters: 1, ot: false }, { name: "Revelation", chapters: 22, ot: false }
 ];
 
+const PRESENTER_TABS = ["Lyrics", "Property", "Layers", "Motion", "Stage"] as const;
+type PresenterTab = (typeof PRESENTER_TABS)[number];
+
+type BibleApiVerse = {
+  book_name: string;
+  chapter: number;
+  verse: number;
+  text: string;
+};
+
+function isBibleApiVerse(value: unknown): value is BibleApiVerse {
+  if (!value || typeof value !== "object") return false;
+  const verse = value as Record<string, unknown>;
+  return typeof verse.book_name === "string"
+    && typeof verse.chapter === "number"
+    && typeof verse.verse === "number"
+    && typeof verse.text === "string";
+}
+
+export type PresenterSetlist = {
+  id: string;
+  name: string;
+  date: string;
+  type: string;
+  songs: Array<{
+    id: string;
+    order: number | null;
+    assignedKey: string | null;
+    song: {
+      id?: string;
+      title: string;
+      bpm: number;
+      originalKey: string;
+      lyricsChords: string;
+      notes?: string;
+    };
+  }>;
+  presentationSettings?: {
+    settings?: PresentationSettings;
+    linesPerSlide?: number;
+    slideOverrides?: Record<string, SlideBlock[]>;
+    draftLyricsBySetlistSongId?: Record<string, string>;
+    publishedRevision?: number;
+    publishedSnapshot?: unknown;
+  } | null;
+};
+
 export default function GlobalPresenterClient({
   setlists,
   initialSetlistId,
@@ -45,12 +93,10 @@ export default function GlobalPresenterClient({
   desktopSetlistBackgrounds = {},
   desktopMotionPresets = [],
   desktopSceneLayers = {},
-  desktopAudienceLooks = [],
-  desktopOutputConfigs = [],
   desktopLivePropPresets = [],
   desktopImportedPresentations = [],
 }: {
-  setlists: any[];
+  setlists: PresenterSetlist[];
   initialSetlistId?: string;
   desktopMode?: boolean;
   desktopBackgrounds?: DesktopBackgroundAssetClient[];
@@ -91,7 +137,7 @@ export default function GlobalPresenterClient({
   const [motionPresetName, setMotionPresetName] = useState("");
   const [selectedMotionPresetId, setSelectedMotionPresetId] = useState("");
   
-  const setlist = useMemo(() => setlists.find(s => s.id === selectedSetlistId) || setlists[0], [selectedSetlistId, setlists]);
+  const setlist = useMemo(() => setlists.find(s => s.id === selectedSetlistId) || setlists[0], [selectedSetlistId, setlists])!;
   
   // Presentation Settings
   const [settings, setSettings] = useState<PresentationSettings>(setlist?.presentationSettings?.settings || defaultPresentationSettings);
@@ -174,7 +220,6 @@ export default function GlobalPresenterClient({
   }, [cloudRemoteExpiresAt]);
 
   // --- Bible Controls ---
-  const [bibleQuery, setBibleQuery] = useState("");
   const [bibleTranslation, setBibleTranslation] = useState("kjv");
   const [bibleVerses, setBibleVerses] = useState<{ reference: string, text: string }[]>([]);
   const [isFetchingBible, setIsFetchingBible] = useState(false);
@@ -213,30 +258,33 @@ export default function GlobalPresenterClient({
       nextSettings.backgroundMediaUrl = localBackground?.url;
       nextSettings.backgroundMediaType = localBackground?.mediaType;
     }
-    setSettings(nextSettings);
-    if (setlist.presentationSettings?.linesPerSlide) setLinesPerSlide(setlist.presentationSettings.linesPerSlide);
-    if (setlist.presentationSettings?.slideOverrides) setSlideOverrides(setlist.presentationSettings.slideOverrides);
-    setSceneLayers(desktopSceneLayers[setlist.id] || {});
     const nextDraftLyrics = setlist.presentationSettings?.draftLyricsBySetlistSongId || {};
     const nextRevision = setlist.presentationSettings?.publishedRevision || 0;
-    setDraftLyricsBySetlistSongId(nextDraftLyrics);
-    setPublishedRevision(nextRevision);
-    setLiveSongIndex(0);
-    setLiveSlideId(null);
     const storedSnapshot = setlist.presentationSettings?.publishedSnapshot;
-    setPublishedSnapshot(isLivePresentationSnapshot(storedSnapshot) && storedSnapshot.setlistId === setlist.id
-      ? { ...storedSnapshot, settings: nextSettings }
-      : buildLivePresentationSnapshot({
-          setlist,
-          revision: nextRevision,
-          linesPerSlide: setlist.presentationSettings?.linesPerSlide || 4,
-          settings: nextSettings,
-          draft: {
-            lyricsBySetlistSongId: nextDraftLyrics,
-            slideOverrides: setlist.presentationSettings?.slideOverrides || {},
-            sceneLayers: desktopSceneLayers[setlist.id] || {},
-          },
-        }));
+    const timer = window.setTimeout(() => {
+      setSettings(nextSettings);
+      if (setlist.presentationSettings?.linesPerSlide) setLinesPerSlide(setlist.presentationSettings.linesPerSlide);
+      if (setlist.presentationSettings?.slideOverrides) setSlideOverrides(setlist.presentationSettings.slideOverrides);
+      setSceneLayers(desktopSceneLayers[setlist.id] || {});
+      setDraftLyricsBySetlistSongId(nextDraftLyrics);
+      setPublishedRevision(nextRevision);
+      setLiveSongIndex(0);
+      setLiveSlideId(null);
+      setPublishedSnapshot(isLivePresentationSnapshot(storedSnapshot) && storedSnapshot.setlistId === setlist.id
+        ? { ...storedSnapshot, settings: nextSettings }
+        : buildLivePresentationSnapshot({
+            setlist,
+            revision: nextRevision,
+            linesPerSlide: setlist.presentationSettings?.linesPerSlide || 4,
+            settings: nextSettings,
+            draft: {
+              lyricsBySetlistSongId: nextDraftLyrics,
+              slideOverrides: setlist.presentationSettings?.slideOverrides || {},
+              sceneLayers: desktopSceneLayers[setlist.id] || {},
+            },
+          }));
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [desktopMode, desktopSceneLayers, desktopSetlistBackgrounds, setlist]);
   
   const supabase = useMemo(() => createClient(), []);
@@ -276,7 +324,9 @@ export default function GlobalPresenterClient({
     if (!setlist) return;
     setIsSaving(true);
     setDraftMessage("");
-    const { backgroundMediaUrl: _localMediaUrl, backgroundMediaType: _localMediaType, ...syncableSettings } = settings;
+    const syncableSettings = { ...settings };
+    delete syncableSettings.backgroundMediaUrl;
+    delete syncableSettings.backgroundMediaType;
     const payload = {
       settings: desktopMode ? syncableSettings : settings,
       linesPerSlide,
@@ -303,7 +353,7 @@ export default function GlobalPresenterClient({
   const handleSaveSettings = () => saveDraft();
 
   const liveItem = publishedSnapshot.items[liveSongIndex];
-  const liveSlides = liveItem?.slides || [];
+  const liveSlides = useMemo(() => liveItem?.slides || [], [liveItem]);
   const liveActiveSlide = liveSlideId
     ? liveSlides.find((slide) => slide.id === liveSlideId) || null
     : null;
@@ -361,7 +411,6 @@ export default function GlobalPresenterClient({
 
   const activeSlide = useMemo(() => slides.find(s => s.id === activeSlideId), [slides, activeSlideId]);
   const activeSlideIndex = useMemo(() => slides.findIndex((slide) => slide.id === activeSlideId), [slides, activeSlideId]);
-  const nextSlide = activeSlideIndex >= 0 ? slides[activeSlideIndex + 1] ?? null : slides[0] ?? null;
 
   const sendRemoteEvent = useCallback((event: string, payload: unknown) => {
     if (desktopChannel) desktopChannel.postMessage({ event, payload });
@@ -428,6 +477,10 @@ export default function GlobalPresenterClient({
     if (!result?.opened || result.ready === false) throw new Error(result?.error || "The projector window could not be opened.");
     setOutputStateVersion((version) => version + 1);
   };
+  const projectorActionsRef = useRef({ ensureProjector, pushToProjector });
+  useEffect(() => {
+    projectorActionsRef.current = { ensureProjector, pushToProjector };
+  });
 
   // The Presenter editor remains open as the trusted executor. Remote owns the
   // live controls and only operates the last explicitly published snapshot.
@@ -478,7 +531,7 @@ export default function GlobalPresenterClient({
             return;
           }
           setLiveSongIndex(requestedIndex);
-          await pushToProjector(null, "clear", publishedSnapshot, requestedIndex);
+          await projectorActionsRef.current.pushToProjector(null, "clear", publishedSnapshot, requestedIndex);
           acknowledge("applied", "Lineup item selected and output cleared.");
           return;
         }
@@ -493,8 +546,8 @@ export default function GlobalPresenterClient({
             if (selectedSlide) break;
           }
           if (!selectedSlide) { acknowledge("rejected", "That slide is unavailable in the published lineup."); return; }
-          await ensureProjector();
-          await pushToProjector(selectedSlide);
+          await projectorActionsRef.current.ensureProjector();
+          await projectorActionsRef.current.pushToProjector(selectedSlide);
           acknowledge("applied", "Slide presented on the projector.");
           return;
         }
@@ -509,14 +562,14 @@ export default function GlobalPresenterClient({
                   ? currentSlides[Math.min(currentSlides.length - 1, Math.max(0, currentIndex) + 1)]
                   : liveActiveSlide ?? currentSlides[0];
           if (!target) { acknowledge("rejected", "There are no published slides to present."); return; }
-          await ensureProjector();
-          await pushToProjector(target);
+          await projectorActionsRef.current.ensureProjector();
+          await projectorActionsRef.current.pushToProjector(target);
           acknowledge("applied", `${command.kind === "present" ? "Live output" : "Slide"} presented on the projector.`);
           return;
         }
         if (command.kind === "clear" || command.kind === "black" || command.kind === "logo") {
-          await ensureProjector();
-          await pushToProjector(null, command.kind);
+          await projectorActionsRef.current.ensureProjector();
+          await projectorActionsRef.current.pushToProjector(null, command.kind);
           acknowledge("applied", `${command.kind[0].toUpperCase()}${command.kind.slice(1)} output applied.`);
           return;
         }
@@ -527,8 +580,8 @@ export default function GlobalPresenterClient({
           return;
         }
         if (command.kind === "present-projector") {
-          await ensureProjector(command.payload?.displayId);
-          await pushToProjector(liveActiveSlide, outputMode);
+          await projectorActionsRef.current.ensureProjector(command.payload?.displayId);
+          await projectorActionsRef.current.pushToProjector(liveActiveSlide, outputMode);
           acknowledge("applied", "Projector is open and synchronized.");
           return;
         }
@@ -574,7 +627,7 @@ export default function GlobalPresenterClient({
         if (event.data?.event === "remote_command") void applyCommand(event.data.payload);
         if (event.data?.event === "remote_state_request" || event.data?.event === "presentation_state_request") {
           sendRemoteEvent("presentation_snapshot", publishedSnapshot);
-          void pushToProjector(liveActiveSlide, outputMode);
+          void projectorActionsRef.current.pushToProjector(liveActiveSlide, outputMode);
           broadcast("stage_sync", {
             stageMessage: stageMessageInput,
             stageFlashStyle,
@@ -664,7 +717,10 @@ export default function GlobalPresenterClient({
      } as SlideBlock));
   }, [activeSlide, settings.fontSize]);
 
-  const activeBlocks = activeSlideId ? slideOverrides[activeSlideId] || defaultBlocks : [];
+  const activeBlocks = useMemo(
+    () => activeSlideId ? slideOverrides[activeSlideId] || defaultBlocks : [],
+    [activeSlideId, defaultBlocks, slideOverrides],
+  );
   const selectedBlock = useMemo(() => {
     if (selectedBlockIds.length === 0 || !activeBlocks) return null;
     return activeBlocks.find(b => selectedBlockIds.includes(b.id)) || null;
@@ -972,7 +1028,7 @@ export default function GlobalPresenterClient({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeSlideIndex, desktopMode, future, past, selectedBlockIds, selectedSceneLayerIds, activeSlideId, slideOverrides, slides, activeSceneLayers, selectedSceneLayer]);
+  });
 
   const handleFetchChapter = async (book: string, chapter: number) => {
     setSelectedBibleChapter(chapter);
@@ -981,21 +1037,23 @@ export default function GlobalPresenterClient({
       const query = `${book} ${chapter}`;
       const params = new URLSearchParams({ q: query, translation: bibleTranslation });
       const res = await fetch(`/api/bible?${params}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Chapter not found");
-      if (data.verses && data.verses.length > 0) {
-         const newVerses = data.verses.map((v: any) => ({
-           reference: `${v.book_name} ${v.chapter}:${v.verse}`,
-           text: v.text.trim()
+      const data: unknown = await res.json();
+      const payload = data && typeof data === "object" ? data as Record<string, unknown> : {};
+      if (!res.ok) throw new Error(typeof payload.error === "string" ? payload.error : "Chapter not found");
+      const verses = Array.isArray(payload.verses) ? payload.verses.filter(isBibleApiVerse) : [];
+      if (verses.length > 0) {
+         const newVerses = verses.map((verse) => ({
+           reference: `${verse.book_name} ${verse.chapter}:${verse.verse}`,
+           text: verse.text.trim()
          }));
          setBibleVerses(newVerses);
          setActiveItemIndex(-2);
       } else {
         alert("Chapter not found.");
       }
-    } catch (err: any) {
-      console.error(err);
-      alert(err?.message || "Failed to fetch chapter.");
+    } catch (error: unknown) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : "Failed to fetch chapter.");
     } finally {
       setIsFetchingBible(false);
     }
@@ -1046,8 +1104,8 @@ export default function GlobalPresenterClient({
           </button>
         </div>
       </div>
-      {lanPairing && <div className="absolute right-4 top-16 z-50 w-72 rounded-lg border border-violet-400/30 bg-[#181818] p-3 shadow-2xl"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-bold text-white">Pair phone on this Wi-Fi</p><p className="mt-1 text-[10px] text-zinc-400">Scan the one-time QR code. Pairing ends when you stop it or close the app.</p></div><button onClick={() => void window.anointedDesktop?.stopLanRemote().then(() => setLanPairing(null))} className="text-zinc-400 hover:text-white"><X className="size-4" /></button></div>{lanPairing.qrDataUrl ? <img src={lanPairing.qrDataUrl} alt="Phone Remote pairing QR code" className="mx-auto my-3 size-44 rounded bg-white p-2" /> : <p className="mt-3 text-xs text-amber-300">No active Wi-Fi address was detected.</p>}{lanPairing.url && <button onClick={() => void navigator.clipboard?.writeText(lanPairing.url!)} className="w-full truncate rounded bg-white/10 px-2 py-2 text-[10px] text-zinc-200 hover:bg-white/20">Copy pairing link</button>}</div>}
-      {cloudPairing && <div className="absolute right-4 top-16 z-50 w-72 rounded-lg border border-violet-400/30 bg-[#181818] p-3 shadow-2xl"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-bold text-white">Pair phone from anywhere</p><p className="mt-1 text-[10px] text-zinc-400">Scan on the phone, sign in, then control this PC over the internet for 30 minutes.</p></div><button onClick={() => setCloudPairing(null)} className="text-zinc-400 hover:text-white"><X className="size-4" /></button></div><img src={cloudPairing.qrDataUrl} alt="Internet Remote pairing QR code" className="mx-auto my-3 size-44 rounded bg-white p-2" /><button onClick={() => void navigator.clipboard?.writeText(cloudPairing.url)} className="w-full truncate rounded bg-white/10 px-2 py-2 text-[10px] text-zinc-200 hover:bg-white/20">Copy pairing link</button></div>}
+      {lanPairing && <div className="absolute right-4 top-16 z-50 w-72 rounded-lg border border-violet-400/30 bg-[#181818] p-3 shadow-2xl"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-bold text-white">Pair phone on this Wi-Fi</p><p className="mt-1 text-[10px] text-zinc-400">Scan the one-time QR code. Pairing ends when you stop it or close the app.</p></div><button onClick={() => void window.anointedDesktop?.stopLanRemote().then(() => setLanPairing(null))} className="text-zinc-400 hover:text-white"><X className="size-4" /></button></div>{lanPairing.qrDataUrl ? <Image unoptimized width={176} height={176} src={lanPairing.qrDataUrl} alt="Phone Remote pairing QR code" className="mx-auto my-3 size-44 rounded bg-white p-2" /> : <p className="mt-3 text-xs text-amber-300">No active Wi-Fi address was detected.</p>}{lanPairing.url && <button onClick={() => void navigator.clipboard?.writeText(lanPairing.url!)} className="w-full truncate rounded bg-white/10 px-2 py-2 text-[10px] text-zinc-200 hover:bg-white/20">Copy pairing link</button>}</div>}
+      {cloudPairing && <div className="absolute right-4 top-16 z-50 w-72 rounded-lg border border-violet-400/30 bg-[#181818] p-3 shadow-2xl"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-bold text-white">Pair phone from anywhere</p><p className="mt-1 text-[10px] text-zinc-400">Scan on the phone, sign in, then control this PC over the internet for 30 minutes.</p></div><button onClick={() => setCloudPairing(null)} className="text-zinc-400 hover:text-white"><X className="size-4" /></button></div><Image unoptimized width={176} height={176} src={cloudPairing.qrDataUrl} alt="Internet Remote pairing QR code" className="mx-auto my-3 size-44 rounded bg-white p-2" /><button onClick={() => void navigator.clipboard?.writeText(cloudPairing.url)} className="w-full truncate rounded bg-white/10 px-2 py-2 text-[10px] text-zinc-200 hover:bg-white/20">Copy pairing link</button></div>}
       {draftMessage && activeTab !== "Lyrics" && <div role="status" className="absolute left-1/2 top-16 z-40 max-w-lg -translate-x-1/2 rounded border border-white/10 bg-[#181818] px-4 py-2 text-xs text-zinc-200 shadow-xl">{draftMessage}</div>}
 
       <div className="flex flex-1 overflow-hidden">
@@ -1071,7 +1129,7 @@ export default function GlobalPresenterClient({
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {setlist.songs.map((item: any, idx: number) => (
+            {setlist.songs.map((item, idx) => (
               <button
                 key={item.id}
                 onClick={() => { setActiveItemIndex(idx); setActiveSlideId(null); }}
@@ -1404,10 +1462,10 @@ export default function GlobalPresenterClient({
         <div className="w-[300px] border-l border-white/10 bg-[#121212] flex flex-col shrink-0">
            {/* Tabs */}
            <div className="px-4 pt-4 border-b border-white/5 flex gap-4 shrink-0 overflow-x-auto">
-             {["Lyrics", "Property", "Layers", "Motion", "Stage"].map(tab => (
+             {PRESENTER_TABS.map((tab) => (
                <button 
                  key={tab}
-                 onClick={() => setActiveTab(tab as any)}
+                 onClick={() => setActiveTab(tab as PresenterTab)}
                  className={cn(
                    "text-xs font-bold pb-2 border-b-2 transition-colors whitespace-nowrap",
                    activeTab === tab ? "text-white border-white" : "text-zinc-600 border-transparent hover:text-zinc-400"
@@ -1625,7 +1683,7 @@ export default function GlobalPresenterClient({
                    {desktopMode && <section className="mb-3 rounded border border-white/10 bg-black/20 p-2"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">PowerPoint import</p><label className="block cursor-pointer rounded bg-white/10 px-2 py-1.5 text-center text-[10px] font-bold hover:bg-white/15">{isImportingPptx ? "Importing…" : "Import .pptx locally"}<input type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" className="hidden" disabled={isImportingPptx} onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; setIsImportingPptx(true); try { const imported = await importDesktopPptxAction(file); setPptxReport(imported.report); setImportedPptxSlides(imported.slides.map((slide) => ({ id: slide.id, type: "teaching", content: [], sectionLabel: imported.name, sceneLayers: slide.layers }))); setActiveItemIndex(-3); setActiveSlideId(null); } finally { setIsImportingPptx(false); event.currentTarget.value = ""; } }} /></label>{importedPptxSlides.length > 0 && <button onClick={() => setActiveItemIndex(-3)} className="mt-2 w-full rounded bg-violet-600/30 px-2 py-1.5 text-[10px] font-bold text-violet-100">Open imported slides ({importedPptxSlides.length})</button>}{pptxReport && <p className="mt-2 text-[9px] text-zinc-400">Imported {pptxReport.importedText} text layers.{pptxReport.warnings.length ? ` ${pptxReport.warnings[0]}` : ""}</p>}</section>}
                    {activeBlocks.length === 0 ? (
                       <div className="p-4 text-center text-xs text-zinc-500">
-                         Click "Chop to Words" to see layers.
+                          Click &quot;Chop to Words&quot; to see layers.
                       </div>
                    ) : (
                       activeBlocks.map((block) => (
@@ -1662,7 +1720,7 @@ export default function GlobalPresenterClient({
                          <select 
                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-violet-500"
                            value={settings.slideTransition || "None"}
-                           onChange={(e) => setSettings({...settings, slideTransition: e.target.value as any})}
+                           onChange={(e) => setSettings({...settings, slideTransition: e.target.value as SlideTransition})}
                          >
                            <option value="None">None (Cut)</option>
                            <option value="Crossfade">Crossfade</option>
@@ -1689,7 +1747,7 @@ export default function GlobalPresenterClient({
                           value={selectedBlock?.entranceAnimation ?? settings.entranceAnimation}
                           onChange={(e) => {
                             if (selectedBlock) handleUpdateSelectedBlock({ entranceAnimation: e.target.value });
-                            else setSettings({...settings, entranceAnimation: e.target.value as any});
+                            else setSettings({...settings, entranceAnimation: e.target.value as EntranceAnimation});
                           }}
                         >
                           <option value="None">None</option>
@@ -1798,7 +1856,7 @@ export default function GlobalPresenterClient({
                           value={selectedBlock?.exitAnimation ?? settings.exitAnimation}
                           onChange={(e) => {
                             if (selectedBlock) handleUpdateSelectedBlock({ exitAnimation: e.target.value });
-                            else setSettings({...settings, exitAnimation: e.target.value as any});
+                            else setSettings({...settings, exitAnimation: e.target.value as ExitAnimation});
                           }}
                         >
                           <option value="None">None</option>

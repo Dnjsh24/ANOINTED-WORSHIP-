@@ -20,7 +20,7 @@ export async function createCloudRemotePairing(setlistId: string) {
     .maybeSingle();
   if (setlistError) throw new Error(setlistError.message);
   assertRemotePairingSetlistTeam(context.teamId, (setlist as { team_id?: string } | null)?.team_id);
-  const { data, error } = await (supabase.from("worship_remote_pairing_sessions") as any).insert({
+  const { data, error } = await supabase.from("worship_remote_pairing_sessions").insert({
     team_id: context.teamId,
     setlist_id: setlistId,
     created_by: context.userId,
@@ -44,7 +44,10 @@ export async function claimCloudRemotePairing(pair: string) {
   const [sessionId, pairingCode] = pair.split(".");
   if (!sessionId || !pairingCode || pairingCode.length < 32) throw new Error("Invalid Remote pairing code.");
   const supabase = await createClient();
-  const { data, error } = await (supabase.rpc as any)("claim_worship_remote_pairing", { p_session_id: sessionId, p_pairing_code: pairingCode });
+  const { data, error } = await supabase.rpc("claim_worship_remote_pairing", {
+    p_session_id: sessionId,
+    p_pairing_code: pairingCode,
+  });
   const claimed = (data as Array<{ setlist_id: string; channel_secret: string; expires_at: string }> | null)?.[0];
   if (error || !claimed) throw new Error(error?.message || "This Remote pairing code is invalid or expired.");
   return { setlistId: claimed.setlist_id, channelTopic: `worship-remote-session:${claimed.channel_secret}`, expiresAt: claimed.expires_at };

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateSetlistSongNotesAction } from "@/app/actions";
+import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
 
 export function EditBandNotesButton({
   setlistId,
@@ -14,6 +15,7 @@ export function EditBandNotesButton({
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const dialogRef = useAccessibleDialog({ open, onClose: () => setOpen(false) });
 
   const handleSave = (formData: FormData) => {
     startTransition(async () => {
@@ -25,6 +27,7 @@ export function EditBandNotesButton({
   return (
     <>
       <button
+        type="button"
         onClick={() => setOpen(true)}
         className="flex h-8 items-center gap-2 rounded bg-[#18171c] px-3 text-xs font-bold text-white transition hover:bg-zinc-800"
       >
@@ -37,8 +40,8 @@ export function EditBandNotesButton({
             className="fixed inset-0 bg-black/60 backdrop-blur-sm" 
             onClick={() => setOpen(false)} 
           />
-          <div className="relative w-full max-w-md rounded-2xl bg-[#0f0e14] border border-white/10 p-6 shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-4">Band Notes</h2>
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="band-notes-title" tabIndex={-1} className="relative w-full max-w-md rounded-2xl bg-[#0f0e14] border border-white/10 p-6 shadow-2xl">
+            <h2 id="band-notes-title" className="text-xl font-bold text-white mb-4">Band Notes</h2>
             <form action={handleSave} className="flex flex-col gap-4">
               <input type="hidden" name="setlistId" value={setlistId} />
               <input type="hidden" name="slotId" value={slotId} />

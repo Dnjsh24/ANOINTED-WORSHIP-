@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+**/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -18,9 +19,14 @@
 # next.js
 /.next/
 /out/
+**/.next/
 
 # production
 /build
+
+# website-only repository scope
+/desktop/
+/main.cjs
 
 # misc
 .DS_Store
@@ -34,6 +40,15 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 dev-server.log
+*.log
+
+# local diagnostics and databases
+/.tmp/
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.db
+/fix-env.mjs
 
 # env files (can opt-in for committing if needed)
 .env*

@@ -2,23 +2,40 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { X, Play, Music, LayoutTemplate, Settings, MonitorUp, EyeOff } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { X, Music, LayoutTemplate, MonitorUp, EyeOff } from "lucide-react";
+import { createOptionalClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { generateSongSlides, type PresentationSlide } from "@/lib/domain/presentation";
 
-import { SlideBackgroundPicker } from "@/components/slide-background-picker";
+import { SlideBackgroundPicker, type SlideSettings } from "@/components/slide-background-picker";
 
-export default function PresenterClient({ setlist, teamId }: { setlist: any, teamId: string }) {
+type PresenterSetlist = {
+  id: string;
+  name: string;
+  songs: Array<{
+    id: string;
+    assignedKey: string;
+    slideSettings?: SlideSettings | null;
+    song: {
+      title: string;
+      originalKey: string;
+      bpm: number | null;
+      lyricsChords: string;
+    };
+  }>;
+};
+
+export default function PresenterClient({ setlist, teamId }: { setlist: PresenterSetlist; teamId: string }) {
   const [activeItemIndex, setActiveItemIndex] = useState<number>(0);
   const [linesPerSlide, setLinesPerSlide] = useState<number>(4);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string>("");
   
-  const supabase = useMemo(() => createClient(), []);
-  const channel = useMemo(() => supabase.channel(`setlist_${setlist.id}`), [setlist.id, supabase]);
+  const supabase = useMemo(() => createOptionalClient(), []);
+  const channel = useMemo(() => supabase?.channel(`setlist_${setlist.id}`) ?? null, [setlist.id, supabase]);
 
   useEffect(() => {
+    if (!channel || !supabase) return;
     channel.subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -27,7 +44,7 @@ export default function PresenterClient({ setlist, teamId }: { setlist: any, tea
 
   const pushToProjector = (slide: PresentationSlide | null) => {
     setActiveSlideId(slide?.id || null);
-    channel.send({
+    channel?.send({
       type: "broadcast",
       event: "projector_sync",
       payload: { slide, slideSettings: activeItem?.slideSettings || null },
@@ -73,7 +90,7 @@ export default function PresenterClient({ setlist, teamId }: { setlist: any, tea
             <h2 className="text-xs font-black uppercase tracking-widest text-zinc-500">Line Up</h2>
           </div>
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {setlist.songs.map((item: any, idx: number) => (
+            {setlist.songs.map((item, idx) => (
               <button
                 key={item.id}
                 onClick={() => setActiveItemIndex(idx)}
@@ -134,7 +151,7 @@ export default function PresenterClient({ setlist, teamId }: { setlist: any, tea
                    <button 
                      onClick={() => {
                         setActiveSlideId("media-url");
-                        channel.send({
+                        channel?.send({
                           type: "broadcast",
                           event: "projector_sync",
                           payload: { slide: { id: "media-url", type: "teaching", content: [], mediaUrl } },

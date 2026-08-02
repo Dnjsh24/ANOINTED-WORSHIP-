@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { seedSongs } from "../seed/data";
+import { safeErrorDetails } from "@/lib/server/safe-error";
+import { STARTER_LIBRARY_SEED_SOURCE } from "@/lib/domain/seed";
 
-export async function GET() {
+export async function POST() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -27,19 +28,19 @@ export async function GET() {
   const teamId = membership.team_id;
 
   try {
-    const titlesToRemove = seedSongs.map(s => s.title);
-
-    // Soft delete the songs
+    // Soft delete only the starter rows created by the seed operation. User
+    // songs with a matching title are never selected.
     const { data, error } = await supabase
       .from("songs")
       .update({ deleted_at: new Date().toISOString() })
-      .in("title", titlesToRemove)
+      .eq("seed_source", STARTER_LIBRARY_SEED_SOURCE)
       .eq("team_id", teamId)
       .is("deleted_at", null) // Only affect songs not already in trash
       .select("id, title");
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Unseed update failed:", safeErrorDetails(error));
+      return NextResponse.json({ error: "Seeded songs could not be moved to trash." }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -48,7 +49,11 @@ export async function GET() {
       message: `Successfully moved ${data?.length || 0} seeded songs to the Trash.`,
       removed: data,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (error) {
+    console.error("Unseed operation failed:", safeErrorDetails(error));
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

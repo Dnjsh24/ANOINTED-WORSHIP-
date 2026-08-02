@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { capoSuggestion, chordToNashville, progressionToNashville, transposeChord, transposeProgression, transposeTokens, tokensToNashville } from "@/lib/domain/chords";
+import { chordToNashville, progressionToNashville, transposeChord, transposeProgression, transposeTokens, tokensToNashville } from "@/lib/domain/chords";
 import { ChordDiagrams } from "@/components/chord-diagrams";
 import type { Song } from "@/lib/types";
 import Link from "next/link";
+import Image from "next/image";
 import { Play, Square, Music, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,27 @@ function getYouTubeEmbedId(url?: string): string | null {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? match[2] : null;
+}
+
+function getSpotifyTrackUrls(url?: string): { embed: string; external: string } | null {
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" || parsed.hostname !== "open.spotify.com") return null;
+
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    const trackSegment = segments.indexOf("track");
+    const trackId = trackSegment >= 0 ? segments[trackSegment + 1] : undefined;
+    if (!trackId || !/^[A-Za-z0-9]{22}$/.test(trackId)) return null;
+
+    return {
+      embed: `https://open.spotify.com/embed/track/${trackId}`,
+      external: `https://open.spotify.com/track/${trackId}`,
+    };
+  } catch {
+    return null;
+  }
 }
 
 // Renders ChordPro tokens: each chord floats perfectly above its syllable
@@ -56,7 +77,7 @@ let audioCtx: AudioContext | null = null;
 function playClick(beat: number, volume: number = 0.5) {
   try {
     if (typeof window === "undefined") return;
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) return;
 
     if (!audioCtx) {
@@ -134,13 +155,16 @@ export function SongViewer({
 
   // Tab State: "chords" | "lyrics"
   const [activeTab, setActiveTab] = useState<"chords" | "lyrics">("chords");
+  const songStateKey = `${song.id}:${song.bpm ?? ""}:${song.currentKey}`;
+  const [previousSongStateKey, setPreviousSongStateKey] = useState(songStateKey);
 
-  useEffect(() => {
+  if (songStateKey !== previousSongStateKey) {
+    setPreviousSongStateKey(songStateKey);
     setMetronomePlaying(false);
     setScrollPlaying(false);
     setBpm(song.bpm);
     setSelectedKey(song.currentKey);
-  }, [song.id, song.bpm, song.currentKey]);
+  }
 
   // Metronome Sound Loop
   useEffect(() => {
@@ -149,8 +173,10 @@ export function SongViewer({
     }
 
     let beat = 1;
-    setCurrentBeat(beat);
-    playClick(beat, metronomeVolume);
+    const initialTick = window.setTimeout(() => {
+      setCurrentBeat(beat);
+      playClick(beat, metronomeVolume);
+    }, 0);
 
     const intervalMs = (60 / bpm) * 1000;
     const timer = setInterval(() => {
@@ -160,6 +186,7 @@ export function SongViewer({
     }, intervalMs);
 
     return () => {
+      window.clearTimeout(initialTick);
       clearInterval(timer);
     };
   }, [metronomePlaying, bpm, metronomeVolume]);
@@ -194,8 +221,7 @@ export function SongViewer({
   }, [scrollPlaying, scrollSpeed]);
 
   const embedId = useMemo(() => getYouTubeEmbedId(song.youtubeUrl), [song.youtubeUrl]);
-  const capo = useMemo(() => capoSuggestion(song.originalKey, selectedKey), [selectedKey, song.originalKey]);
-
+  const spotifyTrackUrls = useMemo(() => getSpotifyTrackUrls(song.spotifyUrl), [song.spotifyUrl]);
   // Extract unique chords (handles both legacy and ChordPro token formats)
   const uniqueChords = useMemo(() => {
     const set = new Set<string>();
@@ -272,7 +298,7 @@ export function SongViewer({
       <div className="flex flex-col md:flex-row items-start justify-between gap-6">
         <div className="flex items-start gap-4">
           {song.imageUrl ? (
-            <img src={song.imageUrl} alt={song.album || song.title} className="size-24 rounded-lg object-cover shadow-lg" />
+            <Image unoptimized width={96} height={96} src={song.imageUrl} alt={song.album || song.title} className="size-24 rounded-lg object-cover shadow-lg" />
           ) : (
             <div className="size-24 rounded-lg bg-white/5 flex items-center justify-center shadow-lg border border-white/10">
               <Music className="size-8 text-zinc-600" />
@@ -355,17 +381,29 @@ export function SongViewer({
         </div>
       </div>
 
-      {song.spotifyUrl && (
+      {spotifyTrackUrls && (
         <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
-          <iframe 
-            src={song.spotifyUrl.replace("open.spotify.com/track/", "open.spotify.com/embed/track/")} 
-            width="100%" 
-            height="152" 
-            frameBorder="0" 
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-            loading="lazy" 
+          <iframe
+            src={spotifyTrackUrls.embed}
+            title={`Spotify player for ${song.title}`}
+            width="100%"
+            height="152"
+            frameBorder="0"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            referrerPolicy="strict-origin-when-cross-origin"
             className="rounded-xl"
-          ></iframe>
+          />
+          <div className="mt-2 flex justify-end">
+            <a
+              href={spotifyTrackUrls.external}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-semibold text-green-400 underline-offset-4 hover:underline"
+            >
+              Open on Spotify
+            </a>
+          </div>
         </div>
       )}
 
@@ -378,7 +416,12 @@ export function SongViewer({
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Instrument:</span>
               <select
                 value={instrument}
-                onChange={(e) => setInstrument(e.target.value as any)}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === "piano" || value === "guitar" || value === "bass") {
+                    setInstrument(value);
+                  }
+                }}
                 className="bg-[#17161b] rounded-lg border border-white/10 px-2.5 py-1 text-xs font-bold text-violet-400 outline-none"
               >
                 <option value="guitar" className="bg-[#111014] text-white">Guitar</option>
@@ -398,13 +441,13 @@ export function SongViewer({
 
       {/* Tabs Menu (Chords and Lyrics only) */}
       <div className="flex border-b border-white/[0.08] text-xs">
-        {[
+        {([
           { id: "chords", label: "Chords" },
           { id: "lyrics", label: "Lyrics" },
-        ].map((tab) => (
+        ] as const).map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => setActiveTab(tab.id)}
             className={cn(
               "px-5 py-3 font-semibold transition-all border-b-2 -mb-px",
               activeTab === tab.id
@@ -422,7 +465,7 @@ export function SongViewer({
         {/* Left Column: Chord Chart Area */}
         <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/60 p-6 min-h-[400px]">
           <div className="space-y-6">
-            {song.sections.map((section) => {
+            {song.sections.map((section, sectionIndex) => {
               const lower = section.label.toLowerCase();
               let sectionStyle = "w-full rounded-xl bg-white/[0.02] border border-white/[0.06] p-4";
               if (lower.includes("chorus")) {
@@ -434,7 +477,7 @@ export function SongViewer({
               }
 
               return (
-                <section key={section.label} className={sectionStyle}>
+                <section key={`${section.label}-${sectionIndex}`} className={sectionStyle}>
                   {section.label.toLowerCase() !== "song" && (
                     <p className="mb-3 font-mono text-[9px] font-bold uppercase tracking-wider text-violet-400">{section.label}</p>
                   )}
@@ -516,10 +559,21 @@ export function SongViewer({
                 <iframe
                   className="w-full h-full"
                   src={`https://www.youtube.com/embed/${embedId}?autoplay=0`}
-                  title="YouTube video player"
+                  title={`YouTube player for ${song.title}`}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  referrerPolicy="strict-origin-when-cross-origin"
                   allowFullScreen
                 />
+              </div>
+              <div className="mt-2 flex justify-end">
+                <a
+                  href={`https://www.youtube.com/watch?v=${embedId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-semibold text-red-400 underline-offset-4 hover:underline"
+                >
+                  Open on YouTube
+                </a>
               </div>
             </div>
           )}

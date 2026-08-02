@@ -9,14 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { Event } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type EventsClientProps = {
   events: Event[];
   canReviewEvents?: boolean;
   memberSubmissionMode?: boolean;
+  referenceDate?: string;
 };
 
-export function EventsClient({ events, canReviewEvents = false, memberSubmissionMode = false }: EventsClientProps) {
+export function EventsClient({ events, canReviewEvents = false, memberSubmissionMode = false, referenceDate }: EventsClientProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [dateFilter, setDateFilter] = useState<"all" | "upcoming" | "past" | "calendar">(
@@ -25,11 +27,11 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
   const [message, setMessage] = useState("");
   const [messageOk, setMessageOk] = useState(true);
   const [isReviewPending, startReviewTransition] = useTransition();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = referenceDate ?? new Date().toISOString().slice(0, 10);
 
   // Date state for Calendar View
   const [currentDate, setCurrentDate] = useState(() => {
-    const now = new Date();
+    const now = referenceDate ? new Date(`${referenceDate}T00:00:00`) : new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
 
@@ -114,7 +116,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
         (dateFilter === "upcoming" ? event.date >= today : dateFilter === "past" ? event.date < today : true);
       return matchesSearch && matchesDate;
     });
-  }, [dateFilter, query, visibleEvents]);
+  }, [dateFilter, query, today, visibleEvents]);
 
   function reviewEvent(eventId: string, decision: "approved" | "rejected") {
     startReviewTransition(() => {
@@ -539,8 +541,4 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
       )}
     </div>
   );
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
 }

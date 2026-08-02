@@ -1,4 +1,4 @@
-import { parseLyricsAndChords, type SongSection } from "./chords";
+import { parseLyricsAndChords } from "./chords";
 
 export interface SlideBlock {
   id: string;
@@ -37,7 +37,11 @@ export interface PresentationSlide {
   sectionLabel?: string;
   notes?: string;
   mediaUrl?: string; // For teaching/image slides
+  mediaKind?: "image" | "pdf-page";
+  pdfPage?: number;
   sceneLayers?: SceneLayer[];
+  /** PowerPoint slides default to their exact rendering until editing is selected. */
+  teachingViewMode?: "original" | "edited";
 }
 
 /** A desktop-only production layer. It never enters the worship sync payload. */
@@ -91,6 +95,61 @@ export type LiveProp = {
   imageUrl?: string;
 };
 
+export type SlideTransition =
+  | "None"
+  | "Crossfade"
+  | "Slide Up"
+  | "Slide Down"
+  | "Slide Left"
+  | "Slide Right"
+  | "Zoom In"
+  | "Zoom Out"
+  | "Blur"
+  | "Flip";
+
+export type EntranceAnimation =
+  | "None"
+  | "Appear"
+  | "Fade In"
+  | "Blur In"
+  | "Slide In Up"
+  | "Slide In Down"
+  | "Slide In Left"
+  | "Slide In Right"
+  | "Rise Up"
+  | "Drop Down"
+  | "Mask In Up"
+  | "Zoom In"
+  | "Zoom In Bounce"
+  | "Bounce In"
+  | "Flip In X"
+  | "Flip In Y"
+  | "Rotate In"
+  | "Roll In"
+  | "Swing In"
+  | "Skew In Left"
+  | "Skew In Right";
+
+export type ExitAnimation =
+  | "None"
+  | "Disappear"
+  | "Fade Out"
+  | "Blur Out"
+  | "Slide Out Up"
+  | "Slide Out Down"
+  | "Slide Out Left"
+  | "Slide Out Right"
+  | "Shrink Up"
+  | "Mask Out Up"
+  | "Zoom Out"
+  | "Zoom Out Blow"
+  | "Bounce Out"
+  | "Flip Out X"
+  | "Flip Out Y"
+  | "Rotate Out"
+  | "Skew Out Left"
+  | "Skew Out Right";
+
 export interface PresentationSettings {
   fontFamily: string;
   fontSize: number;
@@ -101,12 +160,12 @@ export interface PresentationSettings {
   color: string;
   backgroundColor: string;
   showShadow: boolean;
-  slideTransition: "None" | "Crossfade" | "Slide Up" | "Slide Down";
-  entranceAnimation: "None" | "Appear" | "Fade In" | "Slide In Up" | "Slide In Down" | "Slide In Left" | "Slide In Right" | "Mask In Up";
+  slideTransition: SlideTransition;
+  entranceAnimation: EntranceAnimation;
   entranceDuration: number;
   entranceDelay: number;
   entranceCurve: string;
-  exitAnimation: "None" | "Disappear" | "Fade Out" | "Slide Out Up" | "Slide Out Down" | "Slide Out Left" | "Slide Out Right" | "Mask Out Up";
+  exitAnimation: ExitAnimation;
   exitDuration: number;
   exitDelay: number;
   exitCurve: string;

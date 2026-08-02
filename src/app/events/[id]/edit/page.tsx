@@ -3,12 +3,27 @@ import { AppShell } from "@/components/app-shell";
 import { EventForm } from "@/components/event-form";
 import { Panel } from "@/components/ui/card";
 import { fallbackServiceTemplates, mapServiceTemplate } from "@/lib/domain/service-templates";
-import { members as sampleMembers } from "@/lib/sample-data";
-import type { ServiceTemplate, TeamMember, TeamRole } from "@/lib/types";
+import { events as sampleEvents, members as sampleMembers } from "@/lib/sample-data";
+import type { EventType, ServiceTemplate, TeamMember, TeamRole } from "@/lib/types";
 import { can } from "@/lib/domain/rbac";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+type EditableEventRow = {
+  id: string;
+  name: string;
+  type: EventType;
+  event_date: string;
+  starts_at: string;
+  ends_at: string | null;
+  rehearsal_date: string | null;
+  rehearsal_time: string | null;
+  rehearsal_end_time: string | null;
+  location: string | null;
+  description: string | null;
+  event_assignments: Array<{ assignment: string }>;
+  setlists: Array<{ id: string }>;
+};
 
 export default async function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,7 +38,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
   let teamMembersList: TeamMember[] = [];
   let serviceTemplates: ServiceTemplate[] = fallbackServiceTemplates;
   let setlistsList: Array<{ id: string; name: string; date: string }> = [];
-  let dbEvent: any = null;
+  let dbEvent: EditableEventRow | null = null;
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
@@ -53,8 +68,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
       );
     }
 
-    teamMembersList = (dbMembers ?? []).map((t: any) => {
-      const tm = t as any;
+    teamMembersList = (dbMembers ?? []).map((tm) => {
       const profile = memberProfilesMap[tm.profile_id];
       return {
         id: tm.id,
@@ -79,7 +93,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
       .order("created_at", { ascending: true });
 
     if (templateRows && templateRows.length > 0) {
-      serviceTemplates = templateRows.map((row) => mapServiceTemplate(row as any));
+      serviceTemplates = templateRows.map(mapServiceTemplate);
     }
 
 
@@ -102,7 +116,7 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
     if (!eventData) {
       notFound();
     }
-    dbEvent = eventData;
+    dbEvent = eventData as unknown as EditableEventRow;
 
     // Fetch recent setlists
     const { data: dbSetlists } = await supabase
@@ -113,21 +127,45 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
       .order("setlist_date", { ascending: true });
 
     if (dbSetlists) {
-      setlistsList = dbSetlists.map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        date: s.setlist_date,
+      setlistsList = dbSetlists.map((setlist) => ({
+        id: setlist.id,
+        name: setlist.name,
+        date: setlist.setlist_date,
       }));
     }
   
   } else if (!hasSupabaseEnv()) {
-    teamMembersList = sampleMembers as any[];
-    notFound();
+    teamMembersList = sampleMembers;
+    const sampleEvent = sampleEvents.find((event) => event.id === id);
+    if (!sampleEvent) {
+      notFound();
+    }
+    dbEvent = {
+      id: sampleEvent.id,
+      name: sampleEvent.name,
+      type: sampleEvent.type,
+      event_date: sampleEvent.date,
+      starts_at: sampleEvent.time.match(/\d{1,2}:\d{2}/)?.[0] ?? "09:00",
+      ends_at: sampleEvent.time.match(/-\s*(\d{1,2}:\d{2})/)?.[1] ?? null,
+      rehearsal_date: null,
+      rehearsal_time: null,
+      rehearsal_end_time: null,
+      location: sampleEvent.location,
+      description: sampleEvent.assignedTeams.join(", "),
+      event_assignments: sampleEvent.assignedTeams.map((assignment) => ({ assignment })),
+      setlists: [],
+    };
   } else {
     notFound();
   }
 
-  const assignedFromDb = dbEvent.event_assignments ? dbEvent.event_assignments.map((a: any) => a.assignment) : [];
+  if (!dbEvent) {
+    notFound();
+  }
+
+  const assignedFromDb = dbEvent.event_assignments
+    ? dbEvent.event_assignments.map((assignment) => assignment.assignment)
+    : [];
   const assignedFromDescription = dbEvent.description
     ? dbEvent.description.split(",").map((s: string) => s.trim()).filter(Boolean)
     : [];

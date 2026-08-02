@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition, useState, useEffect } from "react";
+import { useTransition, useState } from "react";
 import Link from "next/link";
 import { GripVertical } from "lucide-react";
 import {
@@ -29,7 +29,23 @@ import { EditBandNotesButton } from "@/components/edit-band-notes-button";
 import { DeleteSongButton } from "@/components/delete-song-button";
 import { bulkReorderSetlistSongsAction } from "@/app/actions";
 
-function SortableSongItem({ item, setlistId, canManageSetlist }: { item: any; setlistId: string; canManageSetlist: boolean }) {
+export type OrderedSetlistSong = {
+  id: string;
+  order: number;
+  assignedKey: string;
+  lead?: string;
+  arrangement?: string | null;
+  bandNotes?: string | null;
+  song: {
+    id: string;
+    title: string;
+    originalKey: string;
+    bpm: number | null;
+    lyrics?: string;
+  };
+};
+
+function SortableSongItem({ item, setlistId, canManageSetlist }: { item: OrderedSetlistSong; setlistId: string; canManageSetlist: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
 
   const style = {
@@ -103,7 +119,7 @@ function SortableSongItem({ item, setlistId, canManageSetlist }: { item: any; se
                 slotId={item.id}
                 songTitle={item.song.title}
                 currentArrangement={item.arrangement}
-                lyrics={item.song.lyrics}
+                lyrics={item.song.lyrics ?? ""}
               />
               <EditBandNotesButton
                 setlistId={setlistId}
@@ -130,16 +146,17 @@ export function SetlistSongOrder({
   canManageSetlist 
 }: { 
   setlistId: string; 
-  initialSongs: any[]; 
+  initialSongs: OrderedSetlistSong[];
   canManageSetlist: boolean 
 }) {
   const [songs, setSongs] = useState(initialSongs);
+  const [previousInitialSongs, setPreviousInitialSongs] = useState(initialSongs);
   const [isPending, startTransition] = useTransition();
 
-  // Sync with prop changes (e.g. after server mutation)
-  useEffect(() => {
+  if (initialSongs !== previousInitialSongs) {
+    setPreviousInitialSongs(initialSongs);
     setSongs(initialSongs);
-  }, [initialSongs]);
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -205,7 +222,8 @@ export function SetlistSongOrder({
   }
 
   return (
-    <DndContext 
+    <DndContext
+      id={`setlist-song-order-${setlistId}`}
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}

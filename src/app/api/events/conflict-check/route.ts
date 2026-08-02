@@ -1,6 +1,21 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+import { safeErrorDetails } from "@/lib/server/safe-error";
+import { z } from "zod";
+import { readBoundedJson, RequestBodyError } from "@/lib/server/request-body";
+
+const conflictRequestSchema = z.object({
+  date: z.iso.date(),
+  memberIds: z.array(z.uuid()).max(50),
+  excludeEventId: z.uuid().optional(),
+}).strict();
+
+type ConflictEvent = {
+  id: string;
+  name: string;
+  event_assignments: Array<{ profile_id: string }>;
+};
 
 export async function POST(req: Request) {
   try {
@@ -9,9 +24,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing team" }, { status: 400 });
     }
 
-    const { date, memberIds, excludeEventId } = await req.json();
+    const parsed = conflictRequestSchema.safeParse(await readBoundedJson(req, 16_384));
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid conflict request" }, { status: 400 });
+    }
+    const { date, memberIds, excludeEventId } = parsed.data;
 
-    if (!date || !memberIds || !Array.isArray(memberIds) || memberIds.length === 0) {
+    if (memberIds.length === 0) {
       return NextResponse.json({ conflicts: [] });
     }
 
@@ -31,7 +50,7 @@ export async function POST(req: Request) {
     const { data: events, error } = await query;
 
     if (error) {
-      console.error("Conflict check error:", error);
+      console.error("Conflict check error:", safeErrorDetails(error));
       return NextResponse.json({ conflicts: [] });
     }
 
@@ -58,10 +77,12 @@ export async function POST(req: Request) {
 
     const conflicts: { memberName: string; eventName: string }[] = [];
 
-    for (const ev of events as any[]) {
+    for (const ev of events as unknown as ConflictEvent[]) {
       if (!ev.event_assignments || ev.event_assignments.length === 0) continue;
       
-      const eventAssignedIds = new Set<string>(ev.event_assignments.map((ea: any) => ea.profile_id));
+      const eventAssignedIds = new Set(
+        ev.event_assignments.map((assignment) => assignment.profile_id),
+      );
 
       for (const reqId of memberIds) {
         if (eventAssignedIds.has(reqId)) {
@@ -75,8 +96,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ conflicts });
 
-  } catch (err: any) {
-    console.error(err);
+  } catch (error) {
+    if (error instanceof RequestBodyError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("Unexpected conflict check failure:", safeErrorDetails(error));
     return NextResponse.json({ conflicts: [] }, { status: 500 });
   }
 }

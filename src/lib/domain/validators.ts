@@ -1,8 +1,17 @@
 import { z } from "zod";
-import { teamRoles } from "@/lib/types";
+import { teamRoles, type TeamRole } from "@/lib/types";
 
 const noticePriorities = ["normal", "important", "urgent"] as const;
 const reminderRecurrences = ["none", "weekly", "monthly"] as const;
+const eventRecurrences = ["none", "weekly", "biweekly", "monthly"] as const;
+const joinRequestRoles = [
+  "member",
+  "worship_leader",
+  "band_member",
+  "media",
+  "dancer",
+  "pastor",
+] as const;
 
 export const emailSchema = z.string().trim().email().max(254);
 
@@ -54,6 +63,38 @@ export const memberRoleSchema = z.object({
   memberId: z.string().min(1),
   role: z.string().min(1),
 });
+
+export const joinRequestRoleSchema = z.enum(joinRequestRoles);
+
+type MemberMutation =
+  | {
+      actorRole: TeamRole;
+      targetRole: TeamRole;
+      action: "delete";
+    }
+  | {
+      actorRole: TeamRole;
+      targetRole: TeamRole;
+      action: "update";
+      nextRole: TeamRole;
+    };
+
+export function canMutateTeamMember(mutation: MemberMutation) {
+  if (mutation.actorRole !== "owner" && mutation.actorRole !== "admin") {
+    return false;
+  }
+
+  // Ownership has a dedicated transactional transfer workflow. Generic member
+  // management may never create, demote, or remove an owner.
+  if (mutation.targetRole === "owner") {
+    return false;
+  }
+  if (mutation.action === "update" && mutation.nextRole === "owner") {
+    return false;
+  }
+
+  return true;
+}
 
 export const messageSchema = z.object({
   channelId: z.string().uuid("Invalid channel selected."),
@@ -116,6 +157,63 @@ export const setlistSongInputSchema = z.object({
   youtubeUrl: z.string().trim().max(500).optional(),
 });
 
+const setlistBulkSongSchema = z.object({
+  songId: z.string().uuid(),
+  assignedKey: z.string().trim().min(1).max(3),
+  type: z.enum(["Worship", "Praise", "None"]),
+});
+
+export const setlistBulkInsertSchema = z.object({
+  setlistId: z.string().uuid(),
+  songs: z.array(setlistBulkSongSchema).min(1).max(100),
+});
+
+export const setlistReorderSchema = z.object({
+  setlistId: z.string().uuid(),
+  updates: z.array(z.object({
+    id: z.string().uuid(),
+    songOrder: z.number().int().positive().max(10_000),
+  })).min(1).max(200),
+}).superRefine((value, context) => {
+  const ids = new Set(value.updates.map((update) => update.id));
+  const orders = new Set(value.updates.map((update) => update.songOrder));
+  if (ids.size !== value.updates.length) {
+    context.addIssue({ code: "custom", path: ["updates"], message: "Song IDs must be unique." });
+  }
+  if (orders.size !== value.updates.length) {
+    context.addIssue({ code: "custom", path: ["updates"], message: "Song order values must be unique." });
+  }
+});
+
+const slideImagePathSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(500)
+  .regex(
+    /^(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9_-]+(?:\/[A-Za-z0-9._-]+)+$/,
+    "Use a presentation-media object path.",
+  );
+
+export const slideSettingsSchema = z.discriminatedUnion("backgroundType", [
+  z.object({
+    backgroundType: z.literal("color"),
+    backgroundValue: z.string().regex(/^#[0-9a-f]{6}$/i),
+  }),
+  z.object({
+    backgroundType: z.literal("gradient"),
+    backgroundValue: z.enum([
+      "linear-gradient(to bottom right, #000000, #4c1d95)",
+      "linear-gradient(to top right, #1e1b4b, #831843)",
+      "radial-gradient(circle at center, #064e3b, #000000)",
+    ]),
+  }),
+  z.object({
+    backgroundType: z.literal("image"),
+    backgroundValue: slideImagePathSchema,
+  }),
+]);
+
 export const eventInputSchema = z.object({
   title: z.string().trim().min(1, "Event title is required").max(160),
   eventType: z.enum(["service", "rehearsal", "meeting", "special_event", "service_rehearsal"]),
@@ -141,6 +239,7 @@ export const eventInputSchema = z.object({
   media: z.string().trim().max(160).optional(),
   dancers: z.array(z.string().trim()).optional(),
   templateId: z.string().trim().optional(),
+  recurrence: z.enum(eventRecurrences).default("none"),
 });
 
 export const noticeTargetSchema = z

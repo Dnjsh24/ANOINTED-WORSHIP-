@@ -22,17 +22,16 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
-import { PwaRegister } from "@/components/pwa-register";
 import { OfflinePreloader } from "@/components/offline-preloader";
-import { NotificationBell } from "@/components/notification-bell";
 import { AppShell } from "@/components/app-shell";
 import { getSetlistTypeLabel } from "@/lib/domain/event-types";
-import { can } from "@/lib/domain/rbac";
 import { currentUser as sampleUser, events, setlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
+import type { Database, Json } from "@/lib/supabase/database.types";
+import type { Event, Setlist } from "@/lib/types";
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -55,12 +54,60 @@ type DashboardReminderItem = {
   href: string;
 };
 
+type DashboardNextEvent = Pick<Event, "id" | "name" | "date" | "time" | "location">;
+type DashboardNextSetlist = Pick<
+  Setlist,
+  "id" | "name" | "date" | "location" | "callTime" | "rehearsalTime" | "leader" | "eventType" | "serviceTimes"
+>;
+type DashboardSetlistSong = {
+  id: string;
+  assignedKey: string;
+  song: { id: string; title: string; bpm: number | null };
+};
+type DashboardSetlistSongRow = Pick<
+  Database["public"]["Tables"]["setlist_songs"]["Row"],
+  "id" | "assigned_key" | "song_order"
+> & {
+  song: Pick<Database["public"]["Tables"]["songs"]["Row"], "id" | "title" | "bpm"> | null;
+};
+type DashboardSetlistRow = Pick<
+  Database["public"]["Tables"]["setlists"]["Row"],
+  "id" | "name" | "setlist_date" | "location" | "call_time" | "rehearsal_time" | "service_times"
+> & {
+  events: Pick<Database["public"]["Tables"]["events"]["Row"], "type"> | null;
+  leader: {
+    id: string;
+    profiles: { full_name: string } | null;
+  } | null;
+  setlist_songs: DashboardSetlistSongRow[];
+};
+type DashboardActivityLog = {
+  id: string;
+  action: string;
+  target_type: string;
+  created_at: string;
+  profile: { full_name: string } | null;
+  details: { name?: string; title?: string };
+};
+type DashboardActivityLogRow = Omit<DashboardActivityLog, "profile" | "details"> & {
+  profile: { full_name: string } | Array<{ full_name: string }> | null;
+  details: Json | null;
+};
+
+function activityDetails(value: Json | null): DashboardActivityLog["details"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return {
+    name: typeof value.name === "string" ? value.name : undefined,
+    title: typeof value.title === "string" ? value.title : undefined,
+  };
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const teamContext = await getRequiredTeamContext();
 
-  let nextSetlist = {
+  let nextSetlist: DashboardNextSetlist | null = {
     id: setlists[0].id,
     name: setlists[0].name,
     date: setlists[0].date,
@@ -71,8 +118,8 @@ export default async function DashboardPage() {
     eventType: setlists[0].eventType,
     serviceTimes: ["9:00 AM", "11:00 AM"],
   };
-  let nextEvent = events[0];
-  let setlistSongsList = setlists[0].songs;
+  let nextEvent: DashboardNextEvent | null = events[0];
+  let setlistSongsList: DashboardSetlistSong[] = setlists[0].songs;
 
   let userFullName = sampleUser.fullName;
   let upcomingEventsCount = events.length;
@@ -90,8 +137,8 @@ export default async function DashboardPage() {
     { icon: Users, title: "Attendance", body: "Confirm availability before Friday night.", due: "Due Fri, Jul 10", dueColor: "bg-violet-500/20 text-violet-300", href: "/reminders" },
     { icon: Folder, title: "Media", body: "Upload practice files before rehearsal.", due: "Due Sat, Jul 11", dueColor: "bg-red-500/20 text-red-300", href: "/messages" },
   ];
-  let activityLogs: any[] = [];
-  let upcomingCelebrations: { name: string; type: "Birthday" | "Team Anniversary"; date: Date; daysAway: number }[] = [];
+  let activityLogs: DashboardActivityLog[] = [];
+  const upcomingCelebrations: { name: string; type: "Birthday" | "Team Anniversary"; date: Date; daysAway: number }[] = [];
 
   if (hasSupabaseEnv() && teamContext.userId) {
     const supabase = await createClient();
@@ -167,25 +214,27 @@ export default async function DashboardPage() {
           date: dbEvent.event_date,
           time: `${dbEvent.starts_at.slice(0, 5)} - ${dbEvent.ends_at?.slice(0, 5) || ""}`,
           location: dbEvent.location ?? "Main Sanctuary",
-        } as any;
+        };
       } else {
-        nextEvent = null as any;
+        nextEvent = null;
       }
 
-      const dbSetlist = dbSetlistResult.data as any;
+      const dbSetlist = dbSetlistResult.data as unknown as DashboardSetlistRow | null;
       if (dbSetlist) {
         const leaderName = dbSetlist.leader?.profiles?.full_name || "Worship Leader";
         const dbSetlistSongs = dbSetlist.setlist_songs || [];
 
-        setlistSongsList = (dbSetlistSongs || []).map((ss: any) => ({
-          id: ss.id,
-          assignedKey: ss.assigned_key,
-          song: {
-            id: ss.song?.id,
-            title: ss.song?.title || "Unknown Song",
-            bpm: ss.song?.bpm || 72,
-          },
-        })) as any;
+        setlistSongsList = dbSetlistSongs.flatMap((setlistSong) => setlistSong.song
+          ? [{
+              id: setlistSong.id,
+              assignedKey: setlistSong.assigned_key,
+              song: {
+                id: setlistSong.song.id,
+                title: setlistSong.song.title,
+                bpm: setlistSong.song.bpm,
+              },
+            }]
+          : []);
 
         nextSetlist = {
           id: dbSetlist.id,
@@ -199,7 +248,7 @@ export default async function DashboardPage() {
           serviceTimes: dbSetlist.service_times || ["9:00 AM", "11:00 AM"],
         };
       } else {
-        nextSetlist = null as any;
+        nextSetlist = null;
         setlistSongsList = [];
       }
 
@@ -293,7 +342,15 @@ export default async function DashboardPage() {
         };
       });
 
-      activityLogs = activityLogsResult.data ?? [];
+      const rawActivityLogs = (activityLogsResult.data ?? []) as unknown as DashboardActivityLogRow[];
+      activityLogs = rawActivityLogs.map((log) => ({
+        id: log.id,
+        action: log.action,
+        target_type: log.target_type,
+        created_at: log.created_at,
+        profile: Array.isArray(log.profile) ? log.profile[0] ?? null : log.profile,
+        details: activityDetails(log.details),
+      }));
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -389,7 +446,7 @@ export default async function DashboardPage() {
         <div className="flex h-full flex-col gap-5">
           {/* Hero card */}
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0f0e14] animate-fade-up" style={{ minHeight: 260 }}>
-            {nextSetlist && <OfflinePreloader setlistId={nextSetlist.id} songIds={setlistSongsList.map((s: any) => s.song.id)} />}
+            {nextSetlist && <OfflinePreloader setlistId={nextSetlist.id} songIds={setlistSongsList.map((song) => song.song.id)} />}
             {/* Background gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-br from-violet-900/60 via-purple-900/30 to-[#0f0e14]/80 pointer-events-none" />
             {/* Cross silhouette glow */}
@@ -474,7 +531,7 @@ export default async function DashboardPage() {
               </Link>
             </div>
             <div className="space-y-1.5">
-              {(setlistSongsList as any[]).slice(0, 5).map((item: any, idx: number) => (
+              {setlistSongsList.slice(0, 5).map((item, idx) => (
                 <Link
                   key={item.id}
                   href={`/songs/${item.song.id}`}
@@ -623,7 +680,7 @@ export default async function DashboardPage() {
             </div>
             <div className="space-y-3">
               {activityLogs.length > 0 ? (
-                activityLogs.map((log, i) => (
+                activityLogs.map((log) => (
                   <div key={log.id} className="flex gap-3 text-sm border-b border-white/[0.04] pb-3 last:border-0 last:pb-0">
                     <div className="flex-1 min-w-0">
                       <p className="text-zinc-300 truncate">

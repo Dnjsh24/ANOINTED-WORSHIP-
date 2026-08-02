@@ -1,8 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { formatDistanceToNow } from "date-fns";
-import { Trash2, RotateCcw, AlertTriangle } from "lucide-react";
+import { Trash2, RotateCcw } from "lucide-react";
 import { hardDeleteSongAction, restoreSongAction } from "@/app/actions";
 import type { Song } from "@/lib/types";
 

@@ -2,7 +2,6 @@
 
 import {
   CalendarDays,
-  Folder,
   LayoutDashboard,
   MessageSquare,
   MoreHorizontal,

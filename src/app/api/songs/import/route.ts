@@ -1,22 +1,22 @@
 import { NextResponse } from "next/server";
 import * as cheerio from "cheerio";
+import { createClient } from "@/lib/supabase/server";
+import { fetchAllowedRemoteHtml } from "@/lib/server/safe-remote-html";
+import { readBoundedJson, RequestBodyError } from "@/lib/server/request-body";
+
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    const { url } = await req.json();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    if (!url) {
-      return NextResponse.json({ error: "Missing URL parameter" }, { status: 400 });
-    }
-
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-        "Accept": "text/html"
-      }
-    });
-
-    const text = await response.text();
+    const payload = await readBoundedJson(req, 4_096);
+    const url = payload && typeof payload === "object" && "url" in payload
+      ? (payload as { url?: unknown }).url
+      : undefined;
+    const { url: validatedUrl, html: text } = await fetchAllowedRemoteHtml(url);
     const $ = cheerio.load(text);
 
     let chordsText = "";
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     let artist = "";
 
     // 1. Try WorshipChords.com
-    if (url.includes("worshipchords.com")) {
+    if (validatedUrl.hostname.endsWith("worshipchords.com")) {
       $(".worship-chords-container").each((i, el) => {
         chordsText += $(el).text() + "\n";
       });
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     }
     
     // 2. Try Ultimate Guitar
-    else if (url.includes("ultimate-guitar.com")) {
+    else if (validatedUrl.hostname.endsWith("ultimate-guitar.com")) {
       const jsStore = $(".js-store").attr("data-content");
       if (jsStore) {
         try {
@@ -46,18 +46,13 @@ export async function POST(req: Request) {
             title = tabMeta.song_name || "";
             artist = tabMeta.artist_name || "";
           }
-        } catch (e) {
+        } catch {
           // ignore parse errors
         }
       }
     }
     
-    // 3. Try PraiseCharts
-    else if (url.includes("praisecharts.com") || url.includes("songselect.ccli.com")) {
-      return NextResponse.json({ error: "This site requires an account or subscription to view full chords. Please copy and paste manually." }, { status: 403 });
-    }
-
-    // 4. Generic fallback (find <pre> tags or code blocks)
+    // Generic fallback (find <pre> tags or code blocks)
     if (!chordsText) {
       $("pre").each((i, el) => {
         chordsText += $(el).text() + "\n\n";
@@ -80,7 +75,12 @@ export async function POST(req: Request) {
       lyrics: chordsText.trim()
     });
 
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    if (err instanceof RequestBodyError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    const message = err instanceof Error ? err.message : "Import failed.";
+    const status = err instanceof DOMException && err.name === "TimeoutError" ? 504 : 400;
+    return NextResponse.json({ error: message }, { status });
   }
 }

@@ -6,6 +6,48 @@ import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import { listDesktopSetlists } from "@/lib/desktop/workspace";
 import { claimCloudRemotePairing } from "@/app/presenter/remote-pairing-actions";
 import RemoteClient from "./remote-client";
+import type { Database } from "@/lib/supabase/database.types";
+
+type RemotePresentationSettings = {
+  linesPerSlide?: number;
+  draftLyricsBySetlistSongId?: Record<string, string>;
+};
+
+type RemoteSetlistSongRow = Pick<
+  Database["public"]["Tables"]["setlist_songs"]["Row"],
+  "id" | "song_order"
+> & {
+  song: Pick<Database["public"]["Tables"]["songs"]["Row"], "title" | "lyrics_chords"> | null;
+};
+
+type RemoteSetlistRow = Pick<
+  Database["public"]["Tables"]["setlists"]["Row"],
+  "id" | "name" | "presentation_settings"
+> & {
+  setlist_songs: RemoteSetlistSongRow[];
+};
+
+function normalizeRemotePresentationSettings(value: unknown): RemotePresentationSettings | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+
+  const settings = value as Record<string, unknown>;
+  const normalized: RemotePresentationSettings = {};
+  if (typeof settings.linesPerSlide === "number" && Number.isFinite(settings.linesPerSlide)) {
+    normalized.linesPerSlide = settings.linesPerSlide;
+  }
+  if (
+    typeof settings.draftLyricsBySetlistSongId === "object"
+    && settings.draftLyricsBySetlistSongId !== null
+    && !Array.isArray(settings.draftLyricsBySetlistSongId)
+  ) {
+    normalized.draftLyricsBySetlistSongId = Object.fromEntries(
+      Object.entries(settings.draftLyricsBySetlistSongId).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+  }
+  return normalized;
+}
 
 function PairingRequired({ setlistName, expired = false }: { setlistName: string; expired?: boolean }) {
   return (
@@ -35,10 +77,13 @@ export default async function SetlistRemotePage({ params, searchParams }: { para
   if (isDesktopRuntime() && teamContext.teamId) {
     const desktopSetlist = listDesktopSetlists(teamContext.teamId).find((setlist) => setlist.id === id);
     if (!desktopSetlist) notFound();
+    const presentationSettings = "presentationSettings" in desktopSetlist
+      ? normalizeRemotePresentationSettings(desktopSetlist.presentationSettings)
+      : undefined;
     return <RemoteClient setlist={{
       id: desktopSetlist.id,
       name: desktopSetlist.name,
-      presentationSettings: (desktopSetlist as any).presentationSettings,
+      presentationSettings,
       songs: desktopSetlist.songs.map((item) => ({ id: item.id, song: { title: item.song.title, lyricsChords: item.song.rawLyricsChords || "" } })),
     }} desktopMode />;
   }
@@ -46,7 +91,7 @@ export default async function SetlistRemotePage({ params, searchParams }: { para
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
-    const { data: dbSetlist } = (await supabase
+    const { data } = await supabase
       .from("setlists")
       .select(`
         *,
@@ -64,13 +109,14 @@ export default async function SetlistRemotePage({ params, searchParams }: { para
       `)
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
-      .maybeSingle()) as any;
+      .maybeSingle();
+    const dbSetlist = data as unknown as RemoteSetlistRow | null;
 
     if (dbSetlist) {
       const dbSetlistSongs = dbSetlist.setlist_songs || [];
-      dbSetlistSongs.sort((a: any, b: any) => (a.song_order ?? 0) - (b.song_order ?? 0));
+      dbSetlistSongs.sort((a, b) => (a.song_order ?? 0) - (b.song_order ?? 0));
 
-      const songsList = dbSetlistSongs.map((ss: any) => ({
+      const songsList = dbSetlistSongs.map((ss) => ({
         id: ss.id,
         song: {
           title: ss.song?.title || "Unknown Song",
@@ -82,7 +128,7 @@ export default async function SetlistRemotePage({ params, searchParams }: { para
         id: dbSetlist.id,
         name: dbSetlist.name,
         songs: songsList,
-        presentationSettings: dbSetlist.presentation_settings,
+        presentationSettings: normalizeRemotePresentationSettings(dbSetlist.presentation_settings),
       };
 
       if (!pair) return <PairingRequired setlistName={setlist.name} />;

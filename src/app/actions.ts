@@ -20,6 +20,7 @@ import { normalizeSetlistServiceTimes } from "@/lib/domain/event-types";
 import {
   announcementInputSchema,
   attendanceSchema,
+  canMutateTeamMember,
   danceChartInputSchema,
   eventInputSchema,
   feedbackInputSchema,
@@ -29,19 +30,49 @@ import {
   messageSchema,
   profileInputSchema,
   reminderInputSchema,
+  setlistBulkInsertSchema,
   setlistInputSchema,
+  setlistReorderSchema,
   setlistSongInputSchema,
   serviceTemplateInputSchema,
+  slideSettingsSchema,
   songInputSchema,
   teamNameSchema,
   teamSettingsSchema,
 } from "@/lib/domain/validators";
 import { getSiteUrl, hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import { safeErrorDetails } from "@/lib/server/safe-error";
 import type { Permission } from "@/lib/domain/rbac";
 import type { ReminderRecurrence, SetlistChangeType, TeamRole } from "@/lib/types";
+import type { Database, Json } from "@/lib/supabase/database.types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
+type EventInsert = Database["public"]["Tables"]["events"]["Insert"];
+type EventUpdate = Database["public"]["Tables"]["events"]["Update"];
+type TemplateSlot = { order?: number; label?: string; tag?: string };
+type TemplateSongRow = {
+  song_order: number;
+  songs: { title: string } | Array<{ title: string }> | null;
+};
+type SetlistSongRelationRow = {
+  song_order?: number;
+  assigned_key?: string;
+  song: { title: string } | Array<{ title: string }> | null;
+  setlist: { team_id: string } | Array<{ team_id: string }> | null;
+};
+
+function isTemplateSlot(value: Json): value is TemplateSlot {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return (value.order === undefined || typeof value.order === "number")
+    && (value.label === undefined || typeof value.label === "string")
+    && (value.tag === undefined || typeof value.tag === "string");
+}
+
+function relatedTeamId(row: SetlistSongRelationRow | null) {
+  if (!row?.setlist) return null;
+  return Array.isArray(row.setlist) ? row.setlist[0]?.team_id ?? null : row.setlist.team_id;
+}
 
 const joinableTeamRoles = ["member", "worship_leader", "band_member", "media", "dancer", "pastor"] as const;
 const profileAvatarUrlSchema = z
@@ -482,7 +513,7 @@ export async function createTeamAction(formData: FormData) {
     }
 
     if (error?.code !== "23505") {
-      console.error("create_team_workspace failed:", error);
+      console.error("create_team_workspace failed:", safeErrorDetails(error));
       redirect("/teams/new?error=create");
     }
   }
@@ -499,7 +530,7 @@ export async function createTeamAction(formData: FormData) {
       .eq("team_id", createdTeamId);
 
     if (ministryError) {
-      console.warn("Owner ministry role could not be saved:", ministryError.message);
+      console.warn("Owner ministry role could not be saved:", safeErrorDetails(ministryError));
     }
   }
 
@@ -574,79 +605,27 @@ export async function joinTeamAction(formData: FormData) {
   const requestedRole = roleInput as TeamRole;
 
   const normalizedCode = code.trim().toUpperCase();
-  let team = null;
-
   const { data: dbTeam } = await supabase.from("teams").select("id").eq("code", normalizedCode).maybeSingle();
-  if (dbTeam) {
-    team = dbTeam;
-  } else {
-    const mockTeams: Record<string, string> = {
-      "DM-10001": "Demo Worship Team",
-      "DM-10002": "Demo Worship Collective",
-      "DM-10003": "Demo Creative Team",
-    };
-    const mockName = mockTeams[normalizedCode];
-    if (mockName) {
-      const newTeamId = randomUUID();
-      const { data: seededTeam } = await supabase
-        .from("teams")
-        .insert({
-          id: newTeamId,
-          name: mockName,
-          code: normalizedCode,
-          owner_id: profileId,
-        })
-        .select("id")
-        .maybeSingle();
-
-      if (seededTeam) {
-        team = seededTeam;
-      }
-    }
-  }
-
-  if (!team) {
+  if (!dbTeam) {
     redirect("/teams/join?error=not-found");
   }
 
-  const isMockTeam = ["DM-10001", "DM-10002", "DM-10003"].includes(normalizedCode);
-
-  if (isMockTeam) {
-    const ministry = ministryLabelForRole(roleInput);
-
-    const { error: memberError } = await supabase.from("team_members").insert({
-      team_id: team.id,
+  const { error: insertError } = await supabase.from("join_requests").upsert(
+    {
+      team_id: dbTeam.id,
       profile_id: profileId,
-      role: requestedRole,
-      status: "active",
-      ministry,
-    });
+      requested_role: requestedRole,
+      status: "pending",
+    },
+    { onConflict: "team_id,profile_id" }
+  );
 
-    if (memberError) {
-      console.error("DEBUG: mock team auto-join failed:", memberError);
-      redirect(`/teams/join?error=${encodeURIComponent(memberError.message)}`);
-    }
-
-    revalidatePath("/dashboard");
-    redirect("/dashboard");
-  } else {
-    const { error: insertError } = await supabase.from("join_requests").upsert(
-      {
-        team_id: team.id,
-        profile_id: profileId,
-        requested_role: requestedRole,
-        status: "pending",
-      },
-      { onConflict: "team_id,profile_id" }
-    );
-
-    if (insertError) {
-      console.error("DEBUG: join_requests insert failed:", insertError);
-      redirect(`/teams/join?error=${encodeURIComponent(insertError.message)}`);
-    }
-
-    redirect("/pending");
+  if (insertError) {
+    console.error("Join request insert failed:", safeErrorDetails(insertError));
+    redirect("/teams/join?error=request");
   }
+
+  redirect("/pending");
 }
 
 export async function getPendingJoinRequestStatusAction(): Promise<{
@@ -815,26 +794,13 @@ function buildSetlistSnapshot(data: ParsedSetlistInput) {
   };
 }
 
-async function getServiceTemplateName(context: MutationContext, templateId?: string) {
-  if (!templateId) return undefined;
-
-  const { data } = await context.supabase
-    .from("service_templates")
-    .select("name")
-    .eq("id", templateId)
-    .eq("team_id", context.teamId)
-    .maybeSingle();
-
-  return data?.name ?? undefined;
-}
-
 async function logSetlistChange(
   context: MutationContext,
   input: {
     setlistId: string;
     changeType: SetlistChangeType;
     summary: string;
-    snapshot?: any;
+    snapshot?: Json;
   },
 ) {
   const { error } = await context.supabase.from("setlist_change_log").insert({
@@ -847,7 +813,7 @@ async function logSetlistChange(
   });
 
   if (error) {
-    console.warn("Setlist history could not be recorded:", error.message);
+    console.warn("Setlist history could not be recorded:", safeErrorDetails(error));
   }
 }
 
@@ -974,10 +940,11 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
       .from("setlist_templates")
       .select("slots")
       .eq("id", templateId)
+      .eq("team_id", context.teamId)
       .single();
     
     if (template && Array.isArray(template.slots)) {
-      const slots = template.slots as any[];
+      const slots = template.slots.filter(isTemplateSlot);
       const insertData = [];
       for (let i = 0; i < slots.length; i++) {
         const slot = slots[i];
@@ -1042,7 +1009,7 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
 
   if (teamMembers) {
     const userIds = teamMembers.map((m) => m.profile_id);
-    notifyProfiles(context.supabase, userIds, {
+    await notifyProfiles(context.supabase, userIds, {
       title: "New Setlist Created",
       body: parsed.data.title + " on " + parsed.data.serviceDate,
     });
@@ -1069,9 +1036,10 @@ export async function createSetlistTemplateAction(formData: FormData) {
     .eq("setlist_id", setlistId)
     .order("song_order", { ascending: true });
 
-  const slots = (songs || []).map((s: any) => ({
-    order: s.song_order,
-    label: s.songs?.title || "Song",
+  const templateSongs = (songs ?? []) as unknown as TemplateSongRow[];
+  const slots = templateSongs.map((setlistSong) => ({
+    order: setlistSong.song_order,
+    label: (Array.isArray(setlistSong.songs) ? setlistSong.songs[0]?.title : setlistSong.songs?.title) || "Song",
     tag: ""
   }));
 
@@ -1319,26 +1287,16 @@ export async function deleteSetlistAction(formData: FormData): Promise<ActionSta
   }
 
   try {
-    const { data: setlist } = await context.supabase
-      .from("setlists")
-      .select("event_id")
-      .eq("id", setlistId)
-      .maybeSingle();
-
-    await context.supabase.from("setlist_songs").delete().eq("setlist_id", setlistId);
-    const { error } = await context.supabase.from("setlists").delete().eq("id", setlistId);
+    const { error } = await context.supabase.rpc("delete_setlist_cascade", {
+      p_setlist_id: setlistId,
+    });
 
     if (error) {
-      return { ok: false, message: "Could not delete setlist: " + error.message };
+      return { ok: false, message: "Could not delete the setlist." };
     }
-
-    if (setlist?.event_id) {
-      await context.supabase.from("attendance").delete().eq("event_id", setlist.event_id);
-      await context.supabase.from("event_assignments").delete().eq("event_id", setlist.event_id);
-      await context.supabase.from("events").delete().eq("id", setlist.event_id);
-    }
-  } catch (e: any) {
-    return { ok: false, message: "Database deletion failed: " + (e.message || e) };
+  } catch (error: unknown) {
+    console.error("Setlist deletion failed:", safeErrorDetails(error));
+    return { ok: false, message: "Database deletion failed." };
   }
 
   revalidatePath("/setlists");
@@ -1423,58 +1381,42 @@ export async function addMultipleSetlistSongsAction(
   setlistId: string,
   songsToAdd: { songId: string; assignedKey: string; type: "Worship" | "Praise" | "None" }[]
 ): Promise<{ ok: boolean; message?: string }> {
-  if (!songsToAdd.length) return { ok: true };
+  const parsed = setlistBulkInsertSchema.safeParse({
+    setlistId,
+    songs: songsToAdd,
+  });
+  if (!parsed.success) {
+    return { ok: false, message: "Choose between 1 and 100 valid songs." };
+  }
 
   const context = await getMutationContext("setlists.manage");
   if (!context.ok) {
     return { ok: false, message: context.state.message };
   }
 
-  const { count } = await context.supabase
-    .from("setlist_songs")
-    .select("id", { count: "exact", head: true })
-    .eq("setlist_id", setlistId);
-
-  const { data: setlist } = await context.supabase
-    .from("setlists")
-    .select("id, team_id")
-    .eq("id", setlistId)
-    .eq("team_id", context.teamId)
-    .maybeSingle();
-
-  if (!setlist) {
-    return { ok: false, message: "Setlist could not be found." };
-  }
-
-  let orderCursor = (count ?? 0) + 1;
-  const inserts = songsToAdd.map((s) => {
-    const row = {
-      setlist_id: setlistId,
-      song_id: s.songId,
-      song_order: orderCursor,
-      assigned_key: s.assignedKey,
-      notes: s.type !== "None" ? `${s.type} Song` : null,
-    };
-    orderCursor++;
-    return row;
+  const { error } = await context.supabase.rpc("add_setlist_songs", {
+    p_setlist_id: parsed.data.setlistId,
+    p_songs: parsed.data.songs.map((song) => ({
+      song_id: song.songId,
+      assigned_key: song.assignedKey,
+      type: song.type,
+    })) as Json,
   });
-
-  const { error } = await context.supabase.from("setlist_songs").insert(inserts);
 
   if (error) {
     return { ok: false, message: "Songs could not be added to the setlist." };
   }
 
   await logSetlistChange(context, {
-    setlistId: setlistId,
+    setlistId: parsed.data.setlistId,
     changeType: "song_added",
-    summary: `Added ${songsToAdd.length} songs to the setlist.`,
+    summary: `Added ${parsed.data.songs.length} songs to the setlist.`,
     snapshot: {
-      addedCount: songsToAdd.length,
+      addedCount: parsed.data.songs.length,
     },
   });
 
-  revalidatePath(`/setlists/${setlistId}`);
+  revalidatePath(`/setlists/${parsed.data.setlistId}`);
   // We do not redirect here because it's called from a client component's custom transition
   return { ok: true };
 }
@@ -1488,11 +1430,12 @@ export async function removeSetlistSongAction(formData: FormData): Promise<Actio
     return context.state;
   }
 
-  const { data: slot } = await context.supabase
+  const { data: slotData } = await context.supabase
     .from("setlist_songs")
     .select("song_order, assigned_key, song:songs(title), setlist:setlists(team_id)")
     .eq("id", slotId)
-    .maybeSingle() as any;
+    .maybeSingle();
+  const slot = slotData as unknown as SetlistSongRelationRow | null;
 
   const { error } = await context.supabase.from("setlist_songs").delete().eq("id", slotId);
   if (error) {
@@ -1518,7 +1461,7 @@ export async function removeSetlistSongAction(formData: FormData): Promise<Actio
     }
   }
 
-  if (slot?.setlist?.team_id === context.teamId) {
+  if (slot && relatedTeamId(slot) === context.teamId) {
     const song = Array.isArray(slot.song) ? slot.song[0] : slot.song;
     await logSetlistChange(context, {
       setlistId,
@@ -1581,18 +1524,19 @@ export async function reorderSetlistSongAction(formData: FormData): Promise<Acti
     return context.state;
   }
 
-  const { data: slot } = await context.supabase
+  const { data: slotData } = await context.supabase
     .from("setlist_songs")
     .select("song_order, song:songs(title), setlist:setlists(team_id)")
     .eq("id", slotId)
-    .maybeSingle() as any;
+    .maybeSingle();
+  const slot = slotData as unknown as SetlistSongRelationRow | null;
 
   const { error } = await context.supabase.from("setlist_songs").update({ song_order: nextOrder.data }).eq("id", slotId);
   if (error) {
     return { ok: false, message: "Song order could not be updated." };
   }
 
-  if (slot?.setlist?.team_id === context.teamId && slot.song_order !== nextOrder.data) {
+  if (slot && relatedTeamId(slot) === context.teamId && slot.song_order !== nextOrder.data) {
     const song = Array.isArray(slot.song) ? slot.song[0] : slot.song;
     await logSetlistChange(context, {
       setlistId,
@@ -1619,39 +1563,45 @@ export async function bulkReorderSetlistSongsAction(formData: FormData): Promise
     return { ok: false, message: "Missing required fields." };
   }
 
-  const context = await getMutationContext("setlists.manage");
-  if (!context.ok) {
-    return context.state;
-  }
-
   try {
-    const updates: { id: string; song_order: number }[] = JSON.parse(updatesJson);
-    
-    // Pass 1: Shift song orders to avoid unique constraint collisions
-    const pass1Promises = updates.map((u) => 
-      context.supabase.from("setlist_songs").update({ song_order: u.song_order + 10000 }).eq("id", u.id).eq("setlist_id", setlistId)
-    );
-    const pass1Results = await Promise.all(pass1Promises);
-    
-    if (pass1Results.some(r => r.error)) {
-      console.error(pass1Results.find(r => r.error)?.error);
-      return { ok: false, message: "Failed to reorder some songs during pass 1." };
+    const wireUpdates = z.array(z.object({
+      id: z.string(),
+      song_order: z.number(),
+    })).safeParse(JSON.parse(updatesJson));
+    if (!wireUpdates.success) {
+      return { ok: false, message: "Invalid reorder payload." };
     }
 
-    // Pass 2: Set to correct values
-    const pass2Promises = updates.map((u) => 
-      context.supabase.from("setlist_songs").update({ song_order: u.song_order }).eq("id", u.id).eq("setlist_id", setlistId)
-    );
-    const pass2Results = await Promise.all(pass2Promises);
-    
-    if (pass2Results.some(r => r.error)) {
-      console.error(pass2Results.find(r => r.error)?.error);
-      return { ok: false, message: "Failed to reorder some songs during pass 2." };
+    const parsed = setlistReorderSchema.safeParse({
+      setlistId,
+      updates: wireUpdates.data.map((update) => ({
+        id: update.id,
+        songOrder: update.song_order,
+      })),
+    });
+    if (!parsed.success) {
+      return { ok: false, message: "Invalid reorder payload." };
     }
 
-    revalidatePath(`/setlists/${setlistId}`);
+    const context = await getMutationContext("setlists.manage");
+    if (!context.ok) {
+      return context.state;
+    }
+    const { error } = await context.supabase.rpc("reorder_setlist_songs", {
+      p_setlist_id: parsed.data.setlistId,
+      p_updates: parsed.data.updates.map((update) => ({
+        id: update.id,
+        song_order: update.songOrder,
+      })) as Json,
+    });
+    if (error) {
+      console.error("Setlist reorder failed:", safeErrorDetails(error));
+      return { ok: false, message: "Songs could not be reordered." };
+    }
+
+    revalidatePath(`/setlists/${parsed.data.setlistId}`);
     return { ok: true, message: "Songs reordered successfully." };
-  } catch (e) {
+  } catch {
     return { ok: false, message: "Invalid payload." };
   }
 }
@@ -1685,29 +1635,29 @@ export async function updateSetlistSongNotesAction(formData: FormData): Promise<
 }
 
 export async function markMessagesReadAction(channelId: string, messageIds: string[]): Promise<ActionState> {
+  const parsed = z.object({
+    channelId: z.string().uuid(),
+    messageIds: z.array(z.string().uuid()).max(500),
+  }).superRefine((value, context) => {
+    if (new Set(value.messageIds).size !== value.messageIds.length) {
+      context.addIssue({ code: "custom", path: ["messageIds"], message: "Message IDs must be unique." });
+    }
+  }).safeParse({ channelId, messageIds });
+  if (!parsed.success) {
+    return { ok: false, message: "Invalid read receipt request." };
+  }
+
   const context = await getMutationContext("messages.send");
   if (!context.ok) {
     return context.state;
   }
 
-  // 1. Update channel_reads
-  const { error: channelError } = await context.supabase
-    .from("channel_reads")
-    .upsert(
-      { profile_id: context.userId, channel_id: channelId, last_read_at: new Date().toISOString() },
-      { onConflict: 'profile_id,channel_id' }
-    );
-
-  // 2. Update message_reads
-  if (messageIds.length > 0) {
-    const readsToInsert = messageIds.map(id => ({
-      message_id: id,
-      profile_id: context.userId,
-      read_at: new Date().toISOString()
-    }));
-    await context.supabase
-      .from("message_reads")
-      .upsert(readsToInsert, { onConflict: 'message_id,profile_id' });
+  const { error } = await context.supabase.rpc("mark_channel_messages_read", {
+    p_channel_id: parsed.data.channelId,
+    p_message_ids: parsed.data.messageIds,
+  });
+  if (error) {
+    return { ok: false, message: "Failed to update message read status." };
   }
 
   // No revalidatePath here because it will re-render too aggressively during active chat
@@ -1724,11 +1674,12 @@ export async function updateSongSlotArrangementAction(formData: FormData): Promi
     return context.state;
   }
 
-  const { data: slot } = await context.supabase
+  const { data: slotData } = await context.supabase
     .from("setlist_songs")
     .select("song:songs(title), setlist:setlists(team_id)")
     .eq("id", slotId)
-    .maybeSingle() as any;
+    .maybeSingle();
+  const slot = slotData as unknown as SetlistSongRelationRow | null;
 
   const { error } = await context.supabase
     .from("setlist_songs")
@@ -1739,7 +1690,7 @@ export async function updateSongSlotArrangementAction(formData: FormData): Promi
     return { ok: false, message: "Arrangement could not be updated." };
   }
 
-  if (slot?.setlist?.team_id === context.teamId) {
+  if (slot && relatedTeamId(slot) === context.teamId) {
     const song = Array.isArray(slot.song) ? slot.song[0] : slot.song;
     await logSetlistChange(context, {
       setlistId,
@@ -1797,45 +1748,6 @@ export async function updateAttendanceAction(formData: FormData): Promise<Action
 
   if (error) {
     return { ok: false, message: "Attendance could not be updated." };
-  }
-
-  // Create notification for admins
-  try {
-    const { data: memberProfile } = await context.supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", context.userId)
-      .maybeSingle();
-
-    const { data: eventDetails } = await context.supabase
-      .from("events")
-      .select("name")
-      .eq("id", eventId)
-      .maybeSingle();
-
-    const { data: teamAdmins } = await context.supabase
-      .from("team_members")
-      .select("profile_id")
-      .eq("team_id", context.teamId)
-      .in("role", ["owner", "admin", "worship_leader"]);
-
-    if (teamAdmins && teamAdmins.length > 0) {
-      const notificationsToInsert = teamAdmins
-        .filter((adm) => adm.profile_id !== context.userId)
-        .map((adm) => ({
-          team_id: context.teamId,
-          profile_id: adm.profile_id,
-          title: "Attendance Updated",
-          body: `${memberProfile?.full_name || "A member"} is now ${parsed.data.status} for ${eventDetails?.name || "the service"}.`,
-          target_path: `/events/${eventId}`,
-        }));
-
-      if (notificationsToInsert.length > 0) {
-        await context.supabase.from("notifications").insert(notificationsToInsert);
-      }
-    }
-  } catch (e) {
-    console.error("Failed to insert attendance notification:", e);
   }
 
   revalidatePath("/events");
@@ -1911,8 +1823,7 @@ export async function createAnnouncementAction(_previous: ActionState, formData:
       return { ok: false, message: "Announcement was added, but delivery tracking could not be created." };
     }
 
-    // Send push notifications asynchronously
-    notifyProfiles(context.supabase, target.recipientProfileIds, {
+    await notifyProfiles(context.supabase, target.recipientProfileIds, {
       title: "New Announcement: " + parsed.data.title,
       body: parsed.data.body,
     });
@@ -2099,7 +2010,7 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
 
   const approvalStatus = can(context.role, "events.manage") ? "approved" : "pending";
 
-  const insertData: Record<string, unknown> = {
+  const insertData: EventInsert = {
     team_id: context.teamId,
     name: parsed.data.title,
     type: parsed.data.eventType,
@@ -2126,29 +2037,32 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
 
   const { data, error } = await context.supabase
     .from("events")
-    .insert(insertData as any)
+    .insert(insertData)
     .select("id")
     .single();
 
   if (error || !data) {
-    return { ok: false, message: error ? error.message : "Event could not be created." };
+    if (error) {
+      console.error("Event creation failed:", safeErrorDetails(error));
+    }
+    return { ok: false, message: "Event could not be created." };
   }
 
   
   if (approvalStatus === "approved") {
     const assignmentsToInsert = buildEventAssignments(data.id, parsed.data);
     if (assignmentsToInsert.length > 0) {
-      await (context.supabase.from("event_assignments") as any).insert(assignmentsToInsert);
+      await context.supabase.from("event_assignments").insert(assignmentsToInsert);
     }
   }
 
   // Handle Recurrence
-  const recurrence = (parsed.data as any).recurrence;
+  const recurrence = parsed.data.recurrence;
   if (recurrence && recurrence !== "none") {
     const numOccurrences = recurrence === "weekly" ? 12 : recurrence === "biweekly" ? 6 : 3;
     const daysToAdd = recurrence === "weekly" ? 7 : recurrence === "biweekly" ? 14 : 0;
     
-    let currentDate = new Date(parsed.data.date);
+    const currentDate = new Date(parsed.data.date);
     
     // Update the parent with the recurrence rule
     await context.supabase
@@ -2156,7 +2070,7 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
       .update({ recurrence_rule: recurrence })
       .eq("id", data.id);
 
-    const recurringEvents = [];
+    const recurringEvents: EventInsert[] = [];
     for (let i = 1; i <= numOccurrences; i++) {
       if (recurrence === "monthly") {
         currentDate.setMonth(currentDate.getMonth() + 1);
@@ -2176,14 +2090,14 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
     if (recurringEvents.length > 0) {
       const { data: insertedRecurringEvents, error: insertError } = await context.supabase
         .from("events")
-        .insert(recurringEvents as any)
+        .insert(recurringEvents)
         .select("id");
         
       if (!insertError && insertedRecurringEvents && approvalStatus === "approved") {
         for (const re of insertedRecurringEvents) {
           const assignmentsToInsert = buildEventAssignments(re.id, parsed.data);
           if (assignmentsToInsert.length > 0) {
-            await (context.supabase.from("event_assignments") as any).insert(assignmentsToInsert);
+            await context.supabase.from("event_assignments").insert(assignmentsToInsert);
           }
         }
       }
@@ -2240,7 +2154,7 @@ export async function updateEventAction(_previous: ActionState, formData: FormDa
     return { ...context.state, message: "You don't have permission to edit events." };
   }
 
-  const updateData: Record<string, unknown> = {
+  const updateData: EventUpdate = {
     name: parsed.data.title,
     type: parsed.data.eventType,
     event_date: parsed.data.date,
@@ -2255,12 +2169,13 @@ export async function updateEventAction(_previous: ActionState, formData: FormDa
 
   const { error } = await context.supabase
     .from("events")
-    .update(updateData as any)
+    .update(updateData)
     .eq("id", eventId)
     .eq("team_id", context.teamId);
 
   if (error) {
-    return { ok: false, message: error.message };
+    console.error("Event update failed:", safeErrorDetails(error));
+    return { ok: false, message: "Event could not be updated." };
   }
 
   if (parsed.data.linkedSetlistId && can(context.role, "setlists.manage")) {
@@ -2366,7 +2281,8 @@ export async function sendMessageAction(formData: FormData): Promise<ActionState
     .single();
 
   if (error || !data) {
-    return { ok: false, message: `Message could not be sent: ${error?.message || "Unknown error"}` };
+    console.error("Message creation failed:", safeErrorDetails(error));
+    return { ok: false, message: "Message could not be sent." };
   }
 
   revalidatePath("/messages");
@@ -2395,8 +2311,8 @@ export async function createChannelAction(_previous: ActionState, formData: Form
     return { ok: false, message: "Only owners and admins can create channels." };
   }
 
-  const { data, error } = await (context.supabase
-    .from("message_channels") as any)
+  const { data, error } = await context.supabase
+    .from("message_channels")
     .insert({
       team_id: context.teamId,
       name: name.data,
@@ -2512,7 +2428,8 @@ export async function addChannelMemberAction(formData: FormData): Promise<Action
 
   if (error) {
     if (error.code === "23505") return { ok: false, message: "Member is already in this channel." };
-    return { ok: false, message: "Could not add member: " + error.message };
+    console.error("Member creation failed:", safeErrorDetails(error));
+    return { ok: false, message: "Could not add the member." };
   }
 
   revalidatePath("/messages");
@@ -2541,7 +2458,10 @@ export async function removeChannelMemberAction(formData: FormData): Promise<Act
     .eq("channel_id", parsed.data.channelId)
     .eq("team_member_id", parsed.data.memberId);
 
-  if (error) return { ok: false, message: "Could not remove member: " + error.message };
+  if (error) {
+    console.error("Member removal failed:", safeErrorDetails(error));
+    return { ok: false, message: "Could not remove the member." };
+  }
 
   revalidatePath("/messages");
   return { ok: true, message: "Member removed from channel." };
@@ -2633,8 +2553,8 @@ export async function createDanceChartAction(_previous: ActionState, formData: F
   });
 
   if (error) {
-    console.error("Failed to create dance chart:", error);
-    return { ok: false, message: `Dance chart could not be saved: ${error.message}` };
+    console.error("Failed to create dance chart:", safeErrorDetails(error));
+    return { ok: false, message: "Dance chart could not be saved." };
   }
 
   revalidatePath("/dance");
@@ -2685,8 +2605,8 @@ export async function updateDanceChartAction(_previous: ActionState, formData: F
     .eq("team_id", context.teamId);
 
   if (error) {
-    console.error("Failed to update dance chart:", error);
-    return { ok: false, message: `Dance chart could not be saved: ${error.message}` };
+    console.error("Failed to update dance chart:", safeErrorDetails(error));
+    return { ok: false, message: "Dance chart could not be saved." };
   }
 
   revalidatePath("/dance");
@@ -2796,67 +2716,10 @@ export async function reviewJoinRequestWithStateAction(formData: FormData): Prom
     return context.state;
   }
 
-  const { data: request } = await context.supabase
-    .from("join_requests")
-    .select("team_id, profile_id, requested_role")
-    .eq("id", parsed.data.requestId)
-    .eq("team_id", context.teamId)
-    .eq("status", "pending")
-    .maybeSingle();
-
-  if (!request) {
-    return { ok: false, message: "Join request could not be reviewed." };
-  }
-
-  const reviewedAt = new Date().toISOString();
-
-  if (parsed.data.decision === "approved") {
-    const { data: approvedMember, error: memberError } = await context.supabase
-      .from("team_members")
-      .upsert(
-        {
-          team_id: request.team_id,
-          profile_id: request.profile_id,
-          role: request.requested_role,
-          status: "active",
-          ministry: ministryLabelForRole(request.requested_role),
-        },
-        { onConflict: "team_id,profile_id" },
-      )
-      .select("id")
-      .single();
-
-    if (memberError || !approvedMember) {
-      return { ok: false, message: "Join request was approved, but the member could not be added." };
-    }
-
-    const { data: defaultChannel } = await context.supabase
-      .from("message_channels")
-      .select("id")
-      .eq("team_id", request.team_id)
-      .eq("channel_type", "team")
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (defaultChannel) {
-      const { error: channelMemberError } = await context.supabase.from("message_channel_members").insert({
-          channel_id: defaultChannel.id,
-          team_member_id: approvedMember.id,
-        });
-
-      if (channelMemberError && channelMemberError.code !== "23505") {
-        return { ok: false, message: "Join request was approved, but the member could not be added to team chat." };
-      }
-    }
-  }
-
-  const { error } = await context.supabase
-    .from("join_requests")
-    .update({ status: parsed.data.decision, reviewed_by: context.userId, reviewed_at: reviewedAt })
-    .eq("id", parsed.data.requestId)
-    .eq("team_id", context.teamId)
-    .eq("status", "pending");
+  const { error } = await context.supabase.rpc("review_join_request", {
+    p_request_id: parsed.data.requestId,
+    p_decision: parsed.data.decision,
+  });
 
   if (error) {
     return { ok: false, message: "Join request could not be reviewed." };
@@ -2875,12 +2738,20 @@ export async function reviewJoinRequestWithStateAction(formData: FormData): Prom
 }
 
 export async function bulkApproveJoinRequestsAction(requestIds: string[]): Promise<ActionState> {
+  const parsed = z.array(z.string().uuid()).min(1).max(100).refine(
+    (ids) => new Set(ids).size === ids.length,
+    "Join request IDs must be unique.",
+  ).safeParse(requestIds);
+  if (!parsed.success) {
+    return { ok: false, message: "Choose between 1 and 100 valid join requests." };
+  }
+
   const context = await getMutationContext("join_requests.review");
   if (!context.ok) {
     return context.state;
   }
   let successCount = 0;
-  for (const requestId of requestIds) {
+  for (const requestId of parsed.data) {
     const formData = new FormData();
     formData.set("requestId", requestId);
     formData.set("decision", "approved");
@@ -2905,6 +2776,28 @@ export async function updateMemberRoleAction(_previous: ActionState, formData: F
     return context.state;
   }
 
+  const { data: target } = await context.supabase
+    .from("team_members")
+    .select("role")
+    .eq("id", parsed.data.memberId)
+    .eq("team_id", context.teamId)
+    .maybeSingle();
+  if (!target) {
+    return { ok: false, message: "Team member could not be found." };
+  }
+
+  const nextRole = ["owner", "admin", "pastor", "worship_leader", "member"].includes(parsed.data.role)
+    ? parsed.data.role as TeamRole
+    : "member";
+  if (!canMutateTeamMember({
+    actorRole: context.role,
+    targetRole: target.role as TeamRole,
+    action: "update",
+    nextRole,
+  })) {
+    return { ok: false, message: "Use the ownership transfer workflow to change the team owner." };
+  }
+
   const { error } = await context.supabase
     .from("team_members")
     .update(
@@ -2924,9 +2817,9 @@ export async function updateMemberRoleAction(_previous: ActionState, formData: F
 }
 
 export async function removeTeamMemberAction(formData: FormData): Promise<ActionState> {
-  const memberId = formData.get("memberId") as string;
-  if (!memberId) {
-    return { ok: false, message: "Missing member ID." };
+  const memberId = z.string().uuid().safeParse(formData.get("memberId"));
+  if (!memberId.success) {
+    return { ok: false, message: "Invalid member ID." };
   }
 
   const context = await getMutationContext("members.manage");
@@ -2934,10 +2827,27 @@ export async function removeTeamMemberAction(formData: FormData): Promise<Action
     return context.state;
   }
 
+  const { data: target } = await context.supabase
+    .from("team_members")
+    .select("role")
+    .eq("id", memberId.data)
+    .eq("team_id", context.teamId)
+    .maybeSingle();
+  if (!target) {
+    return { ok: false, message: "Team member could not be found." };
+  }
+  if (!canMutateTeamMember({
+    actorRole: context.role,
+    targetRole: target.role as TeamRole,
+    action: "delete",
+  })) {
+    return { ok: false, message: "The team owner cannot be removed." };
+  }
+
   const { error } = await context.supabase
     .from("team_members")
     .delete()
-    .eq("id", memberId)
+    .eq("id", memberId.data)
     .eq("team_id", context.teamId);
 
   if (error) {
@@ -2946,6 +2856,32 @@ export async function removeTeamMemberAction(formData: FormData): Promise<Action
 
   revalidatePath("/members");
   return { ok: true, message: "Member removed from team." };
+}
+
+export async function transferTeamOwnershipAction(formData: FormData): Promise<ActionState> {
+  const memberId = z.string().uuid().safeParse(formData.get("memberId"));
+  if (!memberId.success) {
+    return { ok: false, message: "Choose a valid new owner." };
+  }
+
+  const context = await getMutationContext("team.manage");
+  if (!context.ok) {
+    return context.state;
+  }
+  if (context.role !== "owner") {
+    return { ok: false, message: "Only the current owner can transfer ownership." };
+  }
+
+  const { error } = await context.supabase.rpc("transfer_team_ownership", {
+    p_team_id: context.teamId,
+    p_new_owner_member_id: memberId.data,
+  });
+  if (error) {
+    return { ok: false, message: "Ownership could not be transferred." };
+  }
+
+  revalidateAppShell();
+  return { ok: true, message: "Team ownership transferred." };
 }
 
 export async function regenerateTeamCodeAction(): Promise<ActionState> {
@@ -2968,42 +2904,56 @@ export async function regenerateTeamCodeAction(): Promise<ActionState> {
 }
 
 export async function updateSlideSettingsAction(formData: FormData): Promise<ActionState> {
-  const setlistSongId = formData.get("setlistSongId") as string;
-  const slideSettingsStr = formData.get("slideSettings") as string;
+  const setlistSongId = z.string().uuid().safeParse(formData.get("setlistSongId"));
+  const slideSettingsStr = formString(formData, "slideSettings");
   
-  if (!setlistSongId || !slideSettingsStr) {
+  if (!setlistSongId.success || !slideSettingsStr) {
     return { ok: false, message: "Missing required fields." };
   }
   
   const context = await getMutationContext("setlists.manage");
   if (!context.ok) return context.state;
   
-  let slideSettings = null;
+  let slideSettingsInput: unknown;
   try {
-    slideSettings = JSON.parse(slideSettingsStr);
-  } catch (e) {
+    slideSettingsInput = JSON.parse(slideSettingsStr);
+  } catch {
     return { ok: false, message: "Invalid settings." };
+  }
+
+  const slideSettings = slideSettingsSchema.safeParse(slideSettingsInput);
+  if (!slideSettings.success) {
+    return { ok: false, message: "Invalid slide background settings." };
+  }
+  if (
+    slideSettings.data.backgroundType === "image"
+    && !slideSettings.data.backgroundValue.startsWith(`${context.teamId}/${context.userId}/`)
+  ) {
+    return { ok: false, message: "Slide images must belong to your selected team." };
+  }
+
+  const { data: slotData } = await context.supabase
+    .from("setlist_songs")
+    .select("setlist_id, setlist:setlists(team_id)")
+    .eq("id", setlistSongId.data)
+    .maybeSingle();
+  const slot = slotData as unknown as SetlistSongRelationRow | null;
+  if (!slot || relatedTeamId(slot) !== context.teamId) {
+    return { ok: false, message: "Setlist song could not be found in the selected team." };
   }
 
   const { error } = await context.supabase
     .from("setlist_songs")
-    .update({ slide_settings: slideSettings })
-    .eq("id", setlistSongId);
+    .update({ slide_settings: slideSettings.data as Json })
+    .eq("id", setlistSongId.data);
 
   if (error) {
     return { ok: false, message: "Failed to update slide settings." };
   }
 
-  // Need to get setlistId to revalidate
-  const { data } = await context.supabase
-    .from("setlist_songs")
-    .select("setlist_id")
-    .eq("id", setlistSongId)
-    .single();
-
-  if (data?.setlist_id) {
-    revalidatePath(`/setlists/${data.setlist_id}/presenter`);
-    revalidatePath(`/setlists/${data.setlist_id}/projector`);
+  if (slotData?.setlist_id) {
+    revalidatePath(`/setlists/${slotData.setlist_id}/presenter`);
+    revalidatePath(`/setlists/${slotData.setlist_id}/projector`);
   }
 
   return { ok: true, message: "Slide settings updated." };
@@ -3140,10 +3090,12 @@ export async function deleteTeamAction(_previous: ActionState, formData: FormDat
     });
 
     if (error) {
-      return { ok: false, message: "Failed to delete team: " + error.message };
+      console.error("Team deletion failed:", safeErrorDetails(error));
+      return { ok: false, message: "Failed to delete the team." };
     }
-  } catch (e: any) {
-    return { ok: false, message: "Deletion failed: " + (e.message || e) };
+  } catch (error: unknown) {
+    console.error("Team deletion failed:", safeErrorDetails(error));
+    return { ok: false, message: "Deletion failed." };
   }
 
   revalidateAppShell();
@@ -3167,23 +3119,17 @@ export async function leaveTeamAction(_previous: ActionState, formData: FormData
   }
 
   try {
-    // 1. Delete member's attendance
-    await context.supabase.from("attendance").delete().eq("team_member_id", context.memberId);
-    
-    // 2. Delete member channel memberships
-    await context.supabase.from("message_channel_members").delete().eq("team_member_id", context.memberId);
-
-    // 3. Delete the team member row
-    const { error } = await context.supabase
-      .from("team_members")
-      .delete()
-      .eq("id", context.memberId);
+    const { error } = await context.supabase.rpc("leave_team_workspace", {
+      p_team_id: context.teamId,
+    });
 
     if (error) {
-      return { ok: false, message: "Failed to leave team: " + error.message };
+      console.error("Leave-team request failed:", safeErrorDetails(error));
+      return { ok: false, message: "Failed to leave the team." };
     }
-  } catch (e: any) {
-    return { ok: false, message: "Leaving team failed: " + (e.message || e) };
+  } catch (error: unknown) {
+    console.error("Leave-team request failed:", safeErrorDetails(error));
+    return { ok: false, message: "Leaving the team failed." };
   }
 
   revalidateAppShell();
@@ -3283,7 +3229,7 @@ export async function getTeamPreviewAction(code: string): Promise<{
         leader: leaderName,
       },
     };
-  } catch (e) {
+  } catch {
     return { ok: false, team: undefined };
   }
 }
@@ -3586,15 +3532,9 @@ export async function hardDeleteSongAction(formData: FormData) {
     throw new Error(context.state.message);
   }
 
-  // Manually delete dependent records to avoid foreign key constraint errors
-  await context.supabase.from("setlist_songs").delete().eq("song_id", songId);
-  await context.supabase.from("song_favorites").delete().eq("song_id", songId);
-
-  const { error } = await context.supabase
-    .from("songs")
-    .delete()
-    .eq("id", songId)
-    .eq("team_id", context.teamId);
+  const { error } = await context.supabase.rpc("delete_song_cascade", {
+    p_song_id: songId,
+  });
 
   if (error) {
     throw new Error("Song could not be permanently deleted.");
@@ -3651,37 +3591,17 @@ export async function deleteEventAction(formData: FormData): Promise<ActionState
   }
 
   try {
-    const { data: event } = await context.supabase
-      .from("events")
-      .select("id")
-      .eq("id", eventId)
-      .maybeSingle();
-
-    if (!event) {
-      return { ok: false, message: "Event not found." };
-    }
-
-    await context.supabase.from("attendance").delete().eq("event_id", eventId);
-    await context.supabase.from("event_assignments").delete().eq("event_id", eventId);
-
-    const { data: linkedSetlist } = await context.supabase
-      .from("setlists")
-      .select("id")
-      .eq("event_id", eventId)
-      .maybeSingle();
-
-    if (linkedSetlist) {
-      await context.supabase.from("setlist_songs").delete().eq("setlist_id", linkedSetlist.id);
-      await context.supabase.from("setlists").delete().eq("id", linkedSetlist.id);
-    }
-
-    const { error } = await context.supabase.from("events").delete().eq("id", eventId);
+    const { error } = await context.supabase.rpc("delete_event_cascade", {
+      p_event_id: eventId,
+    });
 
     if (error) {
-      return { ok: false, message: "Could not delete event: " + error.message };
+      console.error("Event deletion failed:", safeErrorDetails(error));
+      return { ok: false, message: "Could not delete the event." };
     }
-  } catch (e: any) {
-    return { ok: false, message: "Database deletion failed: " + (e.message || e) };
+  } catch (error: unknown) {
+    console.error("Event deletion failed:", safeErrorDetails(error));
+    return { ok: false, message: "Database deletion failed." };
   }
 
   revalidatePath("/events");

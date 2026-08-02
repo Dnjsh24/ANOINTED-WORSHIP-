@@ -41,14 +41,15 @@ export function EditArrangementButton({
         <Edit3 className="size-4" />
       </button>
 
-      <ArrangementEditor
-        isOpen={isEditorOpen}
-        onClose={() => setIsEditorOpen(false)}
-        onSave={handleSave}
-        songTitle={songTitle}
-        initialArrangement={currentArrangement || ""}
-        lyrics={lyrics}
-      />
+      {isEditorOpen && (
+        <ArrangementEditor
+          onClose={() => setIsEditorOpen(false)}
+          onSave={handleSave}
+          songTitle={songTitle}
+          initialArrangement={currentArrangement || ""}
+          lyrics={lyrics}
+        />
+      )}
     </>
   );
 }

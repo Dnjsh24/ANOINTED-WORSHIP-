@@ -2,13 +2,22 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Copy, Plus, X } from "lucide-react";
+import { Copy, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
 
-export function SetlistTemplatePicker({ templates }: { templates: any[] }) {
+export type SetlistTemplateSummary = {
+  id: string;
+  name: string;
+  description?: string | null;
+  slots?: unknown;
+};
+
+export function SetlistTemplatePicker({ templates }: { templates: SetlistTemplateSummary[] }) {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const dialogRef = useAccessibleDialog({ open: isOpen, onClose: () => setIsOpen(false) });
 
   if (!templates || templates.length === 0) return null;
 
@@ -25,10 +34,12 @@ export function SetlistTemplatePicker({ templates }: { templates: any[] }) {
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#16151a] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="template-picker-title" tabIndex={-1} className="w-full max-w-md rounded-2xl border border-white/10 bg-[#16151a] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-white">Choose a Template</h2>
+              <h2 id="template-picker-title" className="text-xl font-bold text-white">Choose a Template</h2>
               <button 
+                type="button"
+                aria-label="Close template picker"
                 onClick={() => setIsOpen(false)}
                 className="rounded-full p-2 text-zinc-400 hover:bg-white/5 hover:text-white"
               >
@@ -38,9 +49,10 @@ export function SetlistTemplatePicker({ templates }: { templates: any[] }) {
             
             <div className="space-y-3 mt-4 max-h-[60vh] overflow-y-auto pr-2">
               {templates.map(t => (
-                <div 
+                <button
+                  type="button"
                   key={t.id}
-                  className="rounded-xl border border-white/[0.04] bg-[#1a191f] p-4 text-left transition-colors hover:border-violet-500/50 hover:bg-[#1f1e24] cursor-pointer"
+                  className="w-full rounded-xl border border-white/[0.04] bg-[#1a191f] p-4 text-left transition-colors hover:border-violet-500/50 hover:bg-[#1f1e24]"
                   onClick={() => {
                     const params = new URLSearchParams(searchParams.toString());
                     params.set("templateId", t.id);
@@ -53,7 +65,7 @@ export function SetlistTemplatePicker({ templates }: { templates: any[] }) {
                   <p className="text-xs text-violet-400 mt-2 font-medium">
                     {Array.isArray(t.slots) ? t.slots.length : 0} slots
                   </p>
-                </div>
+                </button>
               ))}
             </div>
           </div>

@@ -10,6 +10,7 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { NoticeEventTarget, NoticeMemberTarget, NoticePriority, ReminderRecurrence, TeamRole } from "@/lib/types";
+import { asNoticePriority, asReminderRecurrence } from "@/lib/domain/database-values";
 
 type ReminderItem = {
   id: string;
@@ -197,9 +198,9 @@ export default async function RemindersPage() {
         acknowledgedAt: reminder.acknowledged_at,
         createdAt: reminder.created_at,
         targetLabel: reminder.target_label ?? "All team",
-        priority: reminder.priority ?? "normal",
+        priority: asNoticePriority(reminder.priority),
         scheduledFor: reminder.scheduled_for ?? reminder.created_at,
-        recurrenceRule: reminder.recurrence_rule ?? "none",
+        recurrenceRule: asReminderRecurrence(reminder.recurrence_rule),
         recurrenceIndex: reminder.recurrence_index ?? 0,
         recurrenceTotal: reminder.recurrence_total ?? 1,
         eventId: reminder.event_id,

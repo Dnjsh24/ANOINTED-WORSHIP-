@@ -10,6 +10,17 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 
+type ProfileMembership = {
+  role: string | null;
+  ministries: string[] | null;
+  created_at: string | null;
+  team_anniversary: string | null;
+};
+
+type AttendanceSummary = {
+  status: string | null;
+};
+
 export default async function ProfilePage() {
   const teamContext = await getRequiredTeamContext();
   let fullName = "Unknown User";
@@ -29,7 +40,7 @@ export default async function ProfilePage() {
     const [profileResult, attendanceResult] = await Promise.all([
       supabase
         .from("profiles")
-        .select("full_name, email, avatar_url, team_members!inner(role, ministries, created_at, team_anniversary)")
+        .select("full_name, email, avatar_url, birthday, team_members!inner(role, ministries, created_at, team_anniversary)")
         .eq("id", teamContext.userId)
         .eq("team_members.team_id", teamContext.teamId ?? "")
         .maybeSingle(),
@@ -47,8 +58,10 @@ export default async function ProfilePage() {
       fullName = profile.full_name ?? "Unknown User";
       email = profile.email ?? "";
       avatarUrl = profile.avatar_url ?? null;
+      birthday = profile.birthday ?? null;
 
-      const membership = (profile.team_members as any)?.[0];
+      const memberships = profile.team_members as unknown as ProfileMembership[];
+      const membership = memberships[0];
       if (membership) {
         ministries = membership.ministries ?? [];
         accessLevel = membership.role ?? "member";
@@ -59,9 +72,9 @@ export default async function ProfilePage() {
       }
     }
 
-    const pastAttendances = attendanceResult.data || [];
+    const pastAttendances = (attendanceResult.data || []) as AttendanceSummary[];
     const pastEventsCount = pastAttendances.length;
-    const attendedCount = pastAttendances.filter((a: any) => a.status === "available").length;
+    const attendedCount = pastAttendances.filter((attendance) => attendance.status === "available").length;
     if (pastEventsCount > 0) {
       attendanceRate = Math.round((attendedCount / pastEventsCount) * 100);
     } else {

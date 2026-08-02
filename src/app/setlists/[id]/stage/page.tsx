@@ -1,10 +1,25 @@
 import { notFound } from "next/navigation";
-import { can } from "@/lib/domain/rbac";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import StageModeClient from "./stage-mode-client";
 import type { Viewport } from "next";
+import type { Database } from "@/lib/supabase/database.types";
+
+type StageSetlistSongRow = Pick<
+  Database["public"]["Tables"]["setlist_songs"]["Row"],
+  "id" | "assigned_key" | "song_order" | "notes" | "arrangement"
+> & {
+  song: Pick<
+    Database["public"]["Tables"]["songs"]["Row"],
+    "id" | "title" | "bpm" | "original_key" | "lyrics_chords" | "youtube_url"
+  > | null;
+};
+
+type StageSetlistRow = Database["public"]["Tables"]["setlists"]["Row"] & {
+  events: Pick<Database["public"]["Tables"]["events"]["Row"], "type"> | null;
+  setlist_songs: StageSetlistSongRow[];
+};
 
 export const viewport: Viewport = {
   maximumScale: 5,
@@ -18,7 +33,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
-    const { data: dbSetlist } = (await supabase
+    const { data } = await supabase
       .from("setlists")
       .select(`
         *,
@@ -43,15 +58,16 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
       `)
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
-      .maybeSingle()) as any;
+      .maybeSingle();
+    const dbSetlist = data as unknown as StageSetlistRow | null;
 
     if (dbSetlist) {
       const dbSetlistSongs = dbSetlist.setlist_songs || [];
 
       // Sort by song_order
-      dbSetlistSongs.sort((a: any, b: any) => (a.song_order ?? 0) - (b.song_order ?? 0));
+      dbSetlistSongs.sort((a, b) => (a.song_order ?? 0) - (b.song_order ?? 0));
 
-      const songsList = dbSetlistSongs.map((ss: any) => {
+      const songsList = dbSetlistSongs.map((ss) => {
         let leadVocal = "";
         if (ss.notes && ss.notes.startsWith("Lead: ")) {
           leadVocal = ss.notes.replace("Lead: ", "");
@@ -75,7 +91,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
 
       const setlist = {
         id: dbSetlist.id,
-        date: dbSetlist.date,
+        date: dbSetlist.setlist_date,
         type: dbSetlist.events?.type || "sunday_service",
         songs: songsList,
       };

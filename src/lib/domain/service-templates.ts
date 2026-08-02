@@ -1,4 +1,5 @@
-import type { ReminderRecurrence, ServiceTemplate, ServiceTemplateRoles } from "@/lib/types";
+import type { ServiceTemplate, ServiceTemplateRoles } from "@/lib/types";
+import { asReminderRecurrence } from "@/lib/domain/database-values";
 
 export const fallbackServiceTemplates: ServiceTemplate[] = [
   {
@@ -33,7 +34,7 @@ type ServiceTemplateRow = {
   location: string;
   call_time: string;
   rehearsal_time: string;
-  reminder_frequency: ReminderRecurrence;
+  reminder_frequency: string;
   reminder_occurrences: number;
   default_roles: unknown;
 };
@@ -46,7 +47,7 @@ export function mapServiceTemplate(row: ServiceTemplateRow): ServiceTemplate {
     location: row.location,
     callTime: row.call_time,
     rehearsalTime: row.rehearsal_time,
-    reminderFrequency: row.reminder_frequency,
+    reminderFrequency: asReminderRecurrence(row.reminder_frequency),
     reminderOccurrences: row.reminder_occurrences,
     defaultRoles: normalizeTemplateRoles(row.default_roles),
   };

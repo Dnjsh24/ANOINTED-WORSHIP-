@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { safeErrorDetails } from "@/lib/server/safe-error";
 
 const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "";
@@ -18,15 +19,15 @@ export async function sendWebPush(subscription: webpush.PushSubscription, payloa
     return false;
   }
   try {
-    await webpush.sendNotification(subscription, payload);
+    await webpush.sendNotification(subscription, payload, { timeout: 5_000 });
     return true;
   } catch (error) {
-    console.error("Error sending push notification:", error);
+    console.error("Error sending push notification:", safeErrorDetails(error));
     return false;
   }
 }
 
-export async function notifyProfiles(supabase: SupabaseClient, profileIds: string[], payload: any) {
+export async function notifyProfiles(supabase: SupabaseClient, profileIds: string[], payload: unknown) {
   if (!vapidPublicKey || !vapidPrivateKey || profileIds.length === 0) return;
   
   const { data: subs } = await supabase
@@ -38,8 +39,12 @@ export async function notifyProfiles(supabase: SupabaseClient, profileIds: strin
 
   const payloadString = JSON.stringify(payload);
   
-  // Fire and forget
-  Promise.allSettled(
-    subs.map((s) => sendWebPush(s.subscription as any, payloadString))
-  ).catch(console.error);
+  await Promise.allSettled(
+    subs.map((subscription) =>
+      sendWebPush(
+        subscription.subscription as unknown as webpush.PushSubscription,
+        payloadString,
+      ),
+    )
+  );
 }

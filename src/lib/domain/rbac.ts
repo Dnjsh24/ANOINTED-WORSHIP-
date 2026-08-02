@@ -137,11 +137,11 @@ export function canManageSetlists(role: TeamRole) {
   return can(role, "setlists.manage");
 }
 
-export function canReviewEventRequests(role: TeamRole) {
+export function canReviewEventRequests(role: TeamRole | string) {
   return can(role, "events.review");
 }
 
-export function visibleNavigation(role: TeamRole) {
+export function visibleNavigation(role: TeamRole | string) {
   const base = [
     "home",
     "setlists",

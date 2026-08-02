@@ -4,9 +4,10 @@ import { useState, useTransition } from "react";
 import { updateSlideSettingsAction } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Image as ImageIcon, PaintBucket } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createOptionalClient } from "@/lib/supabase/client";
+import { buildSlideBackgroundPath, validateSlideBackgroundFile } from "@/lib/domain/slide-background";
 
-interface SlideSettings {
+export interface SlideSettings {
   backgroundType: "color" | "gradient" | "image";
   backgroundValue: string;
 }
@@ -24,7 +25,8 @@ export function SlideBackgroundPicker({
     initialSettings || { backgroundType: "color", backgroundValue: "#000000" }
   );
   const [isOpen, setIsOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [status, setStatus] = useState("");
+  const [, startTransition] = useTransition();
 
   const handleSave = async (newSettings: SlideSettings) => {
     setSettings(newSettings);
@@ -34,32 +36,38 @@ export function SlideBackgroundPicker({
     formData.set("slideSettings", JSON.stringify(newSettings));
     
     startTransition(async () => {
-      await updateSlideSettingsAction(formData);
+      const result = await updateSlideSettingsAction(formData);
+      setStatus(result.message);
     });
   };
 
   const uploadImage = async (file: File) => {
     if (!teamId) return;
-    const supabase = createClient();
+    const validation = validateSlideBackgroundFile(file);
+    if (!validation.ok) {
+      setStatus(validation.message);
+      return;
+    }
+    const supabase = createOptionalClient();
+    if (!supabase) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setStatus("Sign in before uploading a slide background.");
+      return;
+    }
     const objectId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`;
-    const path = `${teamId}/slide-backgrounds/${objectId}-${file.name}`;
+    const path = buildSlideBackgroundPath(teamId, user.id, objectId, validation.extension);
     
     const { error } = await supabase.storage
-      .from("practice-files") // using existing bucket for simplicity
-      .upload(path, file);
+      .from("presentation-media")
+      .upload(path, file, { cacheControl: "3600", upsert: false });
 
     if (error) {
-      console.error("Upload failed", error);
+      setStatus("The slide background could not be uploaded.");
       return;
     }
 
-    const { data } = await supabase.storage
-      .from("practice-files")
-      .createSignedUrl(path, 60 * 60 * 24 * 365); // 1 year
-
-    if (data?.signedUrl) {
-      handleSave({ backgroundType: "image", backgroundValue: data.signedUrl });
-    }
+    await handleSave({ backgroundType: "image", backgroundValue: path });
   };
 
   return (
@@ -83,8 +91,10 @@ export function SlideBackgroundPicker({
               <div className="flex gap-2 flex-wrap">
                 {["#000000", "#1e1b4b", "#4c1d95", "#831843", "#064e3b"].map(color => (
                   <button
+                    type="button"
                     key={color}
-                    className={`size-6 rounded-full border-2 ${settings.backgroundValue === color ? 'border-white' : 'border-transparent'}`}
+                    aria-label={`Use solid color ${color}`}
+                    className={`size-11 rounded-full border-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300 ${settings.backgroundValue === color ? 'border-white' : 'border-transparent'}`}
                     style={{ backgroundColor: color }}
                     onClick={() => handleSave({ backgroundType: "color", backgroundValue: color })}
                   />
@@ -99,10 +109,12 @@ export function SlideBackgroundPicker({
                   "linear-gradient(to bottom right, #000000, #4c1d95)",
                   "linear-gradient(to top right, #1e1b4b, #831843)",
                   "radial-gradient(circle at center, #064e3b, #000000)"
-                ].map(grad => (
+                ].map((grad, index) => (
                   <button
+                    type="button"
                     key={grad}
-                    className={`size-6 rounded-full border-2 ${settings.backgroundValue === grad ? 'border-white' : 'border-transparent'}`}
+                    aria-label={`Use gradient ${index + 1}`}
+                    className={`size-11 rounded-full border-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300 ${settings.backgroundValue === grad ? 'border-white' : 'border-transparent'}`}
                     style={{ background: grad }}
                     onClick={() => handleSave({ backgroundType: "gradient", backgroundValue: grad })}
                   />
@@ -118,7 +130,7 @@ export function SlideBackgroundPicker({
                 <input
                   type="file"
                   className="hidden"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp"
                   onChange={(e) => {
                     if (e.target.files?.[0]) uploadImage(e.target.files[0]);
                   }}
@@ -126,6 +138,7 @@ export function SlideBackgroundPicker({
               </label>
             </div>
           </div>
+          <p className="mt-3 text-xs text-zinc-300" role="status" aria-live="polite">{status}</p>
         </div>
       )}
     </div>

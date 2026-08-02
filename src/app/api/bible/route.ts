@@ -1,15 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
+import { safeErrorDetails } from "@/lib/server/safe-error";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import { findDesktopBibleVerses } from "@/lib/desktop/workspace";
+import { BIBLE_BOOKS, isBibleTranslation } from "@/lib/bible/catalog";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const query = searchParams.get("q");
-  const translation = searchParams.get("translation") || "kjv";
+  const query = searchParams.get("q")?.trim();
+  const requestedTranslation = searchParams.get("translation") || "kjv";
 
   if (!query) {
     return NextResponse.json({ error: "Missing query" }, { status: 400 });
   }
+  if (!isBibleTranslation(requestedTranslation)) {
+    return NextResponse.json({ error: "Unsupported Bible translation" }, { status: 400 });
+  }
+  const match = query.match(/^(.+?)\s+(\d+)(?::(\d+)(?:-(\d+))?)?$/);
+  const book = match ? BIBLE_BOOKS.find((candidate) => candidate.name.toLowerCase() === match[1].toLowerCase()) : undefined;
+  const chapter = match ? Number(match[2]) : 0;
+  const firstVerse = match?.[3] ? Number(match[3]) : undefined;
+  const lastVerse = match?.[4] ? Number(match[4]) : firstVerse;
+  if (!book || chapter < 1 || chapter > book.chapters
+    || (firstVerse !== undefined && (firstVerse < 1 || firstVerse > 176))
+    || (lastVerse !== undefined && (lastVerse < (firstVerse || 1) || lastVerse > 176))) {
+    return NextResponse.json({ error: "Invalid Bible reference" }, { status: 400 });
+  }
+  const translation = requestedTranslation;
 
   if (isDesktopRuntime()) {
     const verses = findDesktopBibleVerses(query, translation);
@@ -28,16 +44,16 @@ export async function GET(req: NextRequest) {
     });
 
     if (!res.ok) {
-      const text = await res.text();
-      return NextResponse.json({ error: text || "Bible API error" }, { status: res.status });
+      console.error("Bible provider request failed.", { status: res.status });
+      return NextResponse.json({ error: "Bible provider request failed" }, { status: res.status });
     }
 
     const data = await res.json();
     return NextResponse.json(data);
-  } catch (err: any) {
-    console.error("[Bible API Proxy]", err);
+  } catch (err: unknown) {
+    console.error("[Bible API Proxy]", safeErrorDetails(err));
     return NextResponse.json(
-      { error: err?.message || "Failed to fetch verse" },
+      { error: "Failed to fetch verse" },
       { status: 500 }
     );
   }

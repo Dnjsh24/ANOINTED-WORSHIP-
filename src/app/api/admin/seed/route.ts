@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { seedSongs } from "./data";
+import type { Database } from "@/lib/supabase/database.types";
+import { safeErrorDetails } from "@/lib/server/safe-error";
+import { STARTER_LIBRARY_SEED_SOURCE } from "@/lib/domain/seed";
 
-export async function GET() {
+export async function POST() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -13,15 +16,15 @@ export async function GET() {
   // Get the first active team membership for the user
   const { data: membership } = await supabase
     .from("team_members")
-    .select("team_id")
+    .select("team_id, role")
     .eq("profile_id", user.id)
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (!membership) {
-    return NextResponse.json({ error: "You are not a part of any team. Join or create a team first." }, { status: 401 });
+  if (!membership || !["owner", "admin"].includes(membership.role)) {
+    return NextResponse.json({ error: "Owner or admin permission is required." }, { status: 403 });
   }
 
   const teamId = membership.team_id;
@@ -34,11 +37,12 @@ export async function GET() {
       .eq("team_id", teamId);
 
     if (fetchError) {
-      return NextResponse.json({ error: fetchError.message }, { status: 500 });
+      console.error("Seed song lookup failed:", safeErrorDetails(fetchError));
+      return NextResponse.json({ error: "Could not inspect the song library." }, { status: 500 });
     }
 
     const existingTitles = new Set(
-      (existingSongs ?? []).map((s: any) => s.title.toLowerCase().trim())
+      (existingSongs ?? []).map((song) => song.title.toLowerCase().trim())
     );
 
     // Step 2: Only keep songs that are NOT already in the library
@@ -56,7 +60,7 @@ export async function GET() {
     }
 
     // Step 3: Insert only the new songs
-    const songsToInsert = newSongs.map((song: any) => ({
+    const songsToInsert: Database["public"]["Tables"]["songs"]["Insert"][] = newSongs.map((song) => ({
       team_id: teamId,
       title: song.title,
       artist: song.artist,
@@ -67,7 +71,8 @@ export async function GET() {
       tags: song.tags || [],
       status: "approved" as const,
       created_by: user.id,
-    })) as any;
+      seed_source: STARTER_LIBRARY_SEED_SOURCE,
+    }));
 
     const { data, error } = await supabase
       .from("songs")
@@ -75,7 +80,8 @@ export async function GET() {
       .select("id, title");
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Seed song insertion failed:", safeErrorDetails(error));
+      return NextResponse.json({ error: "Songs could not be added." }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -85,7 +91,11 @@ export async function GET() {
       message: `Added ${data.length} new songs. Skipped ${existingTitles.size} that were already in your library.`,
       inserted: data,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (error) {
+    console.error("Seed operation failed:", safeErrorDetails(error));
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

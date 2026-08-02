@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabaseEnv, hasSupabaseEnv } from "@/lib/supabase/env";
 import type { Database } from "@/lib/supabase/database.types";
+import { safeErrorDetails } from "@/lib/server/safe-error";
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -40,7 +41,7 @@ export async function getClaims() {
 
     return data.claims;
   } catch (error) {
-    console.warn("getClaims failed:", error);
+    console.warn("getClaims failed:", safeErrorDetails(error));
     return null;
   }
 }

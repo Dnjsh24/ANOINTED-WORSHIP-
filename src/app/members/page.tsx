@@ -16,6 +16,23 @@ import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { TeamMember, TeamRole, CustomRole } from "@/lib/types";
 
+type MemberProfileRow = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+};
+
+type MemberListRow = {
+  id: string;
+  profile_id: string;
+  role: string | null;
+  status: string | null;
+  ministry: string | null;
+  ministries: string[] | null;
+  profiles: MemberProfileRow | MemberProfileRow[] | null;
+};
+
 export default async function MembersPage() {
   const teamContext = await getRequiredTeamContext();
 
@@ -61,8 +78,8 @@ export default async function MembersPage() {
     const pendingRequests = (dbPendingRequests ?? []).map((request) => normalizeJoinRequest(request as RawJoinRequest));
     const customRoles = (customRolesData || []) as CustomRole[];
 
-    const members: TeamMember[] = (dbMembers ?? []).map((tm: any) => {
-      const profile = tm.profiles;
+    const members: TeamMember[] = ((dbMembers ?? []) as unknown as MemberListRow[]).map((tm) => {
+      const profile = Array.isArray(tm.profiles) ? tm.profiles[0] : tm.profiles;
       return {
         id: tm.id,
         profile: {
@@ -86,6 +103,7 @@ export default async function MembersPage() {
           pendingRequests={pendingRequests}
           teamCode={teamContext.teamCode ?? sampleTeamCode}
           teamId={teamContext.teamId}
+          currentUserRole={teamContext.role}
           customRoles={customRoles}
         />
       </AppShell>
@@ -100,6 +118,7 @@ export default async function MembersPage() {
         pendingRequests={samplePendingRequests}
         teamCode={teamContext.teamCode ?? sampleTeamCode}
         teamId={null}
+        currentUserRole={teamContext.role}
         customRoles={[]}
       />
     </AppShell>

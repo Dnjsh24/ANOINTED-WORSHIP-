@@ -1,4 +1,4 @@
-import { ArrowLeft, Edit2, CalendarDays, Music, Video, Sparkles, Users, ExternalLink, Footprints } from "lucide-react";
+import { ArrowLeft, Edit2, CalendarDays, Video, Sparkles, Users, ExternalLink, Footprints } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";

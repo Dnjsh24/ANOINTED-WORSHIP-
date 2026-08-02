@@ -13,7 +13,7 @@ import {
   normalizeJoinRequest,
   type RawJoinRequest,
 } from "@/lib/domain/join-requests";
-import { createClient } from "@/lib/supabase/client";
+import { createOptionalClient } from "@/lib/supabase/client";
 import type { JoinRequestSummary } from "@/lib/types";
 
 export function JoinRequestsClient({
@@ -25,21 +25,25 @@ export function JoinRequestsClient({
 }) {
   const router = useRouter();
   const [requests, setRequests] = useState(initialRequests);
+  const [previousInitialRequests, setPreviousInitialRequests] = useState(initialRequests);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
+  if (initialRequests !== previousInitialRequests) {
+    setPreviousInitialRequests(initialRequests);
     setRequests(initialRequests);
-  }, [initialRequests]);
+  }
 
   useEffect(() => {
     if (!teamId) return;
 
     const activeTeamId = teamId;
-    const supabase = createClient();
+    const supabase = createOptionalClient();
+    if (!supabase) return;
+    const client = supabase;
     async function refreshPendingRequests() {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from("join_requests")
         .select(joinRequestWithRequesterProfileSelect)
         .eq("team_id", activeTeamId)
@@ -55,7 +59,7 @@ export function JoinRequestsClient({
       router.refresh();
     }
 
-    const channel = supabase
+    const channel = client
       .channel(`join-requests-list-${activeTeamId}`)
       .on(
         "postgres_changes",
@@ -67,7 +71,7 @@ export function JoinRequestsClient({
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      client.removeChannel(channel);
     };
   }, [router, teamId]);
 

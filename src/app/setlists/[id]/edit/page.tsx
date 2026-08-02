@@ -7,18 +7,30 @@ import { setlists as sampleSetlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+import type { EventType, Setlist } from "@/lib/types";
+
+type EditableSetlistRow = {
+  id: string;
+  name: string;
+  setlist_date: string;
+  location: string;
+  call_time: string;
+  rehearsal_time: string;
+  service_times: string[] | null;
+  events: { type: EventType } | Array<{ type: EventType }> | null;
+};
 
 export default async function EditSetlistPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
 
-  let setlist: any = null;
+  let setlist: Setlist | null = null;
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
     // Fetch setlist details
-    const { data: dbSetlist } = (await supabase
+    const { data } = await supabase
       .from("setlists")
       .select(`
         *,
@@ -28,9 +40,13 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
       `)
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
-      .maybeSingle()) as any;
+      .maybeSingle();
+    const dbSetlist = data as unknown as EditableSetlistRow | null;
 
     if (dbSetlist) {
+      const linkedEvent = Array.isArray(dbSetlist.events)
+        ? dbSetlist.events[0]
+        : dbSetlist.events;
       setlist = {
         id: dbSetlist.id,
         name: dbSetlist.name,
@@ -39,7 +55,7 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
         callTime: dbSetlist.call_time,
         rehearsalTime: dbSetlist.rehearsal_time,
         serviceTimes: dbSetlist.service_times || ["Sunday Worship"],
-        eventType: dbSetlist.events?.type,
+        eventType: linkedEvent?.type,
         leader: "",
         songs: [],
       };

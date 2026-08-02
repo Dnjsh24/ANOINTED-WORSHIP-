@@ -6,13 +6,14 @@ import { setlists as sampleSetlists, songs as sampleSongs } from "@/lib/sample-d
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+import type { Song } from "@/lib/types";
 
 export default async function AddSongToSetlistPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
 
-  let setlist: any = null;
-  let songsList: any[] = [];
+  let setlist: { id: string; name: string } | null = null;
+  let songsList: Song[] = [];
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
@@ -49,7 +50,7 @@ export default async function AddSongToSetlistPage({ params }: { params: Promise
         originalKey: s.original_key,
         currentKey: s.original_key,
         bpm: s.bpm,
-        timeSignature: s.time_signature,
+        timeSignature: s.time_signature ?? "4/4",
         tags: s.tags || [],
         favorite: false,
         sections: [],

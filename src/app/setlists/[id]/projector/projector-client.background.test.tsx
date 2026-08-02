@@ -8,6 +8,10 @@ vi.mock("@/lib/supabase/client", () => ({
     channel: vi.fn(),
     removeChannel: vi.fn(),
   }),
+  createOptionalClient: () => ({
+    channel: vi.fn(),
+    removeChannel: vi.fn(),
+  }),
 }));
 
 class TestBroadcastChannel {

@@ -4,6 +4,8 @@ import { getSupabaseEnv, hasSupabaseEnv } from "@/lib/supabase/env";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import type { Database } from "@/lib/supabase/database.types";
 import { rateLimit } from "@/lib/rate-limit";
+import { safeErrorDetails } from "@/lib/server/safe-error";
+import { hasValidCronAuthorization } from "@/lib/server/cron-auth";
 
 // ---------------------------------------------------------------------------
 // Rate limit configuration per route tier
@@ -25,9 +27,51 @@ const RATE_LIMITS = {
   general: { max: 600, windowMs: 60_000 },
 } as const;
 
+const MACHINE_ROUTES = new Set([
+  "/api/messages/send-scheduled",
+  "/api/songs/cleanup-trash",
+]);
+
+export function isVerifiedMachineRoute(
+  pathname: string,
+  headers: Headers,
+  secret = process.env.CRON_SECRET,
+) {
+  if (!MACHINE_ROUTES.has(pathname)) return false;
+  return hasValidCronAuthorization(
+    new Request(`https://machine.local${pathname}`, { headers }),
+    secret,
+  );
+}
+
+export function buildContentSecurityPolicy(nonce: string, development: boolean) {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}'${development ? " 'unsafe-eval'" : ""}`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "img-src 'self' data: blob: https://*.supabase.co https://i.scdn.co",
+    "media-src 'self' blob: https://*.supabase.co",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://accounts.spotify.com https://api.spotify.com",
+    "frame-src https://open.spotify.com https://www.youtube.com https://www.youtube-nocookie.com",
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join("; ");
+}
+
+function withContentSecurityPolicy(response: NextResponse, policy: string) {
+  response.headers.set("Content-Security-Policy", policy);
+  return response;
+}
+
 /** Extract the best available client IP from the request headers. */
 function getClientIp(request: NextRequest): string {
-  const forwarded = request.headers.get("x-forwarded-for");
+  const forwarded =
+    request.headers.get("x-vercel-forwarded-for") ??
+    request.headers.get("x-forwarded-for");
   if (forwarded) {
     // x-forwarded-for can be a comma-separated list; take the first (client) IP.
     return forwarded.split(",")[0].trim();
@@ -41,6 +85,14 @@ export async function updateSession(request: NextRequest) {
   // ---------------------------------------------------------------------------
   const pathname = request.nextUrl.pathname;
   const ip = getClientIp(request);
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const contentSecurityPolicy = buildContentSecurityPolicy(
+    nonce,
+    process.env.NODE_ENV !== "production",
+  );
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", contentSecurityPolicy);
 
   const isAuthRoute = pathname.startsWith("/auth");
   const isApiRoute = pathname.startsWith("/api");
@@ -52,11 +104,14 @@ export async function updateSession(request: NextRequest) {
     : RATE_LIMITS.general;
 
   const limitKey = `${isAuthRoute ? "auth" : isApiRoute ? "api" : "gen"}:${ip}`;
-  const { allowed, remaining, resetAt } = rateLimit(limitKey, limitConfig.max, limitConfig.windowMs);
+  const { allowed, resetAt } =
+    process.env.E2E_FORCE_DEMO === "1"
+      ? { allowed: true, resetAt: Date.now() + limitConfig.windowMs }
+      : await rateLimit(limitKey, limitConfig.max, limitConfig.windowMs);
 
   if (!allowed) {
-    const retryAfterSeconds = Math.ceil((resetAt - Date.now()) / 1000);
-    return new NextResponse(
+    const retryAfterSeconds = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
+    return withContentSecurityPolicy(new NextResponse(
       JSON.stringify({
         error: "Too Many Requests",
         message: `Rate limit exceeded. Try again in ${retryAfterSeconds} second${retryAfterSeconds === 1 ? "" : "s"}.`,
@@ -71,24 +126,36 @@ export async function updateSession(request: NextRequest) {
           "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)),
         },
       }
-    );
+    ), contentSecurityPolicy);
   }
 
   if (!hasSupabaseEnv()) {
-    return NextResponse.next({ request });
+    return withContentSecurityPolicy(
+      NextResponse.next({ request: { headers: requestHeaders } }),
+      contentSecurityPolicy,
+    );
   }
 
   // The local Next server is always reachable while the internet may not be.
   // Desktop routes authenticate through the cached workspace context instead of
   // forcing a Supabase request on every navigation.
   if (isDesktopRuntime()) {
-    return NextResponse.next({ request });
+    return withContentSecurityPolicy(
+      NextResponse.next({ request: { headers: requestHeaders } }),
+      contentSecurityPolicy,
+    );
+  }
+
+  if (isVerifiedMachineRoute(pathname, requestHeaders)) {
+    return withContentSecurityPolicy(
+      NextResponse.next({ request: { headers: requestHeaders } }),
+      contentSecurityPolicy,
+    );
   }
 
   const prefix = "/services/anointed-worship-app";
   const hasPrefix = pathname.startsWith(prefix);
 
-  const requestHeaders = new Headers(request.headers);
   const targetUrl = request.nextUrl.clone();
 
   if (hasPrefix) {
@@ -132,28 +199,34 @@ export async function updateSession(request: NextRequest) {
     const { data } = await supabase.auth.getUser();
     user = data.user;
   } catch (error) {
-    console.warn("Supabase session update failed:", error);
+    console.warn("Supabase session update failed:", safeErrorDetails(error));
   }
 
-  const publicRoutes = ["/", "/login", "/auth"];
+  const publicRoutes = ["/", "/login", "/auth", "/api/health"];
   const isPublicRoute = publicRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
   const isAssetRoute = pathname.startsWith("/_next") || pathname.startsWith("/brand") || pathname.includes(".");
 
   if (isAssetRoute) {
-    return supabaseResponse;
+    return withContentSecurityPolicy(supabaseResponse, contentSecurityPolicy);
   }
 
   if (!user && !isPublicRoute) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
-    return NextResponse.redirect(loginUrl);
+    return withContentSecurityPolicy(
+      NextResponse.redirect(loginUrl),
+      contentSecurityPolicy,
+    );
   }
 
   if (user && pathname === "/") {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
-    return NextResponse.redirect(dashboardUrl);
+    return withContentSecurityPolicy(
+      NextResponse.redirect(dashboardUrl),
+      contentSecurityPolicy,
+    );
   }
 
-  return supabaseResponse;
+  return withContentSecurityPolicy(supabaseResponse, contentSecurityPolicy);
 }

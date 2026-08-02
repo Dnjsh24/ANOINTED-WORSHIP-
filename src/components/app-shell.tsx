@@ -5,7 +5,6 @@ import {
   Music,
   User,
   Users,
-  Settings,
   Activity,
 } from "lucide-react";
 import Link from "next/link";
@@ -43,7 +42,7 @@ export async function AppShell({
   teamContext?: TeamContext;
 }) {
   const context = teamContext ?? (await getCurrentTeamContext());
-  const navigation = getVisibleNavigationItems(context.role as any);
+  const navigation = getVisibleNavigationItems(context.role);
   
   let unreadMessageCount = 0;
   if (hasSupabaseEnv() && context.userId && !isDesktopRuntime()) {
@@ -103,7 +102,7 @@ export async function AppShell({
   );
 }
 
-function getVisibleNavigationItems(role: TeamRole) {
+function getVisibleNavigationItems(role: TeamRole | string) {
   const visibleIds = visibleNavigation(role);
   return navItems.filter((item) => visibleIds.includes(item.id));
 }

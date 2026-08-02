@@ -1,9 +1,7 @@
-const CACHE_NAME = "anointed-worship-cache-v1";
+const CACHE_NAME = "anointed-worship-public-v2";
 const ASSETS_TO_CACHE = [
   "/",
-  "/dashboard",
   "/login",
-  "/teams",
   "/manifest.json",
   "/icon-192.png",
   "/icon-512.png"
@@ -41,43 +39,35 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Fetch interception with Network-First fallback to Cache
+// Cache only immutable/public assets. Authenticated documents and RSC payloads
+// must never enter a cache shared by multiple users on the same device.
 self.addEventListener("fetch", (event) => {
-  // Only handle GET requests for caching
   if (event.request.method !== "GET") return;
-
   const url = new URL(event.request.url);
-
-  // Bypass service worker for chrome-extension or external analytics tracking
-  if (url.protocol !== "http:" && url.protocol !== "https:") return;
-  if (url.pathname.startsWith("/api") || url.pathname.startsWith("/auth")) return;
+  if (url.origin !== self.location.origin) return;
+  const isPublicAsset =
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/brand/") ||
+    /^\/(?:icon-\d+|favicon|apple-touch-icon)/.test(url.pathname) ||
+    url.pathname === "/manifest.json";
+  if (!isPublicAsset) return;
 
   event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
-        // If response is valid, cache it for future offline support
-        if (networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+    caches.match(event.request).then((cachedResponse) => {
+      const network = fetch(event.request).then(async (response) => {
+        if (response.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(event.request, response.clone());
         }
-        return networkResponse;
-      })
-      .catch(() => {
-        // Network failed (offline), look up in cache
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          
-          // Fallback if page is not in cache (could return offline page)
-          if (event.request.headers.get("accept").includes("text/html")) {
-            return caches.match("/dashboard") || caches.match("/");
-          }
-        });
-      })
+        return response;
+      });
+      return cachedResponse || network;
+    })
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 // Handle push notification events

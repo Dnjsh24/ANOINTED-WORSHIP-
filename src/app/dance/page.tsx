@@ -1,10 +1,8 @@
-import { CalendarDays, Footprints } from "lucide-react";
+import { Footprints } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { DanceChartForm, type DanceChartOption } from "@/components/dance-chart-form";
 import { DanceLibraryList } from "@/components/dance-library-list";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { can } from "@/lib/domain/rbac";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -165,14 +163,6 @@ export default async function DanceChartsPage({ searchParams }: { searchParams: 
   );
 }
 
-function DanceNoteBlock({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="mt-5 border-t border-white/10 pt-4">
-      <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-violet-200">{title}</p>
-      <p className="mt-2 whitespace-pre-wrap text-sm font-semibold leading-6 text-zinc-300">{body}</p>
-    </div>
-  );
-}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("en-US", {

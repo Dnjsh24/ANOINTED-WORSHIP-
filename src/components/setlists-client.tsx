@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, Clock, MapPin, Plus, Search, SlidersHorizontal, User } from "lucide-react";
+import { Clock, MapPin, Plus, Search, SlidersHorizontal, User } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -10,17 +10,18 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getSetlistTypeLabel } from "@/lib/domain/event-types";
 import type { Setlist } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type DateFilter = "all" | "upcoming" | "past";
 
-export function SetlistsClient({ setlists }: { setlists: Setlist[] }) {
+export function SetlistsClient({ setlists, referenceDate }: { setlists: Setlist[]; referenceDate?: string }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [leader, setLeader] = useState("all");
   const [serviceType, setServiceType] = useState("all");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = referenceDate ?? new Date().toISOString().slice(0, 10);
 
   const leaders = [...new Set(setlists.map((setlist) => setlist.leader))];
   const setlistTypeLabels = [...new Set(setlists.map((setlist) => getSetlistTypeLabel(setlist)))];
@@ -41,16 +42,16 @@ export function SetlistsClient({ setlists }: { setlists: Setlist[] }) {
 
       return matchesSearch && matchesDate && matchesLeader && matchesType;
     });
-  }, [dateFilter, leader, query, serviceType, setlists]);
+  }, [dateFilter, leader, query, serviceType, setlists, today]);
 
   // Group filtered setlists into upcoming and past
   const upcomingSetlists = useMemo(() => {
     return filtered.filter((s) => s.date >= today).sort((a, b) => a.date.localeCompare(b.date));
-  }, [filtered]);
+  }, [filtered, today]);
 
   const pastSetlists = useMemo(() => {
     return filtered.filter((s) => s.date < today).sort((a, b) => b.date.localeCompare(a.date));
-  }, [filtered]);
+  }, [filtered, today]);
 
   function getMonthDay(dateStr: string) {
     try {
@@ -182,7 +183,7 @@ function SetlistRowCard({
   setlist: Setlist;
   getMonthDay: (date: string) => { month: string; day: string };
   getStatusLabel: (date: string) => string;
-  router: any;
+  router: Pick<ReturnType<typeof useRouter>, "push">;
 }) {
   const { month, day } = getMonthDay(setlist.date);
   const status = getStatusLabel(setlist.date);
@@ -266,8 +267,4 @@ function ChevronDown(props: React.SVGProps<SVGSVGElement>) {
       <path d="m6 9 6 6 6-6" />
     </svg>
   );
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
 }

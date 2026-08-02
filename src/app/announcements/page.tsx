@@ -1,6 +1,3 @@
-import { AlertTriangle, CheckCircle2, Info, Megaphone, Sparkles } from "lucide-react";
-import Link from "next/link";
-import { acknowledgeAnnouncementAction } from "@/app/actions";
 import { AppShell } from "@/components/app-shell";
 import { NoticeComposer } from "@/components/notice-composer";
 import { Badge } from "@/components/ui/badge";

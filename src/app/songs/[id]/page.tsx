@@ -13,6 +13,13 @@ import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import { getDesktopSong } from "@/lib/desktop/workspace";
 import type { Song } from "@/lib/types";
 
+type SongUsageRow = {
+  setlists:
+    | { setlist_date: string; team_id: string }
+    | Array<{ setlist_date: string; team_id: string }>
+    | null;
+};
+
 export default async function SongPage({ 
   params,
   searchParams 
@@ -31,12 +38,12 @@ export default async function SongPage({
     song = getDesktopSong(teamContext.teamId, id);
   } else if (hasSupabaseEnv()) {
     const supabase = await createClient();
-    const { data: dbSong } = (await supabase
+    const { data: dbSong } = await supabase
       .from("songs")
       .select("*")
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
-      .maybeSingle()) as any;
+      .maybeSingle();
 
     if (dbSong) {
       song = {
@@ -46,7 +53,7 @@ export default async function SongPage({
         originalKey: dbSong.original_key,
         currentKey: dbSong.original_key,
         bpm: dbSong.bpm,
-        timeSignature: dbSong.time_signature,
+        timeSignature: dbSong.time_signature ?? "4/4",
         tags: dbSong.tags || [],
         favorite: false,
         sections: parseLyricsAndChords(dbSong.lyrics_chords),
@@ -66,10 +73,11 @@ export default async function SongPage({
         .eq("setlists.team_id", teamContext.teamId);
 
       if (usageData) {
-        usageDates = usageData
-          .filter((item: any) => item.setlists?.team_id === teamContext.teamId)
-          .map((item: any) => item.setlists?.setlist_date)
-          .filter(Boolean);
+        usageDates = (usageData as unknown as SongUsageRow[])
+          .map((item) => Array.isArray(item.setlists) ? item.setlists[0] : item.setlists)
+          .filter((setlist) => setlist?.team_id === teamContext.teamId)
+          .map((setlist) => setlist?.setlist_date)
+          .filter((date): date is string => Boolean(date));
       }
     }
   }

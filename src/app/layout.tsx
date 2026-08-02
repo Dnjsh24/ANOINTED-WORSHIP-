@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import { PwaRegister } from "@/components/pwa-register";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
@@ -54,15 +55,18 @@ export const viewport: Viewport = {
   themeColor: "#8b5cf6",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // A per-request CSP nonce is injected by Proxy. Reading headers opts the
+  // private application shell into dynamic rendering so Next can attach it to
+  // framework scripts instead of requiring unsafe-inline.
+  await headers();
+
   return (
     <html
       lang="en"

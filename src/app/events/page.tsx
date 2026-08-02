@@ -5,7 +5,18 @@ import { events as sampleEvents } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+import type { Database } from "@/lib/supabase/database.types";
 import type { Event } from "@/lib/types";
+import { asEventApprovalStatus } from "@/lib/domain/database-values";
+
+type EventListRow = Database["public"]["Tables"]["events"]["Row"] & {
+  event_assignments: Array<{ assignment: string }>;
+  attendance: Array<{
+    team_member_id: string;
+    status: "available" | "maybe" | "unavailable" | "pending";
+  }>;
+  setlists: Array<{ id: string }>;
+};
 
 export default async function EventsPage() {
   const teamContext = await getRequiredTeamContext();
@@ -44,7 +55,8 @@ export default async function EventsPage() {
     const totalMembers = activeMembersResult.count;
 
     if (dbEvents && dbEvents.length > 0) {
-      eventsList = dbEvents.map((e: any) => {
+      eventsList = (dbEvents as unknown as EventListRow[]).map((eventRow) => {
+        const e = eventRow;
         let timeStr = e.ends_at
           ? `${e.starts_at.slice(0, 5)} - ${e.ends_at.slice(0, 5)}`
           : e.starts_at.slice(0, 5);
@@ -58,19 +70,19 @@ export default async function EventsPage() {
         }
 
         const assignedTeams = Array.from(
-          new Set((e.event_assignments ?? []).map((ass: any) => ass.assignment))
+          new Set((e.event_assignments ?? []).map((assignment) => assignment.assignment))
         ) as string[];
 
         const eventAttendance = e.attendance ?? [];
-        const confirmed = eventAttendance.filter((a: any) => a.status === "available").length;
+        const confirmed = eventAttendance.filter((attendance) => attendance.status === "available").length;
         const respondedCount = eventAttendance.length;
         const noResponseCount = Math.max(0, (totalMembers || 0) - respondedCount);
-        const pending = eventAttendance.filter((a: any) => a.status === "maybe").length + noResponseCount;
+        const pending = eventAttendance.filter((attendance) => attendance.status === "maybe").length + noResponseCount;
 
-        const setlistId = e.setlists?.[0]?.id || null;
+        const setlistId = e.setlists?.[0]?.id || undefined;
 
         let myStatus: "available" | "maybe" | "unavailable" | "pending" | "no_response" = "no_response";
-        const myAttendance = eventAttendance.find((a: any) => a.team_member_id === teamContext.memberId);
+        const myAttendance = eventAttendance.find((attendance) => attendance.team_member_id === teamContext.memberId);
         if (myAttendance) {
           myStatus = myAttendance.status;
         }
@@ -87,7 +99,7 @@ export default async function EventsPage() {
           assignedTeams,
           confirmed,
           pending,
-          approvalStatus: e.approval_status ?? "approved",
+          approvalStatus: asEventApprovalStatus(e.approval_status),
           createdByMe: e.created_by === teamContext.userId,
           setlistId,
           myStatus,
@@ -103,8 +115,9 @@ export default async function EventsPage() {
     <AppShell active="Timeline" teamContext={teamContext}>
       <EventsClient
         events={eventsList}
-        canReviewEvents={canReviewEventRequests(teamContext.role as any)}
+        canReviewEvents={canReviewEventRequests(teamContext.role)}
         memberSubmissionMode={!can(teamContext.role, "events.manage")}
+        referenceDate={!hasSupabaseEnv() ? "2026-07-10" : undefined}
       />
     </AppShell>
   );

@@ -12,6 +12,20 @@ export type DanceChartOption = {
   label: string;
 };
 
+type EditableDanceChart = {
+  id: string;
+  title: string;
+  songId?: string | null;
+  eventId?: string | null;
+  songTitle?: string | null;
+  songArtist?: string | null;
+  songVersion?: string | null;
+  videoUrl?: string | null;
+  choreographyNotes?: string | null;
+  formationNotes?: string | null;
+  outfitNotes?: string | null;
+};
+
 export function DanceChartForm({
   songs,
   events,
@@ -19,7 +33,7 @@ export function DanceChartForm({
 }: {
   songs: DanceChartOption[];
   events: DanceChartOption[];
-  chart?: any;
+  chart?: EditableDanceChart;
 }) {
   const action = chart ? updateDanceChartAction : createDanceChartAction;
   const [state, formAction] = useActionState(action, initialActionState);
@@ -113,7 +127,7 @@ export function DanceChartForm({
           rows={6}
           placeholder="Intro: face center, hands low. Verse: step right, tap left. Chorus: tambourine up/down pattern."
           required
-          defaultValue={chart?.choreographyNotes}
+          defaultValue={chart?.choreographyNotes ?? ""}
           className="w-full rounded-md border border-white/10 bg-white/[0.04] px-3 py-3 text-sm font-semibold text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20"
         />
       </label>
