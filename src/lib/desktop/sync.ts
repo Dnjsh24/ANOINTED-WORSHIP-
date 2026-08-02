@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/supabase/database.types";
+import type { Database, Json } from "@/lib/supabase/database.types";
 import type { TeamContext } from "@/lib/supabase/team-context";
 import {
   listPendingDesktopMutations,
@@ -10,6 +10,16 @@ import {
 } from "@/lib/desktop/workspace";
 
 type Supabase = SupabaseClient<Database>;
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function toRecords(values: unknown[] | null): Array<Record<string, unknown>> {
+  return (values ?? []).map((value) => asRecord(value) ?? {});
+}
 
 export type DesktopSyncResult = {
   ok: boolean;
@@ -33,11 +43,12 @@ export async function syncDesktopWorkspace(supabase: Supabase, context: TeamCont
   const mutations = listPendingDesktopMutations();
 
   for (const mutation of mutations) {
-    const { data, error } = await (supabase as any).rpc("apply_worship_mutation", {
+    const { data, error } = await supabase.rpc("apply_worship_mutation", {
       p_device_id: "desktop",
       p_mutation_id: mutation.mutationId,
       p_command: mutation.command,
-      p_payload: mutation.payload,
+      // Outbox payloads were serialized to JSON before reaching this boundary.
+      p_payload: mutation.payload as Json,
       p_base_revision: mutation.baseRevision,
     });
 
@@ -56,12 +67,13 @@ export async function syncDesktopWorkspace(supabase: Supabase, context: TeamCont
       return { ok: false, message: error.message, applied, conflicts };
     }
 
-    if (data?.status === "conflict") {
+    const mutationResult = asRecord(data);
+    if (mutationResult?.status === "conflict") {
       recordDesktopConflict({
         entityType: mutation.entityType,
         entityId: mutation.entityId,
         localPayload: mutation.payload,
-        cloudPayload: data.cloud_payload ?? {},
+        cloudPayload: asRecord(mutationResult.cloud_payload) ?? {},
         mutationId: mutation.mutationId,
       });
       conflicts += 1;
@@ -97,9 +109,9 @@ export async function syncDesktopWorkspace(supabase: Supabase, context: TeamCont
     return { ok: false, message: firstError.message, applied, conflicts };
   }
 
-  const setlistIds = (setlistsResult.data ?? []).map((setlist: any) => setlist.id);
+  const setlistIds = (setlistsResult.data ?? []).map((setlist) => setlist.id);
   const setlistSongsResult = setlistIds.length > 0
-    ? await (supabase.from("setlist_songs") as any).select("*").in("setlist_id", setlistIds)
+    ? await supabase.from("setlist_songs").select("*").in("setlist_id", setlistIds)
     : { data: [], error: null };
 
   if (setlistSongsResult.error) {
@@ -108,10 +120,10 @@ export async function syncDesktopWorkspace(supabase: Supabase, context: TeamCont
 
   replaceDesktopSnapshot({
     context,
-    songs: (songsResult.data ?? []) as any[],
-    events: (eventsResult.data ?? []) as any[],
-    setlists: (setlistsResult.data ?? []) as any[],
-    setlistSongs: (setlistSongsResult.data ?? []) as any[],
+    songs: toRecords(songsResult.data),
+    events: toRecords(eventsResult.data),
+    setlists: toRecords(setlistsResult.data),
+    setlistSongs: toRecords(setlistSongsResult.data),
   });
   setDesktopSyncTimestamp();
   return { ok: true, message: conflicts ? "Synced with conflicts needing review." : "Workspace synced.", applied, conflicts };

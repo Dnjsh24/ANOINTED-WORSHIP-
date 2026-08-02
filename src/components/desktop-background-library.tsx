@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Electron renders offline file URLs that Next Image cannot optimize. */
+
 import { useMemo, useState } from "react";
 import { FolderOpen, FolderPlus, Image as ImageIcon, Loader2, Pencil, Search, Star, Trash2, Upload, Video } from "lucide-react";
 import {

@@ -42,11 +42,16 @@ export function DesktopSyncStatus({ compact = false }: { compact?: boolean }) {
   });
 
   useEffect(() => {
-    void refreshSummary();
-    if (navigator.onLine) sync();
+    const initialSyncTimer = window.setTimeout(() => {
+      void refreshSummary();
+      if (navigator.onLine) sync();
+    }, 0);
     const onOnline = () => sync();
     window.addEventListener("online", onOnline);
-    return () => window.removeEventListener("online", onOnline);
+    return () => {
+      window.clearTimeout(initialSyncTimer);
+      window.removeEventListener("online", onOnline);
+    };
     // Initial sync intentionally runs only once; reconnects use the event.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

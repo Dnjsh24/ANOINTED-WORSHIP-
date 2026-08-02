@@ -35,8 +35,12 @@ export function DesktopOutputControls({ setlistId, onPresent, looks: initialLook
     setLogicalOutputStatus(Object.fromEntries(status.logicalOutputs.map((output) => [output.id, { open: output.open, displayId: output.displayId }])));
   };
   useEffect(() => {
-    void refresh();
-    return window.anointedDesktop?.onDisplaysChanged((nextDisplays) => { setDisplays(nextDisplays); setNotice("Displays changed. Review the selected outputs."); });
+    const refreshTimer = window.setTimeout(() => void refresh(), 0);
+    const unsubscribe = window.anointedDesktop?.onDisplaysChanged((nextDisplays) => { setDisplays(nextDisplays); setNotice("Displays changed. Review the selected outputs."); });
+    return () => {
+      window.clearTimeout(refreshTimer);
+      unsubscribe?.();
+    };
   }, []);
 
   const displayOptions = useMemo(() => displays.map((display) => <option key={display.id} value={display.id}>{display.label} - {display.width}x{display.height}{display.primary ? " (Primary)" : ""}</option>), [displays]);
