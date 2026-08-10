@@ -103,7 +103,17 @@ export function SetlistForm({
   const [location] = useState(setlist?.location ?? "Main Sanctuary");
   const [callTime] = useState(toTimeValue(setlist?.callTime) ?? "09:00");
   const [rehearsalTime] = useState(toTimeValue(setlist?.rehearsalTime) ?? "08:00");
-  const [selectedSongs, setSelectedSongs] = useState<SetlistFormSong[]>([]);
+  const [selectedSongs, setSelectedSongs] = useState<SetlistFormSong[]>(() => {
+    if (setlist?.songs && setlist.songs.length > 0) {
+      return setlist.songs.map((s) => ({
+        id: s.song.id,
+        title: s.song.title,
+        original_key: (s.song as any).originalKey || (s.song as any).original_key || s.assignedKey || "",
+        bpm: s.song.bpm || null,
+      }));
+    }
+    return [];
+  });
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;

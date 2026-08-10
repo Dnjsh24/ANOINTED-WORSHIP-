@@ -1181,6 +1181,30 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
     return { ok: false, message: "Setlist changes could not be saved." };
   }
 
+  const songIds = formData.getAll("songIds");
+  if (songIds) {
+    const { data: currentSetlistSongs } = await context.supabase
+      .from("setlist_songs")
+      .select("id, song_id, assigned_key, notes")
+      .eq("setlist_id", id);
+      
+    await context.supabase.from("setlist_songs").delete().eq("setlist_id", id);
+    
+    if (songIds.length > 0) {
+      const insertData = songIds.map((songId, index) => {
+        const existing = currentSetlistSongs?.find((s) => s.song_id === songId);
+        return {
+          setlist_id: id,
+          song_id: songId as string,
+          song_order: index + 1,
+          assigned_key: existing?.assigned_key || "C",
+          notes: existing?.notes || null,
+        };
+      });
+      await context.supabase.from("setlist_songs").insert(insertData);
+    }
+  }
+
   if (eventId) {
     await logSetlistChange(context, {
       setlistId: id,

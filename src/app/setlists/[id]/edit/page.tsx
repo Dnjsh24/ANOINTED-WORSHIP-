@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { SetlistForm } from "@/components/setlist-form";
 import { Panel } from "@/components/ui/card";
+import { type SetlistFormSong } from "@/components/setlist-form";
 import { SaveAsTemplateButton } from "@/components/save-as-template-button";
 import { setlists as sampleSetlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -25,6 +26,7 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
   const teamContext = await getRequiredTeamContext();
 
   let setlist: Setlist | null = null;
+  let allSongs: SetlistFormSong[] = [];
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
@@ -59,6 +61,50 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
         leader: "",
         songs: [],
       };
+      
+      // Fetch songs for the team
+      const { data: dbSongs } = await supabase
+        .from("songs")
+        .select("id, title, original_key, bpm")
+        .eq("team_id", teamContext.teamId)
+        .order("title", { ascending: true });
+      if (dbSongs) {
+        allSongs = dbSongs;
+      }
+      
+      // Fetch selected songs for this setlist
+      const { data: selectedSongsData } = await supabase
+        .from("setlist_songs")
+        .select(`
+          id,
+          song_order,
+          assigned_key,
+          songs (
+            id,
+            title,
+            original_key,
+            bpm
+          )
+        `)
+        .eq("setlist_id", id)
+        .order("song_order", { ascending: true });
+        
+      if (selectedSongsData) {
+        setlist.songs = selectedSongsData.map((row: any) => {
+          const s = Array.isArray(row.songs) ? row.songs[0] : row.songs;
+          return {
+            id: row.id,
+            order: row.song_order,
+            assignedKey: row.assigned_key,
+            song: {
+              id: s?.id,
+              title: s?.title,
+              originalKey: s?.original_key,
+              bpm: s?.bpm,
+            } as any
+          };
+        });
+      }
     }
   }
 
@@ -84,7 +130,7 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
         <SaveAsTemplateButton setlistId={setlist.id} />
       </div>
       <Panel>
-        <SetlistForm setlist={setlist} />
+        <SetlistForm setlist={setlist} songs={allSongs.length > 0 ? allSongs : undefined} />
       </Panel>
     </AppShell>
   );
