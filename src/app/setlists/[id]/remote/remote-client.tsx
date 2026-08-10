@@ -34,6 +34,10 @@ import {
   type LivePresentationSnapshot,
 } from "@/lib/presentation/live-snapshot";
 import { useDesktopRemoteChannel } from "@/lib/presentation/use-desktop-remote-channel";
+import {
+  authenticateRealtimeClient,
+  realtimeConnectionErrorMessage,
+} from "@/lib/presentation/authenticated-realtime-channel";
 import { isAllowedLyricShortcut, lyricShortcutLabel, resolveLyricShortcuts } from "@/lib/presentation/lyric-shortcuts";
 
 type Song = { id: string; song: { title: string; lyricsChords: string } };
@@ -81,6 +85,7 @@ export default function RemoteClient({
   const workspaceRef = useRef<HTMLElement>(null);
   const [live, setLive] = useState<RemoteLiveState | null>(null);
   const [connected, setConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState("");
   const [lastStateAt, setLastStateAt] = useState(0);
   const [stageMessage, setStageMessage] = useState("");
   const [flashStyle, setFlashStyle] = useState(defaultFlashStyle);
@@ -164,6 +169,7 @@ export default function RemoteClient({
       setLive(event.data.payload);
       setSongIndex(event.data.payload?.activeSongIndex ?? 0);
       setConnected(true);
+      setConnectionError("");
       setLastStateAt(Date.now());
     }
     if (event.data?.event === "presentation_snapshot" && isLivePresentationSnapshot(event.data.payload)) {
@@ -201,11 +207,14 @@ export default function RemoteClient({
 
   useEffect(() => {
     if (!channel || !supabase) return;
+    let active = true;
     channel
       .on("broadcast", { event: "remote_state" }, (event) => {
         const state = event.payload as RemoteLiveState;
         setLive(state);
         setSongIndex(state.activeSongIndex ?? 0);
+        setConnected(true);
+        setConnectionError("");
         setLastStateAt(Date.now());
       })
       .on("broadcast", { event: "presentation_snapshot" }, (event) => {
@@ -214,15 +223,28 @@ export default function RemoteClient({
       .on("broadcast", { event: "remote_library" }, (event) => {
         if (isRemoteContentLibrary(event.payload) && event.payload.setlistId === setlist.id) setRemoteLibrary(event.payload);
       })
-      .on("broadcast", { event: "remote_ack" }, (event) => setLastAcknowledgement(event.payload as RemoteCommandAcknowledgement))
-      .subscribe((status) => {
-        const isSubscribed = status === "SUBSCRIBED";
-        setConnected(isSubscribed);
-        if (isSubscribed && controllerIdRef.current) {
-          channel.send({ type: "broadcast", event: "remote_command", payload: newRemoteCommand(setlist.id, "claim-control", undefined, controllerIdRef.current) });
-        }
+      .on("broadcast", { event: "remote_ack" }, (event) => setLastAcknowledgement(event.payload as RemoteCommandAcknowledgement));
+    void authenticateRealtimeClient(supabase)
+      .then(() => {
+        if (!active) return;
+        channel.subscribe((status, error) => {
+          const isSubscribed = status === "SUBSCRIBED";
+          setConnected(isSubscribed);
+          setConnectionError(isSubscribed ? "" : error ? realtimeConnectionErrorMessage(error) : "");
+          if (isSubscribed && controllerIdRef.current) {
+            channel.send({ type: "broadcast", event: "remote_command", payload: newRemoteCommand(setlist.id, "claim-control", undefined, controllerIdRef.current) });
+          }
+        });
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setConnected(false);
+        setConnectionError(realtimeConnectionErrorMessage(error));
       });
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
   }, [channel, setlist.id, supabase]);
 
   const send = useCallback((
@@ -344,7 +366,7 @@ export default function RemoteClient({
         </div>
       </div>
       <span className={`rounded px-2 py-1 text-[10px] font-bold ${connected ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"}`}>
-        {pairingExpired ? "Pairing expired" : controllerReady ? "Presenter connected" : connected ? "Waiting for Presenter" : "Presenter not connected"}
+        {pairingExpired ? "Pairing expired" : controllerReady ? "Presenter connected" : connectionError ? "Connection blocked" : connected ? "Waiting for Presenter" : "Presenter not connected"}
       </span>
     </header>
 
@@ -352,7 +374,7 @@ export default function RemoteClient({
       Desktop has taken control. Live commands from this Remote are temporarily paused.
     </div>}
     {!controllerReady && !pairingExpired && <div className="border-b border-amber-400/30 bg-amber-400/10 px-4 py-2 text-center text-xs font-semibold text-amber-100">
-      Keep the Presenter editor open on the controlling PC. Remote commands are disabled until its live controller heartbeat is detected.
+      {connectionError || "Keep the Presenter editor open on the controlling PC. Remote commands are disabled until its live controller heartbeat is detected."}
     </div>}
     {live?.outputError && <div className="border-b border-red-400/30 bg-red-500/10 px-4 py-2 text-center text-xs font-semibold text-red-200">
       Output error: {live.outputError}

@@ -271,7 +271,7 @@ describe("cloud Worship Remote transport", () => {
         setlist={{ id: "setlist-1", name: "Sunday Service", songs: [] }}
         cloudTopic="worship-remote-session:session-1"
         cloudPrivate
-        cloudExpiresAt="2099-01-01T00:00:00.000Z"
+        cloudExpiresAt={new Date(Date.now() + 60_000).toISOString()}
       />,
     );
 
