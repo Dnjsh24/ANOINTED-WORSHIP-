@@ -245,10 +245,10 @@ export function SetlistForm({
           </div>
         )}
       </div>
-      <DragOverlay>
+      <DragOverlay dropAnimation={null}>
         {activeSong ? (
-          <div className="p-3 border border-violet-500/50 rounded-xl bg-[#1f1e24] shadow-2xl shadow-black/50 cursor-grabbing mb-2">
-            <div className="text-sm font-bold text-white">{activeSong.title}</div>
+          <div className="p-3 border border-violet-500/50 rounded-xl bg-[#1f1e24] shadow-2xl shadow-black/50 cursor-grabbing w-[310px] m-0">
+            <div className="text-sm font-bold text-white truncate">{activeSong.title}</div>
             <div className="text-xs text-zinc-400 mt-1">{activeSong.original_key} • {activeSong.bpm} BPM</div>
           </div>
         ) : null}
