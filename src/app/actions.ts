@@ -1997,6 +1997,18 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
     linkedSetlistId: formString(formData, "linkedSetlistId"),
     notes: formString(formData, "notes"),
     recurrence: formString(formData, "recurrence") || "none",
+    worshipLeader: formString(formData, "worshipLeader"),
+    acousticGuitar: optionalFormString(formData, "acousticGuitar"),
+    electricGuitar: optionalFormString(formData, "electricGuitar"),
+    bass: optionalFormString(formData, "bass"),
+    drums: optionalFormString(formData, "drums"),
+    mainKeys: optionalFormString(formData, "mainKeys"),
+    secondKeys: optionalFormString(formData, "secondKeys"),
+    extraBandMembers: formData.getAll("extraBandMembers").map((v) => String(v).trim()).filter(Boolean),
+    backupSingers: formData.getAll("backupSingers").map((v) => String(v).trim()).filter(Boolean),
+    media: optionalFormString(formData, "media"),
+    dancers: formData.getAll("dancers").map((v) => String(v).trim()).filter(Boolean),
+    templateId: optionalFormString(formData, "templateId"),
   });
 
   if (!parsed.success) {
@@ -2139,6 +2151,18 @@ export async function updateEventAction(_previous: ActionState, formData: FormDa
     assignedTeams: formString(formData, "assignedTeams"),
     linkedSetlistId: formString(formData, "linkedSetlistId"),
     notes: formString(formData, "notes"),
+    worshipLeader: formString(formData, "worshipLeader"),
+    acousticGuitar: optionalFormString(formData, "acousticGuitar"),
+    electricGuitar: optionalFormString(formData, "electricGuitar"),
+    bass: optionalFormString(formData, "bass"),
+    drums: optionalFormString(formData, "drums"),
+    mainKeys: optionalFormString(formData, "mainKeys"),
+    secondKeys: optionalFormString(formData, "secondKeys"),
+    extraBandMembers: formData.getAll("extraBandMembers").map((v) => String(v).trim()).filter(Boolean),
+    backupSingers: formData.getAll("backupSingers").map((v) => String(v).trim()).filter(Boolean),
+    media: optionalFormString(formData, "media"),
+    dancers: formData.getAll("dancers").map((v) => String(v).trim()).filter(Boolean),
+    templateId: optionalFormString(formData, "templateId"),
   });
 
   if (!eventId) {
