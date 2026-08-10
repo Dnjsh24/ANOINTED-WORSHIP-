@@ -33,7 +33,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@napi-rs/canvas": "0.1.100",
     "@supabase/ssr": "^0.12.0",
-    "@supabase/supabase-js": "^2.108.2",
+    "@supabase/supabase-js": "^2.112.2",
     "@tanstack/react-virtual": "^3.14.4",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
