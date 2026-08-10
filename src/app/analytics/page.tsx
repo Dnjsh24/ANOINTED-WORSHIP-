@@ -2,6 +2,7 @@ import { AppShell } from "@/components/app-shell";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { createClient } from "@/lib/supabase/server";
 import { AnalyticsDashboard } from "@/components/analytics-dashboard";
+import { Activity, Radio } from "lucide-react";
 import { redirect } from "next/navigation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 
@@ -139,20 +140,36 @@ export default async function AnalyticsPage() {
     : demoAnalytics;
 
   return (
-    <AppShell active="analytics">
-      <div className="flex-1 overflow-y-auto bg-[#0A0A0A] p-4 md:p-8">
-        <div className="mx-auto max-w-6xl space-y-8">
-          <div>
-             <h1 className="text-3xl font-bold tracking-tight text-white">Team Engagement</h1>
-             <p className="text-sm text-zinc-400 mt-1">Analytics and insights for {teamContext.teamId}</p>
+    <AppShell active="Analytics" teamContext={teamContext}>
+      <div className="mx-auto max-w-6xl">
+        <section className="animate-fade-down flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <div className="mb-3 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-violet-300">
+              <span className="flex size-7 items-center justify-center rounded-lg border border-violet-400/20 bg-violet-500/10">
+                <Activity className="size-3.5" aria-hidden="true" />
+              </span>
+              Ministry overview
+            </div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+              Team engagement
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-zinc-400">
+              See how {teamContext.teamName ?? "your worship team"} is showing up, serving,
+              and staying connected.
+            </p>
           </div>
-          
-          <AnalyticsDashboard 
-            mostPlayedSongs={analytics.mostPlayedSongs}
-            attendanceStats={analytics.attendanceStats}
-            mostActiveChannels={analytics.mostActiveChannels}
-          />
-        </div>
+
+          <div className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-300">
+            <Radio className="size-3.5 text-emerald-400" aria-hidden="true" />
+            Current team snapshot
+          </div>
+        </section>
+
+        <AnalyticsDashboard
+          mostPlayedSongs={analytics.mostPlayedSongs}
+          attendanceStats={analytics.attendanceStats}
+          mostActiveChannels={analytics.mostActiveChannels}
+        />
       </div>
     </AppShell>
   );
