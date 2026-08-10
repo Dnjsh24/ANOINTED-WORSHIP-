@@ -28,6 +28,17 @@ const AVAILABLE_MINISTRIES = [
   "Ushers / Greeters",
 ];
 
+const BAND_ROLES = [
+  "Band Leader",
+  "Acoustic Guitar",
+  "Electric Guitar",
+  "Bass",
+  "Drums",
+  "Main Keys",
+  "Second Keys",
+  "Vocals",
+];
+
 export function ProfileForm({
   fullName,
   email,
@@ -51,9 +62,17 @@ export function ProfileForm({
   const [ministries, setMinistries] = useState<string[]>(initialMinistries);
 
   function toggleMinistry(m: string) {
-    setMinistries(prev => 
-      prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]
-    );
+    setMinistries(prev => {
+      if (prev.includes(m)) {
+        // If unchecking "Band Member", also uncheck all band roles
+        if (m === "Band Member") {
+          return prev.filter(x => x !== m && !BAND_ROLES.includes(x));
+        }
+        return prev.filter(x => x !== m);
+      } else {
+        return [...prev, m];
+      }
+    });
   }
 
   return (
@@ -139,6 +158,28 @@ export function ProfileForm({
             </label>
           ))}
         </div>
+
+        {ministries.includes("Band Member") && (
+          <div className="mt-4 pt-4 border-t border-white/[0.04] animate-fade-in">
+            <h4 className="text-xs font-bold text-zinc-400 mb-3 uppercase tracking-wider">Band Roles</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {BAND_ROLES.map((role) => (
+                <label key={role} className={cn(
+                  "flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors",
+                  ministries.includes(role) ? "border-violet-500/50 bg-violet-500/10 text-violet-100" : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:bg-white/[0.04]"
+                )}>
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={ministries.includes(role)}
+                    onChange={() => toggleMinistry(role)}
+                  />
+                  <span className="text-xs font-bold">{role}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Preferences Section */}
