@@ -418,6 +418,22 @@ begin
   ) then
     raise exception 'private Worship Remote Realtime policies are missing or mis-scoped';
   end if;
+
+  if exists (
+    select 1
+    from pg_policies
+    where schemaname = 'realtime'
+      and tablename = 'messages'
+      and policyname in (
+        'Worship remote operators can receive private broadcasts',
+        'Worship remote operators can send private broadcasts'
+      )
+      and position(
+        'private = true' in coalesce(qual, with_check, '')
+      ) > 0
+  ) then
+    raise exception 'Worship Remote policies depend on a private flag absent from Realtime authorization probes';
+  end if;
 end
 $$;
 
