@@ -2,15 +2,13 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import RemoteClient from "./remote-client";
 
+const supabaseMocks = vi.hoisted(() => ({
+  createOptionalClient: vi.fn(),
+}));
+
 vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    channel: vi.fn(),
-    removeChannel: vi.fn(),
-  }),
-  createOptionalClient: () => ({
-    channel: vi.fn(),
-    removeChannel: vi.fn(),
-  }),
+  createClient: supabaseMocks.createOptionalClient,
+  createOptionalClient: supabaseMocks.createOptionalClient,
 }));
 
 class TestBroadcastChannel {
@@ -54,6 +52,11 @@ describe("desktop Worship Remote transport", () => {
     window.localStorage.clear();
     TestBroadcastChannel.instances = [];
     vi.stubGlobal("BroadcastChannel", TestBroadcastChannel);
+    supabaseMocks.createOptionalClient.mockReset();
+    supabaseMocks.createOptionalClient.mockReturnValue({
+      channel: vi.fn(),
+      removeChannel: vi.fn(),
+    });
   });
 
   it("keeps its BroadcastChannel open when the controller ID is initialized", async () => {
@@ -227,4 +230,53 @@ describe("desktop Worship Remote transport", () => {
       }),
     ]));
   }, 10_000);
+});
+
+describe("cloud Worship Remote transport", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    supabaseMocks.createOptionalClient.mockReset();
+  });
+
+  it("authenticates Realtime before subscribing to the private Presenter channel", async () => {
+    const callOrder: string[] = [];
+    const channel = {
+      on: vi.fn(() => channel),
+      subscribe: vi.fn((onStatus?: (status: string) => void) => {
+        callOrder.push("subscribe");
+        onStatus?.("SUBSCRIBED");
+        return channel;
+      }),
+      send: vi.fn(),
+    };
+    const client = {
+      auth: {
+        getSession: vi.fn(async () => {
+          callOrder.push("get-session");
+          return { data: { session: { access_token: "phone-token" } }, error: null };
+        }),
+      },
+      realtime: {
+        setAuth: vi.fn(async (token: string) => {
+          callOrder.push(`set-auth:${token}`);
+        }),
+      },
+      channel: vi.fn(() => channel),
+      removeChannel: vi.fn(),
+    };
+    supabaseMocks.createOptionalClient.mockReturnValue(client);
+
+    render(
+      <RemoteClient
+        setlist={{ id: "setlist-1", name: "Sunday Service", songs: [] }}
+        cloudTopic="worship-remote-session:session-1"
+        cloudPrivate
+        cloudExpiresAt="2099-01-01T00:00:00.000Z"
+      />,
+    );
+
+    await waitFor(() => expect(channel.subscribe).toHaveBeenCalledTimes(1));
+    expect(callOrder).toEqual(["get-session", "set-auth:phone-token", "subscribe"]);
+    expect(screen.getByText("Waiting for Presenter")).toBeInTheDocument();
+  });
 });
