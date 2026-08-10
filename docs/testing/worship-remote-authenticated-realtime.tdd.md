@@ -57,4 +57,25 @@ Focused result: 2 files passed; 7 tests passed.
 
 ## Manual follow-up
 
-The source and desktop package build are verified locally, but the repair is not present in the currently installed desktop version until a new Windows build is released and installed. After deployment, pair a physical phone with Presenter and confirm that the status changes to connected and slide/output commands are received. No website deployment, installer release, push, or production schema mutation was performed in this task.
+The v0.2.20 installer contains the client authentication repair. After installing it, pair a physical phone with Presenter and confirm that the status changes to connected and slide/output commands are received. No push or website deployment was performed in the client-authentication task.
+
+## Production RLS follow-up
+
+The first repaired client exposed a second production defect: both authenticated clients supplied a JWT, but Realtime continued to reject the secure session topic.
+
+Supabase Realtime constructs its authorization probe rows with `topic` and `extension`; it does not populate `realtime.messages.private`. The existing policies required `realtime.messages.private = true`, so their `SELECT` and `INSERT` checks rejected every probe before the otherwise-valid pairing-session helper could authorize it.
+
+- RED commit: `5743f66 test: reproduce Worship Remote Realtime policy rejection`.
+- GREEN commit: `ab7e3eb fix: allow valid Worship Remote Realtime probes`.
+- Forward migration: `20260810172514_fix_worship_remote_realtime_authorization.sql`.
+- The migration preserves authenticated-role, Broadcast-extension, topic, active membership, role, session ownership, expiry, and revocation checks. It removes only the unavailable synthetic `private` flag predicate.
+- The migration was applied to production successfully.
+- Rolled-back production probes matching Supabase's synthetic row shape passed for both the session creator and paired phone user.
+- Production policy inspection confirmed neither policy still requires the missing flag.
+- Focused migration tests: 2 files passed; 6 tests passed.
+- Full suite: 70 files passed; 332 tests passed, 1 skipped.
+- TypeScript, ESLint, secret scan, and the Next.js production build passed.
+- V8 coverage is not applicable to the SQL-only migration (`0/0` instrumentable statements); the production RLS probes provide runtime coverage of both authenticated participants and both `INSERT`/`SELECT` policies.
+- The local database lint wrapper could not connect because the local Supabase stack was not running. Production advisors and direct rolled-back verification queries were completed instead.
+
+Previously denied Realtime connections may retain cached authorization state. Fully close Presenter and the phone page, reopen Presenter, and generate one fresh pairing code before the physical acceptance check.
