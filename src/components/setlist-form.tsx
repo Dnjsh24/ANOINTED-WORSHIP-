@@ -103,6 +103,7 @@ export function SetlistForm({
   const [location] = useState(setlist?.location ?? "Main Sanctuary");
   const [callTime] = useState(toTimeValue(setlist?.callTime) ?? "09:00");
   const [rehearsalTime] = useState(toTimeValue(setlist?.rehearsalTime) ?? "08:00");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedSongs, setSelectedSongs] = useState<SetlistFormSong[]>(() => {
     if (setlist?.songs && setlist.songs.length > 0) {
       return setlist.songs.map((s) => ({
@@ -175,13 +176,26 @@ export function SetlistForm({
             {/* Right Column: Song Library */}
             {songs && songs.length > 0 && (
               <div className="rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 text-left h-[600px] flex flex-col">
-                <h3 className="text-sm font-bold text-white mb-2 pb-2 border-b border-white/[0.04]">Song Library</h3>
+                <div className="mb-4 space-y-3 border-b border-white/[0.04] pb-4">
+                  <h3 className="text-sm font-bold text-white">Song Library</h3>
+                  <Input 
+                    type="search"
+                    placeholder="Search songs..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-white/[0.04] border-white/10 h-9 text-xs"
+                  />
+                </div>
                 <div className="flex-1 overflow-y-auto pr-2 -mr-2">
-                  {songs.map(song => (
-                    <DraggableSong key={song.id} song={song} />
+                  {songs
+                    .filter(song => song.title.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .map(song => (
+                      <DraggableSong key={song.id} song={song} />
                   ))}
-                  {songs.length === 0 && (
-                    <p className="text-xs text-zinc-500 text-center py-4">No songs in library.</p>
+                  {songs.filter(song => song.title.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                    <p className="text-xs text-zinc-500 text-center py-4">
+                      {searchQuery ? "No songs found matching your search." : "No songs in library."}
+                    </p>
                   )}
                 </div>
               </div>
