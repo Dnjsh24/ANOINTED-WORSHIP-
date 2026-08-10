@@ -12,7 +12,7 @@ import {
   resolveSetlistEventType,
 } from "@/lib/domain/event-types";
 import type { EventType, Setlist } from "@/lib/types";
-import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, useDraggable, useDroppable, DragOverlay, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { Trash2 } from "lucide-react";
 
 export type SetlistFormSong = {
@@ -36,11 +36,11 @@ function isSetlistFormSong(value: unknown): value is SetlistFormSong {
 }
 
 function DraggableSong({ song }: { song: SetlistFormSong }) {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `song-${song.id}`,
     data: song,
   });
-  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 } : undefined;
+  const style = { opacity: isDragging ? 0.4 : 1 };
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes} className="p-3 border border-white/10 rounded-xl bg-[#17161b] hover:bg-[#1f1e24] hover:border-violet-500/50 cursor-grab active:cursor-grabbing mb-2 transition-colors">
       <div className="text-sm font-bold text-white">{song.title}</div>
@@ -115,8 +115,17 @@ export function SetlistForm({
     }
     return [];
   });
+  const [activeSong, setActiveSong] = useState<SetlistFormSong | null>(null);
+
+  function handleDragStart(event: DragStartEvent) {
+    const { active } = event;
+    if (active.data.current && isSetlistFormSong(active.data.current)) {
+      setActiveSong(active.data.current);
+    }
+  }
 
   function handleDragEnd(event: DragEndEvent) {
+    setActiveSong(null);
     const { active, over } = event;
     if (over && over.id === "setlist-dropzone") {
        const song = active.data.current;
@@ -127,7 +136,7 @@ export function SetlistForm({
   }
 
   return (
-    <DndContext id="setlist-form-dnd" onDragEnd={handleDragEnd}>
+    <DndContext id="setlist-form-dnd" onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="animate-fade-in">
         <form action={formAction} className="space-y-6">
           {setlist && <input type="hidden" name="setlistId" value={setlist.id} />}
@@ -236,6 +245,14 @@ export function SetlistForm({
           </div>
         )}
       </div>
+      <DragOverlay>
+        {activeSong ? (
+          <div className="p-3 border border-violet-500/50 rounded-xl bg-[#1f1e24] shadow-2xl shadow-black/50 cursor-grabbing mb-2">
+            <div className="text-sm font-bold text-white">{activeSong.title}</div>
+            <div className="text-xs text-zinc-400 mt-1">{activeSong.original_key} • {activeSong.bpm} BPM</div>
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }
