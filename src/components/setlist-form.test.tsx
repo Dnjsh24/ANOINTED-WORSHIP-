@@ -114,7 +114,7 @@ describe("SetlistForm drag preview", () => {
 
     act(() => {
       dndCallbacks.onDragStart?.({
-        active: { data: { current: song } },
+        active: { id: "library-song-1", data: { current: song } },
       });
     });
 
@@ -122,6 +122,24 @@ describe("SetlistForm drag preview", () => {
     expect(overlay).toHaveTextContent("Amazing Grace");
     expect(view.container).not.toContainElement(overlay);
     expect(overlay.parentElement).toBe(document.body);
+  });
+
+  it("keeps the library preview hidden while reordering a selected song", () => {
+    const song = {
+      id: "song-1",
+      title: "For Your Glory I Will Live",
+      original_key: "E",
+      bpm: null,
+    };
+    render(<SetlistForm songs={[song]} />);
+
+    act(() => {
+      dndCallbacks.onDragStart?.({
+        active: { id: "selected-song-1", data: { current: song } },
+      });
+    });
+
+    expect(screen.getByTestId("setlist-drag-overlay")).toBeEmptyDOMElement();
   });
 
   it("reorders selected songs and inserts a library song at the dropped position", () => {
