@@ -35,6 +35,7 @@ import { realtimeConnectionErrorMessage } from "@/lib/presentation/authenticated
 import { savePresenterDraftAction } from "./presentation-draft-actions";
 import { BIBLE_BOOKS } from "@/lib/bible/catalog";
 import { resolveLyricShortcuts } from "@/lib/presentation/lyric-shortcuts";
+import { resolveLyricsReflowPreviewLines } from "@/lib/presentation/lyrics-reflow";
 
 const PRESENTER_TABS = ["Lyrics", "Property", "Layers", "Motion", "Stage"] as const;
 type PresenterTab = (typeof PRESENTER_TABS)[number];
@@ -1699,10 +1700,11 @@ export default function GlobalPresenterClient({
                 </div>
               )}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                 {slides.map((slide) => {
-                    const isActive = activeSlideId === slide.id;
-                    const label = slide.sectionLabel || "Lyrics";
-                    const initial = label.charAt(0).toUpperCase();
+                  {slides.map((slide) => {
+                     const isActive = activeSlideId === slide.id;
+                     const label = slide.sectionLabel || "Lyrics";
+                     const initial = label.charAt(0).toUpperCase();
+                     const previewLines = resolveLyricsReflowPreviewLines(slide.content, slideOverrides[slide.id]);
 
                     let colorClass = "text-[#3b82f6]"; 
                     let bgClass = "bg-[#3b82f6]";
@@ -1749,7 +1751,7 @@ export default function GlobalPresenterClient({
                         </div>
                         
                         <div className="p-3 w-full">
-                           {slide.content.map((line, lIdx) => (
+                           {previewLines.map((line, lIdx) => (
                              <span key={lIdx} className={cn(
                                "text-sm font-bold block w-full leading-snug",
                                isActive ? "text-white" : "text-zinc-200"
