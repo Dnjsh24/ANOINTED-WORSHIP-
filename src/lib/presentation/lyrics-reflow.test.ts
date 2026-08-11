@@ -23,6 +23,7 @@ describe("resolveLyricsReflowPreviewLines", () => {
 
   it("keeps generated lyric lines when the slide has no block override", () => {
     expect(resolveLyricsReflowPreviewLines(["Original line"], undefined)).toEqual(["Original line"]);
+    expect(resolveLyricsReflowPreviewLines(["Original line"], [])).toEqual(["Original line"]);
   });
 
   it("combines word blocks into visual reading order", () => {
@@ -36,5 +37,18 @@ describe("resolveLyricsReflowPreviewLines", () => {
     );
 
     expect(lines).toEqual(["Hello world", "Again"]);
+  });
+
+  it("keeps a stable order for blocks sharing the same position and ignores blank text", () => {
+    const lines = resolveLyricsReflowPreviewLines(
+      ["Original line"],
+      [
+        lineBlock("same-position-1", "second", 50, 50),
+        lineBlock("same-position-2", "   ", 50, 50),
+        lineBlock("leftmost", "first", 40, 50),
+      ],
+    );
+
+    expect(lines).toEqual(["first second"]);
   });
 });
