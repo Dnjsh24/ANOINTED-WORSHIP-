@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { createPortal } from "react-dom";
 import { createSetlistAction, updateSetlistAction, deleteSetlistAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -12,7 +13,8 @@ import {
   resolveSetlistEventType,
 } from "@/lib/domain/event-types";
 import type { EventType, Setlist } from "@/lib/types";
-import { DndContext, useDraggable, useDroppable, DragOverlay, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
+import { DndContext, useDraggable, useDroppable, DragOverlay, type DragEndEvent, type DragStartEvent, type Modifier } from "@dnd-kit/core";
+import { getEventCoordinates } from "@dnd-kit/utilities";
 import { Trash2 } from "lucide-react";
 
 export type SetlistFormSong = {
@@ -32,6 +34,42 @@ function isSetlistFormSong(value: unknown): value is SetlistFormSong {
       typeof value.title === "string" &&
       "original_key" in value &&
       typeof value.original_key === "string",
+  );
+}
+
+export const snapDragPreviewToCursor: Modifier = ({
+  activatorEvent,
+  draggingNodeRect,
+  transform,
+}) => {
+  if (!activatorEvent || !draggingNodeRect) return transform;
+
+  const activatorCoordinates = getEventCoordinates(activatorEvent);
+  if (!activatorCoordinates) return transform;
+
+  const pointerOffsetX = activatorCoordinates.x - draggingNodeRect.left;
+  const pointerOffsetY = activatorCoordinates.y - draggingNodeRect.top;
+
+  return {
+    ...transform,
+    x: transform.x + pointerOffsetX - draggingNodeRect.width / 2,
+    y: transform.y + pointerOffsetY - draggingNodeRect.height / 2,
+  };
+};
+
+function SetlistDragOverlay({ activeSong }: { activeSong: SetlistFormSong | null }) {
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <DragOverlay dropAnimation={null} modifiers={[snapDragPreviewToCursor]}>
+      {activeSong ? (
+        <div className="m-0 w-full cursor-grabbing rounded-xl border border-violet-500/50 bg-[#1f1e24] p-3 shadow-2xl shadow-black/50">
+          <div className="truncate text-sm font-bold text-white">{activeSong.title}</div>
+          <div className="mt-1 text-xs text-zinc-400">{activeSong.original_key} &bull; {activeSong.bpm} BPM</div>
+        </div>
+      ) : null}
+    </DragOverlay>,
+    document.body,
   );
 }
 
@@ -109,7 +147,7 @@ export function SetlistForm({
       return setlist.songs.map((s) => ({
         id: s.song.id,
         title: s.song.title,
-        original_key: (s.song as any).originalKey || (s.song as any).original_key || s.assignedKey || "",
+        original_key: s.song.originalKey || s.assignedKey || "",
         bpm: s.song.bpm || null,
       }));
     }
@@ -245,14 +283,7 @@ export function SetlistForm({
           </div>
         )}
       </div>
-      <DragOverlay dropAnimation={null}>
-        {activeSong ? (
-          <div className="p-3 border border-violet-500/50 rounded-xl bg-[#1f1e24] shadow-2xl shadow-black/50 cursor-grabbing w-[310px] m-0">
-            <div className="text-sm font-bold text-white truncate">{activeSong.title}</div>
-            <div className="text-xs text-zinc-400 mt-1">{activeSong.original_key} • {activeSong.bpm} BPM</div>
-          </div>
-        ) : null}
-      </DragOverlay>
+      <SetlistDragOverlay activeSong={activeSong} />
     </DndContext>
   );
 }
