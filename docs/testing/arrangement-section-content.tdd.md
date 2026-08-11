@@ -36,8 +36,8 @@ No plan file was supplied. The journey was derived from the requested arrangemen
 - Production build: `npm run build` passed and generated all 43 static pages.
 - Responsive E2E: the focused Playwright journey passed in Chromium desktop and Pixel 7 mobile projects (2 tests, 14.5 seconds).
 - Full website lint is currently blocked by four unrelated `no-explicit-any` warnings in `src/app/setlists/[id]/edit/page.tsx` and `src/components/setlist-form.tsx`.
-- Full website tests are currently blocked by unrelated failures in `src/components/dialog-contracts.test.ts` and `src/components/setlist-form.test.tsx`.
-- Standalone `npm run typecheck` is currently blocked by the unrelated `setlist-form.test.tsx` import of a missing `snapDragPreviewToCursor` export. The Next.js production build TypeScript phase passed.
+- Full website tests currently report 321 passing tests and one unrelated source-formatting assertion failure in `src/components/dialog-contracts.test.ts`.
+- Standalone `npm run typecheck` passed, as did the Next.js production build TypeScript phase.
 
 ## Deployment note
 
