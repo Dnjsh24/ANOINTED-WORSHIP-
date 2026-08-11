@@ -26,6 +26,7 @@ No plan file was supplied. The journey was derived from the requested arrangemen
 | 4 | Repeated section occurrences save independently | `src/components/arrangement-editor.test.tsx` | Component integration | PASS |
 | 5 | The schema change is nullable JSONB and has no table-rewriting default | `src/lib/supabase/arrangement-sections-migration.test.ts` | Migration contract | PASS |
 | 6 | Existing server-action integrity contracts remain green | `src/app/actions.integrity.test.ts` | Server boundary | PASS |
+| 7 | Ending editing is available on desktop and mobile viewports | `e2e/app.spec.ts: arrangement editor adds editable chords and lyrics on every viewport` | Playwright E2E | PASS |
 
 ## Validation results
 
@@ -33,6 +34,7 @@ No plan file was supplied. The journey was derived from the requested arrangemen
 - Focused lint: touched website TypeScript and test files passed ESLint with `--max-warnings 0`.
 - Focused coverage: `arrangements.ts` reached 96.07% statements, 89.36% branches, 100% functions, and 97.77% lines.
 - Production build: `npm run build` passed and generated all 43 static pages.
+- Responsive E2E: the focused Playwright journey passed in Chromium desktop and Pixel 7 mobile projects (2 tests, 14.5 seconds).
 - Full website lint is currently blocked by four unrelated `no-explicit-any` warnings in `src/app/setlists/[id]/edit/page.tsx` and `src/components/setlist-form.tsx`.
 - Full website tests are currently blocked by unrelated failures in `src/components/dialog-contracts.test.ts` and `src/components/setlist-form.test.tsx`.
 - Standalone `npm run typecheck` is currently blocked by the unrelated `setlist-form.test.tsx` import of a missing `snapDragPreviewToCursor` export. The Next.js production build TypeScript phase passed.

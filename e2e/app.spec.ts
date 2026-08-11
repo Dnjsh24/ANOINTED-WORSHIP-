@@ -205,6 +205,26 @@ test("setlist detail actions have real targets", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Add Song to Sunday Service" })).toBeVisible();
 });
 
+test("arrangement editor adds editable chords and lyrics on every viewport", async ({ page }) => {
+  await page.goto("/setlists/sunday-service");
+  const editArrangement = page.getByRole("button", { name: "Edit arrangement" }).first();
+  await editArrangement.scrollIntoViewIfNeeded();
+  await editArrangement.click({ force: true });
+
+  const dialog = page.getByRole("dialog", { name: "Edit Arrangement" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Add Ending" }).click();
+  await expect(dialog.getByRole("textbox", { name: "Section name" })).toHaveValue("Ending");
+
+  const contentEditor = dialog.getByRole("textbox", { name: "Chords and lyrics" });
+  await expect(contentEditor).toBeVisible();
+  await contentEditor.fill("G  C\nYou reign forever");
+  await expect(dialog.getByText("You reign forever", { exact: true }).last()).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Save Arrangement" }).click();
+  await expect(dialog).toBeHidden();
+});
+
 test("events filters and detail actions work", async ({ page }) => {
   await page.goto("/events");
   await page.getByPlaceholder("Search events...").fill("Prayer");
