@@ -238,9 +238,8 @@ export function SetlistForm({
 
   function handleDragStart(event: DragStartEvent) {
     const { active } = event;
-    if (active.data.current && isSetlistFormSong(active.data.current)) {
-      setActiveSong(active.data.current);
-    }
+    const song = active.data.current;
+    setActiveSong(String(active.id).startsWith("library-") && isSetlistFormSong(song) ? song : null);
   }
 
   function handleDragEnd(event: DragEndEvent) {
