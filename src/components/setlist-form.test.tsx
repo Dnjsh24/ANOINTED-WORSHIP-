@@ -38,9 +38,40 @@ vi.mock("@dnd-kit/core", () => ({
   }),
 }));
 
-import { SetlistForm } from "@/components/setlist-form";
+import {
+  SetlistForm,
+  snapDragPreviewToCursor,
+} from "@/components/setlist-form";
 
 describe("SetlistForm drag preview", () => {
+  it("centers the preview on the pointer instead of offsetting it to the side", () => {
+    const transform = snapDragPreviewToCursor({
+      activatorEvent: new MouseEvent("mousedown", {
+        clientX: 280,
+        clientY: 240,
+      }),
+      active: null,
+      activeNodeRect: null,
+      containerNodeRect: null,
+      draggingNodeRect: {
+        bottom: 260,
+        height: 60,
+        left: 200,
+        right: 500,
+        top: 200,
+        width: 300,
+      },
+      over: null,
+      overlayNodeRect: null,
+      scrollableAncestors: [],
+      scrollableAncestorRects: [],
+      transform: { x: 120, y: 80, scaleX: 1, scaleY: 1 },
+      windowRect: null,
+    });
+
+    expect(transform).toEqual({ x: 50, y: 90, scaleX: 1, scaleY: 1 });
+  });
+
   it("renders the active song preview outside the animated form layout", () => {
     const song = {
       id: "song-1",
