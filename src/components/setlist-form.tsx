@@ -13,9 +13,29 @@ import {
   resolveSetlistEventType,
 } from "@/lib/domain/event-types";
 import type { EventType, Setlist } from "@/lib/types";
-import { DndContext, useDraggable, useDroppable, DragOverlay, type DragEndEvent, type DragStartEvent, type Modifier } from "@dnd-kit/core";
-import { getEventCoordinates } from "@dnd-kit/utilities";
-import { Trash2 } from "lucide-react";
+import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+  type Modifier,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS, getEventCoordinates } from "@dnd-kit/utilities";
+import { GripVertical, Trash2 } from "lucide-react";
 
 export type SetlistFormSong = {
   id: string;
@@ -75,7 +95,7 @@ function SetlistDragOverlay({ activeSong }: { activeSong: SetlistFormSong | null
 
 function DraggableSong({ song }: { song: SetlistFormSong }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `song-${song.id}`,
+    id: `library-${song.id}`,
     data: song,
   });
   const style = { opacity: isDragging ? 0.4 : 1 };
@@ -87,8 +107,66 @@ function DraggableSong({ song }: { song: SetlistFormSong }) {
   );
 }
 
+function SortableSelectedSong({
+  index,
+  onRemove,
+  song,
+}: {
+  index: number;
+  onRemove: (id: string) => void;
+  song: SetlistFormSong;
+}) {
+  const {
+    attributes,
+    isDragging,
+    listeners,
+    setActivatorNodeRef,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: `selected-${song.id}`, data: song });
+
+  return (
+    <li
+      ref={setNodeRef}
+      aria-label={`${index + 1}. ${song.title}`}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`flex items-center justify-between rounded-lg border border-white/10 bg-[#17161b] p-3 ${isDragging ? "opacity-50" : ""}`}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          ref={setActivatorNodeRef}
+          type="button"
+          aria-label={`Move ${song.title}`}
+          className="touch-none cursor-grab text-zinc-500 hover:text-violet-300 active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="size-4" />
+        </button>
+        <span className="w-4 text-right font-mono text-xs text-zinc-500">{index + 1}</span>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-bold text-white">{song.title}</div>
+          <div className="text-xs text-zinc-400">{song.original_key}</div>
+        </div>
+      </div>
+      <button
+        type="button"
+        aria-label={`Remove ${song.title}`}
+        onClick={() => onRemove(song.id)}
+        className="rounded-lg p-2 text-zinc-500 transition hover:bg-red-400/10 hover:text-red-400"
+      >
+        <Trash2 className="size-4" />
+      </button>
+    </li>
+  );
+}
+
 function DroppableZone({ selectedSongs, onRemove }: { selectedSongs: SetlistFormSong[]; onRemove: (id: string) => void }) {
-  const { isOver, setNodeRef } = useDroppable({ id: "setlist-dropzone" });
+  const { isOver, setNodeRef } = useDroppable({
+    id: "setlist-dropzone",
+    disabled: selectedSongs.length > 0,
+  });
   return (
     <div className="mt-4">
       <h4 className="text-xs font-bold text-zinc-300 mb-2">Adding song</h4>
@@ -98,22 +176,21 @@ function DroppableZone({ selectedSongs, onRemove }: { selectedSongs: SetlistForm
             Drag songs here from the right side
           </div>
         ) : (
-          <div className="space-y-2">
-            {selectedSongs.map((song, idx) => (
-              <div key={`${song.id}-${idx}`} className="flex items-center justify-between p-3 rounded-lg border border-white/10 bg-[#17161b]">
-                 <div className="flex items-center gap-3">
-                   <span className="text-xs font-mono text-zinc-500 w-4 text-right">{idx + 1}</span>
-                   <div>
-                     <div className="text-sm font-bold text-white">{song.title}</div>
-                     <div className="text-xs text-zinc-400">{song.original_key}</div>
-                   </div>
-                 </div>
-                 <button type="button" onClick={() => onRemove(song.id)} className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition" title="Remove song">
-                   <Trash2 className="size-4" />
-                 </button>
-              </div>
-            ))}
-          </div>
+          <SortableContext
+            items={selectedSongs.map((song) => `selected-${song.id}`)}
+            strategy={verticalListSortingStrategy}
+          >
+            <ol aria-label="Setlist song order" className="space-y-2">
+              {selectedSongs.map((song, index) => (
+                <SortableSelectedSong
+                  key={song.id}
+                  index={index}
+                  onRemove={onRemove}
+                  song={song}
+                />
+              ))}
+            </ol>
+          </SortableContext>
         )}
       </div>
     </div>
@@ -154,6 +231,10 @@ export function SetlistForm({
     return [];
   });
   const [activeSong, setActiveSong] = useState<SetlistFormSong | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   function handleDragStart(event: DragStartEvent) {
     const { active } = event;
@@ -165,16 +246,45 @@ export function SetlistForm({
   function handleDragEnd(event: DragEndEvent) {
     setActiveSong(null);
     const { active, over } = event;
-    if (over && over.id === "setlist-dropzone") {
-       const song = active.data.current;
-       if (isSetlistFormSong(song) && !selectedSongs.some(s => s.id === song.id)) {
-         setSelectedSongs([...selectedSongs, song]);
-       }
+    const song = active.data.current;
+    if (!over || !isSetlistFormSong(song)) return;
+
+    if (String(active.id).startsWith("selected-")) {
+      if (active.id === over.id) return;
+      setSelectedSongs((items) => {
+        const oldIndex = items.findIndex((item) => `selected-${item.id}` === active.id);
+        const newIndex = items.findIndex((item) => `selected-${item.id}` === over.id);
+        return oldIndex >= 0 && newIndex >= 0 ? arrayMove(items, oldIndex, newIndex) : items;
+      });
+      return;
     }
+
+    if (!String(active.id).startsWith("library-")) return;
+    setSelectedSongs((items) => {
+      if (items.some((item) => item.id === song.id)) return items;
+      if (over.id === "setlist-dropzone") return [...items, song];
+
+      const overIndex = items.findIndex((item) => `selected-${item.id}` === over.id);
+      if (overIndex < 0) return items;
+
+      const translated = active.rect.current.translated;
+      const droppedAfter = translated
+        ? translated.top + translated.height / 2 > over.rect.top + over.rect.height / 2
+        : false;
+      const insertIndex = overIndex + (droppedAfter ? 1 : 0);
+      return [...items.slice(0, insertIndex), song, ...items.slice(insertIndex)];
+    });
   }
 
   return (
-    <DndContext id="setlist-form-dnd" onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      id="setlist-form-dnd"
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveSong(null)}
+    >
       <div className="animate-fade-in">
         <form action={formAction} className="space-y-6">
           {setlist && <input type="hidden" name="setlistId" value={setlist.id} />}
