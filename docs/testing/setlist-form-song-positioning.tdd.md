@@ -41,3 +41,10 @@ No plan file was provided. The journey came from the reported editor behavior:
 
 - Affected route: `/setlists/[id]/edit` and new-setlist forms with a song library.
 - No authorization, team scope, schema, storage, caching, offline, migration, dependency, credential, or environment-variable changes.
+
+## Selected-row overlay regression
+
+- RED: `fdddfbc test: reproduce selected song overlay offset`; the selected row incorrectly rendered the wide library preview.
+- GREEN: `aa65bb6 fix: keep selected song drag preview in list`; only `library-*` drags now use the custom overlay.
+- Focused result: 4/4 tests passed; strict focused lint and typecheck passed.
+- Website result: production build and 4/4 Chromium setlist journeys passed. Coverage remained blocked by the unrelated dialog whitespace assertion (326/327 passed), and website lint remained blocked by the same two existing `no-explicit-any` warnings.
