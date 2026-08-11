@@ -18,6 +18,10 @@ import { generateTeamCode } from "@/lib/domain/team-code";
 import { toPostgresTime } from "@/lib/domain/time";
 import { normalizeSetlistServiceTimes } from "@/lib/domain/event-types";
 import {
+  formatArrangementSequence,
+  parseArrangementSections,
+} from "@/lib/domain/arrangements";
+import {
   announcementInputSchema,
   attendanceSchema,
   canMutateTeamMember,
@@ -1691,7 +1695,14 @@ export async function markMessagesReadAction(channelId: string, messageIds: stri
 export async function updateSongSlotArrangementAction(formData: FormData): Promise<ActionState> {
   const slotId = formString(formData, "slotId");
   const setlistId = formString(formData, "setlistId");
-  const arrangement = formString(formData, "arrangement");
+  const serializedSections = formData.get("arrangementSections");
+  const arrangementSections = parseArrangementSections(serializedSections);
+
+  if (!arrangementSections) {
+    return { ok: false, message: "Arrangement sections are invalid." };
+  }
+
+  const arrangement = formatArrangementSequence(arrangementSections);
 
   const context = await getMutationContext("setlists.manage");
   if (!context.ok) {
@@ -1707,7 +1718,10 @@ export async function updateSongSlotArrangementAction(formData: FormData): Promi
 
   const { error } = await context.supabase
     .from("setlist_songs")
-    .update({ arrangement })
+    .update({
+      arrangement,
+      arrangement_sections: arrangementSections as unknown as Json,
+    })
     .eq("id", slotId);
 
   if (error) {
@@ -1724,6 +1738,7 @@ export async function updateSongSlotArrangementAction(formData: FormData): Promi
         slotId,
         songTitle: song?.title ?? null,
         arrangement,
+        arrangementSections: arrangementSections as unknown as Json,
       },
     });
   }

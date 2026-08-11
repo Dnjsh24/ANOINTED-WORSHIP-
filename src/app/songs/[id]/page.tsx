@@ -9,6 +9,10 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { parseLyricsAndChords } from "@/lib/domain/chords";
+import {
+  parseArrangementSections,
+  resolveArrangementSongSections,
+} from "@/lib/domain/arrangements";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import { getDesktopSong } from "@/lib/desktop/workspace";
 import type { Song } from "@/lib/types";
@@ -62,6 +66,23 @@ export default async function SongPage({
         imageUrl: dbSong.image_url ?? undefined,
         album: dbSong.album ?? undefined,
       };
+
+      if (sp.slotId && sp.setlistId) {
+        const { data: slot } = await supabase
+          .from("setlist_songs")
+          .select("arrangement_sections")
+          .eq("id", sp.slotId)
+          .eq("setlist_id", sp.setlistId)
+          .eq("song_id", id)
+          .maybeSingle();
+        const arrangementSections = parseArrangementSections(slot?.arrangement_sections);
+        if (arrangementSections) {
+          song.sections = resolveArrangementSongSections(
+            dbSong.lyrics_chords,
+            arrangementSections,
+          );
+        }
+      }
     }
 
     // Fetch usage dates for heatmap

@@ -5,7 +5,11 @@ import type { CSSProperties } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, PenTool, Radio, Eraser, Guitar, ChevronsDown } from "lucide-react";
-import { parseLyricsAndChords, transposeProgression, transposeTokens } from "@/lib/domain/chords";
+import { transposeProgression, transposeTokens } from "@/lib/domain/chords";
+import {
+  resolveArrangementSongSections,
+  type ArrangementSection,
+} from "@/lib/domain/arrangements";
 import { cn } from "@/lib/utils";
 import { createOptionalClient } from "@/lib/supabase/client";
 import { updateSetlistSongKeyAction } from "@/app/actions";
@@ -65,6 +69,7 @@ export type StageSetlist = {
     lead: string;
     youtubeUrl: string | null;
     arrangement: string | null;
+    arrangementSections: ArrangementSection[] | null;
     song: {
       id: string | undefined;
       title: string;
@@ -102,7 +107,10 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
   const currentSetlistSong = setlist.songs[currentSongIndex];
   const currentSong = currentSetlistSong?.song;
   const rawLyrics = currentSong?.lyricsChords || "";
-  const sections = parseLyricsAndChords(rawLyrics);
+  const sections = resolveArrangementSongSections(
+    rawLyrics,
+    currentSetlistSong?.arrangementSections,
+  );
 
   const baseKey = currentSong?.originalKey || "C";
   const initialKey = currentSetlistSong?.assignedKey || currentSong?.originalKey || "C";

@@ -1336,6 +1336,7 @@ export type Database = {
       setlist_songs: {
         Row: {
           arrangement: string | null
+          arrangement_sections: Json | null
           assigned_key: string
           band_notes: string | null
           created_at: string
@@ -1353,6 +1354,7 @@ export type Database = {
         }
         Insert: {
           arrangement?: string | null
+          arrangement_sections?: Json | null
           assigned_key: string
           band_notes?: string | null
           created_at?: string
@@ -1370,6 +1372,7 @@ export type Database = {
         }
         Update: {
           arrangement?: string | null
+          arrangement_sections?: Json | null
           assigned_key?: string
           band_notes?: string | null
           created_at?: string

@@ -23,6 +23,7 @@ const websiteUnitCoverageSurface = [
   "src/lib/detect-key-from-chords.ts",
   "src/lib/rate-limit.ts",
   "src/lib/domain/attendance.ts",
+  "src/lib/domain/arrangements.ts",
   "src/lib/domain/chords.ts",
   "src/lib/domain/files.ts",
   "src/lib/domain/join-requests.ts",

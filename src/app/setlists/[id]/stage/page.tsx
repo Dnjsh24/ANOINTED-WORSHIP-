@@ -5,10 +5,11 @@ import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import StageModeClient from "./stage-mode-client";
 import type { Viewport } from "next";
 import type { Database } from "@/lib/supabase/database.types";
+import { parseArrangementSections } from "@/lib/domain/arrangements";
 
 type StageSetlistSongRow = Pick<
   Database["public"]["Tables"]["setlist_songs"]["Row"],
-  "id" | "assigned_key" | "song_order" | "notes" | "arrangement"
+  "id" | "assigned_key" | "song_order" | "notes" | "arrangement" | "arrangement_sections"
 > & {
   song: Pick<
     Database["public"]["Tables"]["songs"]["Row"],
@@ -46,6 +47,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
           song_order,
           notes,
           arrangement,
+          arrangement_sections,
           song:songs (
             id,
             title,
@@ -79,6 +81,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
           lead: leadVocal,
           youtubeUrl: ss.song?.youtube_url || null,
           arrangement: ss.arrangement || null,
+          arrangementSections: parseArrangementSections(ss.arrangement_sections),
           song: {
             id: ss.song?.id,
             title: ss.song?.title || "Unknown Song",

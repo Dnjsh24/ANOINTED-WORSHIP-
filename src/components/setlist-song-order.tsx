@@ -28,6 +28,7 @@ import { EditArrangementButton } from "@/components/edit-arrangement-button";
 import { EditBandNotesButton } from "@/components/edit-band-notes-button";
 import { DeleteSongButton } from "@/components/delete-song-button";
 import { bulkReorderSetlistSongsAction } from "@/app/actions";
+import type { ArrangementSection } from "@/lib/domain/arrangements";
 
 export type OrderedSetlistSong = {
   id: string;
@@ -35,6 +36,7 @@ export type OrderedSetlistSong = {
   assignedKey: string;
   lead?: string;
   arrangement?: string | null;
+  arrangementSections?: ArrangementSection[] | null;
   bandNotes?: string | null;
   song: {
     id: string;
@@ -119,6 +121,7 @@ function SortableSongItem({ item, setlistId, canManageSetlist }: { item: Ordered
                 slotId={item.id}
                 songTitle={item.song.title}
                 currentArrangement={item.arrangement}
+                currentArrangementSections={item.arrangementSections}
                 lyrics={item.song.lyrics ?? ""}
               />
               <EditBandNotesButton

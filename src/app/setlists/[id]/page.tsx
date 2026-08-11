@@ -24,6 +24,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { EventType, SetlistChangeLog } from "@/lib/types";
 import type { Database } from "@/lib/supabase/database.types";
+import { parseArrangementSections } from "@/lib/domain/arrangements";
 
 type DetailSetlistSong = OrderedSetlistSong & { youtubeUrl: string | null };
 type DetailSetlist = {
@@ -41,7 +42,7 @@ type DetailSetlist = {
 };
 type DetailSetlistSongRow = Pick<
   Database["public"]["Tables"]["setlist_songs"]["Row"],
-  "id" | "assigned_key" | "song_order" | "notes" | "arrangement" | "band_notes"
+  "id" | "assigned_key" | "song_order" | "notes" | "arrangement" | "arrangement_sections" | "band_notes"
 > & {
   song: Pick<
     Database["public"]["Tables"]["songs"]["Row"],
@@ -134,6 +135,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           song_order,
           notes,
           arrangement,
+          arrangement_sections,
           band_notes,
           song:songs (
             id,
@@ -167,6 +169,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           lead: leadVocal,
           youtubeUrl: ss.song.youtube_url || null,
           arrangement: ss.arrangement || null,
+          arrangementSections: parseArrangementSections(ss.arrangement_sections),
           bandNotes: ss.band_notes || null,
           song: {
             id: ss.song.id,
