@@ -73,6 +73,23 @@ describe("StageModeClient notation and annotations", () => {
     expect(notation.getByRole("button", { name: "Nashville" })).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("lets the guitarist choose a capo fret while preserving the concert key", async () => {
+    const user = userEvent.setup();
+    render(<StageModeClient setlist={setlist} />);
+
+    await user.click(screen.getByRole("button", { name: "Guitar Mode (Capo)" }));
+
+    const capoFret = screen.getByRole("combobox", { name: "Capo fret" });
+    expect(within(capoFret).getByRole("option", { name: "Open" })).toBeInTheDocument();
+    expect(within(capoFret).getByRole("option", { name: "Capo 11" })).toBeInTheDocument();
+
+    await user.selectOptions(capoFret, "2");
+
+    expect(screen.getByText("Capo 2")).toBeInTheDocument();
+    expect(screen.getByText("F C Dm Bb")).toBeInTheDocument();
+    expect(screen.getByText("G")).toBeInTheDocument();
+  });
+
   it("uses the selected drawing color and saves the song annotation on stroke end", async () => {
     const user = userEvent.setup();
     const { container } = render(<StageModeClient setlist={setlist} />);
