@@ -4,7 +4,7 @@ import { Check, Copy, RefreshCw, UserPlus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, useEffect } from "react";
-import { bulkApproveJoinRequestsAction, regenerateTeamCodeAction, removeTeamMemberAction, reviewJoinRequestAction, transferTeamOwnershipAction, updateMemberRoleAction } from "@/app/actions";
+import { bulkApproveJoinRequestsAction, regenerateTeamCodeAction, removeTeamMemberAction, reviewJoinRequestWithStateAction, transferTeamOwnershipAction, updateMemberRoleAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -77,6 +77,32 @@ export function MembersClient({
       setStatus(result.message);
       setSelectedRequests(new Set());
     });
+  }
+
+  function reviewRequest(requestId: string, decision: "approved" | "rejected") {
+    const formData = new FormData();
+    formData.set("requestId", requestId);
+    formData.set("decision", decision);
+
+    startTransition(async () => {
+      const result = await reviewJoinRequestWithStateAction(formData);
+      setStatus(result.message);
+      if (result.ok) {
+        setRequests((current) => current.filter((request) => request.id !== requestId));
+        setSelectedRequests((current) => {
+          const next = new Set(current);
+          next.delete(requestId);
+          return next;
+        });
+        router.refresh();
+      }
+    });
+  }
+
+  function viewAllMembers() {
+    setQuery("");
+    setRoleFilter("all");
+    document.getElementById("active-team")?.focus();
   }
 
   if (pendingRequests !== previousPendingRequests) {
@@ -300,20 +326,24 @@ export function MembersClient({
                     </div>
                   </div>
                   <div className="flex gap-1.5 shrink-0">
-                    <form action={reviewJoinRequestAction}>
-                      <input type="hidden" name="requestId" value={request.id} />
-                      <input type="hidden" name="decision" value="approved" />
-                      <button type="submit" className="flex size-7 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition" aria-label={`Approve ${request.name}`}>
-                        <Check className="size-3.5" />
-                      </button>
-                    </form>
-                    <form action={reviewJoinRequestAction}>
-                      <input type="hidden" name="requestId" value={request.id} />
-                      <input type="hidden" name="decision" value="rejected" />
-                      <button type="submit" className="flex size-7 items-center justify-center rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition" aria-label={`Reject ${request.name}`}>
-                        <X className="size-3.5" />
-                      </button>
-                    </form>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => reviewRequest(request.id, "approved")}
+                      className="flex size-7 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`Approve ${request.name}`}
+                    >
+                      <Check className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => reviewRequest(request.id, "rejected")}
+                      className="flex size-7 items-center justify-center rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`Reject ${request.name}`}
+                    >
+                      <X className="size-3.5" />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -356,7 +386,12 @@ export function MembersClient({
 
         {/* COLUMN 2: Active Team Table */}
         <div className="flex flex-col gap-5">
-          <Panel className="bg-[#111014]/80 p-5">
+          <Panel
+            id="active-team"
+            data-testid="active-team-panel"
+            tabIndex={-1}
+            className="scroll-mt-24 bg-[#111014]/80 p-5 focus:outline-none focus:ring-2 focus:ring-violet-400/60"
+          >
             <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-lg font-bold text-white">Active Team ({filteredMembers.length})</h2>
               <div className="flex gap-2 max-w-sm flex-1">
@@ -456,9 +491,14 @@ export function MembersClient({
                 })}
               </div>
             </div>
-            <Link href="/members" className="mt-4 block text-center text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors">
+            <button
+              type="button"
+              aria-label="View all team members"
+              onClick={viewAllMembers}
+              className="mt-4 block w-full text-center text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors"
+            >
               View all team members →
-            </Link>
+            </button>
           </Panel>
         </div>
 

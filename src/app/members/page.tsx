@@ -49,7 +49,7 @@ export default async function MembersPage() {
         .from("join_requests")
         .select(joinRequestWithRequesterProfileSelect)
         .eq("team_id", teamContext.teamId)
-        .in("status", ["pending", "rejected"])
+        .eq("status", "pending")
         .order("created_at", { ascending: false }),
       supabase
         .from("team_members")
