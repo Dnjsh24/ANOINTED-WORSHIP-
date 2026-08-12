@@ -94,7 +94,7 @@ type ConflictAssignmentRow = {
 export default async function SetlistDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
-  const canManageSetlist = can(teamContext.role, "setlists.manage");
+  const canManageSetlist = can(teamContext.role, "setlists.manage", teamContext.customPermissions, teamContext.rolePermissions);
 
   let setlist: DetailSetlist | null = null;
   let teamAssignments: Array<[string, string, string]> = [];

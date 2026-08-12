@@ -8,7 +8,7 @@ import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 export default async function NewSongPage() {
   const teamContext = await getRequiredTeamContext();
 
-  if (!can(teamContext.role, "songs.create")) {
+  if (!can(teamContext.role, "songs.create", teamContext.customPermissions, teamContext.rolePermissions)) {
     redirect("/songs");
   }
 

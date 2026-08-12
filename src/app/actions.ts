@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { logActivity } from "@/lib/domain/activity";
 import type { ActionState } from "@/lib/action-state";
-import { can } from "@/lib/domain/rbac";
+import { can, permissionValues } from "@/lib/domain/rbac";
 import { getCurrentTeamContext } from "@/lib/supabase/team-context";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import { getDesktopSetlist, getDesktopSong, restoreDesktopSong, softDeleteDesktopSetlist, softDeleteDesktopSong, upsertDesktopSetlist, upsertDesktopSong } from "@/lib/desktop/workspace";
@@ -48,7 +48,7 @@ import { getSiteUrl, hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { safeErrorDetails } from "@/lib/server/safe-error";
 import type { Permission } from "@/lib/domain/rbac";
-import type { ReminderRecurrence, SetlistChangeType, TeamRole } from "@/lib/types";
+import { teamRoles, type ReminderRecurrence, type SetlistChangeType, type TeamRole } from "@/lib/types";
 import type { Database, Json } from "@/lib/supabase/database.types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -79,6 +79,18 @@ function relatedTeamId(row: SetlistSongRelationRow | null) {
 }
 
 const joinableTeamRoles = ["member", "worship_leader", "band_member", "media", "dancer", "pastor"] as const;
+const editableTeamRoles = teamRoles.filter((role): role is Exclude<TeamRole, "owner"> => role !== "owner");
+const editableTeamRoleSchema = z.enum(
+  editableTeamRoles as [Exclude<TeamRole, "owner">, ...Array<Exclude<TeamRole, "owner">>],
+);
+const permissionSchema = z.enum(permissionValues as [Permission, ...Permission[]]);
+const teamRolePermissionsSchema = z.object({
+  teamId: z.string().uuid(),
+  policies: z.array(z.object({
+    role: editableTeamRoleSchema,
+    permissions: z.array(permissionSchema).max(permissionValues.length),
+  })).length(editableTeamRoles.length),
+});
 const profileAvatarUrlSchema = z
   .string()
   .trim()
@@ -168,6 +180,8 @@ async function getMutationContext(permission?: Permission, targetTeamId?: string
       teamId: string;
       memberId: string;
       role: TeamRole;
+      customPermissions: Permission[];
+      rolePermissions?: Permission[];
     }
   | { ok: false; state: ActionState }
 > {
@@ -186,7 +200,7 @@ async function getMutationContext(permission?: Permission, targetTeamId?: string
 
   let membershipQuery = supabase
     .from("team_members")
-    .select("id, team_id, role, status, teams!inner ( id )")
+    .select("id, team_id, role, status, custom_role_id, teams!inner ( id )")
     .eq("profile_id", user.id)
     .eq("status", "active")
     .order("created_at", { ascending: false })
@@ -209,8 +223,29 @@ async function getMutationContext(permission?: Permission, targetTeamId?: string
   }
 
   const role = membership.role as TeamRole;
+  let customPermissions: Permission[] = [];
 
-  if (permission && !can(role, permission)) {
+  if (membership.custom_role_id) {
+    const { data: customRole } = await supabase
+      .from("custom_roles")
+      .select("permissions")
+      .eq("id", membership.custom_role_id)
+      .eq("team_id", membership.team_id)
+      .maybeSingle();
+    customPermissions = (customRole?.permissions as Permission[] | undefined) ?? [];
+  }
+
+  const { data: rolePermissionPolicy } = await supabase
+    .from("team_role_permissions")
+    .select("permissions")
+    .eq("team_id", membership.team_id)
+    .eq("role", membership.role)
+    .maybeSingle();
+  const rolePermissions = rolePermissionPolicy
+    ? (rolePermissionPolicy.permissions as Permission[])
+    : undefined;
+
+  if (permission && !can(role, permission, customPermissions, rolePermissions)) {
     return {
       ok: false,
       state: {
@@ -227,6 +262,8 @@ async function getMutationContext(permission?: Permission, targetTeamId?: string
     teamId: membership.team_id,
     memberId: membership.id,
     role,
+    customPermissions,
+    rolePermissions,
   };
 }
 
@@ -842,7 +879,7 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
 
   if (isDesktopRuntime()) {
     const context = await getCurrentTeamContext();
-    if (!context.teamId || !can(context.role, "setlists.manage", context.customPermissions)) {
+    if (!context.teamId || !can(context.role, "setlists.manage", context.customPermissions, context.rolePermissions)) {
       return { ok: false, message: "This cached account cannot manage setlists." };
     }
     const id = randomUUID();
@@ -871,7 +908,7 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
 
   // A setlist is standalone unless it was intentionally started from an event.
   const linkedEventId = optionalFormString(formData, "eventId") ?? null;
-  if (linkedEventId && !can(context.role, "events.manage")) {
+  if (linkedEventId && !can(context.role, "events.manage", context.customPermissions, context.rolePermissions)) {
     return { ok: false, message: "You do not have permission to link setlists to Timeline events." };
   }
 
@@ -1085,7 +1122,7 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
 
   if (isDesktopRuntime()) {
     const context = await getCurrentTeamContext();
-    if (!context.teamId || !can(context.role, "setlists.manage", context.customPermissions)) {
+    if (!context.teamId || !can(context.role, "setlists.manage", context.customPermissions, context.rolePermissions)) {
       return { ok: false, message: "This cached account cannot manage setlists." };
     }
     const existing = getDesktopSetlist(context.teamId, id);
@@ -1266,7 +1303,7 @@ export async function deleteSetlistAction(formData: FormData): Promise<ActionSta
 
   if (isDesktopRuntime()) {
     const context = await getCurrentTeamContext();
-    if (!context.teamId || !can(context.role, "setlists.manage", context.customPermissions)) {
+    if (!context.teamId || !can(context.role, "setlists.manage", context.customPermissions, context.rolePermissions)) {
       return { ok: false, message: "This cached account cannot manage setlists." };
     }
     softDeleteDesktopSetlist(setlistId);
@@ -2035,7 +2072,7 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
     return { ...context.state, message: context.state.message.replace("changes", "events") };
   }
 
-  const approvalStatus = can(context.role, "events.manage") ? "approved" : "pending";
+  const approvalStatus = can(context.role, "events.manage", context.customPermissions, context.rolePermissions) ? "approved" : "pending";
 
   const insertData: EventInsert = {
     team_id: context.teamId,
@@ -2133,7 +2170,7 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
     }
   }
 
-  if (approvalStatus === "approved" && parsed.data.linkedSetlistId && can(context.role, "setlists.manage")) {
+  if (approvalStatus === "approved" && parsed.data.linkedSetlistId && can(context.role, "setlists.manage", context.customPermissions, context.rolePermissions)) {
     const { error: linkError } = await context.supabase.rpc("link_event_setlist", {
       p_event_id: data.id,
       p_setlist_id: parsed.data.linkedSetlistId,
@@ -2238,7 +2275,7 @@ export async function updateEventAction(_previous: ActionState, formData: FormDa
     }
   }
 
-  if (can(context.role, "setlists.manage")) {
+  if (can(context.role, "setlists.manage", context.customPermissions, context.rolePermissions)) {
     const { error: linkError } = await context.supabase.rpc("link_event_setlist", {
       p_event_id: eventId,
       p_setlist_id: parsed.data.linkedSetlistId || null,
@@ -3321,7 +3358,7 @@ export async function createSongAction(_previous: ActionState, formData: FormDat
 
   if (isDesktopRuntime()) {
     const context = await getCurrentTeamContext();
-    if (!context.userId || !context.teamId || !can(context.role, "songs.create", context.customPermissions)) {
+    if (!context.userId || !context.teamId || !can(context.role, "songs.create", context.customPermissions, context.rolePermissions)) {
       return { ok: false, message: "This cached account cannot create songs." };
     }
     const id = randomUUID();
@@ -3386,6 +3423,50 @@ export async function createSongAction(_previous: ActionState, formData: FormDat
   redirect(`/songs/${data.id}`);
 }
 
+export async function updateTeamRolePermissionsAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = teamRolePermissionsSchema.safeParse({
+    teamId: formString(formData, "teamId"),
+    policies: editableTeamRoles.map((role) => ({
+      role,
+      permissions: [...new Set(formData.getAll(`permissions:${role}`).map(String))],
+    })),
+  });
+
+  if (!parsed.success) {
+    return validationState(parsed.error);
+  }
+
+  const teamContext = await getCurrentTeamContext();
+  if (teamContext.teamId !== parsed.data.teamId || teamContext.role !== "owner") {
+    return { ok: false, message: "Only the team owner can change role permissions." };
+  }
+
+  const supabase = await createClient();
+  const updatedAt = new Date().toISOString();
+  const { error } = await supabase
+    .from("team_role_permissions")
+    .upsert(
+      parsed.data.policies.map((policy) => ({
+        team_id: parsed.data.teamId,
+        role: policy.role,
+        permissions: policy.permissions,
+        updated_by: teamContext.userId,
+        updated_at: updatedAt,
+      })),
+      { onConflict: "team_id,role" },
+    );
+
+  if (error) {
+    return { ok: false, message: "Role permissions could not be saved." };
+  }
+
+  revalidateAppShell();
+  return { ok: true, message: "Role permissions saved." };
+}
+
 export async function createCustomRoleAction(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const teamId = formData.get("teamId") as string;
   const name = formData.get("name") as string;
@@ -3396,7 +3477,7 @@ export async function createCustomRoleAction(prevState: ActionState, formData: F
   }
 
   const teamContext = await getCurrentTeamContext();
-  if (teamContext.teamId !== teamId || !can(teamContext.role, "team.manage", teamContext.customPermissions)) {
+  if (teamContext.teamId !== teamId || !can(teamContext.role, "team.manage", teamContext.customPermissions, teamContext.rolePermissions)) {
     return { ok: false, message: "Unauthorized." };
   }
 
@@ -3423,7 +3504,7 @@ export async function deleteCustomRoleAction(formData: FormData) {
   if (!teamId || !roleId) return;
 
   const teamContext = await getCurrentTeamContext();
-  if (teamContext.teamId !== teamId || !can(teamContext.role, "team.manage", teamContext.customPermissions)) return;
+  if (teamContext.teamId !== teamId || !can(teamContext.role, "team.manage", teamContext.customPermissions, teamContext.rolePermissions)) return;
 
   const supabase = await createClient();
   await supabase.from("custom_roles").delete().eq("id", roleId).eq("team_id", teamId);
@@ -3456,7 +3537,7 @@ export async function updateSongAction(_previous: ActionState, formData: FormDat
 
   if (isDesktopRuntime()) {
     const context = await getCurrentTeamContext();
-    if (!context.teamId || !can(context.role, "songs.edit", context.customPermissions)) {
+    if (!context.teamId || !can(context.role, "songs.edit", context.customPermissions, context.rolePermissions)) {
       return { ok: false, message: "This cached account cannot edit songs." };
     }
     const existing = getDesktopSong(context.teamId, songId);
@@ -3521,7 +3602,7 @@ export async function deleteSongAction(formData: FormData) {
 
   if (isDesktopRuntime()) {
     const context = await getCurrentTeamContext();
-    if (!context.teamId || !can(context.role, "songs.delete", context.customPermissions)) {
+    if (!context.teamId || !can(context.role, "songs.delete", context.customPermissions, context.rolePermissions)) {
       throw new Error("This cached account cannot delete songs.");
     }
     softDeleteDesktopSong(songId);
@@ -3557,7 +3638,7 @@ export async function restoreSongAction(formData: FormData) {
 
   if (isDesktopRuntime()) {
     const context = await getCurrentTeamContext();
-    if (!context.teamId || !can(context.role, "songs.delete", context.customPermissions)) {
+    if (!context.teamId || !can(context.role, "songs.delete", context.customPermissions, context.rolePermissions)) {
       throw new Error("This cached account cannot restore songs.");
     }
     restoreDesktopSong(songId);

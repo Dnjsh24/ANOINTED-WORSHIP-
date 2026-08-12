@@ -18,7 +18,7 @@ export default async function EditDanceChartPage({ params }: { params: Promise<{
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
 
-  if (!can(teamContext.role, "dance_notes.manage")) {
+  if (!can(teamContext.role, "dance_notes.manage", teamContext.customPermissions, teamContext.rolePermissions)) {
     redirect(`/dance/${id}`);
   }
 

@@ -14,7 +14,7 @@ export default async function EditSongPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
 
-  if (!can(teamContext.role, "songs.edit")) {
+  if (!can(teamContext.role, "songs.edit", teamContext.customPermissions, teamContext.rolePermissions)) {
     redirect(`/songs/${id}`);
   }
 

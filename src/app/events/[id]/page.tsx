@@ -106,8 +106,8 @@ type LinkedSetlistView = {
 export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
-  const canManageSetlist = can(teamContext.role, "setlists.manage");
-  const canManageEvent = can(teamContext.role, "events.manage");
+  const canManageSetlist = can(teamContext.role, "setlists.manage", teamContext.customPermissions, teamContext.rolePermissions);
+  const canManageEvent = can(teamContext.role, "events.manage", teamContext.customPermissions, teamContext.rolePermissions);
   const canLinkSetlist = canManageSetlist && canManageEvent;
 
   let event: EventDetailView | null = null;
@@ -506,7 +506,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         </section>
       )}
 
-      {can(teamContext.role, "events.manage") ? (
+      {can(teamContext.role, "events.manage", teamContext.customPermissions, teamContext.rolePermissions) ? (
         <div className="mt-8 flex flex-wrap gap-3 border-t border-white/10 pt-6">
           <EventDeleteButton eventId={event.id} />
         </div>

@@ -109,9 +109,21 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "prayer_requests.create": "Create Prayer Requests",
 };
 
-export function can(role: TeamRole | string, permission: Permission, customPermissions?: Permission[]): boolean {
+export const permissionValues = Object.keys(PERMISSION_LABELS) as Permission[];
+
+export function permissionsForRole(role: TeamRole): Permission[] {
+  return [...permissionsByRole[role]];
+}
+
+export function can(
+  role: TeamRole | string,
+  permission: Permission,
+  customPermissions?: Permission[],
+  rolePermissions?: Permission[],
+): boolean {
   if (role === "owner") return true;
   if (customPermissions && customPermissions.includes(permission)) return true;
+  if (rolePermissions !== undefined) return rolePermissions.includes(permission);
   
   // Cast to TeamRole if it's one of the standard roles
   if (teamRoles.includes(role as TeamRole)) {
@@ -137,11 +149,19 @@ export function canManageSetlists(role: TeamRole) {
   return can(role, "setlists.manage");
 }
 
-export function canReviewEventRequests(role: TeamRole | string) {
-  return can(role, "events.review");
+export function canReviewEventRequests(
+  role: TeamRole | string,
+  customPermissions?: Permission[],
+  rolePermissions?: Permission[],
+) {
+  return can(role, "events.review", customPermissions, rolePermissions);
 }
 
-export function visibleNavigation(role: TeamRole | string) {
+export function visibleNavigation(
+  role: TeamRole | string,
+  customPermissions?: Permission[],
+  rolePermissions?: Permission[],
+) {
   const base = [
     "home",
     "setlists",
@@ -150,7 +170,7 @@ export function visibleNavigation(role: TeamRole | string) {
     "profile",
   ];
 
-  if (can(role, "members.manage")) {
+  if (can(role, "members.manage", customPermissions, rolePermissions)) {
     return [...base.slice(0, -1), "members", "analytics", ...base.slice(-1)];
   }
 

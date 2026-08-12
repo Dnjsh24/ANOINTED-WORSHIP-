@@ -1899,6 +1899,51 @@ export type Database = {
           },
         ]
       }
+      team_role_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          permissions: string[]
+          role: Database["public"]["Enums"]["team_role"]
+          team_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          permissions?: string[]
+          role: Database["public"]["Enums"]["team_role"]
+          team_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          permissions?: string[]
+          role?: Database["public"]["Enums"]["team_role"]
+          team_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_role_permissions_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_role_permissions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_settings: {
         Row: {
           created_at: string

@@ -55,7 +55,7 @@ type DanceNoteRow = {
 export default async function DanceChartsPage({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
   const { new: isNew } = await searchParams;
   const teamContext = await getRequiredTeamContext();
-  const canManageDanceCharts = can(teamContext.role, "dance_notes.manage");
+  const canManageDanceCharts = can(teamContext.role, "dance_notes.manage", teamContext.customPermissions, teamContext.rolePermissions);
   const showForm = isNew === "true" && canManageDanceCharts;
 
   let charts: DanceChart[] = [];

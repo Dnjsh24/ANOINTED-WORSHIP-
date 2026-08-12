@@ -7,10 +7,16 @@ import Link from "next/link";
 import { SettingsForm } from "@/components/settings-form";
 import { Panel } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { deleteTeamAction, leaveTeamAction, createCustomRoleAction, deleteCustomRoleAction } from "@/app/actions";
+import {
+  createCustomRoleAction,
+  deleteCustomRoleAction,
+  deleteTeamAction,
+  leaveTeamAction,
+  updateTeamRolePermissionsAction,
+} from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { initialActionState } from "@/lib/action-state";
-import { can, PERMISSION_LABELS, type Permission } from "@/lib/domain/rbac";
+import { can, permissionValues, PERMISSION_LABELS, type Permission } from "@/lib/domain/rbac";
 import { teamRoles, type TeamRole, type CustomRole } from "@/lib/types";
 
 const TABS = [
@@ -60,6 +66,13 @@ function LeaveTeamSubmitButton({ disabled }: { disabled: boolean }) {
   );
 }
 
+function formatTeamRoleLabel(role: TeamRole) {
+  return role
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export function SettingsClientView({
   teamId,
   teamName,
@@ -72,6 +85,8 @@ export function SettingsClientView({
   memberCountsByRole = {},
   totalMembers = 0,
   customRoles = [],
+  customPermissions = [],
+  rolePermissionsByRole = {},
 }: {
   teamId: string;
   teamName: string;
@@ -86,6 +101,7 @@ export function SettingsClientView({
   totalMembers?: number;
   customRoles?: CustomRole[];
   customPermissions?: Permission[];
+  rolePermissionsByRole?: Partial<Record<TeamRole, Permission[]>>;
 }) {
   const [activeTab, setActiveTab] = useState("controls");
   const [copied, setCopied] = useState(false);
@@ -95,7 +111,12 @@ export function SettingsClientView({
   const [leaveConfirmText, setLeaveConfirmText] = useState("");
   const [settingsStatus, setSettingsStatus] = useState("");
   const [createRoleState, createRoleAction] = useActionState(createCustomRoleAction, initialActionState);
+  const [rolePermissionState, updateRolePermissionsAction] = useActionState(
+    updateTeamRolePermissionsAction,
+    initialActionState,
+  );
   const [isCreatingRole, setIsCreatingRole] = useState(false);
+  const isOwner = role === "owner";
 
   function handleCopy() {
     navigator.clipboard.writeText(teamCode);
@@ -269,7 +290,7 @@ export function SettingsClientView({
                   { label: "Manage Events", perm: "events.manage" as Permission },
                 ].map(({ label, perm }) => (
                   <div key={label} className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
-                    {role && can(role as TeamRole, perm) ? (
+                    {role && can(role as TeamRole, perm, customPermissions, rolePermissionsByRole[role as TeamRole]) ? (
                       <Check className="size-4 text-emerald-400 shrink-0" />
                     ) : (
                       <span className="size-4 shrink-0 rounded border border-zinc-700" />
@@ -498,50 +519,57 @@ export function SettingsClientView({
                 <span className="rounded bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-violet-300">Live</span>
               </div>
               <p className="text-xs text-zinc-400 font-semibold mb-6">
-                Permissions are enforced by the RBAC engine. The table below shows which roles have each capability.
+                {isOwner
+                  ? "Choose the capabilities for each built-in role. Owner access stays locked on to protect the team."
+                  : "Permissions are managed by the team owner. This table is read-only for your account."}
               </p>
 
-              <div className="overflow-x-auto rounded-xl border border-white/[0.06] bg-white/[0.01]">
-                <table className="w-full text-xs text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-white/[0.06] bg-white/[0.03] text-zinc-400 font-bold uppercase tracking-wider">
-                      <th className="p-3">Permissions</th>
-                      <th className="p-3 text-center">Owner</th>
-                      <th className="p-3 text-center">Admin</th>
-                      <th className="p-3 text-center">Pastor</th>
-                      <th className="p-3 text-center">Worship Leader</th>
-                      <th className="p-3 text-center">Band Leader</th>
-                      <th className="p-3 text-center">Band Member</th>
-                      <th className="p-3 text-center">Dancer</th>
-                      <th className="p-3 text-center">Media</th>
-                      <th className="p-3 text-center">Member</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.04] text-zinc-300 font-medium">
-                    {[
-                      { key: "setlists", label: "Create / Edit Setlists", perm: "setlists.manage" },
-                      { key: "songs", label: "Add / Edit Songs & Chords", perm: "songs.create" },
-                      { key: "files", label: "Manage Attachments & PDFs", perm: "files.upload" },
-                      { key: "members", label: "Invite & Manage Members", perm: "members.manage" },
-                      { key: "events", label: "Manage Events", perm: "events.manage" },
-                      { key: "team", label: "Manage Team & Billing", perm: "team.manage" },
-                    ].map((row) => (
-                      <tr key={row.key} className="hover:bg-white/[0.01] transition-colors">
-                        <td className="p-3 font-bold text-white">{row.label}</td>
-                        {teamRoles.map((r) => (
-                          <td key={r} className="p-3 text-center">
-                            {can(r as TeamRole, row.perm as Permission) ? (
-                              <Check className="size-4 text-emerald-400 mx-auto" />
-                            ) : (
-                              <span className="inline-block size-4 rounded border border-zinc-700" />
-                            )}
-                          </td>
+              <form action={updateRolePermissionsAction}>
+                <input type="hidden" name="teamId" value={teamId} />
+                <div className="overflow-x-auto rounded-xl border border-white/[0.06] bg-white/[0.01]">
+                  <table className="w-full min-w-[980px] text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/[0.06] bg-white/[0.03] text-zinc-400 font-bold uppercase tracking-wider">
+                        <th className="sticky left-0 z-10 bg-[#17161a] p-3">Permissions</th>
+                        {teamRoles.map((teamRole) => (
+                          <th key={teamRole} className="p-3 text-center">{formatTeamRoleLabel(teamRole)}</th>
                         ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.04] text-zinc-300 font-medium">
+                      {permissionValues.map((permission) => (
+                        <tr key={permission} className="hover:bg-white/[0.01] transition-colors">
+                          <td className="sticky left-0 z-10 bg-[#111014] p-3 font-bold text-white">
+                            {PERMISSION_LABELS[permission]}
+                          </td>
+                          {teamRoles.map((teamRole) => (
+                            <td key={teamRole} className="p-3 text-center">
+                              <input
+                                type="checkbox"
+                                aria-label={`${formatTeamRoleLabel(teamRole)}: ${PERMISSION_LABELS[permission]}`}
+                                name={`permissions:${teamRole}`}
+                                value={permission}
+                                defaultChecked={can(teamRole, permission, undefined, rolePermissionsByRole[teamRole])}
+                                disabled={!isOwner || teamRole === "owner"}
+                                className="size-4 rounded border-zinc-700 bg-zinc-800 accent-violet-500 disabled:cursor-not-allowed disabled:opacity-70"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <ActionMessage state={rolePermissionState} />
+                  {isOwner && (
+                    <div className="flex justify-end">
+                      <SubmitButton variant="primary">Save role permissions</SubmitButton>
+                    </div>
+                  )}
+                </div>
+              </form>
 
               <p className="mt-4 text-[10px] font-semibold text-zinc-500">
                 Roles with members: {Object.entries(memberCountsByRole).filter(([, c]) => c > 0).map(([r, c]) => `${r.replace("_", " ")} (${c})`).join(", ") || "None yet"}

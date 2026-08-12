@@ -12,7 +12,7 @@ import { safeErrorDetails } from "@/lib/server/safe-error";
 export default async function SongsTrashPage() {
   const teamContext = await getRequiredTeamContext();
   
-  if (!can(teamContext.role, "songs.delete")) {
+  if (!can(teamContext.role, "songs.delete", teamContext.customPermissions, teamContext.rolePermissions)) {
     notFound();
   }
 

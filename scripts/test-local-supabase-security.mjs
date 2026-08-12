@@ -86,6 +86,44 @@ try {
     .single();
   if (adminMemberError || !adminMember) throw adminMemberError ?? new Error("Admin membership failed");
 
+  phase = "role permission policy boundaries";
+  const { data: adminRolePolicy, error: adminRolePolicyError } = await sessions.owner
+    .from("team_role_permissions")
+    .insert({
+      team_id: teamA,
+      role: "admin",
+      permissions: ["events.manage", "members.manage"],
+      updated_by: users.owner.id,
+    })
+    .select("id, permissions")
+    .single();
+  if (adminRolePolicyError || !adminRolePolicy) {
+    throw adminRolePolicyError ?? new Error("Owner could not create a role permission policy");
+  }
+  const { data: visibleAdminPolicy, error: visibleAdminPolicyError } = await sessions.admin
+    .from("team_role_permissions")
+    .select("id")
+    .eq("id", adminRolePolicy.id)
+    .single();
+  if (visibleAdminPolicyError || !visibleAdminPolicy) {
+    throw visibleAdminPolicyError ?? new Error("Active member could not read the team role policy");
+  }
+  await expectDenied(
+    () => sessions.admin
+      .from("team_role_permissions")
+      .update({ permissions: ["team.manage"] })
+      .eq("id", adminRolePolicy.id)
+      .select("id"),
+    "Admin was able to edit built-in role permissions",
+  );
+  await expectDenied(
+    () => sessions.outsider
+      .from("team_role_permissions")
+      .select("id")
+      .eq("id", adminRolePolicy.id),
+    "User outside the team could read role permissions",
+  );
+
   phase = "owner mutation denials";
   await expectDenied(
     () => sessions.admin.from("team_members").update({ role: "owner" }).eq("id", adminMember.id).select("id"),
@@ -452,6 +490,8 @@ try {
       "owner escalation denied",
       "owner demotion denied",
       "owner deletion denied",
+      "role permissions owner-only mutation enforced",
+      "role permissions team-scoped reads enforced",
       "ownership transfer atomic",
       "privileged join request denied",
       "join review atomic",

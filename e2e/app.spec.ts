@@ -323,6 +323,12 @@ test("team/profile/song/settings controls are interactive", async ({ page }) => 
   await page.goto("/admin/settings");
   await expect(page.getByRole("heading", { name: "Team Controls" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Copy Code" })).toBeVisible();
+  await page.getByRole("button", { name: "Permissions" }).click();
+  await expect(page.getByRole("checkbox", { name: "Owner: Manage Members" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "Owner: Manage Members" })).toBeDisabled();
+  await expect(page.getByRole("checkbox", { name: "Admin: Manage Members" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Save role permissions" })).toBeVisible();
+  await page.getByRole("button", { name: "Team Controls" }).click();
   await page.getByRole("button", { name: /Manage Access/i }).click();
   await expect(page.getByRole("heading", { name: "Private Materials Settings" })).toBeVisible();
   await page.getByRole("button", { name: "Save Changes" }).click();

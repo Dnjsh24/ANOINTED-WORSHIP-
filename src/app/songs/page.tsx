@@ -107,7 +107,7 @@ export default async function SongsPage() {
             <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Total Songs</span>
             <span className="text-white font-extrabold text-base">{totalSongsCount}</span>
           </div>
-          {can(teamContext.role, "songs.create") && (
+          {can(teamContext.role, "songs.create", teamContext.customPermissions, teamContext.rolePermissions) && (
             <ButtonLink href="/songs/new">
               <Plus className="size-4" />
               Add New Song

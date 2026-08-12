@@ -27,7 +27,7 @@ function formatDate(value: string) {
 export default async function DanceChartDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
-  const canManageDanceCharts = can(teamContext.role, "dance_notes.manage");
+  const canManageDanceCharts = can(teamContext.role, "dance_notes.manage", teamContext.customPermissions, teamContext.rolePermissions);
 
   let chart = null;
 

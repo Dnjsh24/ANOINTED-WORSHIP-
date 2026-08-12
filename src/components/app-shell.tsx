@@ -20,7 +20,6 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { cn } from "@/lib/utils";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import { DesktopSyncStatus } from "@/components/desktop-sync-status";
-import type { TeamRole } from "@/lib/types";
 
 const navItems = [
   { id: "home", href: "/dashboard", label: "Home", icon: LayoutDashboard },
@@ -42,7 +41,7 @@ export async function AppShell({
   teamContext?: TeamContext;
 }) {
   const context = teamContext ?? (await getCurrentTeamContext());
-  const navigation = getVisibleNavigationItems(context.role);
+  const navigation = getVisibleNavigationItems(context);
   
   let unreadMessageCount = 0;
   if (hasSupabaseEnv() && context.userId && !isDesktopRuntime()) {
@@ -102,7 +101,9 @@ export async function AppShell({
   );
 }
 
-function getVisibleNavigationItems(role: TeamRole | string) {
-  const visibleIds = visibleNavigation(role);
+function getVisibleNavigationItems(
+  context: Pick<TeamContext, "role" | "customPermissions" | "rolePermissions">,
+) {
+  const visibleIds = visibleNavigation(context.role, context.customPermissions, context.rolePermissions);
   return navItems.filter((item) => visibleIds.includes(item.id));
 }

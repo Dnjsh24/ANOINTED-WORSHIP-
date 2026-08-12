@@ -15,12 +15,13 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
   const { date } = await searchParams;
   const teamContext = await getRequiredTeamContext();
   
-  if (!can(teamContext.role, "events.manage") && !can(teamContext.role, "events.request")) {
+  if (!can(teamContext.role, "events.manage", teamContext.customPermissions, teamContext.rolePermissions)
+    && !can(teamContext.role, "events.request", teamContext.customPermissions, teamContext.rolePermissions)) {
     redirect("/events");
   }
 
-  const canCreateOfficialEvents = can(teamContext.role, "events.manage");
-  const canLinkSetlists = canCreateOfficialEvents && can(teamContext.role, "setlists.manage");
+  const canCreateOfficialEvents = can(teamContext.role, "events.manage", teamContext.customPermissions, teamContext.rolePermissions);
+  const canLinkSetlists = canCreateOfficialEvents && can(teamContext.role, "setlists.manage", teamContext.customPermissions, teamContext.rolePermissions);
   let teamMembersList: TeamMember[] = [];
   let serviceTemplates: ServiceTemplate[] = fallbackServiceTemplates;
   let setlistsList: Array<{ id: string; name: string; date: string }> = [];

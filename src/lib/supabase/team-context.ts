@@ -17,6 +17,7 @@ export interface TeamContext {
   teamCode: string | null;
   role: TeamRole | string;
   customPermissions?: Permission[];
+  rolePermissions?: Permission[];
   canManageMembers: boolean;
   hasPendingJoinRequest: boolean;
 }
@@ -127,6 +128,16 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
     }
   }
 
+  const { data: rolePermissionPolicy } = await supabase
+    .from("team_role_permissions")
+    .select("permissions")
+    .eq("team_id", member.team_id)
+    .eq("role", member.role)
+    .maybeSingle();
+  const rolePermissions = rolePermissionPolicy
+    ? (rolePermissionPolicy.permissions as Permission[])
+    : undefined;
+
   const team = Array.isArray(member.teams) ? member.teams[0] : member.teams;
 
   return {
@@ -137,7 +148,8 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
     teamCode: team?.code ?? null,
     role: member.role,
     customPermissions,
-    canManageMembers: can(member.role, "members.manage", customPermissions),
+    rolePermissions,
+    canManageMembers: can(member.role, "members.manage", customPermissions, rolePermissions),
     hasPendingJoinRequest: Boolean(pendingRequest),
   };
 }

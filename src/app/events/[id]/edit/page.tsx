@@ -30,13 +30,13 @@ type EditableEventRow = {
 export default async function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
-  const canEditEvents = can(teamContext.role, "events.manage");
+  const canEditEvents = can(teamContext.role, "events.manage", teamContext.customPermissions, teamContext.rolePermissions);
   
   if (!canEditEvents) {
     notFound();
   }
 
-  const canLinkSetlists = can(teamContext.role, "setlists.manage");
+  const canLinkSetlists = can(teamContext.role, "setlists.manage", teamContext.customPermissions, teamContext.rolePermissions);
   let teamMembersList: TeamMember[] = [];
   let serviceTemplates: ServiceTemplate[] = fallbackServiceTemplates;
   let setlistsList: Array<{ id: string; name: string; date: string }> = [];

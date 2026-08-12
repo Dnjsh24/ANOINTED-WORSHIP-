@@ -46,7 +46,7 @@ type EventTargetRow = {
 
 export default async function AnnouncementsPage() {
   const teamContext = await getRequiredTeamContext();
-  const canCreateNotices = can(teamContext.role, "members.manage");
+  const canCreateNotices = can(teamContext.role, "members.manage", teamContext.customPermissions, teamContext.rolePermissions);
   let announcementItems: AnnouncementItem[] = sampleAnnouncements.map((announcement) => ({
     id: announcement.id,
     title: announcement.title,

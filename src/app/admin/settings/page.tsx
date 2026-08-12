@@ -5,7 +5,8 @@ import { teamCode } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
-import type { CustomRole } from "@/lib/types";
+import type { Permission } from "@/lib/domain/rbac";
+import type { CustomRole, TeamRole } from "@/lib/types";
 
 function formatTimeForInput(timeStr: string | null): string {
   if (!timeStr) return "08:00";
@@ -47,11 +48,12 @@ export default async function AdminSettingsPage() {
   let memberCountsByRole: Record<string, number> = {};
   let totalMembers = 0;
   let customRoles: CustomRole[] = [];
+  let rolePermissionsByRole: Partial<Record<TeamRole, Permission[]>> = {};
 
   if (hasSupabaseEnv() && teamContext.teamId) {
     const supabase = await createClient();
 
-    const [settingsResult, changesResult, eventsResult, teamMembersResult] = await Promise.all([
+    const [settingsResult, changesResult, eventsResult, teamMembersResult, rolePermissionsResult] = await Promise.all([
       supabase
         .from("team_settings")
         .select("default_service_location, default_call_time, default_rehearsal_time")
@@ -74,7 +76,18 @@ export default async function AdminSettingsPage() {
         .select("profile_id, role, profiles!inner(full_name)")
         .eq("team_id", teamContext.teamId)
         .eq("status", "active"),
+      supabase
+        .from("team_role_permissions")
+        .select("role, permissions")
+        .eq("team_id", teamContext.teamId),
     ]);
+
+    rolePermissionsByRole = Object.fromEntries(
+      (rolePermissionsResult.data ?? []).map((policy) => [
+        policy.role as TeamRole,
+        policy.permissions as Permission[],
+      ]),
+    ) as Partial<Record<TeamRole, Permission[]>>;
 
     const settings = settingsResult.data;
     if (settings) {
@@ -169,6 +182,7 @@ export default async function AdminSettingsPage() {
         totalMembers={totalMembers}
         customRoles={customRoles}
         customPermissions={teamContext.customPermissions}
+        rolePermissionsByRole={rolePermissionsByRole}
       />
     </AppShell>
   );

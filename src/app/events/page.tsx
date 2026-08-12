@@ -115,8 +115,8 @@ export default async function EventsPage() {
     <AppShell active="Timeline" teamContext={teamContext}>
       <EventsClient
         events={eventsList}
-        canReviewEvents={canReviewEventRequests(teamContext.role)}
-        memberSubmissionMode={!can(teamContext.role, "events.manage")}
+        canReviewEvents={canReviewEventRequests(teamContext.role, teamContext.customPermissions, teamContext.rolePermissions)}
+        memberSubmissionMode={!can(teamContext.role, "events.manage", teamContext.customPermissions, teamContext.rolePermissions)}
         referenceDate={!hasSupabaseEnv() ? "2026-07-10" : undefined}
       />
     </AppShell>

@@ -120,7 +120,7 @@ const sampleReminders: ReminderItem[] = [
 
 export default async function RemindersPage() {
   const teamContext = await getRequiredTeamContext();
-  const canCreateNotices = can(teamContext.role, "members.manage");
+  const canCreateNotices = can(teamContext.role, "members.manage", teamContext.customPermissions, teamContext.rolePermissions);
   let reminders: ReminderItem[] = sampleReminders;
   let deliveryGroups: ReminderDeliveryGroup[] = [
     {
