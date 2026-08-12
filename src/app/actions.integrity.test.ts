@@ -45,4 +45,16 @@ describe("website mutation integrity boundaries", () => {
     expect(actionsSource).toContain("slideSettingsSchema.safeParse");
     expect(actionsSource).toContain("relatedTeamId(slot) !== context.teamId");
   });
+
+  it("restricts built-in role permission updates to the team owner", () => {
+    const rolePermissionAction = actionsSource.slice(
+      actionsSource.indexOf("export async function updateTeamRolePermissionsAction"),
+      actionsSource.indexOf("export async function createCustomRoleAction"),
+    );
+
+    expect(rolePermissionAction).toContain('teamContext.role !== "owner"');
+    expect(rolePermissionAction).toContain("teamRolePermissionsSchema.safeParse");
+    expect(rolePermissionAction).toContain('.from("team_role_permissions")');
+    expect(rolePermissionAction).toContain(".upsert(");
+  });
 });

@@ -51,6 +51,7 @@ function fakeSupabase({
   membershipResult,
   pendingRequestResult,
   customRoleResult = { data: null },
+  rolePermissionsResult = { data: null },
   userResult = {
     data: { user: { id: "profile-1" } },
     error: null,
@@ -59,6 +60,7 @@ function fakeSupabase({
   membershipResult: QueryResult;
   pendingRequestResult: QueryResult;
   customRoleResult?: QueryResult;
+  rolePermissionsResult?: QueryResult;
   userResult?: {
     data: { user: { id: string } | null };
     error: unknown;
@@ -76,7 +78,9 @@ function fakeSupabase({
           ? membershipResult
           : table === "join_requests"
             ? pendingRequestResult
-            : customRoleResult,
+            : table === "custom_roles"
+              ? customRoleResult
+              : rolePermissionsResult,
       );
       builders.push(builder);
       return builder;
@@ -188,5 +192,34 @@ describe("getCurrentTeamContextForClient", () => {
       args: ["id", "custom-1"],
     });
     await expect(getPostLoginRedirectPath(client)).resolves.toBe("/dashboard");
+  });
+
+  it("loads an exact team role override for authorization checks", async () => {
+    const { client, builders } = fakeSupabase({
+      membershipResult: {
+        data: {
+          id: "member-3",
+          team_id: "team-3",
+          role: "admin",
+          status: "active",
+          custom_role_id: null,
+          teams: { name: "Policy Team", code: "PT-10001" },
+        },
+      },
+      pendingRequestResult: { data: null },
+      rolePermissionsResult: { data: { permissions: [] } },
+    });
+
+    await expect(getCurrentTeamContextForClient(client)).resolves.toMatchObject({
+      role: "admin",
+      rolePermissions: [],
+      canManageMembers: false,
+    });
+    expect(builders.find((builder) => builder.table === "team_role_permissions")?.operations).toEqual(
+      expect.arrayContaining([
+        { name: "eq", args: ["team_id", "team-3"] },
+        { name: "eq", args: ["role", "admin"] },
+      ]),
+    );
   });
 });

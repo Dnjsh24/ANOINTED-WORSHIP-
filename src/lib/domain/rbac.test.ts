@@ -19,6 +19,12 @@ describe("rbac", () => {
     expect(can("member", "attendance.confirm")).toBe(true);
   });
 
+  it("applies exact team role overrides without allowing owner lockout", () => {
+    expect(can("admin", "members.manage", undefined, [])).toBe(false);
+    expect(can("member", "setlists.manage", undefined, ["setlists.manage"])).toBe(true);
+    expect(can("owner", "team.manage", undefined, [])).toBe(true);
+  });
+
   it("shows admin navigation only to member managers", () => {
     expect(visibleNavigation("owner")).toContain("members");
     expect(visibleNavigation("admin")).toContain("members");
