@@ -58,8 +58,8 @@ function SortableSongItem({ item, setlistId, canManageSetlist }: { item: Ordered
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="block w-full">
-      <Card className={`grid grid-cols-[auto_1fr_auto] items-center gap-4 p-4 transition-all duration-200 ${isDragging ? "shadow-2xl border-violet-500 bg-[#18171c]/90" : "hover:border-violet-400/30"}`}>
+    <div ref={setNodeRef} style={style} className="block min-w-0 w-full">
+      <Card className={`grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 p-3 transition-all duration-200 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-4 sm:p-4 ${isDragging ? "shadow-2xl border-violet-500 bg-[#18171c]/90" : "hover:border-violet-400/30"}`}>
         <div className="flex items-center gap-3">
           {canManageSetlist ? (
             <button
@@ -100,8 +100,8 @@ function SortableSongItem({ item, setlistId, canManageSetlist }: { item: Ordered
             </p>
           )}
         </Link>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-2">
+        <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-2 sm:col-span-1 sm:flex-nowrap sm:gap-3">
+          <div className="flex flex-wrap gap-2">
             {canManageSetlist ? (
               <ChangeKeyButton
                 setlistId={setlistId}

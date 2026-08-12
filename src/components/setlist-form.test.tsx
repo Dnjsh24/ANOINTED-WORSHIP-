@@ -120,6 +120,23 @@ function createSetlist(): Setlist {
 }
 
 describe("SetlistForm drag preview", () => {
+  it("keeps standalone editing limited to setlist content while supplying compatibility defaults", () => {
+    const standalone = {
+      ...createSetlist(),
+      location: "",
+      callTime: "",
+      rehearsalTime: "",
+      serviceTimes: [],
+      eventType: undefined,
+    };
+    const view = render(<SetlistForm setlist={standalone} />);
+
+    expect(screen.getByText("Setlist Information")).toBeInTheDocument();
+    expect(screen.getByText("Setlist Name *")).toBeInTheDocument();
+    expect(screen.queryByText("Location")).not.toBeInTheDocument();
+    expect(view.container.querySelector<HTMLInputElement>('input[name="location"]')?.value).toBe("Main Sanctuary");
+  });
+
   it("centers the preview on the pointer instead of offsetting it to the side", () => {
     const transform = snapDragPreviewToCursor({
       activatorEvent: new MouseEvent("mousedown", {

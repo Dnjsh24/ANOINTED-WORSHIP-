@@ -295,7 +295,7 @@ export function SetlistForm({
   const [serviceTitle, setServiceTitle] = useState(setlist?.name ?? "");
   const [eventType] = useState(() => resolveSetlistEventType(setlist?.eventType ?? initialEventType, setlist?.serviceTimes));
   const [serviceType] = useState(() => getPrimaryServiceType(setlist?.serviceTimes) || DEFAULT_SERVICE_TYPE);
-  const [location] = useState(setlist?.location ?? "Main Sanctuary");
+  const [location] = useState(setlist?.location || "Main Sanctuary");
   const [callTime] = useState(toTimeValue(setlist?.callTime) ?? "09:00");
   const [rehearsalTime] = useState(toTimeValue(setlist?.rehearsalTime) ?? "08:00");
   const [searchQuery, setSearchQuery] = useState("");
@@ -502,13 +502,13 @@ export function SetlistForm({
         {setlist && (
           <div className="border-t border-red-500/20 pt-6 mt-6 text-left">
             <h4 className="text-sm font-bold text-red-400">Danger Zone</h4>
-            <p className="text-xs text-zinc-400 mt-1">Permanently delete this setlist and its associated event timeline. This action cannot be undone.</p>
+            <p className="text-xs text-zinc-400 mt-1">Permanently delete this setlist. Any linked Timeline event will be preserved without a setlist.</p>
             <form
               action={async (formData) => {
                 await deleteSetlistAction(formData);
               }}
               onSubmit={(e) => {
-                if (!window.confirm("Are you absolutely sure you want to delete this setlist and its associated timeline event? This cannot be undone.")) {
+                if (!window.confirm("Are you absolutely sure you want to delete this setlist? Its Timeline event will be preserved. This cannot be undone.")) {
                   e.preventDefault();
                 }
               }}

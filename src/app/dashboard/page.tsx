@@ -73,13 +73,33 @@ type DashboardSetlistSongRow = Pick<
 };
 type DashboardSetlistRow = Pick<
   Database["public"]["Tables"]["setlists"]["Row"],
-  "id" | "name" | "setlist_date" | "location" | "call_time" | "rehearsal_time" | "service_times"
+  "id" | "name"
 > & {
-  events: Pick<Database["public"]["Tables"]["events"]["Row"], "type"> | null;
-  leader: {
-    id: string;
-    profiles: { full_name: string } | null;
-  } | null;
+  events: {
+    type: Database["public"]["Enums"]["event_type"];
+    service_type: string | null;
+    event_date: string;
+    location: string | null;
+    starts_at: string;
+    call_time: string | null;
+    rehearsal_time: string | null;
+    event_assignments: Array<{
+      assignment: string;
+      team_member: { profiles: { full_name: string | null } | null } | null;
+    }>;
+  } | Array<{
+    type: Database["public"]["Enums"]["event_type"];
+    service_type: string | null;
+    event_date: string;
+    location: string | null;
+    starts_at: string;
+    call_time: string | null;
+    rehearsal_time: string | null;
+    event_assignments: Array<{
+      assignment: string;
+      team_member: { profiles: { full_name: string | null } | null } | null;
+    }>;
+  }> | null;
   setlist_songs: DashboardSetlistSongRow[];
 };
 type DashboardActivityLog = {
@@ -101,6 +121,11 @@ function activityDetails(value: Json | null): DashboardActivityLog["details"] {
     name: typeof value.name === "string" ? value.name : undefined,
     title: typeof value.title === "string" ? value.title : undefined,
   };
+}
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
 }
 
 export const dynamic = "force-dynamic";
@@ -174,13 +199,19 @@ export default async function DashboardPage() {
             .from("setlists")
             .select(`
               *,
-              events (
-                type
-              ),
-              leader:team_members (
-                id,
-                profiles (
-                  full_name
+              events!inner (
+                type,
+                service_type,
+                event_date,
+                location,
+                starts_at,
+                call_time,
+                rehearsal_time,
+                event_assignments (
+                  assignment,
+                  team_member:team_members (
+                    profiles (full_name)
+                  )
                 )
               ),
               setlist_songs (
@@ -195,10 +226,8 @@ export default async function DashboardPage() {
               )
             `)
             .eq("team_id", teamContext.teamId)
-            .gte("setlist_date", todayStr)
-            .order("setlist_date", { ascending: true })
-            .limit(1)
-            .maybeSingle()
+            .gte("events.event_date", todayStr)
+            .limit(50)
         : Promise.resolve({ data: null }),
     ]);
 
@@ -220,9 +249,12 @@ export default async function DashboardPage() {
         nextEvent = null;
       }
 
-      const dbSetlist = dbSetlistResult.data as unknown as DashboardSetlistRow | null;
+      const dbSetlist = ((dbSetlistResult.data ?? []) as unknown as DashboardSetlistRow[])
+        .filter((setlist) => firstRelation(setlist.events))
+        .sort((left, right) => firstRelation(left.events)!.event_date.localeCompare(firstRelation(right.events)!.event_date))[0] ?? null;
       if (dbSetlist) {
-        const leaderName = dbSetlist.leader?.profiles?.full_name || "Worship Leader";
+        const linkedEvent = firstRelation(dbSetlist.events)!;
+        const leaderName = linkedEvent.event_assignments.find((assignment) => assignment.assignment === "Worship Leader")?.team_member?.profiles?.full_name || "Not assigned";
         const dbSetlistSongs = dbSetlist.setlist_songs || [];
 
         setlistSongsList = dbSetlistSongs.flatMap((setlistSong) => setlistSong.song
@@ -240,13 +272,13 @@ export default async function DashboardPage() {
         nextSetlist = {
           id: dbSetlist.id,
           name: dbSetlist.name,
-          date: dbSetlist.setlist_date,
-          location: dbSetlist.location ?? "Main Sanctuary",
-          callTime: dbSetlist.call_time?.slice(0, 5) || "08:00",
-          rehearsalTime: dbSetlist.rehearsal_time?.slice(0, 5) || "07:30",
+          date: linkedEvent.event_date,
+          location: linkedEvent.location ?? "Location not set",
+          callTime: (linkedEvent.call_time ?? linkedEvent.starts_at).slice(0, 5),
+          rehearsalTime: linkedEvent.rehearsal_time?.slice(0, 5) || "Not set",
           leader: leaderName,
-          eventType: dbSetlist.events?.type,
-          serviceTimes: dbSetlist.service_times || ["9:00 AM", "11:00 AM"],
+          eventType: linkedEvent.type,
+          serviceTimes: linkedEvent.service_type ? [linkedEvent.service_type] : [],
         };
       } else {
         nextSetlist = null;

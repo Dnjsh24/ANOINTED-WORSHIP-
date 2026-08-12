@@ -848,7 +848,7 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     const id = randomUUID();
     upsertDesktopSetlist({
       id,
-      eventId: formString(formData, "eventId") || randomUUID(),
+      eventId: optionalFormString(formData, "eventId") ?? null,
       teamId: context.teamId,
       name: parsed.data.title,
       date: parsed.data.serviceDate,
@@ -869,62 +869,56 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     return { ...context.state, message: context.state.message.replace("changes", "setlists") };
   }
 
-  // 1. Resolve or Create the associated event
-  let resolvedEventId = formString(formData, "eventId");
-
-  if (resolvedEventId) {
-    const { error: updateError } = await context.supabase
-      .from("events")
-      .update({
-        type: parsed.data.eventType,
-        name: parsed.data.title,
-        event_date: parsed.data.serviceDate,
-        starts_at: toPostgresTime(parsed.data.callTime),
-        call_time: toPostgresTime(parsed.data.callTime),
-        rehearsal_time: toPostgresTime(parsed.data.rehearsalTime),
-        location: parsed.data.location,
-      })
-      .eq("id", resolvedEventId);
-
-    if (updateError) {
-      return { ok: false, message: "Could not update associated service event." };
-    }
-  } else {
-    const { data: eventData, error: eventError } = await context.supabase
-      .from("events")
-      .insert({
-        team_id: context.teamId,
-        type: parsed.data.eventType,
-        name: parsed.data.title,
-        event_date: parsed.data.serviceDate,
-        starts_at: toPostgresTime(parsed.data.callTime),
-        call_time: toPostgresTime(parsed.data.callTime),
-        rehearsal_time: toPostgresTime(parsed.data.rehearsalTime),
-        location: parsed.data.location,
-        created_by: context.userId,
-      })
-      .select("id")
-      .single();
-
-    if (eventError || !eventData) {
-      return { ok: false, message: "Could not create associated service event." };
-    }
-    resolvedEventId = eventData.id;
+  // A setlist is standalone unless it was intentionally started from an event.
+  const linkedEventId = optionalFormString(formData, "eventId") ?? null;
+  if (linkedEventId && !can(context.role, "events.manage")) {
+    return { ok: false, message: "You do not have permission to link setlists to Timeline events." };
   }
 
-  // 2. Create the setlist linked to the event
+  type LinkedEventForSetlist = {
+    id: string;
+    type: Database["public"]["Enums"]["event_type"];
+    event_date: string;
+    location: string | null;
+    starts_at: string;
+    call_time: string | null;
+    rehearsal_time: string | null;
+    service_type: string | null;
+    setlists: Array<{ id: string }>;
+  };
+  let linkedEvent: LinkedEventForSetlist | null = null;
+
+  if (linkedEventId) {
+    const { data, error: linkedEventError } = await context.supabase
+      .from("events")
+      .select("id, type, event_date, location, starts_at, call_time, rehearsal_time, service_type, setlists ( id )")
+      .eq("id", linkedEventId)
+      .eq("team_id", context.teamId)
+      .maybeSingle();
+    linkedEvent = data as unknown as LinkedEventForSetlist | null;
+
+    if (linkedEventError || !linkedEvent) {
+      return { ok: false, message: "The selected Timeline event is unavailable." };
+    }
+    if ((linkedEvent.setlists ?? []).length > 0) {
+      return { ok: false, message: "This Timeline event already has a setlist." };
+    }
+  }
+
   const { data: setlistData, error: setlistError } = await context.supabase
     .from("setlists")
     .insert({
       team_id: context.teamId,
-      event_id: resolvedEventId,
+      event_id: linkedEventId,
       name: parsed.data.title,
-      setlist_date: parsed.data.serviceDate,
-      location: parsed.data.location,
-      call_time: parsed.data.callTime,
-      rehearsal_time: parsed.data.rehearsalTime,
-      service_times: serviceTimes,
-      leader_member_id: parsed.data.worshipLeader,
+      setlist_date: linkedEvent?.event_date ?? parsed.data.serviceDate,
+      location: linkedEvent?.location ?? null,
+      call_time: linkedEvent ? (linkedEvent.call_time ?? linkedEvent.starts_at) : null,
+      rehearsal_time: linkedEvent?.rehearsal_time ?? null,
+      service_times: linkedEvent && (linkedEvent.type === "service" || linkedEvent.type === "service_rehearsal") && linkedEvent.service_type
+        ? [linkedEvent.service_type]
+        : [],
+      leader_member_id: null,
       notes: parsed.data.notes ?? null,
       created_by: context.userId,
     })
@@ -932,9 +926,6 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     .single();
 
   if (setlistError || !setlistData) {
-    if (!formString(formData, "eventId")) {
-      await context.supabase.from("events").delete().eq("id", resolvedEventId);
-    }
     return { ok: false, message: "Setlist could not be saved. Please try again." };
   }
 
@@ -1004,7 +995,7 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     action: "created",
     targetType: "setlist",
     targetId: setlistData.id,
-    details: { name: parsed.data.title, date: parsed.data.serviceDate },
+    details: { name: parsed.data.title, eventId: linkedEventId },
   });
   const { data: teamMembers } = await context.supabase
     .from("team_members")
@@ -1015,11 +1006,15 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
     const userIds = teamMembers.map((m) => m.profile_id);
     await notifyProfiles(context.supabase, userIds, {
       title: "New Setlist Created",
-      body: parsed.data.title + " on " + parsed.data.serviceDate,
+      body: linkedEvent ? `${parsed.data.title} linked to a Timeline event.` : `${parsed.data.title} is ready to plan.`,
     });
   }
 
   revalidatePath("/setlists");
+  if (linkedEventId) {
+    revalidatePath(`/events/${linkedEventId}`);
+    revalidatePath("/dashboard");
+  }
   redirect(`/setlists/${setlistData.id}`);
 }
 
@@ -1097,7 +1092,7 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
     if (!existing) return { ok: false, message: "Setlist is not available in this offline workspace." };
     upsertDesktopSetlist({
       id,
-      eventId: existing.eventId || randomUUID(),
+      eventId: existing.eventId ?? null,
       teamId: context.teamId,
       name: parsed.data.title,
       date: parsed.data.serviceDate,
@@ -1124,60 +1119,31 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
     .from("setlists")
     .select("event_id")
     .eq("id", id)
-    .single();
+    .eq("team_id", context.teamId)
+    .maybeSingle();
 
-  let eventId = currentSetlist?.event_id;
+  if (!currentSetlist) {
+    return { ok: false, message: "Setlist could not be found." };
+  }
 
+  const eventId = currentSetlist?.event_id ?? null;
+
+  const setlistUpdate: Database["public"]["Tables"]["setlists"]["Update"] = {
+    name: parsed.data.title,
+    event_id: eventId,
+    leader_member_id: null,
+    notes: parsed.data.notes ?? null,
+  };
   if (!eventId) {
-    // If no event linked, create one
-    const { data: eventData, error: eventError } = await context.supabase
-      .from("events")
-      .insert({
-        team_id: context.teamId,
-        type: parsed.data.eventType,
-        name: parsed.data.title,
-        event_date: parsed.data.serviceDate,
-        starts_at: toPostgresTime(parsed.data.callTime),
-        call_time: toPostgresTime(parsed.data.callTime),
-        rehearsal_time: toPostgresTime(parsed.data.rehearsalTime),
-        location: parsed.data.location,
-        created_by: context.userId,
-      })
-      .select("id")
-      .single();
-
-    if (!eventError && eventData) {
-      eventId = eventData.id;
-    }
-  } else {
-    // Update existing event
-    await context.supabase
-      .from("events")
-      .update({
-        type: parsed.data.eventType,
-        name: parsed.data.title,
-        event_date: parsed.data.serviceDate,
-        starts_at: toPostgresTime(parsed.data.callTime),
-        call_time: toPostgresTime(parsed.data.callTime),
-        rehearsal_time: toPostgresTime(parsed.data.rehearsalTime),
-        location: parsed.data.location,
-      })
-      .eq("id", eventId);
+    setlistUpdate.location = null;
+    setlistUpdate.call_time = null;
+    setlistUpdate.rehearsal_time = null;
+    setlistUpdate.service_times = [];
   }
 
   const { error } = await context.supabase
     .from("setlists")
-    .update({
-      name: parsed.data.title,
-      event_id: eventId || null,
-      setlist_date: parsed.data.serviceDate,
-      location: parsed.data.location,
-      call_time: parsed.data.callTime,
-      rehearsal_time: parsed.data.rehearsalTime,
-      service_times: serviceTimes,
-      leader_member_id: parsed.data.worshipLeader,
-      notes: parsed.data.notes ?? null,
-    })
+    .update(setlistUpdate)
     .eq("id", id)
     .eq("team_id", context.teamId);
 
@@ -1209,17 +1175,16 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
     }
   }
 
-  if (eventId) {
-    await logSetlistChange(context, {
-      setlistId: id,
-      changeType: "updated",
-      summary: "Updated setlist details.",
-      snapshot: buildSetlistSnapshot(parsed.data),
-    });
-  }
+  await logSetlistChange(context, {
+    setlistId: id,
+    changeType: "updated",
+    summary: "Updated setlist details.",
+    snapshot: buildSetlistSnapshot(parsed.data),
+  });
 
   revalidatePath("/setlists");
   revalidatePath(`/setlists/${id}`);
+  if (eventId) revalidatePath(`/events/${eventId}`);
   return { ok: true, message: "Setlist saved." };
 }
 
@@ -1314,6 +1279,13 @@ export async function deleteSetlistAction(formData: FormData): Promise<ActionSta
     return context.state;
   }
 
+  const { data: setlist } = await context.supabase
+    .from("setlists")
+    .select("event_id")
+    .eq("id", setlistId)
+    .eq("team_id", context.teamId)
+    .maybeSingle();
+
   try {
     const { error } = await context.supabase.rpc("delete_setlist_cascade", {
       p_setlist_id: setlistId,
@@ -1328,6 +1300,8 @@ export async function deleteSetlistAction(formData: FormData): Promise<ActionSta
   }
 
   revalidatePath("/setlists");
+  revalidatePath("/dashboard");
+  if (setlist?.event_id) revalidatePath(`/events/${setlist.event_id}`);
   redirect("/setlists");
 }
 
@@ -2025,9 +1999,11 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
   const parsed = eventInputSchema.safeParse({
     title: formString(formData, "title"),
     eventType: formString(formData, "eventType"),
+    serviceType: optionalFormString(formData, "serviceType"),
     date: formString(formData, "date"),
     startTime: formString(formData, "startTime"),
     endTime: formString(formData, "endTime"),
+    callTime: optionalFormString(formData, "callTime"),
     rehearsalStartTime: formString(formData, "rehearsalStartTime"),
     rehearsalEndTime: formString(formData, "rehearsalEndTime"),
     rehearsalDate: formString(formData, "rehearsalDate"),
@@ -2065,9 +2041,11 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
     team_id: context.teamId,
     name: parsed.data.title,
     type: parsed.data.eventType,
+    service_type: parsed.data.serviceType || null,
     event_date: parsed.data.date,
     starts_at: parsed.data.startTime,
     ends_at: parsed.data.endTime || null,
+    call_time: parsed.data.callTime || parsed.data.startTime,
     location: parsed.data.location,
     description: parsed.data.notes || parsed.data.assignedTeams || null,
     approval_status: approvalStatus,
@@ -2156,14 +2134,19 @@ export async function createEventAction(_previous: ActionState, formData: FormDa
   }
 
   if (approvalStatus === "approved" && parsed.data.linkedSetlistId && can(context.role, "setlists.manage")) {
-    await context.supabase
-      .from("setlists")
-      .update({ event_id: data.id })
-      .eq("id", parsed.data.linkedSetlistId);
+    const { error: linkError } = await context.supabase.rpc("link_event_setlist", {
+      p_event_id: data.id,
+      p_setlist_id: parsed.data.linkedSetlistId,
+    });
+    if (linkError) {
+      console.error("Event setlist link failed:", safeErrorDetails(linkError));
+      return { ok: false, message: "The event was created, but its setlist could not be linked." };
+    }
   }
 
   revalidatePath("/events");
   revalidatePath("/dashboard");
+  if (parsed.data.linkedSetlistId) revalidatePath("/setlists");
 
   if (approvalStatus === "pending") {
     return {
@@ -2180,9 +2163,11 @@ export async function updateEventAction(_previous: ActionState, formData: FormDa
   const parsed = eventInputSchema.safeParse({
     title: formString(formData, "title"),
     eventType: formString(formData, "eventType"),
+    serviceType: optionalFormString(formData, "serviceType"),
     date: formString(formData, "date"),
     startTime: formString(formData, "startTime"),
     endTime: formString(formData, "endTime"),
+    callTime: optionalFormString(formData, "callTime"),
     rehearsalStartTime: formString(formData, "rehearsalStartTime"),
     rehearsalEndTime: formString(formData, "rehearsalEndTime"),
     rehearsalDate: formString(formData, "rehearsalDate"),
@@ -2220,9 +2205,11 @@ export async function updateEventAction(_previous: ActionState, formData: FormDa
   const updateData: EventUpdate = {
     name: parsed.data.title,
     type: parsed.data.eventType,
+    service_type: parsed.data.serviceType || null,
     event_date: parsed.data.date,
     starts_at: parsed.data.startTime,
     ends_at: parsed.data.endTime || null,
+    call_time: parsed.data.callTime || parsed.data.startTime,
     location: parsed.data.location,
     description: parsed.data.notes || parsed.data.assignedTeams || null,
     rehearsal_time: parsed.data.rehearsalStartTime || null,
@@ -2241,15 +2228,30 @@ export async function updateEventAction(_previous: ActionState, formData: FormDa
     return { ok: false, message: "Event could not be updated." };
   }
 
-  if (parsed.data.linkedSetlistId && can(context.role, "setlists.manage")) {
-    await context.supabase
-      .from("setlists")
-      .update({ event_id: eventId })
-      .eq("id", parsed.data.linkedSetlistId);
+  await context.supabase.from("event_assignments").delete().eq("event_id", eventId);
+  const assignmentsToInsert = buildEventAssignments(eventId, parsed.data);
+  if (assignmentsToInsert.length > 0) {
+    const { error: assignmentError } = await context.supabase.from("event_assignments").insert(assignmentsToInsert);
+    if (assignmentError) {
+      console.error("Event assignments update failed:", safeErrorDetails(assignmentError));
+      return { ok: false, message: "The event was saved, but its team assignments could not be updated." };
+    }
+  }
+
+  if (can(context.role, "setlists.manage")) {
+    const { error: linkError } = await context.supabase.rpc("link_event_setlist", {
+      p_event_id: eventId,
+      p_setlist_id: parsed.data.linkedSetlistId || null,
+    });
+    if (linkError) {
+      console.error("Event setlist update failed:", safeErrorDetails(linkError));
+      return { ok: false, message: "The event was saved, but its setlist link could not be updated." };
+    }
   }
 
   revalidatePath("/events");
   revalidatePath(`/events/${eventId}`);
+  revalidatePath("/setlists");
   revalidatePath("/dashboard");
 
   redirect(`/events/${eventId}`);
@@ -3668,6 +3670,8 @@ export async function deleteEventAction(formData: FormData): Promise<ActionState
   }
 
   revalidatePath("/events");
+  revalidatePath("/setlists");
+  revalidatePath("/dashboard");
   redirect("/events");
 }
 

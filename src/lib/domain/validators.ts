@@ -217,9 +217,11 @@ export const slideSettingsSchema = z.discriminatedUnion("backgroundType", [
 export const eventInputSchema = z.object({
   title: z.string().trim().min(1, "Event title is required").max(160),
   eventType: z.enum(["service", "rehearsal", "meeting", "special_event", "service_rehearsal"]),
+  serviceType: z.string().trim().max(80).optional(),
   date: z.string().trim().min(1, "Date is required"),
   startTime: z.string().trim().min(1, "Start time is required"),
   endTime: z.string().trim().optional(),
+  callTime: z.string().trim().optional(),
   rehearsalStartTime: z.string().trim().optional(),
   rehearsalEndTime: z.string().trim().optional(),
   rehearsalDate: z.string().trim().optional(),
@@ -240,6 +242,14 @@ export const eventInputSchema = z.object({
   dancers: z.array(z.string().trim()).optional(),
   templateId: z.string().trim().optional(),
   recurrence: z.enum(eventRecurrences).default("none"),
+}).superRefine((value, context) => {
+  const isService = value.eventType === "service" || value.eventType === "service_rehearsal";
+  if (isService && !value.serviceType) {
+    context.addIssue({ code: "custom", path: ["serviceType"], message: "Service type is required" });
+  }
+  if (isService && !value.callTime) {
+    context.addIssue({ code: "custom", path: ["callTime"], message: "Call time is required" });
+  }
 });
 
 export const noticeTargetSchema = z

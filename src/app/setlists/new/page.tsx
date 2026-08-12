@@ -12,6 +12,7 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
   const teamContext = await getRequiredTeamContext();
   let setlistTemplates: SetlistTemplateSummary[] = [];
   let initialEventType: EventType | undefined;
+  let linkedEventId: string | undefined;
   let songs: SetlistFormSong[] = [];
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
@@ -30,11 +31,12 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
     if (eventId) {
       const { data: linkedEvent } = await supabase
         .from("events")
-        .select("type")
+        .select("id, type")
         .eq("id", eventId)
         .eq("team_id", teamContext.teamId)
         .maybeSingle();
 
+      linkedEventId = linkedEvent?.id;
       initialEventType = linkedEvent?.type as EventType | undefined;
     }
 
@@ -55,7 +57,7 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
         <div>
           <p className="font-mono text-xs font-bold uppercase text-violet-200">Setlists</p>
           <h1 className="mt-2 text-4xl font-bold">New Setlist</h1>
-          <p className="mt-2 text-sm font-semibold text-zinc-300">Create event details, scheduling, team assignments, and song order.</p>
+          <p className="mt-2 text-sm font-semibold text-zinc-300">Create a setlist and arrange its song order.</p>
         </div>
         
         {/* We pass the templates here but currently SetlistForm creates the Setlist first.
@@ -63,7 +65,7 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
         <SetlistTemplatePicker templates={setlistTemplates || []} />
       </div>
       <Panel>
-        <SetlistForm eventId={eventId} initialEventType={initialEventType} templateId={templateId} songs={songs} />
+        <SetlistForm eventId={linkedEventId} initialEventType={initialEventType} templateId={templateId} songs={songs} />
       </Panel>
     </AppShell>
   );

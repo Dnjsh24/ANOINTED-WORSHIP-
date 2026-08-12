@@ -46,7 +46,7 @@ export function EventDeleteButton({ eventId }: { eventId: string }) {
             </div>
 
             <p className="mt-4 text-sm text-zinc-300">
-              Are you sure you want to delete this event? All attendance records, team assignments, and the linked setlist will also be removed.
+              Are you sure you want to delete this event? Attendance records and team assignments will be removed. Its linked setlist will be preserved as a standalone setlist.
             </p>
 
             <form

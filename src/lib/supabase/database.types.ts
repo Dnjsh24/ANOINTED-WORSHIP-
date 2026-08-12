@@ -470,6 +470,7 @@ export type Database = {
           rehearsal_date: string | null
           rehearsal_end_time: string | null
           rehearsal_time: string | null
+          service_type: string | null
           starts_at: string
           sync_revision: number
           team_id: string
@@ -493,6 +494,7 @@ export type Database = {
           rehearsal_date?: string | null
           rehearsal_end_time?: string | null
           rehearsal_time?: string | null
+          service_type?: string | null
           starts_at: string
           sync_revision?: number
           team_id: string
@@ -516,6 +518,7 @@ export type Database = {
           rehearsal_date?: string | null
           rehearsal_end_time?: string | null
           rehearsal_time?: string | null
+          service_type?: string | null
           starts_at?: string
           sync_revision?: number
           team_id?: string
@@ -2273,6 +2276,10 @@ export type Database = {
         Returns: number
       }
       leave_team_workspace: { Args: { p_team_id: string }; Returns: undefined }
+      link_event_setlist: {
+        Args: { p_event_id: string; p_setlist_id?: string | null }
+        Returns: undefined
+      }
       mark_channel_messages_read: {
         Args: { p_channel_id: string; p_message_ids: string[] }
         Returns: number

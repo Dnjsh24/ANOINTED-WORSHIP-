@@ -301,7 +301,7 @@ export function softDeleteDesktopSong(id: string) {
 
 export function upsertDesktopSetlist(input: {
   id: string;
-  eventId: string;
+  eventId?: string | null;
   teamId: string;
   name: string;
   date: string;
@@ -316,15 +316,16 @@ export function upsertDesktopSetlist(input: {
   const existing = row("SELECT * FROM local_setlists WHERE id = ?", input.id);
   const timestamp = nowIso();
   withDesktopTransaction((db) => {
-    db.prepare(`INSERT INTO local_events (id, team_id, name, type, event_date, location, starts_at, deleted_at, sync_revision, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 0, ?)
-      ON CONFLICT(id) DO UPDATE SET name=excluded.name, type=excluded.type, event_date=excluded.event_date, location=excluded.location, starts_at=excluded.starts_at, deleted_at=NULL, updated_at=excluded.updated_at`).run(
-      input.eventId, input.teamId, input.name, input.eventType, input.date, input.location ?? null, input.callTime ?? null, timestamp,
-    );
+    if (input.eventId) {
+      const linkedEvent = db.prepare(
+        "SELECT id FROM local_events WHERE id = ? AND team_id = ? AND deleted_at IS NULL",
+      ).get(input.eventId, input.teamId);
+      if (!linkedEvent) throw new Error("The selected Timeline event is unavailable.");
+    }
     db.prepare(`INSERT INTO local_setlists (id, team_id, event_id, name, setlist_date, location, call_time, rehearsal_time, service_times, notes, presentation_settings, deleted_at, sync_revision, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', NULL, ?, ?)
       ON CONFLICT(id) DO UPDATE SET event_id=excluded.event_id, name=excluded.name, setlist_date=excluded.setlist_date, location=excluded.location, call_time=excluded.call_time, rehearsal_time=excluded.rehearsal_time, service_times=excluded.service_times, notes=excluded.notes, deleted_at=NULL, updated_at=excluded.updated_at`).run(
-      input.id, input.teamId, input.eventId, input.name, input.date, input.location ?? null, input.callTime ?? null, input.rehearsalTime ?? null, JSON.stringify(input.serviceTimes), input.notes ?? null, Number(existing?.sync_revision ?? 0), timestamp,
+      input.id, input.teamId, input.eventId ?? null, input.name, input.date, input.location ?? null, input.callTime ?? null, input.rehearsalTime ?? null, JSON.stringify(input.serviceTimes), input.notes ?? null, Number(existing?.sync_revision ?? 0), timestamp,
     );
     if (input.queue) queueDesktopMutation({
       command: existing ? "setlist.update" : "setlist.create",

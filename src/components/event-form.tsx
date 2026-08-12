@@ -8,6 +8,7 @@ import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { ButtonLink } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { initialActionState } from "@/lib/action-state";
+import { DEFAULT_SERVICE_TYPE, SERVICE_TYPE_OPTIONS, isServiceBasedEventType } from "@/lib/domain/event-types";
 
 export interface EventAssignments {
   worshipLeader?: string;
@@ -42,7 +43,7 @@ export function EventForm({
   teamMembers?: TeamMember[];
   serviceTemplates?: ServiceTemplate[];
   initialAssignments?: EventAssignments;
-  setlists?: Array<{ id: string; name: string; date: string }>;
+  setlists?: Array<{ id: string; name: string; date?: string | null }>;
   defaultDate?: string;
   requiresApproval?: boolean;
   canLinkSetlists?: boolean;
@@ -50,9 +51,11 @@ export function EventForm({
     id: string;
     name: string;
     type: string;
+    serviceType: string;
     date: string;
     startTime: string;
     endTime: string;
+    callTime: string;
     rehearsalDate: string;
     rehearsalStartTime: string;
     rehearsalEndTime: string;
@@ -70,6 +73,7 @@ export function EventForm({
   const [conflicts, setConflicts] = useState<{ memberName: string; eventName: string }[]>([]);
     
   const isServiceRehearsal = eventType === "service_rehearsal";
+  const isServiceBased = isServiceBasedEventType(eventType as "service" | "rehearsal" | "meeting" | "special_event" | "service_rehearsal");
 
   const nextRowId = useRef(0);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
@@ -212,6 +216,22 @@ export function EventForm({
               <Input name="title" defaultValue={initialEvent?.name ?? "Sunday Morning Worship"} placeholder="e.g., Sunday Service" required className="rounded-xl border-white/10" />
             </label>
 
+            {isServiceBased ? (
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold text-zinc-300">Service type *</span>
+                <select
+                  name="serviceType"
+                  defaultValue={initialEvent?.serviceType ?? DEFAULT_SERVICE_TYPE}
+                  required
+                  className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20"
+                >
+                  {SERVICE_TYPE_OPTIONS.map((serviceType) => (
+                    <option key={serviceType} value={serviceType} className="bg-[#111014] text-white">{serviceType}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
             <label className="block space-y-1.5">
               <span className="text-xs font-bold text-zinc-300">Event type *</span>
               <div className="relative">
@@ -284,7 +304,11 @@ export function EventForm({
             )}
 
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold text-zinc-300">Call time{isServiceBased ? " *" : ""}</span>
+                <Input type="time" name="callTime" defaultValue={initialEvent?.callTime ?? "08:00"} required={isServiceBased} className="rounded-xl border-white/10" />
+              </label>
               <label className="block space-y-1.5">
                 <span className="text-xs font-bold text-zinc-300">{isServiceRehearsal ? "Service start time" : "Start time"} *</span>
                 <Input type="time" name="startTime" defaultValue={initialEvent?.startTime ?? "09:00"} required className="rounded-xl border-white/10" />
@@ -412,7 +436,7 @@ export function EventForm({
                     <option value="" className="bg-[#111014] text-white">No setlist</option>
                     {setlists.map((s) => (
                       <option key={s.id} value={s.id} className="bg-[#111014] text-white">
-                        {s.name} ({s.date})
+                        {s.name}
                       </option>
                     ))}
                   </select>

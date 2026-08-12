@@ -14,11 +14,29 @@ type EditableSetlistRow = {
   id: string;
   name: string;
   setlist_date: string;
-  location: string;
-  call_time: string;
-  rehearsal_time: string;
+  location: string | null;
+  call_time: string | null;
+  rehearsal_time: string | null;
   service_times: string[] | null;
+  notes: string | null;
   events: { type: EventType } | Array<{ type: EventType }> | null;
+};
+
+type SelectedSetlistSongRow = {
+  id: string;
+  song_order: number;
+  assigned_key: string;
+  songs: {
+    id: string;
+    title: string;
+    original_key: string;
+    bpm: number | null;
+  } | Array<{
+    id: string;
+    title: string;
+    original_key: string;
+    bpm: number | null;
+  }> | null;
 };
 
 export default async function EditSetlistPage({ params }: { params: Promise<{ id: string }> }) {
@@ -53,12 +71,13 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
         id: dbSetlist.id,
         name: dbSetlist.name,
         date: dbSetlist.setlist_date,
-        location: dbSetlist.location,
-        callTime: dbSetlist.call_time,
-        rehearsalTime: dbSetlist.rehearsal_time,
-        serviceTimes: dbSetlist.service_times || ["Sunday Worship"],
+        location: dbSetlist.location ?? "",
+        callTime: dbSetlist.call_time ?? "",
+        rehearsalTime: dbSetlist.rehearsal_time ?? "",
+        serviceTimes: dbSetlist.service_times ?? [],
         eventType: linkedEvent?.type,
         leader: "",
+        notes: dbSetlist.notes ?? undefined,
         songs: [],
       };
       
@@ -90,19 +109,26 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
         .order("song_order", { ascending: true });
         
       if (selectedSongsData) {
-        setlist.songs = selectedSongsData.map((row: any) => {
+        setlist.songs = (selectedSongsData as unknown as SelectedSetlistSongRow[]).flatMap((row) => {
           const s = Array.isArray(row.songs) ? row.songs[0] : row.songs;
-          return {
+          if (!s) return [];
+          return [{
             id: row.id,
             order: row.song_order,
             assignedKey: row.assigned_key,
             song: {
-              id: s?.id,
-              title: s?.title,
-              originalKey: s?.original_key,
-              bpm: s?.bpm,
-            } as any
-          };
+              id: s.id,
+              title: s.title,
+              artist: "",
+              originalKey: s.original_key,
+              currentKey: row.assigned_key,
+              bpm: s.bpm,
+              timeSignature: "4/4",
+              tags: [],
+              favorite: false,
+              sections: [],
+            },
+          }];
         });
       }
     }

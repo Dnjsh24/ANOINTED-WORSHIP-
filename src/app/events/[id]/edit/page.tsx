@@ -13,9 +13,11 @@ type EditableEventRow = {
   id: string;
   name: string;
   type: EventType;
+  service_type: string | null;
   event_date: string;
   starts_at: string;
   ends_at: string | null;
+  call_time: string | null;
   rehearsal_date: string | null;
   rehearsal_time: string | null;
   rehearsal_end_time: string | null;
@@ -42,7 +44,6 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
-    const todayStr = new Date().toISOString().split("T")[0];
 
 
     // Fetch team members
@@ -118,13 +119,13 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
     }
     dbEvent = eventData as unknown as EditableEventRow;
 
-    // Fetch recent setlists
+    // Only standalone setlists and this event's current setlist are eligible.
     const { data: dbSetlists } = await supabase
       .from("setlists")
       .select("id, name, setlist_date")
       .eq("team_id", teamContext.teamId)
-      .gte("setlist_date", todayStr)
-      .order("setlist_date", { ascending: true });
+      .or(`event_id.is.null,event_id.eq.${id}`)
+      .order("updated_at", { ascending: false });
 
     if (dbSetlists) {
       setlistsList = dbSetlists.map((setlist) => ({
@@ -144,9 +145,11 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
       id: sampleEvent.id,
       name: sampleEvent.name,
       type: sampleEvent.type,
+      service_type: sampleEvent.serviceType ?? null,
       event_date: sampleEvent.date,
       starts_at: sampleEvent.time.match(/\d{1,2}:\d{2}/)?.[0] ?? "09:00",
       ends_at: sampleEvent.time.match(/-\s*(\d{1,2}:\d{2})/)?.[1] ?? null,
+      call_time: sampleEvent.callTime ?? null,
       rehearsal_date: null,
       rehearsal_time: null,
       rehearsal_end_time: null,
@@ -179,9 +182,11 @@ export default async function EditEventPage({ params }: { params: Promise<{ id: 
     id: dbEvent.id,
     name: dbEvent.name,
     type: dbEvent.type,
+    serviceType: dbEvent.service_type ?? "Sunday Worship",
     date: dbEvent.event_date,
     startTime: dbEvent.starts_at ? dbEvent.starts_at.slice(0, 5) : "09:00",
     endTime: dbEvent.ends_at ? dbEvent.ends_at.slice(0, 5) : "",
+    callTime: (dbEvent.call_time ?? dbEvent.starts_at).slice(0, 5),
     rehearsalDate: dbEvent.rehearsal_date ?? "",
     rehearsalStartTime: dbEvent.rehearsal_time ? dbEvent.rehearsal_time.slice(0, 5) : "",
     rehearsalEndTime: dbEvent.rehearsal_end_time ? dbEvent.rehearsal_end_time.slice(0, 5) : "",

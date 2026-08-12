@@ -187,6 +187,7 @@ export const setlists: Setlist[] = [
     location: "Main Sanctuary",
     callTime: "8:00 AM",
     rehearsalTime: "8:15 AM",
+    eventId: "event-sunday",
     eventType: "service",
     serviceTimes: ["Sunday Worship"],
     songs: ["opening-song", "reflection-song", "acoustic-response", "build-song", "response-song"].map(

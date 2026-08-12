@@ -121,6 +121,32 @@ export interface Setlist {
   notes?: string;
   eventId?: string;
   eventType?: EventType;
+  linkedEvent?: LinkedEventContext | null;
+}
+
+export interface LinkedEventAssignment {
+  assignment: string;
+  memberId: string | null;
+  memberName: string;
+}
+
+export interface LinkedEventContext {
+  id: string;
+  name: string;
+  type: EventType;
+  serviceType: string | null;
+  date: string;
+  startTime: string;
+  endTime: string | null;
+  callTime: string;
+  rehearsalDate: string | null;
+  rehearsalStart: string | null;
+  rehearsalEnd: string | null;
+  location: string;
+  worshipLeader: string;
+  assignments: LinkedEventAssignment[];
+  notes: string | null;
+  approvalStatus: EventApprovalStatus;
 }
 
 export interface ServiceTemplateRoles {
@@ -163,6 +189,8 @@ export interface Event {
   type: EventType;
   date: string;
   time: string;
+  serviceType?: string | null;
+  callTime?: string | null;
   rehearsalDate?: string | null;
   rehearsalStart?: string | null;
   location: string;

@@ -124,7 +124,18 @@ test("member dialog traps focus, closes with Escape, and restores focus", async 
 test("critical pages reflow at 320 CSS pixels and allow browser zoom", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 720 });
 
-  for (const route of ["/login", "/dashboard", "/worship-remote", "/members", "/setlists", "/messages"]) {
+  for (const route of [
+    "/login",
+    "/dashboard",
+    "/worship-remote",
+    "/members",
+    "/setlists",
+    "/setlists/youth-night",
+    "/setlists/sunday-service",
+    "/events/event-sunday",
+    "/events/event-rehearsal",
+    "/messages",
+  ]) {
     await page.goto(route);
     const dimensions = await page.evaluate(() => ({
       clientWidth: document.documentElement.clientWidth,

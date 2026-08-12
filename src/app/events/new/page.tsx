@@ -27,7 +27,6 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
 
   if (canLinkSetlists && hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
-    const todayStr = new Date().toISOString().split("T")[0];
 
 
     // Fetch team members
@@ -82,13 +81,13 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
     }
 
 
-    // Fetch recent setlists
+    // Only standalone setlists can be attached to a new event.
     const { data: dbSetlists } = await supabase
       .from("setlists")
       .select("id, name, setlist_date")
       .eq("team_id", teamContext.teamId)
-      .gte("setlist_date", todayStr)
-      .order("setlist_date", { ascending: true });
+      .is("event_id", null)
+      .order("updated_at", { ascending: false });
 
     if (dbSetlists) {
       setlistsList = dbSetlists.map((setlist) => ({

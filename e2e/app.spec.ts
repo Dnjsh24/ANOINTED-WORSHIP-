@@ -176,8 +176,8 @@ test("setlists page filters and exposes create/edit flows", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "Sunday Service", exact: true })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Filters" }).click();
-  await page.getByRole("button", { name: "Past" }).click();
-  await expect(page.getByText("No setlists match these filters.")).toBeVisible();
+  await page.getByRole("tab", { name: "Past" }).click();
+  await expect(page.getByText("No setlists match this view.")).toBeVisible();
 
   await page.getByRole("link", { name: /New Setlist/i }).click();
   await expect(page.getByRole("heading", { name: "New Setlist" })).toBeVisible();
@@ -188,7 +188,7 @@ test("setlists page filters and exposes create/edit flows", async ({ page }) => 
 
 test("setlist detail actions have real targets", async ({ page }) => {
   await page.goto("/setlists/sunday-service");
-  await page.getByRole("link", { name: "Edit Details" }).click();
+  await page.getByRole("link", { name: "Edit Setlist" }).click();
   await expect(page.getByRole("heading", { name: "Edit Setlist" })).toBeVisible();
   await expect(page.getByLabel("Setlist Name *")).toHaveValue("Sunday Service");
   await expect(page.getByRole("button", { name: "Save Changes" })).toBeVisible();
@@ -203,6 +203,41 @@ test("setlist detail actions have real targets", async ({ page }) => {
   await expect(page.getByText(/Marked maybe|Sign in with Supabase to save attendance/i)).toBeVisible();
   await page.getByRole("link", { name: /Add Song/i }).click();
   await expect(page.getByRole("heading", { name: "Add Song to Sunday Service" })).toBeVisible();
+});
+
+test("standalone setlist detail hides Timeline-only metadata", async ({ page }) => {
+  await page.goto("/setlists/youth-night");
+
+  await expect(page.getByText("Standalone Setlist", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Song Order" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Stage" })).toBeVisible();
+  await expect(page.getByText("Call Time", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Location", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "My Status" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Conflict Detection" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Who's Missing?" })).toHaveCount(0);
+});
+
+test("Timeline detail combines event information with the linked setlist workspace", async ({ page }) => {
+  await page.goto("/events/event-sunday");
+
+  await expect(page.getByText("Service - Sunday Worship", { exact: true })).toBeVisible();
+  await expect(page.getByText("Call Time", { exact: true })).toBeVisible();
+  await expect(page.getByText("Event Time", { exact: true })).toBeVisible();
+  await expect(page.getByText("Worship Leader", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Linked Setlist", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Song Order" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Add Song" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Attendance" })).toBeVisible();
+});
+
+test("Timeline event without a setlist offers create and link actions", async ({ page }) => {
+  await page.goto("/events/event-rehearsal");
+
+  await expect(page.getByRole("heading", { name: "No setlist linked yet" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Create Setlist" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Link Existing Setlist" }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Song Order" })).toHaveCount(0);
 });
 
 test("arrangement editor adds editable chords and lyrics on every viewport", async ({ page }) => {

@@ -245,6 +245,137 @@ try {
   });
   if (validSetlistSong.error) throw validSetlistSong.error;
 
+  phase = "event setlist link boundaries";
+  const [eventAResult, firstLinkSetlistResult, replacementSetlistResult] = await Promise.all([
+    sessions.owner.from("events").insert({
+      team_id: teamA,
+      type: "service",
+      service_type: "Sunday Worship",
+      name: "Team A link event",
+      event_date: "2026-08-10",
+      starts_at: "10:00",
+      call_time: "09:00",
+      location: "Main Sanctuary",
+      approval_status: "approved",
+      created_by: users.owner.id,
+    }).select("id").single(),
+    sessions.owner.from("setlists").insert({
+      team_id: teamA,
+      name: "First standalone link candidate",
+      setlist_date: "2026-01-01",
+      created_by: users.owner.id,
+    }).select("id").single(),
+    sessions.owner.from("setlists").insert({
+      team_id: teamA,
+      name: "Replacement standalone link candidate",
+      setlist_date: "2026-01-02",
+      created_by: users.owner.id,
+    }).select("id").single(),
+  ]);
+  if (eventAResult.error || firstLinkSetlistResult.error || replacementSetlistResult.error) {
+    throw eventAResult.error ?? firstLinkSetlistResult.error ?? replacementSetlistResult.error;
+  }
+  const eventA = eventAResult.data;
+  const firstLinkSetlist = firstLinkSetlistResult.data;
+  const replacementSetlist = replacementSetlistResult.data;
+
+  await expectDenied(
+    () => sessions.requester.rpc("link_event_setlist", {
+      p_event_id: eventA.id,
+      p_setlist_id: firstLinkSetlist.id,
+    }),
+    "A regular member linked a setlist to an event",
+  );
+  await expectDenied(
+    () => sessions.owner.rpc("link_event_setlist", {
+      p_event_id: eventB.id,
+      p_setlist_id: firstLinkSetlist.id,
+    }),
+    "A cross-team setlist was linked to an event",
+  );
+
+  const firstLink = await sessions.owner.rpc("link_event_setlist", {
+    p_event_id: eventA.id,
+    p_setlist_id: firstLinkSetlist.id,
+  });
+  if (firstLink.error) throw firstLink.error;
+
+  const replacementLink = await sessions.owner.rpc("link_event_setlist", {
+    p_event_id: eventA.id,
+    p_setlist_id: replacementSetlist.id,
+  });
+  if (replacementLink.error) throw replacementLink.error;
+  const { data: replacedRows, error: replacedRowsError } = await sessions.owner
+    .from("setlists")
+    .select("id, event_id, location, call_time, service_times")
+    .in("id", [firstLinkSetlist.id, replacementSetlist.id]);
+  if (replacedRowsError) throw replacedRowsError;
+  const detachedFirst = replacedRows.find((row) => row.id === firstLinkSetlist.id);
+  const attachedReplacement = replacedRows.find((row) => row.id === replacementSetlist.id);
+  assert(detachedFirst?.event_id === null, "Replacing a link did not detach the previous setlist");
+  assert(detachedFirst?.location === null && detachedFirst?.call_time === null, "Detached setlist retained event-only metadata");
+  assert(attachedReplacement?.event_id === eventA.id, "Replacement setlist was not linked");
+  assert(attachedReplacement?.service_times?.[0] === "Sunday Worship", "Linked legacy metadata was not synchronized");
+
+  const unlink = await sessions.owner.rpc("link_event_setlist", {
+    p_event_id: eventA.id,
+    p_setlist_id: null,
+  });
+  if (unlink.error) throw unlink.error;
+  const { data: unlinkedReplacement, error: unlinkReadError } = await sessions.owner
+    .from("setlists")
+    .select("event_id, location, call_time, service_times")
+    .eq("id", replacementSetlist.id)
+    .single();
+  if (unlinkReadError) throw unlinkReadError;
+  assert(unlinkedReplacement.event_id === null, "No setlist did not detach the current setlist");
+  assert(unlinkedReplacement.location === null && unlinkedReplacement.call_time === null, "Unlinked setlist retained event-only metadata");
+
+  phase = "event and setlist delete preservation";
+  const relinkForEventDelete = await sessions.owner.rpc("link_event_setlist", {
+    p_event_id: eventA.id,
+    p_setlist_id: firstLinkSetlist.id,
+  });
+  if (relinkForEventDelete.error) throw relinkForEventDelete.error;
+  const deleteEvent = await sessions.owner.rpc("delete_event_cascade", { p_event_id: eventA.id });
+  if (deleteEvent.error) throw deleteEvent.error;
+  const { data: preservedSetlist, error: preservedSetlistError } = await sessions.owner
+    .from("setlists")
+    .select("id, event_id")
+    .eq("id", firstLinkSetlist.id)
+    .single();
+  if (preservedSetlistError) throw preservedSetlistError;
+  assert(preservedSetlist.event_id === null, "Deleting an event did not preserve and detach its setlist");
+
+  const { data: preservedEvent, error: preservedEventError } = await sessions.owner
+    .from("events")
+    .insert({
+      team_id: teamA,
+      type: "meeting",
+      name: "Preserved event",
+      event_date: "2026-08-11",
+      starts_at: "18:00",
+      approval_status: "approved",
+      created_by: users.owner.id,
+    })
+    .select("id")
+    .single();
+  if (preservedEventError) throw preservedEventError;
+  const linkForSetlistDelete = await sessions.owner.rpc("link_event_setlist", {
+    p_event_id: preservedEvent.id,
+    p_setlist_id: replacementSetlist.id,
+  });
+  if (linkForSetlistDelete.error) throw linkForSetlistDelete.error;
+  const deleteSetlist = await sessions.owner.rpc("delete_setlist_cascade", { p_setlist_id: replacementSetlist.id });
+  if (deleteSetlist.error) throw deleteSetlist.error;
+  const { data: eventAfterSetlistDelete, error: eventAfterSetlistDeleteError } = await sessions.owner
+    .from("events")
+    .select("id")
+    .eq("id", preservedEvent.id)
+    .single();
+  if (eventAfterSetlistDeleteError) throw eventAfterSetlistDeleteError;
+  assert(eventAfterSetlistDelete.id === preservedEvent.id, "Deleting a setlist also deleted its event");
+
   phase = "Worship Remote pairing boundaries";
   const { data: pairing, error: pairingError } = await sessions.requester
     .rpc("create_worship_remote_pairing", { p_setlist_id: setlistA.id })
@@ -328,6 +459,10 @@ try {
       "same-team attendance accepted",
       "cross-team setlist song denied",
       "same-team setlist song accepted",
+      "setlist link role and team boundaries enforced",
+      "setlist replacement and unlink are atomic",
+      "event deletion preserves setlist",
+      "setlist deletion preserves event",
       "all-role Remote pairing creation accepted",
       "cross-team Remote PIN claim denied",
       "Remote PIN attempts rate limited",

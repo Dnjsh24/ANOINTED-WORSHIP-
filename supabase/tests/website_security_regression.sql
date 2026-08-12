@@ -49,6 +49,10 @@ declare
   missing_index_count integer;
   secure_pairing_function_count integer;
   unsafe_pairing_function_count integer;
+  public_privileged_rpc_count integer;
+  unsafe_public_privileged_rpc_count integer;
+  private_privileged_rpc_count integer;
+  unsafe_private_privileged_rpc_count integer;
 begin
   select count(*) into visible_count from public.setlist_templates;
   if visible_count <> 1 then
@@ -339,6 +343,79 @@ begin
     'EXECUTE'
   ) then
     raise exception 'service role cannot execute scheduled delivery RPC';
+  end if;
+
+  select
+    count(*),
+    count(*) filter (
+      where p.prosecdef
+        or array_to_string(coalesce(p.proconfig, array[]::text[]), ',')
+          not like '%search_path=""%'
+        or not has_function_privilege('authenticated', p.oid, 'EXECUTE')
+        or has_function_privilege('anon', p.oid, 'EXECUTE')
+        or position('private.' || p.proname in pg_get_functiondef(p.oid)) = 0
+    )
+  into public_privileged_rpc_count, unsafe_public_privileged_rpc_count
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public'
+    and p.proname in (
+      'add_setlist_songs',
+      'claim_worship_remote_pairing',
+      'claim_worship_remote_pairing_by_pin',
+      'create_team_workspace',
+      'create_worship_remote_pairing',
+      'delete_event_cascade',
+      'delete_setlist_cascade',
+      'delete_song_cascade',
+      'leave_team_workspace',
+      'link_event_setlist',
+      'mark_channel_messages_read',
+      'reorder_setlist_songs',
+      'resume_worship_remote_pairing',
+      'review_join_request',
+      'revoke_worship_remote_pairing',
+      'transfer_team_ownership'
+    );
+
+  if public_privileged_rpc_count <> 16 or unsafe_public_privileged_rpc_count <> 0 then
+    raise exception 'public privileged RPC facades are missing or bypass their private boundary';
+  end if;
+
+  select
+    count(*),
+    count(*) filter (
+      where not p.prosecdef
+        or array_to_string(coalesce(p.proconfig, array[]::text[]), ',')
+          not like '%search_path=""%'
+        or not has_function_privilege('authenticated', p.oid, 'EXECUTE')
+        or has_function_privilege('anon', p.oid, 'EXECUTE')
+    )
+  into private_privileged_rpc_count, unsafe_private_privileged_rpc_count
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'private'
+    and p.proname in (
+      'add_setlist_songs',
+      'claim_worship_remote_pairing',
+      'claim_worship_remote_pairing_by_pin',
+      'create_team_workspace',
+      'create_worship_remote_pairing',
+      'delete_event_cascade',
+      'delete_setlist_cascade',
+      'delete_song_cascade',
+      'leave_team_workspace',
+      'link_event_setlist',
+      'mark_channel_messages_read',
+      'reorder_setlist_songs',
+      'resume_worship_remote_pairing',
+      'review_join_request',
+      'revoke_worship_remote_pairing',
+      'transfer_team_ownership'
+    );
+
+  if private_privileged_rpc_count <> 16 or unsafe_private_privileged_rpc_count <> 0 then
+    raise exception 'private privileged RPC implementations are missing or have unsafe grants';
   end if;
 
   if has_function_privilege(
