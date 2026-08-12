@@ -85,7 +85,7 @@ describe("StageModeClient notation and annotations", () => {
 
     await user.selectOptions(capoFret, "2");
 
-    expect(screen.getByText("Capo 2")).toBeInTheDocument();
+    expect(screen.getByText("Capo 2", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByText("F C Dm Bb")).toBeInTheDocument();
     expect(screen.getByText("G")).toBeInTheDocument();
   });

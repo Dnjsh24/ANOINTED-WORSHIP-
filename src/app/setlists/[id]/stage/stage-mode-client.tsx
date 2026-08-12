@@ -17,7 +17,7 @@ import { updateSetlistSongKeyAction } from "@/app/actions";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MINOR_KEYS = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
-const EASY_GUITAR_KEYS = ["G", "C", "D", "A", "E"];
+const CAPO_FRETS = Array.from({ length: 12 }, (_, fret) => fret);
 const ANNOTATION_COLORS = [
   { name: "yellow", value: "#facc15" },
   { name: "red", value: "#ef4444" },
@@ -130,6 +130,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
   const initialKey = currentSetlistSong?.assignedKey || currentSong?.originalKey || "C";
   const [selectedKey, setSelectedKey] = useState(initialKey);
   const [guitarMode, setGuitarMode] = useState(false);
+  const [capoFret, setCapoFret] = useState(0);
   const [showNumbers, setShowNumbers] = useState(false);
   
   const [metronomePlaying, setMetronomePlaying] = useState(false);
@@ -373,6 +374,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
     const timer = window.setTimeout(() => {
       setSelectedKey(currentSetlistSong?.assignedKey || currentSong?.originalKey || "C");
       setGuitarMode(false);
+      setCapoFret(0);
       setMetronomePlaying(false);
       setIsScrolling(false);
     }, 0);
@@ -402,37 +404,17 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
     }
   }
 
-  // Capo Logic (Guitar Mode)
-  // Easiest guitar keys: G, C, D, A, E
+  // A capo raises the played chord shapes by the selected number of semitones.
+  // Move the displayed shapes down by the same amount to preserve the concert key.
   const capoData = useMemo(() => {
     if (!guitarMode) return null;
-    
-    // Find the closest easy key below the selectedKey
-    // selectedKeyIndex is our target sound.
-    // We want to find an easy key index such that selectedKeyIndex >= easyKeyIndex
-    let bestKey = selectedKey;
-    let bestFret = 0;
-    
-    if (!isMinor) {
-      for (const easy of EASY_GUITAR_KEYS) {
-        const easyIdx = MAJOR_KEYS.indexOf(easy);
-        if (easyIdx === -1) continue;
-        let fret = selectedKeyIndex - easyIdx;
-        if (fret < 0) fret += 12; // Wrap around
-        if (fret <= 6) { // Prefer capo 6 or below
-          bestKey = easy;
-          bestFret = fret;
-          break; // Found one
-        }
-      }
-    }
-    
-    if (bestFret === 0) return null; // No capo needed or minor key not supported yet
-    
-    return { chordKey: bestKey, fret: bestFret };
-  }, [guitarMode, selectedKey, selectedKeyIndex, isMinor]);
+    if (selectedKeyIndex === -1) return { chordKey: selectedKey, fret: capoFret };
 
-  const displayKey = guitarMode && capoData ? capoData.chordKey : selectedKey;
+    const chordKeyIndex = (selectedKeyIndex - capoFret + activeKeys.length) % activeKeys.length;
+    return { chordKey: activeKeys[chordKeyIndex] ?? selectedKey, fret: capoFret };
+  }, [activeKeys, capoFret, guitarMode, selectedKey, selectedKeyIndex]);
+
+  const displayKey = capoData?.chordKey ?? selectedKey;
   
   // Transpose the text
   const transposedSections = useMemo(() => {
@@ -573,9 +555,9 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
           <div className="flex flex-col justify-center">
             <h1 className="text-base md:text-xl font-bold flex items-center gap-2">
                <span className="truncate max-w-[120px] sm:max-w-[200px] md:max-w-none">{currentSong.title}</span>
-               {guitarMode && capoData && (
+               {guitarMode && (
                  <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] md:text-xs font-black tracking-widest uppercase border border-red-500/30 whitespace-nowrap">
-                   Capo {capoData.fret}
+                   {capoFret === 0 ? "Open" : `Capo ${capoFret}`}
                  </span>
                )}
             </h1>
@@ -620,13 +602,29 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
            </div>
            
            {/* Guitar Mode (Capo) */}
-           <button 
-             onClick={() => setGuitarMode(!guitarMode)}
-             className={cn("p-3 rounded-lg transition border", guitarMode ? "bg-violet-600/20 border-violet-500/50 text-violet-400" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white")}
-             title="Guitar Mode (Capo)"
-           >
-             <Guitar className="size-5" />
-           </button>
+           <div className="flex items-center gap-2">
+             <button
+               onClick={() => setGuitarMode(!guitarMode)}
+               className={cn("p-3 rounded-lg transition border", guitarMode ? "bg-violet-600/20 border-violet-500/50 text-violet-400" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white")}
+               title="Guitar Mode (Capo)"
+             >
+               <Guitar className="size-5" />
+             </button>
+             {guitarMode && (
+               <select
+                 aria-label="Capo fret"
+                 value={capoFret}
+                 onChange={(event) => setCapoFret(Number(event.target.value))}
+                 className="h-11 rounded-lg border border-violet-500/50 bg-zinc-900 px-3 text-sm font-bold text-violet-300 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-500/30"
+               >
+                 {CAPO_FRETS.map((fret) => (
+                   <option key={fret} value={fret}>
+                     {fret === 0 ? "Open" : `Capo ${fret}`}
+                   </option>
+                 ))}
+               </select>
+             )}
+           </div>
            
            {/* Metronome */}
            <button 

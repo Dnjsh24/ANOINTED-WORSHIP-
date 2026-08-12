@@ -1,5 +1,6 @@
 const sharpScale = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const flatScale = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+const flatKeyRoots = new Set(["F", "Bb", "Eb", "Ab", "Db", "Gb"]);
 
 const enharmonic: Record<string, string> = {
   "B#": "C",
@@ -21,7 +22,8 @@ export function transposeChord(chord: string, fromKey: string, toKey: string) {
   if (!match) return chord;
 
   const [, root, suffix] = match;
-  const scale = toKey.includes("b") || root.includes("b") ? flatScale : sharpScale;
+  const toKeyRoot = toKey.trim().match(/^([A-Ga-g](?:#|b)?)/)?.[1] ?? "";
+  const scale = flatKeyRoots.has(normalizeRoot(toKeyRoot)) || root.includes("b") ? flatScale : sharpScale;
   const fromIndex = rootIndex(fromKey);
   const toIndex = rootIndex(toKey);
   const chordIndex = rootIndex(normalizeRoot(root));

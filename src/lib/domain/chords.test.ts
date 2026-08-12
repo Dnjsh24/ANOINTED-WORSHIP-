@@ -11,6 +11,10 @@ describe("chord helpers", () => {
     expect(transposeProgression("G - D - Em - C", "G", "A")).toBe("A - E - F#m - D");
   });
 
+  it("uses conventional flat spelling for chord shapes in F", () => {
+    expect(transposeProgression("G D Em C", "G", "F")).toBe("F C Dm Bb");
+  });
+
   it("converts chords to Nashville numbers", () => {
     expect(chordToNashville("G", "G")).toBe("1");
     expect(chordToNashville("Em", "G")).toBe("6m");
