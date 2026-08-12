@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SongViewer } from "@/components/song-viewer";
 import type { Song } from "@/lib/types";
@@ -26,6 +27,15 @@ const songWithRepeatedSections: Song = {
     { label: "Bridge", lines: [{ lyric: "First bridge" }] },
     { label: "Chorus", lines: [{ lyric: "Second chorus" }] },
     { label: "Bridge", lines: [{ lyric: "Second bridge" }] },
+  ],
+};
+
+const songWithChords: Song = {
+  ...songWithRepeatedSections,
+  id: "song-with-chords",
+  title: "Numbered Song",
+  sections: [
+    { label: "Verse", lines: [{ chords: "C G Am F", lyric: "Sing the progression" }] },
   ],
 };
 
@@ -82,5 +92,21 @@ describe("SongViewer", () => {
 
     expect(container.querySelector("iframe[src^='javascript:']")).toBeNull();
     expect(screen.queryByRole("link", { name: "Open on Spotify" })).not.toBeInTheDocument();
+  });
+
+  it("switches the chord chart between chord names and Nashville numbers", async () => {
+    const user = userEvent.setup();
+    render(<SongViewer song={songWithChords} />);
+
+    expect(screen.getByText("C G Am F")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Nashville" }));
+
+    expect(screen.getByText("1 5 6m 4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nashville" })).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(screen.getByRole("button", { name: "Chords" }));
+
+    expect(screen.getByText("C G Am F")).toBeInTheDocument();
   });
 });
