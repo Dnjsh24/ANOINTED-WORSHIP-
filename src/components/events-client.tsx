@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { reviewEventAction } from "@/app/actions";
+import { EventTypeBadges } from "@/components/event-type-badges";
 import { Button } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -337,16 +338,6 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
 
             {filtered.map((event) => {
               const { month, day } = getMonthDay(event.date);
-              const badgeStyles =
-                event.type === "service"
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                  : event.type === "service_rehearsal"
-                  ? "bg-violet-500/10 text-violet-400 border-violet-500/20"
-                  : event.type === "rehearsal"
-                  ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                  : event.type === "meeting"
-                  ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                  : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
 
               return (
                 <div key={event.id} className="relative flex gap-6 items-start group animate-fade-up">
@@ -358,20 +349,18 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
 
                   {/* Bullet node on timeline */}
                   <div className="absolute left-[38px] top-3.5 z-10 flex size-2.5 items-center justify-center">
-                    <div className={cn("size-2 rounded-full border border-[#0d0c12] bg-zinc-600 transition-all group-hover:scale-125 group-hover:bg-violet-400", event.type === "service" && "bg-emerald-500", event.type === "rehearsal" && "bg-amber-500", event.type === "service_rehearsal" && "bg-violet-500", event.type === "meeting" && "bg-blue-500")} />
+                    <div className={cn("size-2 rounded-full border border-[#0d0c12] bg-zinc-600 transition-all group-hover:scale-125 group-hover:bg-violet-400", event.type === "service" && "bg-emerald-500", event.type === "rehearsal" && "bg-amber-500", event.type === "service_rehearsal" && "bg-gradient-to-br from-emerald-500 to-amber-400", event.type === "meeting" && "bg-blue-500")} />
                   </div>
 
                   {/* Details card */}
                   <Card className="flex-1 p-4 border border-white/[0.06] bg-[#111014]/60 hover:border-violet-500/25 hover:bg-white/[0.02] transition-all">
                     <div className="flex items-center justify-between gap-3 flex-wrap">
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Link href={`/events/${event.id}`} className="text-base font-extrabold text-white hover:text-violet-300 transition-colors">
                             {event.name}
                           </Link>
-                          <span className={cn("rounded-full border px-2 py-0.5 font-mono text-[9px] font-bold tracking-tight uppercase", badgeStyles)}>
-                            {event.type.replace("_", " ")}
-                          </span>
+                          <EventTypeBadges eventType={event.type} />
                           {event.approvalStatus === "pending" ? (
                             <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-tight text-amber-200">
                               Pending approval
