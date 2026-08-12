@@ -149,6 +149,13 @@ test("member management shows approval controls", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Team Management" })).toBeVisible();
   await expect(page.getByLabel("Approve Casey Lee")).toBeVisible();
   await expect(page.getByText("DM-10001")).toBeVisible();
+  await page.getByPlaceholder("Search members...").fill("Nobody");
+  await page.getByLabel("Role filter").selectOption("band_member");
+  await expect(page.getByRole("button", { name: "View Alex Morgan" })).toBeHidden();
+  await page.getByRole("button", { name: "View all team members" }).click();
+  await expect(page.getByPlaceholder("Search members...")).toHaveValue("");
+  await expect(page.getByLabel("Role filter")).toHaveValue("all");
+  await expect(page.getByRole("button", { name: "View Alex Morgan" })).toBeVisible();
   await page.getByRole("link", { name: /View all requests/i }).click();
   await expect(page).toHaveURL(/\/members\/requests$/);
   await expect(page.getByRole("heading", { level: 1, name: "Pending Requests" })).toBeVisible();
