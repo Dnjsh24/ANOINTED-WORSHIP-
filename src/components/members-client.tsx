@@ -16,6 +16,7 @@ import {
   normalizeJoinRequest,
   type RawJoinRequest,
 } from "@/lib/domain/join-requests";
+import { getDisplayedMinistries } from "@/lib/domain/member-ministries";
 import { createOptionalClient } from "@/lib/supabase/client";
 import { teamRoles, type JoinRequestSummary, type TeamMember, type TeamRole, type CustomRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -259,6 +260,9 @@ export function MembersClient({
 
   const requestPreview = requests.slice(0, 3);
   const hiddenRequestCount = Math.max(0, requests.length - requestPreview.length);
+  const selectedMemberMinistries = selectedMember
+    ? getDisplayedMinistries(selectedMember.ministries ?? [], selectedMember.role)
+    : [];
 
   return (
     <div className="animate-fade-up">
@@ -425,6 +429,7 @@ export function MembersClient({
                   const isOnline = onlineMemberUserIds.length > 0 
                     ? onlineMemberUserIds.includes(member.profile.id)
                     : (member.status === "active");
+                  const displayedMinistries = getDisplayedMinistries(member.ministries ?? [], member.role);
 
                   return (
                     <div key={member.id} className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_32px] items-center px-4 py-3 text-xs font-semibold group">
@@ -438,9 +443,9 @@ export function MembersClient({
                         <span className="min-w-0">
                           <span className="block font-bold text-white truncate">{member.profile.fullName}</span>
                           <span className="block text-[10px] text-zinc-400 truncate">{member.profile.email}</span>
-                          {member.ministries && member.ministries.length > 0 && (
+                          {displayedMinistries.length > 0 && (
                             <span className="mt-1 flex flex-wrap gap-1">
-                              {member.ministries.map((m) => (
+                              {displayedMinistries.map((m) => (
                                 <Badge key={m} className="px-1.5 py-0 text-[9px] h-4 bg-violet-500/10 text-violet-300 border-violet-500/20 uppercase tracking-wider">{m}</Badge>
                               ))}
                             </span>
@@ -573,8 +578,8 @@ export function MembersClient({
                 <div>
                   <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 mb-3">Ministries</h3>
                   <div className="flex flex-wrap gap-2">
-                    {selectedMember.ministries && selectedMember.ministries.length > 0 ? (
-                      selectedMember.ministries.map(m => (
+                    {selectedMemberMinistries.length > 0 ? (
+                      selectedMemberMinistries.map(m => (
                         <Badge key={m} className="px-2 py-1 bg-violet-500/10 text-violet-300 border-violet-500/20">{m}</Badge>
                       ))
                     ) : (

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
 import { joinRequestWithRequesterProfileSelect } from "@/lib/domain/join-requests";
+import { getDisplayedMinistries } from "@/lib/domain/member-ministries";
 import { members, pendingRequests } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -129,13 +130,15 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
     }
   }
 
+  const displayedMinistries = getDisplayedMinistries(member.ministries, member.role);
+
   return (
     <AppShell active="Team Management" teamContext={teamContext}>
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <Card className="p-6 text-center">
           <Avatar name={request?.name ?? member.profile.fullName} src={member.profile.avatarUrl} className="mx-auto size-20 text-2xl" />
           <h1 className="mt-5 text-2xl font-bold">{request?.name ?? member.profile.fullName}</h1>
-          <p className="mt-1 text-sm font-semibold text-zinc-400">{request?.ministry ?? (member.ministries.length > 0 ? member.ministries.join(", ") : "Member")}</p>
+          <p className="mt-1 text-sm font-semibold text-zinc-400">{request?.ministry ?? (displayedMinistries.length > 0 ? displayedMinistries.join(", ") : "Member")}</p>
           <div className="mt-5 flex justify-center gap-2">
             <Badge>{request ? "Pending" : member.status}</Badge>
             {!request && <Badge>{member.attendanceRate}% Attendance</Badge>}
@@ -163,7 +166,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
                 <Music className="size-4" />
                 Ministry Role
               </p>
-              <p className="mt-2 font-semibold">{request?.ministry ?? (member.ministries.length > 0 ? member.ministries.join(", ") : "Member")}</p>
+              <p className="mt-2 font-semibold">{request?.ministry ?? (displayedMinistries.length > 0 ? displayedMinistries.join(", ") : "Member")}</p>
             </div>
           </div>
           <ButtonLink href="/members" variant="secondary" className="mt-6">
