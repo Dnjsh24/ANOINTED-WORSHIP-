@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MembersClient } from "@/components/members-client";
@@ -45,6 +45,15 @@ const members: TeamMember[] = [
     attendanceRate: 92,
     ministry: "Band",
     ministries: ["Band"],
+  },
+  {
+    id: "member-dan",
+    profile: { id: "profile-dan", fullName: "Dan Fiscal", email: "dan@example.com" },
+    role: "band_leader",
+    status: "active",
+    attendanceRate: 95,
+    ministry: "Band Leader",
+    ministries: ["Band Member", "Band Leader", "Electric Guitar"],
   },
 ];
 
@@ -105,5 +114,14 @@ describe("MembersClient", () => {
     expect(screen.getByLabelText("Role filter")).toHaveValue("all");
     expect(screen.getByRole("button", { name: "View Alex Morgan" })).toBeVisible();
     expect(screen.getByTestId("active-team-panel")).toHaveFocus();
+  });
+
+  it("hides the generic Band Member badge when the member is a Band Leader", () => {
+    renderMembersClient();
+
+    const bandLeaderCard = within(screen.getByRole("button", { name: "View Dan Fiscal" }));
+    expect(bandLeaderCard.getByText("Band Leader")).toBeVisible();
+    expect(bandLeaderCard.getByText("Electric Guitar")).toBeVisible();
+    expect(bandLeaderCard.queryByText("Band Member")).not.toBeInTheDocument();
   });
 });
