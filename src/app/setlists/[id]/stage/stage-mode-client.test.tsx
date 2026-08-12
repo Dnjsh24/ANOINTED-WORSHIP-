@@ -35,6 +35,44 @@ const setlist: StageSetlist = {
   ],
 };
 
+const sectionColorSetlist: StageSetlist = {
+  ...setlist,
+  songs: [
+    {
+      ...setlist.songs[0],
+      song: {
+        ...setlist.songs[0].song,
+        lyricsChords: [
+          "[Intro]",
+          "G",
+          "Intro words",
+          "[Verse 1]",
+          "G",
+          "Verse words",
+          "[Pre-Chorus]",
+          "C",
+          "Pre-chorus words",
+          "[Chorus]",
+          "D",
+          "Chorus words",
+          "[Bridge]",
+          "Em",
+          "Bridge words",
+          "[Instrumental]",
+          "C",
+          "Instrumental words",
+          "[Tag]",
+          "D",
+          "Tag words",
+          "[Outro]",
+          "G",
+          "Outro words",
+        ].join("\n"),
+      },
+    },
+  ],
+};
+
 const canvasContext = {
   beginPath: vi.fn(),
   clearRect: vi.fn(),
@@ -71,6 +109,21 @@ describe("StageModeClient notation and annotations", () => {
 
     expect(screen.getByText("1 5 6m 4")).toBeInTheDocument();
     expect(notation.getByRole("button", { name: "Nashville" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("color-codes section labels without changing lyric colors", () => {
+    render(<StageModeClient setlist={sectionColorSetlist} />);
+
+    expect(screen.getByText("Intro", { selector: "div" })).toHaveClass("text-amber-300");
+    expect(screen.getByText("Verse 1", { selector: "div" })).toHaveClass("text-emerald-300");
+    expect(screen.getByText("Pre-Chorus", { selector: "div" })).toHaveClass("text-violet-300");
+    expect(screen.getByText("Chorus", { selector: "div" })).toHaveClass("text-blue-300");
+    expect(screen.getByText("Bridge", { selector: "div" })).toHaveClass("text-rose-300");
+    expect(screen.getByText("Instrumental", { selector: "div" })).toHaveClass("text-cyan-300");
+    expect(screen.getByText("Tag", { selector: "div" })).toHaveClass("text-fuchsia-300");
+    expect(screen.getByText("Outro", { selector: "div" })).toHaveClass("text-orange-300");
+    expect(screen.getByText("Verse words")).toHaveClass("text-white");
+    expect(screen.getByText("Chorus words")).toHaveClass("text-white");
   });
 
   it("lets the guitarist choose a capo fret while preserving the concert key", async () => {
