@@ -66,6 +66,40 @@ function getAbbr(label: string) {
   return label.substring(0, 3).toUpperCase();
 }
 
+function getSectionLabelColor(label: string) {
+  const normalizedLabel = label.toLowerCase();
+
+  if (normalizedLabel.includes("pre-chorus") || normalizedLabel.includes("prechorus")) {
+    return "bg-violet-900/50 text-violet-300 border-violet-500/30";
+  }
+  if (normalizedLabel.includes("chorus")) {
+    return "bg-blue-900/50 text-blue-300 border-blue-500/30";
+  }
+  if (normalizedLabel.includes("bridge")) {
+    return "bg-rose-900/50 text-rose-300 border-rose-500/30";
+  }
+  if (normalizedLabel.includes("verse")) {
+    return "bg-emerald-900/50 text-emerald-300 border-emerald-500/30";
+  }
+  if (normalizedLabel.includes("intro")) {
+    return "bg-amber-900/50 text-amber-300 border-amber-500/30";
+  }
+  if (normalizedLabel.includes("outro") || normalizedLabel.includes("ending")) {
+    return "bg-orange-900/50 text-orange-300 border-orange-500/30";
+  }
+  if (normalizedLabel.includes("instrumental") || normalizedLabel.includes("interlude") || normalizedLabel.includes("solo")) {
+    return "bg-cyan-900/50 text-cyan-300 border-cyan-500/30";
+  }
+  if (normalizedLabel.includes("tag")) {
+    return "bg-fuchsia-900/50 text-fuchsia-300 border-fuchsia-500/30";
+  }
+  if (normalizedLabel.includes("vamp")) {
+    return "bg-lime-900/50 text-lime-300 border-lime-500/30";
+  }
+
+  return "bg-zinc-800 text-zinc-300 border-zinc-700";
+}
+
 export type StageSetlist = {
   id: string;
   date: string;
@@ -756,12 +790,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
         {displayedSections.map((section, idx) => {
           if (!section.label || section.label === "unknown") return null;
           
-          let colorClass = "bg-zinc-800 text-zinc-300 border-zinc-700";
-          const lbl = section.label.toLowerCase();
-          if (lbl.includes("chorus")) colorClass = "bg-blue-900/50 text-blue-300 border-blue-500/30";
-          else if (lbl.includes("bridge")) colorClass = "bg-rose-900/50 text-rose-300 border-rose-500/30";
-          else if (lbl.includes("verse")) colorClass = "bg-emerald-900/50 text-emerald-300 border-emerald-500/30";
-          else if (lbl.includes("intro") || lbl.includes("outro")) colorClass = "bg-amber-900/50 text-amber-300 border-amber-500/30";
+          const colorClass = getSectionLabelColor(section.label);
           
           return (
             <button 
@@ -802,7 +831,10 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
           {displayedSections.map((section, idx) => (
             <div key={idx} id={`section-${idx}`} className="space-y-3 scroll-mt-6">
               {section.label && section.label !== "unknown" && (
-                <div className="inline-block px-3 py-1 rounded bg-white/10 text-xs font-bold uppercase tracking-wider text-zinc-300">
+                <div className={cn(
+                  "inline-block rounded border px-3 py-1 text-xs font-bold uppercase tracking-wider",
+                  getSectionLabelColor(section.label),
+                )}>
                   {section.label}
                 </div>
               )}
@@ -851,12 +883,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
         {displayedSections.map((section, idx) => {
           if (!section.label || section.label === "unknown") return null;
           
-          let colorClass = "bg-zinc-800 text-zinc-300 border-zinc-700";
-          const lbl = section.label.toLowerCase();
-          if (lbl.includes("chorus")) colorClass = "bg-blue-900/50 text-blue-300 border-blue-500/30";
-          else if (lbl.includes("bridge")) colorClass = "bg-rose-900/50 text-rose-300 border-rose-500/30";
-          else if (lbl.includes("verse")) colorClass = "bg-emerald-900/50 text-emerald-300 border-emerald-500/30";
-          else if (lbl.includes("intro") || lbl.includes("outro")) colorClass = "bg-amber-900/50 text-amber-300 border-amber-500/30";
+          const colorClass = getSectionLabelColor(section.label);
           
           return (
             <button 

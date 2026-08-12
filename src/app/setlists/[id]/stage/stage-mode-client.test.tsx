@@ -122,8 +122,8 @@ describe("StageModeClient notation and annotations", () => {
     expect(screen.getByText("Instrumental", { selector: "div" })).toHaveClass("text-cyan-300");
     expect(screen.getByText("Tag", { selector: "div" })).toHaveClass("text-fuchsia-300");
     expect(screen.getByText("Outro", { selector: "div" })).toHaveClass("text-orange-300");
-    expect(screen.getByText("Verse words")).toHaveClass("text-white");
-    expect(screen.getByText("Chorus words")).toHaveClass("text-white");
+    expect(screen.getByText("Verse words")).toHaveClass("text-zinc-100");
+    expect(screen.getByText("Chorus words")).toHaveClass("text-zinc-100");
   });
 
   it("lets the guitarist choose a capo fret while preserving the concert key", async () => {
