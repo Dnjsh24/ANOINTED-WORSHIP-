@@ -20,6 +20,16 @@ describe("setlist and Timeline detail contract", () => {
     expect(eventDetail).toContain("No setlist linked yet");
   });
 
+  it("keeps event and setlist edit actions in their matching Timeline sections", () => {
+    const linkedSetlistSection = eventDetail.indexOf("Linked Setlist");
+    const editSetlistAction = eventDetail.indexOf(">Edit Setlist</ButtonLink>");
+
+    expect(eventDetail).toContain('href={`/events/${event.id}/edit`} variant="secondary">Edit Event</ButtonLink>');
+    expect(eventDetail).toContain('href={`/setlists/${linkedSetlist.id}/edit`} variant="secondary">Edit Setlist</ButtonLink>');
+    expect(linkedSetlistSection).toBeGreaterThan(-1);
+    expect(editSetlistAction).toBeGreaterThan(linkedSetlistSection);
+  });
+
   it("reads service type, Call Time, worship leader, and assignments from the event", () => {
     expect(eventDetail).toContain("service_type");
     expect(eventDetail).toContain("call_time");

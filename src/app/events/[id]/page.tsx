@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarDays, CheckCircle2, Clock, Edit, MapPin, UserX, Users } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, Clock, MapPin, UserX, Users } from "lucide-react";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { AttendanceRoster, type AttendanceRecord } from "@/components/attendance-roster";
@@ -384,7 +384,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             {linkedSetlist ? (
               <>
                 <ButtonLink href={`/setlists/${linkedSetlist.id}/stage`} className="border-transparent bg-violet-600 text-white hover:bg-violet-500">Stage</ButtonLink>
-                {canManageSetlist ? <ButtonLink href={`/setlists/${linkedSetlist.id}/edit`} variant="secondary">Edit Setlist</ButtonLink> : null}
+                {canManageEvent ? <ButtonLink href={`/events/${event.id}/edit`} variant="secondary">Edit Event</ButtonLink> : null}
                 <ShareButton path={`/events/${event.id}`} />
               </>
             ) : canLinkSetlist ? (
@@ -473,7 +473,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <p className="font-mono text-xs font-bold uppercase text-violet-300">Linked Setlist</p>
               <h2 className="mt-2 text-3xl font-bold">{linkedSetlist.name}</h2>
             </div>
-            <ButtonLink href={`/setlists/${linkedSetlist.id}`} variant="ghost">Open Setlist Detail</ButtonLink>
+            <div className="flex flex-wrap items-center gap-2">
+              {canManageSetlist ? <ButtonLink href={`/setlists/${linkedSetlist.id}/edit`} variant="secondary">Edit Setlist</ButtonLink> : null}
+              <ButtonLink href={`/setlists/${linkedSetlist.id}`} variant="ghost">Open Setlist Detail</ButtonLink>
+            </div>
           </div>
           <SetlistWorkspace
             setlistId={linkedSetlist.id}
@@ -505,7 +508,6 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
       {can(teamContext.role, "events.manage") ? (
         <div className="mt-8 flex flex-wrap gap-3 border-t border-white/10 pt-6">
-          <ButtonLink href={`/events/${event.id}/edit`} variant="secondary" className="flex items-center gap-2"><Edit className="size-4" />Edit Event</ButtonLink>
           <EventDeleteButton eventId={event.id} />
         </div>
       ) : null}
