@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { chordToNashville, progressionToNashville, transposeChord, transposeProgression, transposeTokens, tokensToNashville } from "@/lib/domain/chords";
 import { ChordDiagrams } from "@/components/chord-diagrams";
+import { ChordNotationToggle } from "@/components/chord-notation-toggle";
 import type { Song } from "@/lib/types";
 import Link from "next/link";
 import Image from "next/image";
@@ -138,7 +139,7 @@ export function SongViewer({
       // Wait for revalidation or assume success
     });
   };
-  const [showNumbers] = useState(false);
+  const [showNumbers, setShowNumbers] = useState(false);
   const [instrument, setInstrument] = useState<"piano" | "guitar" | "bass">("guitar");
   const [showChords] = useState(true);
 
@@ -439,25 +440,34 @@ export function SongViewer({
         </div>
       )}
 
-      {/* Tabs Menu (Chords and Lyrics only) */}
-      <div className="flex border-b border-white/[0.08] text-xs">
-        {([
-          { id: "chords", label: "Chords" },
-          { id: "lyrics", label: "Lyrics" },
-        ] as const).map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              "px-5 py-3 font-semibold transition-all border-b-2 -mb-px",
-              activeTab === tab.id
-                ? "border-violet-500 text-violet-300 font-bold"
-                : "border-transparent text-zinc-500 hover:text-white"
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Tabs Menu and chord notation */}
+      <div className="flex flex-col gap-3 border-b border-white/[0.08] pb-3 text-xs sm:flex-row sm:items-end sm:justify-between sm:pb-0">
+        <div className="flex">
+          {([
+            { id: "chords", label: "Chords" },
+            { id: "lyrics", label: "Lyrics" },
+          ] as const).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "-mb-px border-b-2 px-5 py-3 font-semibold transition-all",
+                activeTab === tab.id
+                  ? "border-violet-500 font-bold text-violet-300"
+                  : "border-transparent text-zinc-500 hover:text-white",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {activeTab === "chords" ? (
+          <ChordNotationToggle
+            value={showNumbers ? "nashville" : "chords"}
+            onChange={(notation) => setShowNumbers(notation === "nashville")}
+            className="sm:mb-2"
+          />
+        ) : null}
       </div>
 
       {/* Main Grid split */}

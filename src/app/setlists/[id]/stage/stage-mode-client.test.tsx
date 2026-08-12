@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import StageModeClient, { type StageSetlist } from "./stage-mode-client";
@@ -63,13 +63,14 @@ describe("StageModeClient notation and annotations", () => {
   it("switches the Stage chart to Nashville numbers", async () => {
     const user = userEvent.setup();
     render(<StageModeClient setlist={setlist} />);
+    const notation = within(screen.getByRole("group", { name: "Chord notation" }));
 
     expect(screen.getByText("G D Em C")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Nashville" }));
+    await user.click(notation.getByRole("button", { name: "Nashville" }));
 
     expect(screen.getByText("1 5 6m 4")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Nashville" })).toHaveAttribute("aria-pressed", "true");
+    expect(notation.getByRole("button", { name: "Nashville" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("uses the selected drawing color and saves the song annotation on stroke end", async () => {
@@ -89,7 +90,7 @@ describe("StageModeClient notation and annotations", () => {
     fireEvent.pointerUp(canvas!, { clientX: 30, clientY: 30, pointerId: 1 });
 
     expect(canvasContext.strokeStyle).toBe("#ef4444");
-    expect(localStorage.getItem("scribbles_setlist-1_song-1")).toBe(
+    expect(localStorage.getItem("scribbles_setlist-1_slot-1")).toBe(
       "data:image/png;base64,saved-annotation",
     );
     expect(screen.getByText("Saved on this device")).toBeInTheDocument();

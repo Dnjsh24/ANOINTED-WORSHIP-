@@ -5,7 +5,8 @@ import type { CSSProperties } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, PenTool, Radio, Eraser, Guitar, ChevronsDown } from "lucide-react";
-import { transposeProgression, transposeTokens } from "@/lib/domain/chords";
+import { progressionToNashville, tokensToNashville, transposeProgression, transposeTokens } from "@/lib/domain/chords";
+import { ChordNotationToggle } from "@/components/chord-notation-toggle";
 import {
   resolveArrangementSongSections,
   type ArrangementSection,
@@ -17,6 +18,13 @@ import { updateSetlistSongKeyAction } from "@/app/actions";
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MINOR_KEYS = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
 const EASY_GUITAR_KEYS = ["G", "C", "D", "A", "E"];
+const ANNOTATION_COLORS = [
+  { name: "yellow", value: "#facc15" },
+  { name: "red", value: "#ef4444" },
+  { name: "blue", value: "#3b82f6" },
+  { name: "green", value: "#22c55e" },
+  { name: "white", value: "#ffffff" },
+] as const;
 
 let audioCtx: AudioContext | null = null;
 function playClick(beat: number, volume: number = 0.5) {
@@ -106,6 +114,12 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
 
   const currentSetlistSong = setlist.songs[currentSongIndex];
   const currentSong = currentSetlistSong?.song;
+  const annotationStorageKey = currentSetlistSong?.id
+    ? `scribbles_${setlist.id}_${currentSetlistSong.id}`
+    : null;
+  const legacyAnnotationStorageKey = currentSong?.id
+    ? `scribbles_${setlist.id}_${currentSong.id}`
+    : null;
   const rawLyrics = currentSong?.lyricsChords || "";
   const sections = resolveArrangementSongSections(
     rawLyrics,
@@ -116,6 +130,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
   const initialKey = currentSetlistSong?.assignedKey || currentSong?.originalKey || "C";
   const [selectedKey, setSelectedKey] = useState(initialKey);
   const [guitarMode, setGuitarMode] = useState(false);
+  const [showNumbers, setShowNumbers] = useState(false);
   
   const [metronomePlaying, setMetronomePlaying] = useState(false);
   const [currentBeat, setCurrentBeat] = useState(0);
@@ -170,10 +185,12 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
   const [isDrawing, setIsDrawing] = useState(false);
   const [penTool, setPenTool] = useState<"pen" | "eraser">("pen");
   const [penSize, setPenSize] = useState(4);
+  const [penColor, setPenColor] = useState("#facc15");
+  const [annotationSaveStatus, setAnnotationSaveStatus] = useState<"saved" | "error" | null>(null);
 
   // Load scribbles on song change
   useEffect(() => {
-    if (!currentSong?.id || !canvasRef.current) return;
+    if (!annotationStorageKey || !canvasRef.current) return;
     const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
     
@@ -181,7 +198,15 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     
     // Load from local storage (Free alternative to DB)
-    const saved = localStorage.getItem(`scribbles_${setlist.id}_${currentSong.id}`);
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(annotationStorageKey);
+      if (!saved && legacyAnnotationStorageKey) {
+        saved = localStorage.getItem(legacyAnnotationStorageKey);
+      }
+    } catch {
+      saved = null;
+    }
     if (saved) {
       const img = new Image();
       img.onload = () => {
@@ -200,7 +225,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
         canvasRef.current.height = scrollRef.current.scrollHeight;
       }
     }
-  }, [currentSong?.id, setlist.id]);
+  }, [annotationStorageKey, legacyAnnotationStorageKey]);
 
   // Handle Resize of canvas
   useEffect(() => {
@@ -228,10 +253,15 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
   }, [currentSongIndex, fontScale, drawMode]);
 
   const saveScribbles = useCallback(() => {
-    if (canvasRef.current && currentSong?.id) {
-      localStorage.setItem(`scribbles_${setlist.id}_${currentSong.id}`, canvasRef.current.toDataURL());
+    if (canvasRef.current && annotationStorageKey) {
+      try {
+        localStorage.setItem(annotationStorageKey, canvasRef.current.toDataURL());
+        setAnnotationSaveStatus("saved");
+      } catch {
+        setAnnotationSaveStatus("error");
+      }
     }
-  }, [currentSong, setlist.id]);
+  }, [annotationStorageKey]);
 
   const startDrawing = (e: React.PointerEvent) => {
     if (!drawMode || !canvasRef.current) return;
@@ -249,7 +279,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
     if (!ctx) return;
     const rect = canvasRef.current.getBoundingClientRect();
     ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-    ctx.strokeStyle = penTool === "pen" ? "rgba(250, 204, 21, 0.8)" : "rgba(0,0,0,1)";
+    ctx.strokeStyle = penTool === "pen" ? penColor : "rgba(0,0,0,1)";
     ctx.globalCompositeOperation = penTool === "eraser" ? "destination-out" : "source-over";
     // Make the eraser 4x larger than the pen size automatically for easier erasing
     ctx.lineWidth = penTool === "eraser" ? penSize * 4 : penSize;
@@ -263,14 +293,14 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
     saveScribbles();
   };
 
-  const drawState = useRef({ isDrawing: false, tool: penTool, size: penSize });
+  const drawState = useRef({ isDrawing: false, tool: penTool, size: penSize, color: penColor });
   const saveScribblesRef = useRef(saveScribbles);
   
   // Sync refs so native events get latest state
   useEffect(() => {
-    drawState.current = { isDrawing, tool: penTool, size: penSize };
+    drawState.current = { isDrawing, tool: penTool, size: penSize, color: penColor };
     saveScribblesRef.current = saveScribbles;
-  }, [isDrawing, penTool, penSize, saveScribbles]);
+  }, [isDrawing, penTool, penSize, penColor, saveScribbles]);
 
   // Touch logic: 1-finger draw, 2-finger scroll/zoom
   useEffect(() => {
@@ -299,8 +329,8 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
         const rect = canvas.getBoundingClientRect();
         ctx.lineTo(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
         
-        const { tool, size } = drawState.current;
-        ctx.strokeStyle = tool === "pen" ? "rgba(250, 204, 21, 0.8)" : "rgba(0,0,0,1)";
+        const { tool, size, color } = drawState.current;
+        ctx.strokeStyle = tool === "pen" ? color : "rgba(0,0,0,1)";
         ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
         ctx.lineWidth = tool === "eraser" ? size * 4 : size;
         ctx.lineCap = "round";
@@ -425,6 +455,18 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
       })
     }));
   }, [sections, baseKey, displayKey]);
+
+  const displayedSections = useMemo(() => {
+    if (!showNumbers) return transposedSections;
+    return transposedSections.map((section) => ({
+      ...section,
+      lines: section.lines.map((line) => ({
+        ...line,
+        tokens: line.tokens ? tokensToNashville(line.tokens, displayKey) : line.tokens,
+        chords: line.chords ? progressionToNashville(line.chords, displayKey) : line.chords,
+      })),
+    }));
+  }, [displayKey, showNumbers, transposedSections]);
 
   // Auto Scroll Engine
   const toggleAutoScroll = useCallback(() => {
@@ -561,6 +603,11 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
              </button>
            </div>
 
+           <ChordNotationToggle
+             value={showNumbers ? "nashville" : "chords"}
+             onChange={(notation) => setShowNumbers(notation === "nashville")}
+           />
+
            {/* Font Size */}
            <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-1">
              <button onClick={() => setFontScale(s => Math.max(0.6, s - 0.1))} className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white font-bold text-xs" title="Decrease Font">
@@ -630,7 +677,28 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
                    <Eraser className="size-4" />
                  </button>
                  <div className="w-px h-4 bg-white/10 mx-1" />
+                 <div className="flex items-center gap-1" role="group" aria-label="Annotation colors">
+                   {ANNOTATION_COLORS.map((color) => (
+                     <button
+                       key={color.name}
+                       type="button"
+                       aria-label={`Draw with ${color.name}`}
+                       aria-pressed={penTool === "pen" && penColor === color.value}
+                       onClick={() => {
+                         setPenColor(color.value);
+                         setPenTool("pen");
+                       }}
+                       className={cn(
+                         "size-7 rounded-full border-2 transition hover:scale-110",
+                         penTool === "pen" && penColor === color.value ? "border-violet-300 ring-2 ring-violet-500/50" : "border-white/20",
+                       )}
+                       style={{ backgroundColor: color.value }}
+                     />
+                   ))}
+                 </div>
+                 <div className="w-px h-4 bg-white/10 mx-1" />
                  <input 
+                   aria-label="Annotation brush size"
                    type="range" 
                    min="2" 
                    max="50" 
@@ -640,21 +708,29 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
                  />
                  <div className="flex items-center justify-center w-[50px] h-10">
                    <div 
-                     className="rounded-full bg-emerald-500/80 transition-all duration-75"
+                     className="rounded-full transition-all duration-75"
                      style={{ 
                        width: penTool === "eraser" ? penSize * 4 : penSize, 
                        height: penTool === "eraser" ? penSize * 4 : penSize,
                        maxWidth: "40px",
-                       maxHeight: "40px"
+                       maxHeight: "40px",
+                       backgroundColor: penTool === "eraser" ? "rgba(255,255,255,0.35)" : penColor,
                      }}
                    />
                  </div>
+                 {annotationSaveStatus ? (
+                   <span className={cn("whitespace-nowrap px-2 text-[10px] font-bold", annotationSaveStatus === "saved" ? "text-emerald-300" : "text-red-300")} role="status">
+                     {annotationSaveStatus === "saved" ? "Saved on this device" : "Could not save drawing"}
+                   </span>
+                 ) : null}
                </div>
              )}
              <button 
                onClick={() => setDrawMode(!drawMode)}
+               aria-label="Draw annotations"
+               aria-pressed={drawMode}
                className={cn("p-3 rounded-lg transition border h-11 flex items-center justify-center", drawMode ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white")}
-               title="Apple Pencil Annotations"
+               title="Draw annotations"
              >
                <PenTool className="size-5" />
              </button>
@@ -679,7 +755,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
 
       {/* Arrangement Blocks (Desktop) */}
       <div className="hidden md:flex items-center gap-2 px-6 py-3 bg-zinc-900 border-b border-white/5 overflow-x-auto no-scrollbar shrink-0">
-        {transposedSections.map((section, idx) => {
+        {displayedSections.map((section, idx) => {
           if (!section.label || section.label === "unknown") return null;
           
           let colorClass = "bg-zinc-800 text-zinc-300 border-zinc-700";
@@ -725,7 +801,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
         />
         
         <div className="max-w-4xl mx-auto space-y-8 relative z-10">
-          {transposedSections.map((section, idx) => (
+          {displayedSections.map((section, idx) => (
             <div key={idx} id={`section-${idx}`} className="space-y-3 scroll-mt-6">
               {section.label && section.label !== "unknown" && (
                 <div className="inline-block px-3 py-1 rounded bg-white/10 text-xs font-bold uppercase tracking-wider text-zinc-300">
@@ -774,7 +850,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
 
       {/* Arrangement Blocks (Mobile Right Panel) */}
       <div className="md:hidden flex flex-col items-center gap-3 py-4 w-16 bg-zinc-900 border-l border-white/5 overflow-y-auto shrink-0 z-40">
-        {transposedSections.map((section, idx) => {
+        {displayedSections.map((section, idx) => {
           if (!section.label || section.label === "unknown") return null;
           
           let colorClass = "bg-zinc-800 text-zinc-300 border-zinc-700";

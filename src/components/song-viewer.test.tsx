@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SongViewer } from "@/components/song-viewer";
@@ -97,15 +97,16 @@ describe("SongViewer", () => {
   it("switches the chord chart between chord names and Nashville numbers", async () => {
     const user = userEvent.setup();
     render(<SongViewer song={songWithChords} />);
+    const notation = within(screen.getByRole("group", { name: "Chord notation" }));
 
     expect(screen.getByText("C G Am F")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Nashville" }));
+    await user.click(notation.getByRole("button", { name: "Nashville" }));
 
     expect(screen.getByText("1 5 6m 4")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Nashville" })).toHaveAttribute("aria-pressed", "true");
+    expect(notation.getByRole("button", { name: "Nashville" })).toHaveAttribute("aria-pressed", "true");
 
-    await user.click(screen.getByRole("button", { name: "Chords" }));
+    await user.click(notation.getByRole("button", { name: "Chords" }));
 
     expect(screen.getByText("C G Am F")).toBeInTheDocument();
   });
