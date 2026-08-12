@@ -24,6 +24,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragMoveEvent,
   type DragStartEvent,
   type Modifier,
 } from "@dnd-kit/core";
@@ -108,10 +109,12 @@ function DraggableSong({ song }: { song: SetlistFormSong }) {
 }
 
 function SortableSelectedSong({
+  isActiveReorder,
   index,
   onRemove,
   song,
 }: {
+  isActiveReorder: boolean;
   index: number;
   onRemove: (id: string) => void;
   song: SetlistFormSong;
@@ -124,14 +127,37 @@ function SortableSelectedSong({
     setNodeRef,
     transform,
     transition,
-  } = useSortable({ id: `selected-${song.id}`, data: song });
+  } = useSortable({
+    id: `selected-${song.id}`,
+    data: song,
+    transition: {
+      duration: 220,
+      easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+    },
+  });
+  const isVisuallyMoving = isDragging || isActiveReorder;
+  const rowTransition = [
+    transition ?? "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)",
+    "box-shadow 180ms ease",
+    "border-color 180ms ease",
+    "background-color 180ms ease",
+  ].join(", ");
 
   return (
     <li
       ref={setNodeRef}
       aria-label={`${index + 1}. ${song.title}`}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center justify-between rounded-lg border border-white/10 bg-[#17161b] p-3 ${isDragging ? "opacity-50" : ""}`}
+      data-reordering={isVisuallyMoving ? "true" : undefined}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition: rowTransition,
+        willChange: isVisuallyMoving ? "transform" : undefined,
+      }}
+      className={`mb-2 flex items-center justify-between rounded-lg border bg-[#17161b] p-3 last:mb-0 ${
+        isVisuallyMoving
+          ? "relative z-10 border-violet-400/70 bg-violet-500/10 shadow-lg shadow-violet-950/40 ring-1 ring-violet-400/30"
+          : "border-white/10"
+      }`}
     >
       <div className="flex min-w-0 items-center gap-3">
         <button
@@ -162,7 +188,49 @@ function SortableSelectedSong({
   );
 }
 
-function DroppableZone({ selectedSongs, onRemove }: { selectedSongs: SetlistFormSong[]; onRemove: (id: string) => void }) {
+function SetlistInsertionGap({
+  active,
+  index,
+  songTitle,
+}: {
+  active: boolean;
+  index: number;
+  songTitle: string | null;
+}) {
+  return (
+    <li
+      role="presentation"
+      aria-hidden={active ? undefined : true}
+      className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
+        active ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+      }`}
+    >
+      <div className="overflow-hidden">
+        <div
+          role={active ? "status" : undefined}
+          aria-label={active && songTitle ? `Insert ${songTitle} as song ${index + 1}` : undefined}
+          className="mb-2 flex min-h-16 items-center justify-center rounded-lg border-2 border-dashed border-violet-400/70 bg-violet-500/10 px-3 text-xs font-bold text-violet-200 shadow-inner shadow-violet-500/10"
+        >
+          Drop as song {index + 1}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function DroppableZone({
+  activeReorderSongId,
+  insertionIndex,
+  insertingSongTitle,
+  onRemove,
+  selectedSongs,
+}: {
+  activeReorderSongId: string | null;
+  insertionIndex: number | null;
+  insertingSongTitle: string | null;
+  onRemove: (id: string) => void;
+  selectedSongs: SetlistFormSong[];
+}) {
   const { isOver, setNodeRef } = useDroppable({
     id: "setlist-dropzone",
     disabled: selectedSongs.length > 0,
@@ -180,15 +248,27 @@ function DroppableZone({ selectedSongs, onRemove }: { selectedSongs: SetlistForm
             items={selectedSongs.map((song) => `selected-${song.id}`)}
             strategy={verticalListSortingStrategy}
           >
-            <ol aria-label="Setlist song order" className="space-y-2">
-              {selectedSongs.map((song, index) => (
+            <ol aria-label="Setlist song order">
+              {selectedSongs.map((song, index) => [
+                <SetlistInsertionGap
+                  key={`gap-${song.id}`}
+                  active={insertionIndex === index}
+                  index={index}
+                  songTitle={insertingSongTitle}
+                />,
                 <SortableSelectedSong
                   key={song.id}
+                  isActiveReorder={activeReorderSongId === song.id}
                   index={index}
                   onRemove={onRemove}
                   song={song}
-                />
-              ))}
+                />,
+              ])}
+              <SetlistInsertionGap
+                active={insertionIndex === selectedSongs.length}
+                index={selectedSongs.length}
+                songTitle={insertingSongTitle}
+              />
             </ol>
           </SortableContext>
         )}
@@ -231,6 +311,8 @@ export function SetlistForm({
     return [];
   });
   const [activeSong, setActiveSong] = useState<SetlistFormSong | null>(null);
+  const [activeReorderSongId, setActiveReorderSongId] = useState<string | null>(null);
+  const [libraryInsertionIndex, setLibraryInsertionIndex] = useState<number | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -239,11 +321,52 @@ export function SetlistForm({
   function handleDragStart(event: DragStartEvent) {
     const { active } = event;
     const song = active.data.current;
-    setActiveSong(String(active.id).startsWith("library-") && isSetlistFormSong(song) ? song : null);
+    const activeId = String(active.id);
+    const isLibrarySong = activeId.startsWith("library-") && isSetlistFormSong(song);
+    setActiveSong(isLibrarySong ? song : null);
+    setActiveReorderSongId(activeId.startsWith("selected-") ? activeId.slice("selected-".length) : null);
+    setLibraryInsertionIndex(null);
+  }
+
+  function resetDragState() {
+    setActiveSong(null);
+    setActiveReorderSongId(null);
+    setLibraryInsertionIndex(null);
+  }
+
+  function handleDragMove(event: DragMoveEvent) {
+    const { active, over } = event;
+    const song = active.data.current;
+    if (
+      !String(active.id).startsWith("library-") ||
+      !isSetlistFormSong(song) ||
+      selectedSongs.some((item) => item.id === song.id) ||
+      !over
+    ) {
+      setLibraryInsertionIndex(null);
+      return;
+    }
+
+    if (over.id === "setlist-dropzone") {
+      setLibraryInsertionIndex(selectedSongs.length);
+      return;
+    }
+
+    const overIndex = selectedSongs.findIndex((item) => `selected-${item.id}` === over.id);
+    if (overIndex < 0) {
+      setLibraryInsertionIndex(null);
+      return;
+    }
+
+    const translated = active.rect.current.translated;
+    const draggedPastMiddle = translated
+      ? translated.top + translated.height / 2 > over.rect.top + over.rect.height / 2
+      : false;
+    setLibraryInsertionIndex(overIndex + (draggedPastMiddle ? 1 : 0));
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    setActiveSong(null);
+    resetDragState();
     const { active, over } = event;
     const song = active.data.current;
     if (!over || !isSetlistFormSong(song)) return;
@@ -281,8 +404,9 @@ export function SetlistForm({
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
+      onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => setActiveSong(null)}
+      onDragCancel={resetDragState}
     >
       <div className="animate-fade-in">
         <form action={formAction} className="space-y-6">
@@ -315,7 +439,13 @@ export function SetlistForm({
               <input type="hidden" name="rehearsalTime" value={rehearsalTime} />
 
               {songs && songs.length > 0 && (
-                <DroppableZone selectedSongs={selectedSongs} onRemove={(id) => setSelectedSongs(s => s.filter(x => x.id !== id))} />
+                <DroppableZone
+                  activeReorderSongId={activeReorderSongId}
+                  insertionIndex={libraryInsertionIndex}
+                  insertingSongTitle={activeSong?.title ?? null}
+                  selectedSongs={selectedSongs}
+                  onRemove={(id) => setSelectedSongs(s => s.filter(x => x.id !== id))}
+                />
               )}
 
               <label className="block space-y-1.5 pt-4">
