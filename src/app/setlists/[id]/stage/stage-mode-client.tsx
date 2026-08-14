@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { createOptionalClient } from "@/lib/supabase/client";
 import { updateSetlistSongKeyAction } from "@/app/actions";
+import { getAnnotationStorageKey } from "@/lib/domain/annotations";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MINOR_KEYS = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
@@ -222,22 +223,81 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
   const [penSize, setPenSize] = useState(4);
   const [penColor, setPenColor] = useState("#facc15");
   const [annotationSaveStatus, setAnnotationSaveStatus] = useState<"saved" | "error" | null>(null);
+  
+  // Render-time state derivation for stage notes
+  const [prevStageSongId, setPrevStageSongId] = useState(currentSong?.id);
+  const [stageNotes, setStageNotes] = useState<string | null>(() => {
+    try {
+      const songId = currentSong?.id || "";
+      const setlistSongId = currentSetlistSong?.id || "";
+      const sharedKey = getAnnotationStorageKey(songId, setlist.id, setlistSongId, null, true);
+      const userKey = getAnnotationStorageKey(songId, setlist.id, setlistSongId, null, false);
+      const masterKey = getAnnotationStorageKey(songId, null, null, null, false);
+      const raw = typeof window !== "undefined" ? (localStorage.getItem(sharedKey) || localStorage.getItem(userKey) || localStorage.getItem(masterKey)) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.textNotes) return parsed.textNotes;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+
+  if (prevStageSongId !== currentSong?.id) {
+    setPrevStageSongId(currentSong?.id);
+    try {
+      const songId = currentSong?.id || "";
+      const setlistSongId = currentSetlistSong?.id || "";
+      const sharedKey = getAnnotationStorageKey(songId, setlist.id, setlistSongId, null, true);
+      const userKey = getAnnotationStorageKey(songId, setlist.id, setlistSongId, null, false);
+      const masterKey = getAnnotationStorageKey(songId, null, null, null, false);
+      const raw = typeof window !== "undefined" ? (localStorage.getItem(sharedKey) || localStorage.getItem(userKey) || localStorage.getItem(masterKey)) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setStageNotes(parsed.textNotes || null);
+      } else {
+        setStageNotes(null);
+      }
+    } catch {
+      setStageNotes(null);
+    }
+  }
 
   // Load scribbles on song change
   useEffect(() => {
-    if (!annotationStorageKey || !canvasRef.current) return;
+    if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
     
     // Clear canvas
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     
-    // Load from local storage (Free alternative to DB)
     let saved: string | null = null;
     try {
-      saved = localStorage.getItem(annotationStorageKey);
-      if (!saved && legacyAnnotationStorageKey) {
-        saved = localStorage.getItem(legacyAnnotationStorageKey);
+      const songId = currentSong?.id || "";
+      const setlistSongId = currentSetlistSong?.id || "";
+
+      // Check unified shared team key & user personal key first
+      const sharedKey = getAnnotationStorageKey(songId, setlist.id, setlistSongId, null, true);
+      const userKey = getAnnotationStorageKey(songId, setlist.id, setlistSongId, null, false);
+      const masterKey = getAnnotationStorageKey(songId, null, null, null, false);
+
+      const raw = localStorage.getItem(sharedKey) || localStorage.getItem(userKey) || localStorage.getItem(masterKey);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.drawingDataUrl) saved = parsed.drawingDataUrl;
+        } catch {
+          saved = raw;
+        }
+      }
+
+      if (!saved && annotationStorageKey) {
+        saved = localStorage.getItem(annotationStorageKey);
+        if (!saved && legacyAnnotationStorageKey) {
+          saved = localStorage.getItem(legacyAnnotationStorageKey);
+        }
       }
     } catch {
       saved = null;
@@ -260,7 +320,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
         canvasRef.current.height = scrollRef.current.scrollHeight;
       }
     }
-  }, [annotationStorageKey, legacyAnnotationStorageKey]);
+  }, [annotationStorageKey, legacyAnnotationStorageKey, currentSong?.id, currentSetlistSong?.id, setlist.id]);
 
   // Handle Resize of canvas
   useEffect(() => {
@@ -828,6 +888,12 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
         />
         
         <div className="max-w-4xl mx-auto space-y-8 relative z-10">
+          {stageNotes && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-950/80 p-3 text-xs font-semibold text-amber-200 shadow-md">
+              <span className="font-bold uppercase tracking-wider text-amber-400 block mb-1">Musician Notes:</span>
+              <p className="whitespace-pre-wrap">{stageNotes}</p>
+            </div>
+          )}
           {displayedSections.map((section, idx) => (
             <div key={idx} id={`section-${idx}`} className="space-y-3 scroll-mt-6">
               {section.label && section.label !== "unknown" && (

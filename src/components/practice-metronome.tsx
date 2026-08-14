@@ -17,13 +17,15 @@ let sharedAudioCtx: AudioContext | null = null;
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
-  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+  const AudioCtx =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioCtx) return null;
   if (!sharedAudioCtx) {
     sharedAudioCtx = new AudioCtx();
   }
   if (sharedAudioCtx.state === "suspended") {
-    sharedAudioCtx.resume();
+    void sharedAudioCtx.resume();
   }
   return sharedAudioCtx;
 }
@@ -63,33 +65,28 @@ export function PracticeMetronome({
   isPlayerPlaying,
 }: PracticeMetronomeProps) {
   const initialBpm = activeSong.bpm && activeSong.bpm >= 40 && activeSong.bpm <= 240 ? activeSong.bpm : null;
+
+  // Render-time state derivation when active song changes
+  const [prevSlotId, setPrevSlotId] = useState(activeSong.slotId);
   const [bpm, setBpm] = useState<number | null>(initialBpm);
   const [savedBpm, setSavedBpm] = useState<number | null>(initialBpm);
-
   const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(0.5);
-  const [startWithPlayer, setStartWithPlayer] = useState(false);
-  const [currentBeat, setCurrentBeat] = useState(1);
-  const [tapTimes, setTapTimes] = useState<number[]>([]);
-  const [isPending, startTransition] = useTransition();
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  const timeSig = parseTimeSignature(activeSong.timeSignature);
-  const intervalRef = useRef<number | null>(null);
-  const beatRef = useRef(1);
-
-  // Stop metronome and update BPM whenever active song changes
-  useEffect(() => {
-    setIsPlaying(false);
-    const newBpm = activeSong.bpm && activeSong.bpm >= 40 && activeSong.bpm <= 240 ? activeSong.bpm : null;
-    setBpm(newBpm);
-    setSavedBpm(newBpm);
+  if (prevSlotId !== activeSong.slotId) {
+    setPrevSlotId(activeSong.slotId);
+    setBpm(initialBpm);
+    setSavedBpm(initialBpm);
     setSaveMessage(null);
-  }, [activeSong.slotId, activeSong.bpm]);
+    setIsPlaying(false);
+  }
 
-  // "Start with player" synchronization
-  useEffect(() => {
-    if (!startWithPlayer) return;
+  // Synchronize playback state with player
+  const [prevIsPlayerPlaying, setPrevIsPlayerPlaying] = useState(isPlayerPlaying);
+  const [startWithPlayer, setStartWithPlayer] = useState(false);
+
+  if (startWithPlayer && prevIsPlayerPlaying !== isPlayerPlaying) {
+    setPrevIsPlayerPlaying(isPlayerPlaying);
     if (isPlayerPlaying) {
       if (bpm && bpm >= 40 && bpm <= 240) {
         setIsPlaying(true);
@@ -97,7 +94,16 @@ export function PracticeMetronome({
     } else {
       setIsPlaying(false);
     }
-  }, [isPlayerPlaying, startWithPlayer, bpm]);
+  }
+
+  const [volume, setVolume] = useState(0.5);
+  const [currentBeat, setCurrentBeat] = useState(1);
+  const tapTimesRef = useRef<number[]>([]);
+
+  const [isPending, startTransition] = useTransition();
+  const timeSig = parseTimeSignature(activeSong.timeSignature);
+  const intervalRef = useRef<number | null>(null);
+  const beatRef = useRef(1);
 
   // Metronome beat tick interval runner
   useEffect(() => {
@@ -107,13 +113,11 @@ export function PracticeMetronome({
         intervalRef.current = null;
       }
       beatRef.current = 1;
-      setCurrentBeat(1);
       return;
     }
 
     const intervalMs = (60 / bpm) * 1000;
     beatRef.current = 1;
-    setCurrentBeat(1);
     playClick(1, volume);
 
     intervalRef.current = window.setInterval(() => {
@@ -134,24 +138,23 @@ export function PracticeMetronome({
     };
   }, [isPlaying, bpm, timeSig.beatsPerMeasure, volume]);
 
-  // Tap tempo handler
+  // Tap tempo handler using ref
   const handleTap = () => {
     const now = Date.now();
-    setTapTimes((prev) => {
-      const recent = prev.filter((t) => now - t < 3000);
-      const updated = [...recent, now];
-      if (updated.length > 1) {
-        const intervals: number[] = [];
-        for (let i = 1; i < updated.length; i++) {
-          intervals.push(updated[i] - updated[i - 1]);
-        }
-        const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-        const calculatedBpm = Math.round(60000 / avgInterval);
-        const clampedBpm = Math.min(240, Math.max(40, calculatedBpm));
-        setBpm(clampedBpm);
+    const recent = tapTimesRef.current.filter((t) => now - t < 3000);
+    const updated = [...recent, now];
+    tapTimesRef.current = updated;
+
+    if (updated.length > 1) {
+      const intervals: number[] = [];
+      for (let i = 1; i < updated.length; i++) {
+        intervals.push(updated[i] - updated[i - 1]);
       }
-      return updated;
-    });
+      const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+      const calculatedBpm = Math.round(60000 / avgInterval);
+      const clampedBpm = Math.min(240, Math.max(40, calculatedBpm));
+      setBpm(clampedBpm);
+    }
   };
 
   const handleBpmChange = (newVal: number) => {

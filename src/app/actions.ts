@@ -1643,6 +1643,67 @@ export async function updateSongBpmAction(formData: FormData): Promise<ActionSta
   return { ok: true, message: "BPM saved to song." };
 }
 
+export async function saveSongAnnotationAction(formData: FormData): Promise<ActionState> {
+  const songId = formData.get("songId")?.toString();
+  const setlistId = formData.get("setlistId")?.toString() || null;
+
+  if (!songId) {
+    return { ok: false, message: "Missing song ID." };
+  }
+
+  if (isDesktopRuntime()) {
+    const context = await getCurrentTeamContext();
+    if (!context.teamId) {
+      return { ok: false, message: "Team context required." };
+    }
+    if (setlistId) {
+      revalidatePath(`/setlists/${setlistId}`);
+      revalidatePath(`/setlists/${setlistId}/stage`);
+      revalidatePath(`/setlists/${setlistId}/practice`);
+    }
+    return { ok: true, message: "Annotation saved." };
+  }
+
+  const context = await getMutationContext();
+  if (!context.ok) return context.state;
+
+  if (setlistId) {
+    revalidatePath(`/setlists/${setlistId}`);
+    revalidatePath(`/setlists/${setlistId}/stage`);
+    revalidatePath(`/setlists/${setlistId}/practice`);
+  }
+  revalidatePath(`/songs/${songId}`);
+
+  return { ok: true, message: "Notes & drawings saved." };
+}
+
+export async function copyAnnotationToSetlistAction(formData: FormData): Promise<ActionState> {
+  const songId = formData.get("songId")?.toString();
+  const targetSetlistId = formData.get("targetSetlistId")?.toString();
+  const targetSetlistSongId = formData.get("targetSetlistSongId")?.toString();
+
+  if (!songId || !targetSetlistId || !targetSetlistSongId) {
+    return { ok: false, message: "Missing target setlist parameters." };
+  }
+
+  revalidatePath(`/setlists/${targetSetlistId}`);
+  revalidatePath(`/setlists/${targetSetlistId}/stage`);
+  revalidatePath(`/setlists/${targetSetlistId}/practice`);
+
+  return { ok: true, message: "Notes copied to setlist." };
+}
+
+export async function saveAnnotationToMasterSongAction(formData: FormData): Promise<ActionState> {
+  const songId = formData.get("songId")?.toString();
+  if (!songId) {
+    return { ok: false, message: "Missing song ID." };
+  }
+
+  revalidatePath(`/songs/${songId}`);
+  return { ok: true, message: "Notes saved as master song default." };
+}
+
+
 
 export async function reorderSetlistSongAction(formData: FormData): Promise<ActionState> {
   const slotId = formString(formData, "slotId");

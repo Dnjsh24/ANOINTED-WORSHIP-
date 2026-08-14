@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useId } from "react";
 import {
   Play,
   Pause,
@@ -32,13 +32,13 @@ declare global {
         config: {
           videoId?: string;
           events?: {
-            onReady?: (event: { target: any }) => void;
-            onStateChange?: (event: { data: number; target: any }) => void;
+            onReady?: (event: { target: unknown }) => void;
+            onStateChange?: (event: { data: number; target: unknown }) => void;
             onError?: (event: { data: number }) => void;
           };
-          playerVars?: Record<string, any>;
+          playerVars?: Record<string, unknown>;
         },
-      ) => any;
+      ) => unknown;
       PlayerState?: {
         UNSTARTED: number;
         ENDED: number;
@@ -74,29 +74,33 @@ export function PracticePlayer({
   const hasYouTube = Boolean(ytVideoId);
   const hasSpotify = Boolean(spotifyInfo);
 
-  // Active provider selection (default YouTube > Spotify)
-  const [provider, setProvider] = useState<MediaProvider | null>(() =>
-    getPreferredProvider(activeSong.youtubeUrl, activeSong.spotifyUrl),
-  );
+  const defaultProvider = getPreferredProvider(activeSong.youtubeUrl, activeSong.spotifyUrl);
 
-  // Reset provider state when active song changes
-  useEffect(() => {
-    const preferred = getPreferredProvider(activeSong.youtubeUrl, activeSong.spotifyUrl);
-    setProvider(preferred);
-    setPlaybackState(preferred ? "ready" : "unavailable");
-    setCurrentTime(0);
-    setDuration(0);
-    setIsSetComplete(false);
-  }, [activeSong.slotId, activeSong.youtubeUrl, activeSong.spotifyUrl]);
-
-  const [playbackState, setPlaybackState] = useState<PlaybackState>("idle");
+  // Derived state pattern for song switching during render without sync effect setStates
+  const [prevSlotId, setPrevSlotId] = useState(activeSong.slotId);
+  const [overrideProvider, setOverrideProvider] = useState<MediaProvider | null>(null);
+  const [playbackState, setPlaybackState] = useState<PlaybackState>(defaultProvider ? "ready" : "unavailable");
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isSetComplete, setIsSetComplete] = useState(false);
 
+  if (prevSlotId !== activeSong.slotId) {
+    setPrevSlotId(activeSong.slotId);
+    setOverrideProvider(null);
+    setPlaybackState(defaultProvider ? "ready" : "unavailable");
+    setCurrentTime(0);
+    setDuration(0);
+    setIsSetComplete(false);
+  }
+
+  const provider = overrideProvider ?? defaultProvider;
+
+  // React useId for safe DOM element ID without impure Math.random during render
+  const containerId = useId();
+  const ytContainerDomId = `yt-player-${containerId.replace(/:/g, "")}`;
+
   // Player DOM refs
-  const ytPlayerRef = useRef<any>(null);
-  const ytContainerId = useRef(`yt-player-${Math.random().toString(36).substring(2, 9)}`);
+  const ytPlayerRef = useRef<unknown | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const progressIntervalRef = useRef<number | null>(null);
 
@@ -110,7 +114,7 @@ export function PracticePlayer({
     } else {
       onNextSong();
     }
-  }, [isLastSong, onNextSong, onPlaybackStateChange]);
+  }, [isLastSong, onNextSong, onPlaybackStateChange, setPlaybackState, setIsSetComplete]);
 
   // Clean up progress polling
   const clearProgressInterval = useCallback(() => {
@@ -125,8 +129,9 @@ export function PracticePlayer({
     clearProgressInterval();
     if (ytPlayerRef.current) {
       try {
-        if (typeof ytPlayerRef.current.destroy === "function") {
-          ytPlayerRef.current.destroy();
+        const player = ytPlayerRef.current as { destroy?: () => void };
+        if (typeof player.destroy === "function") {
+          player.destroy();
         }
       } catch (err) {
         console.error("Error destroying YT player:", err);
@@ -170,11 +175,11 @@ export function PracticePlayer({
       if (!isMounted) return;
       destroyYtPlayer();
 
-      const containerEl = document.getElementById(ytContainerId.current);
+      const containerEl = document.getElementById(ytContainerDomId);
       if (!containerEl) return;
 
       try {
-        ytPlayerRef.current = new window.YT!.Player(ytContainerId.current, {
+        ytPlayerRef.current = new window.YT!.Player(ytContainerDomId, {
           videoId: ytVideoId,
           playerVars: {
             autoplay: 0,
@@ -184,17 +189,18 @@ export function PracticePlayer({
             origin: typeof window !== "undefined" ? window.location.origin : undefined,
           },
           events: {
-            onReady: (event: any) => {
+            onReady: (event: { target: unknown }) => {
               if (!isMounted) return;
               setPlaybackState("ready");
               try {
-                const dur = event.target.getDuration();
+                const player = event.target as { getDuration?: () => number };
+                const dur = player.getDuration?.();
                 if (dur && !isNaN(dur)) setDuration(dur);
-              } catch (e) {
+              } catch {
                 // ignore
               }
             },
-            onStateChange: (event: any) => {
+            onStateChange: (event: { data: number; target: unknown }) => {
               if (!isMounted) return;
               const state = event.data;
               if (state === window.YT?.PlayerState?.PLAYING) {
@@ -202,9 +208,10 @@ export function PracticePlayer({
                 onPlaybackStateChange?.(true);
                 clearProgressInterval();
                 progressIntervalRef.current = window.setInterval(() => {
-                  if (ytPlayerRef.current?.getCurrentTime) {
-                    const curr = ytPlayerRef.current.getCurrentTime();
-                    const dur = ytPlayerRef.current.getDuration();
+                  const player = ytPlayerRef.current as { getCurrentTime?: () => number; getDuration?: () => number } | null;
+                  if (player?.getCurrentTime) {
+                    const curr = player.getCurrentTime();
+                    const dur = player.getDuration?.();
                     if (curr !== undefined) setCurrentTime(curr);
                     if (dur && !isNaN(dur)) setDuration(dur);
                   }
@@ -220,7 +227,7 @@ export function PracticePlayer({
                 setPlaybackState("loading");
               }
             },
-            onError: (event: any) => {
+            onError: (event: { data: number }) => {
               if (!isMounted) return;
               console.warn("YouTube player error:", event.data);
               setPlaybackState("unavailable");
@@ -239,24 +246,25 @@ export function PracticePlayer({
       isMounted = false;
       destroyYtPlayer();
     };
-  }, [provider, ytVideoId, destroyYtPlayer, ensureYtApi, handleTrackEnded, onPlaybackStateChange, clearProgressInterval]);
+  }, [provider, ytVideoId, ytContainerDomId, destroyYtPlayer, ensureYtApi, handleTrackEnded, onPlaybackStateChange, clearProgressInterval]);
 
   // Provider switching helper
   const handleToggleProvider = (newProvider: MediaProvider) => {
     if (newProvider === provider) return;
 
     // Pause existing playback
-    if (provider === "youtube" && ytPlayerRef.current?.pauseVideo) {
+    if (provider === "youtube" && ytPlayerRef.current) {
       try {
-        ytPlayerRef.current.pauseVideo();
-      } catch (e) {
+        const player = ytPlayerRef.current as { pauseVideo?: () => void };
+        player.pauseVideo?.();
+      } catch {
         // ignore
       }
     }
     onPlaybackStateChange?.(false);
     clearProgressInterval();
 
-    setProvider(newProvider);
+    setOverrideProvider(newProvider);
     setPlaybackState("ready");
     setCurrentTime(0);
   };
@@ -264,10 +272,11 @@ export function PracticePlayer({
   // User Play / Pause controls
   const handlePlayPause = () => {
     if (playbackState === "playing") {
-      if (provider === "youtube" && ytPlayerRef.current?.pauseVideo) {
+      if (provider === "youtube" && ytPlayerRef.current) {
         try {
-          ytPlayerRef.current.pauseVideo();
-        } catch (e) {
+          const player = ytPlayerRef.current as { pauseVideo?: () => void };
+          player.pauseVideo?.();
+        } catch {
           // ignore
         }
       } else {
@@ -275,10 +284,11 @@ export function PracticePlayer({
       }
       onPlaybackStateChange?.(false);
     } else {
-      if (provider === "youtube" && ytPlayerRef.current?.playVideo) {
+      if (provider === "youtube" && ytPlayerRef.current) {
         try {
-          ytPlayerRef.current.playVideo();
-        } catch (e) {
+          const player = ytPlayerRef.current as { playVideo?: () => void };
+          player.playVideo?.();
+        } catch {
           // fallback
           setPlaybackState("playing");
         }
@@ -294,10 +304,11 @@ export function PracticePlayer({
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTime = parseFloat(e.target.value);
     setCurrentTime(newTime);
-    if (provider === "youtube" && ytPlayerRef.current?.seekTo) {
+    if (provider === "youtube" && ytPlayerRef.current) {
       try {
-        ytPlayerRef.current.seekTo(newTime, true);
-      } catch (err) {
+        const player = ytPlayerRef.current as { seekTo?: (seconds: number, allowSeekAhead: boolean) => void };
+        player.seekTo?.(newTime, true);
+      } catch {
         // ignore
       }
     }
@@ -364,7 +375,7 @@ export function PracticePlayer({
       <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black border border-white/10 flex items-center justify-center">
         {provider === "youtube" && ytVideoId && (
           <div className="h-full w-full">
-            <div id={ytContainerId.current} className="h-full w-full" />
+            <div id={ytContainerDomId} className="h-full w-full" />
           </div>
         )}
 

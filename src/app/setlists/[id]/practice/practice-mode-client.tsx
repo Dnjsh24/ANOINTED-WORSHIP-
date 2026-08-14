@@ -9,18 +9,16 @@ import {
   ListMusic,
   Minus,
   Plus,
-  Play,
   Square,
   ChevronDown,
   ChevronUp,
-  Guitar,
-  Type,
   ChevronsDown,
 } from "lucide-react";
 import type { PracticeSetlistSong } from "@/lib/domain/practice";
 import { getYouTubeVideoId, getSpotifyTrackInfo } from "@/lib/domain/practice";
 import { PracticePlayer } from "@/components/practice-player";
 import { PracticeMetronome } from "@/components/practice-metronome";
+import { AnnotationCanvas } from "@/components/annotation-canvas";
 import { ChordNotation, ChordNotationToggle } from "@/components/chord-notation-toggle";
 import { chordToNashville, transposeChord } from "@/lib/domain/chords";
 import { resolveArrangementSongSections } from "@/lib/domain/arrangements";
@@ -60,7 +58,7 @@ interface PracticeModeClientProps {
   setlistName: string;
   songs: PracticeSetlistSong[];
   canEditSong: boolean;
-  teamContext: any;
+  teamContext?: unknown;
 }
 
 export default function PracticeModeClient({
@@ -82,26 +80,28 @@ export default function PracticeModeClient({
   const showNumbers = notation === "nashville";
   const [fontScale, setFontScale] = useState(1.0);
 
-  // Auto-scroll state
+  // Auto-scroll & playback state
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const [isPlayerPlaying, setIsPlayerPlaying] = useState(false);
+  const [prevSongIndex, setPrevSongIndex] = useState(currentSongIndex);
+
+  // Reset transient autoscroll/playback states when active song changes (render-time derivation)
+  if (prevSongIndex !== currentSongIndex) {
+    setPrevSongIndex(currentSongIndex);
+    setIsAutoScrolling(false);
+    setIsPlayerPlaying(false);
+  }
+
   const [scrollSpeed, setScrollSpeed] = useState(1.0);
   const chartScrollRef = useRef<HTMLDivElement>(null);
   const scrollAnimRef = useRef<number | null>(null);
 
-  // Player playback status for metronome sync
-  const [isPlayerPlaying, setIsPlayerPlaying] = useState(false);
-
-  // Update selected key when active song changes & reset chart scroll & autoscroll
+  // DOM side-effect for chart scroll reset
   useEffect(() => {
-    if (activeSong) {
-      setSelectedKey(activeSong.assignedKey || activeSong.originalKey || "C");
-    }
-    setIsAutoScrolling(false);
-    setIsPlayerPlaying(false);
     if (chartScrollRef.current) {
       chartScrollRef.current.scrollTop = 0;
     }
-  }, [currentSongIndex, activeSong]);
+  }, [currentSongIndex]);
 
   // Autoscroll animation runner
   useEffect(() => {
@@ -152,20 +152,31 @@ export default function PracticeModeClient({
 
   const handleSelectSong = (index: number) => {
     setCurrentSongIndex(index);
+    if (songs[index]) {
+      setSelectedKey(songs[index].assignedKey || songs[index].originalKey || "C");
+    }
     setShowQueueMobile(false);
   };
 
   const handleNextSong = useCallback(() => {
     if (currentSongIndex < songs.length - 1) {
-      setCurrentSongIndex((prev) => prev + 1);
+      const nextIdx = currentSongIndex + 1;
+      setCurrentSongIndex(nextIdx);
+      if (songs[nextIdx]) {
+        setSelectedKey(songs[nextIdx].assignedKey || songs[nextIdx].originalKey || "C");
+      }
     }
-  }, [currentSongIndex, songs.length]);
+  }, [currentSongIndex, songs]);
 
   const handlePreviousSong = useCallback(() => {
     if (currentSongIndex > 0) {
-      setCurrentSongIndex((prev) => prev - 1);
+      const prevIdx = currentSongIndex - 1;
+      setCurrentSongIndex(prevIdx);
+      if (songs[prevIdx]) {
+        setSelectedKey(songs[prevIdx].assignedKey || songs[prevIdx].originalKey || "C");
+      }
     }
-  }, [currentSongIndex]);
+  }, [currentSongIndex, songs]);
 
   return (
     <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
@@ -285,8 +296,8 @@ export default function PracticeModeClient({
           </div>
         </aside>
 
-        {/* Center Column: Active Chord Chart */}
-        <main className="flex flex-1 flex-col overflow-hidden bg-zinc-950">
+        {/* Center Column: Active Chord Chart with Annotation Overlay */}
+        <main className="relative flex flex-1 flex-col overflow-hidden bg-zinc-950">
           {/* Chart Control Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-zinc-900/80 p-3 z-10">
             <div className="flex items-center gap-2 flex-wrap">
@@ -387,6 +398,15 @@ export default function PracticeModeClient({
               )}
             </div>
           </div>
+
+          {/* Canvas & Notes Drawing Overlay */}
+          <AnnotationCanvas
+            songId={activeSong.songId || activeSong.slotId}
+            setlistId={setlistId}
+            setlistSongId={activeSong.slotId}
+            songTitle={activeSong.title}
+            containerRef={chartScrollRef}
+          />
 
           {/* Scrollable Song Chart View */}
           <div
