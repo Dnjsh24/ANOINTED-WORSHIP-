@@ -69,7 +69,7 @@ type DashboardSetlistSongRow = Pick<
   Database["public"]["Tables"]["setlist_songs"]["Row"],
   "id" | "assigned_key" | "song_order"
 > & {
-  song: Pick<Database["public"]["Tables"]["songs"]["Row"], "id" | "title" | "bpm"> | null;
+  song: Pick<Database["public"]["Tables"]["songs"]["Row"], "id" | "title" | "bpm" | "original_key"> | null;
 };
 type DashboardSetlistRow = Pick<
   Database["public"]["Tables"]["setlists"]["Row"],
@@ -221,7 +221,8 @@ export default async function DashboardPage() {
                 song:songs (
                   id,
                   title,
-                  bpm
+                  bpm,
+                  original_key
                 )
               )
             `)
@@ -245,29 +246,11 @@ export default async function DashboardPage() {
           time: `${dbEvent.starts_at.slice(0, 5)} - ${dbEvent.ends_at?.slice(0, 5) || ""}`,
           location: dbEvent.location ?? "Main Sanctuary",
         };
-            .then(({ data }) => (data ?? []).filter((item) => Boolean(item.events)))
-        : Promise.resolve([]),
-    ]);
-
-    if (profileResult.data?.full_name) userFullName = profileResult.data.full_name;
-
-    if (teamContext.teamId) {
-      if (upcomingCountResult.count !== null) upcomingEventsCount = upcomingCountResult.count;
-
-      const dbEvent = dbEventResult.data;
-      if (dbEvent) {
-        nextEvent = {
-          id: dbEvent.id,
-          name: dbEvent.name,
-          date: dbEvent.event_date,
-          time: `${dbEvent.starts_at.slice(0, 5)} - ${dbEvent.ends_at?.slice(0, 5) || ""}`,
-          location: dbEvent.location ?? "Main Sanctuary",
-        };
       } else {
         nextEvent = null;
       }
 
-      const upcomingSetlists = upcomingSetlistsResult as unknown as DashboardSetlistRow[];
+      const upcomingSetlists = (dbSetlistResult.data ?? []) as unknown as DashboardSetlistRow[];
       if (upcomingSetlists.length > 0) {
         const sortedSetlists = [...upcomingSetlists].sort((a, b) => {
           const dateA = firstRelation(a.events)?.event_date ?? "";
