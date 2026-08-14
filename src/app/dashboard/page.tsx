@@ -26,6 +26,7 @@ import type { ComponentType, ReactNode } from "react";
 import { OfflinePreloader } from "@/components/offline-preloader";
 import { AppShell } from "@/components/app-shell";
 import { getSetlistTypeLabel } from "@/lib/domain/event-types";
+import { getEffectiveAssignedKey } from "@/lib/domain/setlists";
 import { currentUser as sampleUser, events, setlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -266,7 +267,7 @@ export default async function DashboardPage() {
         setlistSongsList = dbSetlistSongs.flatMap((setlistSong) => setlistSong.song
           ? [{
               id: setlistSong.id,
-              assignedKey: setlistSong.assigned_key || setlistSong.song.original_key || "C",
+              assignedKey: getEffectiveAssignedKey(setlistSong.assigned_key, setlistSong.song.original_key),
               song: {
                 id: setlistSong.song.id,
                 title: setlistSong.song.title,

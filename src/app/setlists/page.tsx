@@ -8,6 +8,7 @@ import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import { listDesktopSetlists } from "@/lib/desktop/workspace";
 import { asEventApprovalStatus } from "@/lib/domain/database-values";
 import type { Database } from "@/lib/supabase/database.types";
+import { getEffectiveAssignedKey } from "@/lib/domain/setlists";
 import type { Event, EventType, LinkedEventContext } from "@/lib/types";
 import type { SetlistWithEvent } from "@/lib/domain/setlist-events";
 
@@ -172,16 +173,17 @@ export default async function SetlistsPage() {
         .sort((left, right) => left.song_order - right.song_order)
         .map((slot) => {
           const song = Array.isArray(slot.song) ? slot.song[0] : slot.song;
+          const effectiveKey = getEffectiveAssignedKey(slot.assigned_key, song?.original_key);
           return {
             id: slot.id,
-            assignedKey: slot.assigned_key || song?.original_key || "C",
+            assignedKey: effectiveKey,
             order: slot.song_order,
             song: {
               id: song?.id ?? slot.id,
               title: song?.title || "Unknown Song",
               artist: song?.artist || "",
               originalKey: song?.original_key || "C",
-              currentKey: slot.assigned_key || song?.original_key || "C",
+              currentKey: effectiveKey,
               bpm: song?.bpm ?? 70,
               timeSignature: song?.time_signature || "4/4",
               tags: song?.tags ?? [],

@@ -1,5 +1,6 @@
 import type { Permission } from "@/lib/domain/rbac";
 import { parseLyricsAndChords } from "@/lib/domain/chords";
+import { getEffectiveAssignedKey } from "@/lib/domain/setlists";
 import { getDesktopDatabase, newMutationId, nowIso, withDesktopTransaction } from "@/lib/desktop/db";
 import type { TeamContext } from "@/lib/supabase/team-context";
 import type { Setlist, Song, TeamRole } from "@/lib/types";
@@ -173,7 +174,7 @@ function toSetlist(setlist: Row): Setlist {
   `, setlist.id).map((item) => ({
     id: String(item.id),
     order: Number(item.song_order),
-    assignedKey: String(item.assigned_key),
+    assignedKey: getEffectiveAssignedKey(String(item.assigned_key), String(item.original_key)),
     lead: typeof item.notes === "string" && item.notes.startsWith("Lead: ") ? item.notes.slice(6) : undefined,
     arrangement: item.arrangement ? String(item.arrangement) : null,
     bandNotes: item.band_notes ? String(item.band_notes) : null,

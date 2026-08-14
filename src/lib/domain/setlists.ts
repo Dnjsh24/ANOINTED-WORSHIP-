@@ -22,3 +22,11 @@ export function moveSetlistSong(songs: SetlistSong[], songId: string, direction:
 
   return sortSetlistSongs(next);
 }
+
+export function getEffectiveAssignedKey(assignedKey?: string | null, originalKey?: string | null): string {
+  const assigned = assignedKey?.trim();
+  const original = originalKey?.trim();
+  if (assigned && assigned !== "C") return assigned;
+  if (original) return original;
+  return assigned || "C";
+}

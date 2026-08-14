@@ -6,6 +6,7 @@ import { type SetlistFormSong } from "@/components/setlist-form";
 import { SaveAsTemplateButton } from "@/components/save-as-template-button";
 import { setlists as sampleSetlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { getEffectiveAssignedKey } from "@/lib/domain/setlists";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { EventType, Setlist } from "@/lib/types";
@@ -112,16 +113,17 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
         setlist.songs = (selectedSongsData as unknown as SelectedSetlistSongRow[]).flatMap((row) => {
           const s = Array.isArray(row.songs) ? row.songs[0] : row.songs;
           if (!s) return [];
+          const effectiveKey = getEffectiveAssignedKey(row.assigned_key, s.original_key);
           return [{
             id: row.id,
             order: row.song_order,
-            assignedKey: row.assigned_key || s.original_key || "C",
+            assignedKey: effectiveKey,
             song: {
               id: s.id,
               title: s.title,
               artist: "",
               originalKey: s.original_key,
-              currentKey: row.assigned_key || s.original_key || "C",
+              currentKey: effectiveKey,
               bpm: s.bpm,
               timeSignature: "4/4",
               tags: [],

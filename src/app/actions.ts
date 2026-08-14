@@ -18,6 +18,7 @@ import { notifyProfiles } from "@/lib/push-notifications";
 import { generateTeamCode } from "@/lib/domain/team-code";
 import { toPostgresTime } from "@/lib/domain/time";
 import { normalizeSetlistServiceTimes } from "@/lib/domain/event-types";
+import { getEffectiveAssignedKey } from "@/lib/domain/setlists";
 import {
   formatArrangementSequence,
   parseArrangementSections,
@@ -1219,7 +1220,7 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
           setlist_id: id,
           song_id: songId,
           song_order: index + 1,
-          assigned_key: existing?.assigned_key || keyMap.get(songId) || "C",
+          assigned_key: getEffectiveAssignedKey(existing?.assigned_key, keyMap.get(songId)),
           notes: existing?.notes || null,
         };
       });

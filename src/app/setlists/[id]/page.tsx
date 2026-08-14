@@ -7,6 +7,7 @@ import { ShareButton } from "@/components/share-button";
 import { ButtonLink } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { parseArrangementSections } from "@/lib/domain/arrangements";
+import { getEffectiveAssignedKey } from "@/lib/domain/setlists";
 import { asEventApprovalStatus } from "@/lib/domain/database-values";
 import { getLinkedEventLabel } from "@/lib/domain/setlist-events";
 import { can } from "@/lib/domain/rbac";
@@ -163,7 +164,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           return [{
             id: slot.id,
             order: slot.song_order,
-            assignedKey: slot.assigned_key || slot.song.original_key || "C",
+            assignedKey: getEffectiveAssignedKey(slot.assigned_key, slot.song.original_key),
             lead: slot.notes?.startsWith("Lead: ") ? slot.notes.slice(6) : "",
             youtubeUrl: slot.song.youtube_url,
             arrangement: slot.arrangement,
