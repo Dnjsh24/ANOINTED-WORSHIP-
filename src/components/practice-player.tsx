@@ -180,14 +180,6 @@ export function PracticePlayer({
 
       try {
         ytPlayerRef.current = new window.YT!.Player(ytContainerDomId, {
-          videoId: ytVideoId,
-          playerVars: {
-            autoplay: 0,
-            controls: 1,
-            modestbranding: 1,
-            rel: 0,
-            origin: typeof window !== "undefined" ? window.location.origin : undefined,
-          },
           events: {
             onReady: (event: { target: unknown }) => {
               if (!isMounted) return;
@@ -375,7 +367,14 @@ export function PracticePlayer({
       <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black border border-white/10 flex items-center justify-center">
         {provider === "youtube" && ytVideoId && (
           <div className="h-full w-full">
-            <div id={ytContainerDomId} className="h-full w-full" />
+            <iframe
+              id={ytContainerDomId}
+              src={`https://www.youtube.com/embed/${ytVideoId}?enablejsapi=1&autoplay=0&rel=0&playsinline=1`}
+              className="h-full w-full border-0 rounded-md"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              title={`YouTube Player - ${activeSong.title}`}
+            />
           </div>
         )}
 
