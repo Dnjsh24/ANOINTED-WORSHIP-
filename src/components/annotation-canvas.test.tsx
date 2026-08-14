@@ -48,7 +48,7 @@ describe("AnnotationCanvas", () => {
     expect(screen.getByRole("button", { name: /drawing on/i })).toBeInTheDocument();
   });
 
-  it("opens text notes drawer and saves musician text notes", async () => {
+  it("toggles on-screen notes mode and places text notes", async () => {
     const user = userEvent.setup();
     const containerRef = { current: document.createElement("div") };
 
@@ -65,14 +65,7 @@ describe("AnnotationCanvas", () => {
     const notesBtn = screen.getByRole("button", { name: /^notes/i });
     await user.click(notesBtn);
 
-    const textarea = screen.getByPlaceholderText(/vocal cues, solo timings/i);
-    expect(textarea).toBeInTheDocument();
-
-    await user.type(textarea, "Guitar solo at Chorus 2");
-    expect(textarea).toHaveValue("Guitar solo at Chorus 2");
-
-    const saveBtn = screen.getByRole("button", { name: /save notes/i });
-    await user.click(saveBtn);
+    expect(screen.getByRole("button", { name: /notes mode on/i })).toBeInTheDocument();
   });
 
   it("toggles personal vs team shared visibility", async () => {

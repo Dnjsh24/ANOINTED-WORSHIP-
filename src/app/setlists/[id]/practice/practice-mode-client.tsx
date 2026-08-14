@@ -16,6 +16,7 @@ import {
   Music,
   ListMusic,
   GripHorizontal,
+  Maximize2,
 } from "lucide-react";
 import type { PracticeSetlistSong } from "@/lib/domain/practice";
 import { getYouTubeVideoId, getSpotifyTrackInfo } from "@/lib/domain/practice";
@@ -113,6 +114,7 @@ function DraggableWindow({
     return defaultPos;
   });
 
+  const [isMinimized, setIsMinimized] = useState(false);
   const isDraggingRef = useRef(false);
   const offsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -149,6 +151,49 @@ function DraggableWindow({
     }
   };
 
+  if (isMinimized) {
+    return (
+      <div
+        style={{
+          left: `${pos.x}px`,
+          top: `${pos.y}px`,
+          zIndex,
+        }}
+        onPointerDown={onFocus}
+        className="fixed z-40 flex items-center gap-2 rounded-full border border-white/20 bg-zinc-900/95 px-3 py-1.5 shadow-2xl backdrop-blur-md cursor-grab active:cursor-grabbing select-none hover:bg-zinc-800 transition"
+      >
+        <div
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          className="flex items-center gap-2"
+        >
+          <GripHorizontal className="size-3.5 text-zinc-400" />
+          {icon}
+          <span className="text-xs font-bold text-zinc-200 max-w-[140px] truncate">{title}</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsMinimized(false)}
+          className="p-1 text-zinc-400 hover:text-white rounded"
+          title="Expand window"
+          aria-label="Expand window"
+        >
+          <Maximize2 className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1 text-zinc-400 hover:text-red-400 rounded"
+          title="Close window"
+          aria-label="Close window"
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
@@ -158,7 +203,7 @@ function DraggableWindow({
       }}
       onPointerDown={onFocus}
       className={cn(
-        "fixed rounded-xl border border-white/15 bg-zinc-900/95 p-4 shadow-2xl backdrop-blur-md transition-shadow select-none",
+        "fixed rounded-xl border border-white/15 bg-zinc-900/95 p-4 shadow-2xl backdrop-blur-md transition-shadow select-none resize overflow-auto min-w-[280px] min-h-[140px]",
         className,
       )}
     >
@@ -175,17 +220,29 @@ function DraggableWindow({
             {title}
           </h3>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded p-1 text-zinc-400 hover:text-white hover:bg-zinc-800 shrink-0"
-          aria-label="Close window"
-        >
-          <X className="size-4" />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsMinimized(true)}
+            className="rounded p-1 text-zinc-400 hover:text-white hover:bg-zinc-800"
+            title="Minimize window"
+            aria-label="Minimize window"
+          >
+            <Minus className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-zinc-400 hover:text-white hover:bg-zinc-800"
+            title="Close window"
+            aria-label="Close window"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
       </div>
 
-      <div className="select-text">{children}</div>
+      <div className="select-text h-[calc(100%-2.5rem)] overflow-y-auto">{children}</div>
     </div>
   );
 }

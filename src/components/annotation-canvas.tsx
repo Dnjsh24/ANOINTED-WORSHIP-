@@ -11,12 +11,13 @@ import {
   Copy,
   StickyNote,
   ChevronDown,
-  ChevronUp,
   Check,
   X,
-  Type,
   Lock,
   Share2,
+  GripHorizontal,
+  Minus,
+  Maximize2,
 } from "lucide-react";
 import {
   type SongAnnotation,
@@ -81,7 +82,6 @@ export function AnnotationCanvas({
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [showShareModal, setShowShareModal] = useState(false);
 
-  const [showNotesDrawer, setShowNotesDrawer] = useState(false);
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [targetSetlistIdInput, setTargetSetlistIdInput] = useState("");
 
@@ -248,9 +248,12 @@ export function AnnotationCanvas({
       id: `screen-note-${Date.now()}`,
       x: Math.round(coords.x),
       y: Math.round(coords.y),
-      text: "New note...",
+      width: 220,
+      height: 110,
+      text: "",
       fontSize: textSize,
       color: penColor,
+      isMinimized: false,
     };
 
     const updated = [...screenNotes, newNote];
@@ -307,19 +310,45 @@ export function AnnotationCanvas({
     }
   };
 
-  const handleUpdateScreenNoteText = (id: string, text: string) => {
-    const updated = screenNotes.map((n) => (n.id === id ? { ...n, text } : n));
+  const handleUpdateScreenNote = (id: string, updates: Partial<OnScreenTextNote>) => {
+    const updated = screenNotes.map((n) => (n.id === id ? { ...n, ...updates } : n));
     setScreenNotes(updated);
-  };
-
-  const handleSaveScreenNoteBlur = () => {
-    saveCurrentAnnotation();
+    saveCurrentAnnotation(updated);
   };
 
   const handleDeleteScreenNote = (id: string) => {
     const updated = screenNotes.filter((n) => n.id !== id);
     setScreenNotes(updated);
     saveCurrentAnnotation(updated);
+  };
+
+  // Draggable screen note positioning
+  const handleNotePointerDown = (id: string, e: React.PointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest("button, input, textarea, select")) return;
+    const targetNote = screenNotes.find((n) => n.id === id);
+    if (!targetNote) return;
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origX = targetNote.x;
+    const origY = targetNote.y;
+
+    const handlePointerMove = (moveEv: PointerEvent) => {
+      const dx = moveEv.clientX - startX;
+      const dy = moveEv.clientY - startY;
+      const nextX = Math.max(0, origX + dx);
+      const nextY = Math.max(0, origY + dy);
+      setScreenNotes((prev) => prev.map((n) => (n.id === id ? { ...n, x: nextX, y: nextY } : n)));
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      saveCurrentAnnotation();
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
   };
 
   const handleSaveAsMasterDefault = () => {
@@ -418,6 +447,15 @@ export function AnnotationCanvas({
     setShowShareModal(false);
   };
 
+  const handleToggleNotesMode = () => {
+    if (penTool === "text" && drawMode) {
+      setDrawMode(false);
+    } else {
+      setPenTool("text");
+      setDrawMode(true);
+    }
+  };
+
   return (
     <>
       {/* HTML5 Canvas Overlay */}
@@ -439,102 +477,197 @@ export function AnnotationCanvas({
         )}
       />
 
-      {/* Render Floating On-Screen Text Notes over Lyrics/Chords */}
+      {/* Render Draggable, Resizable, Minimizable Floating On-Screen Text Note Boxes */}
       <div className="absolute inset-0 z-30 pointer-events-none overflow-visible">
-        {screenNotes.map((note) => (
-          <div
-            key={note.id}
-            style={{
-              left: `${note.x}px`,
-              top: `${note.y}px`,
-            }}
-            className="absolute pointer-events-auto group flex items-start gap-1 rounded-lg bg-zinc-950/90 p-1.5 shadow-2xl border border-white/20 backdrop-blur-sm transition-all"
-          >
-            <div className="flex flex-col gap-1">
-              <input
-                type="text"
+        {screenNotes.map((note, index) => {
+          if (note.isMinimized) {
+            return (
+              <div
+                key={note.id}
+                style={{
+                  left: `${note.x}px`,
+                  top: `${note.y}px`,
+                }}
+                className="absolute pointer-events-auto flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-zinc-950/95 px-3 py-1 shadow-2xl backdrop-blur-md transition-all cursor-grab active:cursor-grabbing select-none"
+                onPointerDown={(e) => handleNotePointerDown(note.id, e)}
+              >
+                <GripHorizontal className="size-3 text-zinc-400" />
+                <StickyNote className="size-3.5 text-amber-400 shrink-0" />
+                <span
+                  style={{ color: note.color, fontSize: "12px" }}
+                  className="font-bold max-w-[120px] truncate"
+                >
+                  {note.text || `Note ${index + 1}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateScreenNote(note.id, { isMinimized: false })}
+                  className="p-0.5 text-zinc-400 hover:text-white rounded"
+                  title="Expand Note"
+                >
+                  <Maximize2 className="size-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteScreenNote(note.id)}
+                  className="p-0.5 text-zinc-400 hover:text-red-400 rounded"
+                  title="Delete Note"
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={note.id}
+              style={{
+                left: `${note.x}px`,
+                top: `${note.y}px`,
+                width: note.width ? `${note.width}px` : "240px",
+                minHeight: note.height ? `${note.height}px` : "120px",
+              }}
+              className="absolute pointer-events-auto flex flex-col rounded-xl border border-amber-500/30 bg-zinc-950/95 p-2.5 shadow-2xl backdrop-blur-md transition-shadow resize overflow-auto min-w-[180px] min-h-[100px] select-none"
+            >
+              {/* Note Header Drag Handle */}
+              <div
+                onPointerDown={(e) => handleNotePointerDown(note.id, e)}
+                className="flex items-center justify-between pb-1.5 border-b border-white/10 mb-1.5 cursor-grab active:cursor-grabbing bg-zinc-900/60 -mx-2.5 -mt-2.5 px-2.5 pt-2 rounded-t-xl"
+              >
+                <div className="flex items-center gap-1.5">
+                  <GripHorizontal className="size-3.5 text-zinc-400 shrink-0" />
+                  <StickyNote className="size-3 text-amber-400 shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
+                    On-Screen Note
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateScreenNote(note.id, { isMinimized: true })}
+                    className="p-0.5 text-zinc-400 hover:text-white rounded"
+                    title="Minimize Note"
+                  >
+                    <Minus className="size-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteScreenNote(note.id)}
+                    className="p-0.5 text-zinc-400 hover:text-red-400 rounded"
+                    title="Delete Note"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Text Note Area */}
+              <textarea
                 value={note.text}
-                onChange={(e) => handleUpdateScreenNoteText(note.id, e.target.value)}
-                onBlur={handleSaveScreenNoteBlur}
+                onChange={(e) => handleUpdateScreenNote(note.id, { text: e.target.value })}
                 style={{
                   fontSize: `${note.fontSize}px`,
                   color: note.color,
                 }}
-                className="bg-transparent font-bold focus:outline-none focus:ring-1 focus:ring-violet-400/50 rounded px-1 min-w-[120px]"
-                placeholder="Type note..."
+                placeholder="Type note on screen..."
+                rows={3}
+                className="w-full flex-1 bg-transparent font-bold focus:outline-none placeholder-zinc-600 resize-none select-text"
               />
-            </div>
 
-            <button
-              type="button"
-              onClick={() => handleDeleteScreenNote(note.id)}
-              className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-400 transition"
-              title="Delete Note"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-        ))}
+              {/* Inline Font Size & Color Controls */}
+              <div className="flex items-center justify-between pt-1.5 border-t border-white/10 mt-1 text-[10px]">
+                <div className="flex items-center gap-1">
+                  {FONT_SIZES.map((sz) => (
+                    <button
+                      key={sz}
+                      type="button"
+                      onClick={() => handleUpdateScreenNote(note.id, { fontSize: sz })}
+                      className={cn(
+                        "px-1 font-mono rounded transition",
+                        note.fontSize === sz ? "bg-amber-500 text-black font-extrabold" : "text-zinc-400 hover:text-white",
+                      )}
+                    >
+                      {sz}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1">
+                  {STROKE_COLORS.map((c) => (
+                    <button
+                      key={c.name}
+                      type="button"
+                      onClick={() => handleUpdateScreenNote(note.id, { color: c.value })}
+                      style={{ backgroundColor: c.value }}
+                      className={cn(
+                        "size-3.5 rounded-full border border-white/20 transition-transform",
+                        note.color === c.value ? "scale-125 ring-1 ring-white" : "hover:scale-110",
+                      )}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Floating Toolbar Controls */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-zinc-900/95 p-2 shadow-2xl backdrop-blur-md">
-        {/* Toggle Draw Mode */}
+        {/* Toggle Freehand Draw Mode */}
         <button
           type="button"
-          onClick={() => setDrawMode(!drawMode)}
+          onClick={() => {
+            if (penTool !== "pen") setPenTool("pen");
+            setDrawMode(!drawMode || penTool !== "pen");
+          }}
           className={cn(
             "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition min-h-[36px]",
-            drawMode
+            drawMode && penTool === "pen"
               ? "bg-violet-600 text-white shadow-md"
               : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700",
           )}
         >
           <PenTool className="size-3.5" />
-          <span>{drawMode ? "Drawing ON" : "Draw"}</span>
+          <span>{drawMode && penTool === "pen" ? "Drawing ON" : "Draw"}</span>
+        </button>
+
+        {/* Toggle On-Screen Notes Mode */}
+        <button
+          type="button"
+          onClick={handleToggleNotesMode}
+          className={cn(
+            "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition min-h-[36px]",
+            drawMode && penTool === "text"
+              ? "bg-amber-600 text-white shadow-md border border-amber-400/50"
+              : screenNotes.length > 0
+                ? "bg-amber-950/80 text-amber-300 border border-amber-500/40"
+                : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700",
+          )}
+        >
+          <StickyNote className="size-3.5" />
+          <span>
+            {drawMode && penTool === "text"
+              ? "Notes Mode ON"
+              : `Notes (${screenNotes.length})`}
+          </span>
         </button>
 
         {drawMode && (
           <>
-            {/* Pen vs Eraser vs Text Tool */}
-            <div className="flex items-center gap-1 rounded-lg bg-zinc-800 p-0.5 border border-white/10">
-              <button
-                type="button"
-                onClick={() => setPenTool("pen")}
-                className={cn(
-                  "p-1.5 rounded text-xs font-bold transition flex items-center gap-1",
-                  penTool === "pen" ? "bg-violet-600 text-white" : "text-zinc-400 hover:text-white",
-                )}
-                aria-label="Pen tool"
-                title="Pen Freehand"
-              >
-                <PenTool className="size-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setPenTool("text")}
-                className={cn(
-                  "p-1.5 rounded text-xs font-bold transition flex items-center gap-1",
-                  penTool === "text" ? "bg-violet-600 text-white" : "text-zinc-400 hover:text-white",
-                )}
-                aria-label="Text Note tool"
-                title="On-Screen Text Note"
-              >
-                <Type className="size-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setPenTool("eraser")}
-                className={cn(
-                  "p-1.5 rounded text-xs font-bold transition flex items-center gap-1",
-                  penTool === "eraser" ? "bg-violet-600 text-white" : "text-zinc-400 hover:text-white",
-                )}
-                aria-label="Eraser tool"
-                title="Eraser"
-              >
-                <Eraser className="size-3.5" />
-              </button>
-            </div>
+            {/* Eraser Tool */}
+            <button
+              type="button"
+              onClick={() => setPenTool("eraser")}
+              className={cn(
+                "p-1.5 rounded text-xs font-bold transition flex items-center gap-1 border border-white/10",
+                penTool === "eraser" ? "bg-violet-600 text-white" : "bg-zinc-800 text-zinc-400 hover:text-white",
+              )}
+              aria-label="Eraser tool"
+              title="Eraser"
+            >
+              <Eraser className="size-3.5" />
+            </button>
 
             {/* Stroke Size / Font Size Selector */}
             {penTool === "text" ? (
@@ -546,7 +679,7 @@ export function AnnotationCanvas({
                     onClick={() => setTextSize(size)}
                     className={cn(
                       "px-1.5 py-0.5 font-mono text-[10px] font-bold rounded transition",
-                      textSize === size ? "bg-violet-600 text-white" : "text-zinc-400 hover:text-white",
+                      textSize === size ? "bg-amber-600 text-white" : "text-zinc-400 hover:text-white",
                     )}
                   >
                     {size}px
@@ -604,22 +737,6 @@ export function AnnotationCanvas({
         )}
 
         <div className="h-4 w-px bg-white/10" />
-
-        {/* Text Notes Overview Drawer Toggle */}
-        <button
-          type="button"
-          onClick={() => setShowNotesDrawer(!showNotesDrawer)}
-          className={cn(
-            "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition min-h-[36px]",
-            textNotes || screenNotes.length > 0
-              ? "bg-amber-950/80 text-amber-300 border border-amber-500/40"
-              : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700",
-          )}
-        >
-          <StickyNote className="size-3.5" />
-          <span>Notes {textNotes || screenNotes.length > 0 ? `(${screenNotes.length})` : ""}</span>
-          {showNotesDrawer ? <ChevronDown className="size-3" /> : <ChevronUp className="size-3" />}
-        </button>
 
         {/* Personal vs Team / Role Sharing Selector */}
         <button
@@ -784,44 +901,6 @@ export function AnnotationCanvas({
                 Save Sharing Settings
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Expandable Text Notes Panel Overview */}
-      {showNotesDrawer && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 w-80 max-w-[90vw] rounded-xl border border-white/10 bg-zinc-900/95 p-3 shadow-2xl backdrop-blur-md animate-fade-up">
-          <div className="flex items-center justify-between pb-2 border-b border-white/10">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-              <StickyNote className="size-4" /> Musician Overview Notes ({songTitle || "Active Song"})
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowNotesDrawer(false)}
-              className="text-zinc-400 hover:text-white"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-
-          <textarea
-            value={textNotes}
-            onChange={(e) => setTextNotes(e.target.value)}
-            onBlur={() => saveCurrentAnnotation()}
-            placeholder="Type vocal cues, solo timings, or arrangement notes here..."
-            rows={3}
-            className="mt-2 w-full rounded-lg bg-zinc-950 p-2.5 text-xs text-zinc-100 placeholder-zinc-500 border border-white/10 focus:border-violet-500 focus:outline-none"
-          />
-
-          <div className="mt-2 flex items-center justify-between pt-1 text-[10px] text-zinc-400">
-            <span>{screenNotes.length} on-screen note(s) active</span>
-            <button
-              type="button"
-              onClick={() => saveCurrentAnnotation()}
-              className="flex items-center gap-1 rounded bg-violet-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-violet-500"
-            >
-              <Check className="size-3" /> Save Notes
-            </button>
           </div>
         </div>
       )}

@@ -2,9 +2,12 @@ export interface OnScreenTextNote {
   id: string;
   x: number;
   y: number;
+  width?: number;
+  height?: number;
   text: string;
   fontSize: number;
   color: string;
+  isMinimized?: boolean;
   targetRoles?: string[];
 }
 
