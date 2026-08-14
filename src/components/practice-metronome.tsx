@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Play, Square, Volume2, BookmarkCheck, Clock, Plus, Minus } from "lucide-react";
+import { Play, Square, Volume2, BookmarkCheck, Plus, Minus } from "lucide-react";
 import { type PracticeSetlistSong, parseTimeSignature } from "@/lib/domain/practice";
 import { updateSongBpmAction } from "@/app/actions";
 import { cn } from "@/lib/utils";
@@ -183,28 +183,19 @@ export function PracticeMetronome({
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-zinc-900/90 p-4 shadow-lg backdrop-blur-md w-full h-full flex-1 min-h-0 overflow-auto justify-between">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Clock className="size-5 text-violet-400" />
-          <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
-            Metronome
-          </span>
-        </div>
-        <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400">
-          <span>Time: <strong className="text-zinc-200">{timeSig.display}</strong></span>
-          <span className="text-zinc-600">•</span>
-          {savedBpm ? (
-            <span className="text-emerald-400">Saved BPM: <strong>{savedBpm}</strong></span>
-          ) : (
-            <span className="text-amber-400">BPM not set</span>
-          )}
-        </div>
+    <div className="flex flex-col gap-2 w-full h-full flex-1 min-h-0 overflow-auto justify-between p-1">
+      {/* Sub-Header info bar */}
+      <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-400 shrink-0">
+        <span>Time: <strong className="text-zinc-200">{timeSig.display}</strong></span>
+        {savedBpm ? (
+          <span className="text-emerald-400">Saved BPM: <strong>{savedBpm}</strong></span>
+        ) : (
+          <span className="text-amber-400">BPM not set</span>
+        )}
       </div>
 
       {/* BPM Controls and Visual Beat Indicator */}
-      <div className="flex flex-col items-center gap-3 py-2 bg-zinc-950/60 rounded-lg p-3 border border-white/5">
+      <div className="flex flex-col items-center gap-2 py-2 bg-zinc-950/60 rounded-lg p-2 border border-white/5">
         <div className="flex items-center gap-4">
           <button
             type="button"

@@ -325,47 +325,39 @@ export function PracticePlayer({
   const canSeek = provider === "youtube" && duration > 0;
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-zinc-900/90 p-4 shadow-lg backdrop-blur-md w-full h-full flex-1 min-h-0 justify-between">
-      {/* Top Header & Session Provider Toggle */}
-      <div className="flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          {provider === "youtube" ? (
-            <Video className="size-5 text-red-500" />
-          ) : (
-            <Music className="size-5 text-emerald-500" />
-          )}
-          <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
-            {provider === "youtube" ? "YouTube Audio/Video" : "Spotify Preview Track"}
-          </span>
-        </div>
+    <div className="flex flex-col gap-2 w-full h-full flex-1 min-h-0 justify-between">
+      {/* Provider Status & Toggle */}
+      <div className="flex items-center justify-between shrink-0 mb-1 gap-1 text-[11px] font-bold">
+        <span className="text-zinc-400 truncate">
+          {provider === "youtube" ? "YouTube Audio/Video" : "Spotify Preview Track"}
+        </span>
 
-        {/* Session Provider Toggle (only if both URLs exist) */}
         {hasYouTube && hasSpotify && (
-          <div className="inline-flex rounded-lg bg-zinc-800 p-1 border border-white/10">
+          <div className="inline-flex rounded-lg bg-zinc-800 p-0.5 border border-white/10 shrink-0">
             <button
               type="button"
               onClick={() => handleToggleProvider("youtube")}
               className={cn(
-                "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold transition-colors",
+                "flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold transition-colors",
                 provider === "youtube"
                   ? "bg-red-600 text-white shadow-sm"
                   : "text-zinc-400 hover:text-white",
               )}
             >
-              <Video className="size-3.5" />
+              <Video className="size-3" />
               YouTube
             </button>
             <button
               type="button"
               onClick={() => handleToggleProvider("spotify")}
               className={cn(
-                "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-bold transition-colors",
+                "flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold transition-colors",
                 provider === "spotify"
                   ? "bg-emerald-600 text-white shadow-sm"
                   : "text-zinc-400 hover:text-white",
               )}
             >
-              <Music className="size-3.5" />
+              <Music className="size-3" />
               Spotify
             </button>
           </div>
@@ -373,7 +365,7 @@ export function PracticePlayer({
       </div>
 
       {/* Embed Container Area */}
-      <div className="relative flex-1 w-full min-h-[140px] overflow-hidden rounded-lg bg-black border border-white/10 flex items-center justify-center">
+      <div className="relative flex-1 w-full min-h-0 overflow-hidden rounded-lg bg-black border border-white/10 flex items-center justify-center">
         {provider === "youtube" && ytVideoId && (
           <div className="h-full w-full">
             <iframe
