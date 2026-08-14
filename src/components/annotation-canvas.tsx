@@ -488,33 +488,17 @@ export function AnnotationCanvas({
                   left: `${note.x}px`,
                   top: `${note.y}px`,
                 }}
-                className="absolute pointer-events-auto flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-zinc-950/95 px-3 py-1 shadow-2xl backdrop-blur-md transition-all cursor-grab active:cursor-grabbing select-none"
                 onPointerDown={(e) => handleNotePointerDown(note.id, e)}
+                onClick={() => handleUpdateScreenNote(note.id, { isMinimized: false })}
+                className="absolute pointer-events-auto flex size-11 items-center justify-center rounded-full border border-amber-500/50 bg-zinc-950/95 shadow-2xl backdrop-blur-md transition-transform cursor-grab active:cursor-grabbing select-none hover:scale-110"
+                title={`Expand Note (${note.text || `Note ${index + 1}`}) - Drag to move`}
               >
-                <GripHorizontal className="size-3 text-zinc-400" />
-                <StickyNote className="size-3.5 text-amber-400 shrink-0" />
-                <span
-                  style={{ color: note.color, fontSize: "12px" }}
-                  className="font-bold max-w-[120px] truncate"
-                >
-                  {note.text || `Note ${index + 1}`}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleUpdateScreenNote(note.id, { isMinimized: false })}
-                  className="p-0.5 text-zinc-400 hover:text-white rounded"
-                  title="Expand Note"
-                >
-                  <Maximize2 className="size-3" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteScreenNote(note.id)}
-                  className="p-0.5 text-zinc-400 hover:text-red-400 rounded"
-                  title="Delete Note"
-                >
-                  <X className="size-3" />
-                </button>
+                <div className="relative flex items-center justify-center">
+                  <StickyNote className="size-5 text-amber-400 shrink-0" />
+                  <div className="absolute -top-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] font-black text-black">
+                    <Maximize2 className="size-2" />
+                  </div>
+                </div>
               </div>
             );
           }

@@ -159,37 +159,19 @@ function DraggableWindow({
           top: `${pos.y}px`,
           zIndex,
         }}
-        onPointerDown={onFocus}
-        className="fixed z-40 flex items-center gap-2 rounded-full border border-white/20 bg-zinc-900/95 px-3 py-1.5 shadow-2xl backdrop-blur-md cursor-grab active:cursor-grabbing select-none hover:bg-zinc-800 transition"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onClick={() => setIsMinimized(false)}
+        className="fixed z-40 flex size-12 items-center justify-center rounded-full border border-white/25 bg-zinc-900/95 shadow-2xl backdrop-blur-md cursor-grab active:cursor-grabbing select-none hover:scale-110 hover:border-violet-400/60 transition group"
+        title={`Click to expand ${title} (drag to move)`}
       >
-        <div
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          className="flex items-center gap-2"
-        >
-          <GripHorizontal className="size-3.5 text-zinc-400" />
+        <div className="relative flex items-center justify-center">
           {icon}
-          <span className="text-xs font-bold text-zinc-200 max-w-[140px] truncate">{title}</span>
+          <div className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-violet-600 text-[9px] font-black text-white ring-2 ring-zinc-900 shadow">
+            <Maximize2 className="size-2.5" />
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsMinimized(false)}
-          className="p-1 text-zinc-400 hover:text-white rounded"
-          title="Expand window"
-          aria-label="Expand window"
-        >
-          <Maximize2 className="size-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-1 text-zinc-400 hover:text-red-400 rounded"
-          title="Close window"
-          aria-label="Close window"
-        >
-          <X className="size-3.5" />
-        </button>
       </div>
     );
   }
