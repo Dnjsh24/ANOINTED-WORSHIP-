@@ -524,6 +524,13 @@ export function PracticePlayer({
         </button>
       </div>
 
+      {/* Spotify Preview Hint */}
+      {provider === "spotify" && (
+        <div className="rounded border border-emerald-500/20 bg-emerald-950/40 p-2 text-center text-[11px] text-emerald-300">
+          💡 Spotify embeds play 30s previews unless logged into Spotify in this browser. Log into Spotify, click <strong>Spotify ↗</strong> to open in app, or switch to <strong>YouTube</strong> for full song streaming!
+        </div>
+      )}
+
       {/* External Links */}
       <div className="flex items-center justify-end gap-3 text-xs text-zinc-400 pt-1">
         {activeSong.youtubeUrl && (
