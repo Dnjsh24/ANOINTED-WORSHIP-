@@ -331,8 +331,10 @@ export function AnnotationCanvas({
         onTouchMove={draw}
         onTouchEnd={stopDrawing}
         className={cn(
-          "absolute inset-0 z-10",
-          drawMode ? "pointer-events-auto cursor-crosshair" : "pointer-events-none",
+          "absolute inset-0",
+          drawMode
+            ? "z-30 pointer-events-auto cursor-crosshair touch-none"
+            : "z-10 pointer-events-none",
         )}
       />
 

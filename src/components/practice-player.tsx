@@ -407,6 +407,29 @@ export function PracticePlayer({
                 : "The video or track may be private, removed, or restricted from embedding."}
             </p>
 
+            {!hasYouTube && !hasSpotify && (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                <a
+                  href={`https://www.youtube.com/results?search_query=${encodeURIComponent(activeSong.title + " worship song")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-600/90 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-500 transition shadow-sm"
+                >
+                  <Video className="size-3.5" /> Search YouTube
+                  <ExternalLink className="size-3" />
+                </a>
+                <a
+                  href={`https://open.spotify.com/search/${encodeURIComponent(activeSong.title)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600/90 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 transition shadow-sm"
+                >
+                  <Music className="size-3.5" /> Search Spotify
+                  <ExternalLink className="size-3" />
+                </a>
+              </div>
+            )}
+
             {/* Fallback to other provider if available */}
             {hasYouTube && provider !== "youtube" && (
               <button

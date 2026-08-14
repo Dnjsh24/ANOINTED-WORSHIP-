@@ -29,39 +29,54 @@ export type PlaybackState =
 export type MediaProvider = "youtube" | "spotify";
 
 /**
- * Extracts YouTube Video ID from various URL formats.
+ * Extracts YouTube Video ID from various URL formats, including Shorts, Music, embeds, and raw 11-char IDs.
  */
 export function getYouTubeVideoId(url?: string | null): string | null {
   if (!url) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.trim().match(regExp);
-  return match && match[2].length === 11 ? match[2] : null;
+  const trimmed = url.trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(trimmed)) return trimmed;
+
+  const regExp = /(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/|v\/)|music\.youtube\.com\/(?:watch\?.*v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/;
+  const match = trimmed.match(regExp);
+  if (match && match[1]) return match[1];
+
+  const vMatch = trimmed.match(/[?&]v=([A-Za-z0-9_-]{11})/);
+  if (vMatch && vMatch[1]) return vMatch[1];
+
+  return null;
 }
 
 /**
- * Parses Spotify track URL and returns Spotify embed metadata.
+ * Parses Spotify track URL / URI and returns Spotify embed metadata.
+ * Supports standard URLs, internationalized URLs (open.spotify.com/intl-xx/track/...), and URIs (spotify:track:...).
  */
 export function getSpotifyTrackInfo(
   url?: string | null,
 ): { trackId: string; embedUrl: string; externalUrl: string } | null {
   if (!url) return null;
-  try {
-    const parsed = new URL(url.trim());
-    if (parsed.protocol !== "https:" || parsed.hostname !== "open.spotify.com") return null;
+  const trimmed = url.trim();
 
-    const segments = parsed.pathname.split("/").filter(Boolean);
-    const trackIdx = segments.indexOf("track");
-    const trackId = trackIdx >= 0 ? segments[trackIdx + 1] : undefined;
-    if (!trackId || !/^[A-Za-z0-9]{22}$/.test(trackId)) return null;
-
+  const uriMatch = trimmed.match(/^spotify:track:([A-Za-z0-9]{22})$/);
+  if (uriMatch && uriMatch[1]) {
+    const trackId = uriMatch[1];
     return {
       trackId,
       embedUrl: `https://open.spotify.com/embed/track/${trackId}`,
       externalUrl: `https://open.spotify.com/track/${trackId}`,
     };
-  } catch {
-    return null;
   }
+
+  const match = trimmed.match(/open\.spotify\.com\/(?:intl-[a-z]{2}\/)?track\/([A-Za-z0-9]{22})/);
+  if (match && match[1]) {
+    const trackId = match[1];
+    return {
+      trackId,
+      embedUrl: `https://open.spotify.com/embed/track/${trackId}`,
+      externalUrl: `https://open.spotify.com/track/${trackId}`,
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -77,33 +92,28 @@ export function getPreferredProvider(
   return null;
 }
 
-export interface ParsedTimeSignature {
+/**
+ * Parses time signature string (e.g. "4/4", "3/4", "6/8") into beats per measure.
+ * Defaults to 4 beats per measure if invalid.
+ */
+export function parseTimeSignature(timeSignature?: string | null): {
   beatsPerMeasure: number;
+  beatValue: number;
   beatUnit: number;
   display: string;
-}
+} {
+  if (!timeSignature) return { beatsPerMeasure: 4, beatValue: 4, beatUnit: 4, display: "4/4" };
+  const parts = timeSignature.trim().split("/");
+  const beats = parseInt(parts[0], 10);
+  const value = parseInt(parts[1], 10);
 
-/**
- * Parses time signature strings (e.g., "4/4", "3/4", "6/8") into beats per measure.
- * Falls back to 4/4 if invalid or missing.
- */
-export function parseTimeSignature(timeSig?: string | null): ParsedTimeSignature {
-  if (!timeSig || typeof timeSig !== "string") {
-    return { beatsPerMeasure: 4, beatUnit: 4, display: "4/4" };
-  }
+  const safeBeats = !isNaN(beats) && beats > 0 && beats <= 16 ? beats : 4;
+  const safeValue = !isNaN(value) && value > 0 && value <= 16 ? value : 4;
 
-  const trimmed = timeSig.trim();
-  const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})$/);
-  if (!match) {
-    return { beatsPerMeasure: 4, beatUnit: 4, display: "4/4" };
-  }
-
-  const beats = parseInt(match[1], 10);
-  const unit = parseInt(match[2], 10);
-
-  if (isNaN(beats) || beats < 1 || beats > 32 || isNaN(unit) || unit < 1 || unit > 32) {
-    return { beatsPerMeasure: 4, beatUnit: 4, display: "4/4" };
-  }
-
-  return { beatsPerMeasure: beats, beatUnit: unit, display: `${beats}/${unit}` };
+  return {
+    beatsPerMeasure: safeBeats,
+    beatValue: safeValue,
+    beatUnit: safeValue,
+    display: `${safeBeats}/${safeValue}`,
+  };
 }

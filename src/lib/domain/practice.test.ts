@@ -71,6 +71,7 @@ describe("practice domain logic", () => {
     it("parses 4/4 correctly", () => {
       expect(parseTimeSignature("4/4")).toEqual({
         beatsPerMeasure: 4,
+        beatValue: 4,
         beatUnit: 4,
         display: "4/4",
       });
@@ -79,11 +80,13 @@ describe("practice domain logic", () => {
     it("parses 3/4 and 6/8 correctly", () => {
       expect(parseTimeSignature("3/4")).toEqual({
         beatsPerMeasure: 3,
+        beatValue: 4,
         beatUnit: 4,
         display: "3/4",
       });
       expect(parseTimeSignature("6/8")).toEqual({
         beatsPerMeasure: 6,
+        beatValue: 8,
         beatUnit: 8,
         display: "6/8",
       });
@@ -92,16 +95,19 @@ describe("practice domain logic", () => {
     it("falls back to 4/4 for invalid or missing time signature", () => {
       expect(parseTimeSignature(null)).toEqual({
         beatsPerMeasure: 4,
+        beatValue: 4,
         beatUnit: 4,
         display: "4/4",
       });
       expect(parseTimeSignature("invalid")).toEqual({
         beatsPerMeasure: 4,
+        beatValue: 4,
         beatUnit: 4,
         display: "4/4",
       });
       expect(parseTimeSignature("0/4")).toEqual({
         beatsPerMeasure: 4,
+        beatValue: 4,
         beatUnit: 4,
         display: "4/4",
       });
