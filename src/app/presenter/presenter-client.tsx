@@ -16,7 +16,16 @@ import { persistDesktopPresenterLiveState } from "./desktop-live-actions";
 import { createCloudRemotePairing, revokeCloudRemotePairing } from "./remote-pairing-actions";
 import { deleteDesktopMotionPresetAction, saveDesktopMotionPresetAction } from "./desktop-motion-preset-actions";
 import { saveDesktopSceneLayersAction } from "./desktop-scene-layer-actions";
-import { deleteDesktopPptxAction, renameDesktopPptxAction, setDesktopPptxSlideViewModeAction } from "./desktop-pptx-actions";
+import {
+  addDesktopPptxSlideAction,
+  deleteDesktopPptxAction,
+  deleteDesktopPptxSlideAction,
+  duplicateDesktopPptxSlideAction,
+  renameDesktopPptxAction,
+  reorderDesktopPptxSlidesAction,
+  saveDesktopPptxSlideLayersAction,
+  setDesktopPptxSlideViewModeAction,
+} from "./desktop-pptx-actions";
 import { setDesktopLyricShortcutAction } from "./desktop-lyric-shortcut-actions";
 import { deleteDesktopLivePropPresetAction, saveDesktopLivePropPresetAction } from "./desktop-live-prop-actions";
 import { isRemoteCommand, REMOTE_PROTOCOL_VERSION, type RemoteCommandAcknowledgement, type RemoteContentLibrary, type RemoteLiveSource, type RemoteLiveState } from "@/lib/presentation/control-protocol";
@@ -36,6 +45,7 @@ import { savePresenterDraftAction } from "./presentation-draft-actions";
 import { BIBLE_BOOKS } from "@/lib/bible/catalog";
 import { resolveLyricShortcuts } from "@/lib/presentation/lyric-shortcuts";
 import { resolveLyricsReflowPreviewLines } from "@/lib/presentation/lyrics-reflow";
+import type { DesktopTeachingPresentation } from "@/lib/presentation/teaching-presentations";
 
 const PRESENTER_TABS = ["Lyrics", "Property", "Layers", "Motion", "Stage"] as const;
 type PresenterTab = (typeof PRESENTER_TABS)[number];
@@ -55,23 +65,6 @@ function isBibleApiVerse(value: unknown): value is BibleApiVerse {
     && typeof verse.verse === "number"
     && typeof verse.text === "string";
 }
-
-type DesktopTeachingPresentation = {
-  id: string;
-  name: string;
-  kind: "pptx" | "pdf";
-  sizeBytes: number;
-  slides: Array<{
-    id: string;
-    layers: SceneLayer[];
-    mediaUrl?: string;
-    renderedMediaUrl?: string;
-    viewMode?: "original" | "edited";
-    pdfPage?: number;
-    preview?: string;
-  }>;
-  report: { importedText: number; warnings: string[] };
-};
 
 export type PresenterSetlist = {
   id: string;
@@ -101,14 +94,17 @@ export type PresenterSetlist = {
   } | null;
 };
 
-function teachingPresentationSlides(presentation?: DesktopTeachingPresentation): PresentationSlide[] {
+function teachingPresentationSlides(
+  presentation?: DesktopTeachingPresentation,
+  legacyLayerOverrides: Record<string, SceneLayer[]> = {},
+): PresentationSlide[] {
   if (!presentation) return [];
   return presentation.slides.map((slide) => ({
     id: slide.id,
     type: "teaching",
     content: [],
     sectionLabel: slide.pdfPage ? `${presentation.name} · Page ${slide.pdfPage}` : presentation.name,
-    sceneLayers: slide.renderedMediaUrl && slide.viewMode !== "edited" ? [] : slide.layers,
+    sceneLayers: slide.renderedMediaUrl && slide.viewMode !== "edited" ? [] : legacyLayerOverrides[slide.id] ?? slide.layers,
     mediaUrl: slide.renderedMediaUrl && slide.viewMode !== "edited" ? slide.renderedMediaUrl : slide.mediaUrl,
     mediaKind: slide.pdfPage ? "pdf-page" : slide.renderedMediaUrl || slide.mediaUrl ? "image" : undefined,
     pdfPage: slide.pdfPage,
@@ -247,7 +243,13 @@ export default function GlobalPresenterClient({
   const [isTeachingDragActive, setIsTeachingDragActive] = useState(false);
   const [savedPptxPresentations, setSavedPptxPresentations] = useState<DesktopTeachingPresentation[]>(initialTeachingPresentations);
   const [selectedTeachingPresentationId, setSelectedTeachingPresentationId] = useState(initialTeachingPresentations[0]?.id || "");
-  const [importedPptxSlides, setImportedPptxSlides] = useState<PresentationSlide[]>(() => teachingPresentationSlides(initialTeachingPresentations[0]));
+  const [importedPptxSlides, setImportedPptxSlides] = useState<PresentationSlide[]>(() => teachingPresentationSlides(initialTeachingPresentations[0], desktopSceneLayers[setlist?.id || ""] || {}));
+  const [pptxSaveStatus, setPptxSaveStatus] = useState<"idle" | "dirty" | "saving" | "saved" | "error">("idle");
+  const [pptxSaveMessage, setPptxSaveMessage] = useState("");
+  const pendingPptxSaveRef = useRef<{ presentationId: string; slideId: string; layers: SceneLayer[] } | null>(null);
+  const pptxSaveTimerRef = useRef<number | null>(null);
+  const pptxSaveChainRef = useRef<Promise<void>>(Promise.resolve());
+  const flushPptxSaveRef = useRef<() => Promise<void>>(async () => {});
   const [lyricShortcutOverrides, setLyricShortcutOverrides] = useState(() => desktopLyricShortcuts[setlist?.id] || []);
   const remoteContentLibrary = useMemo<RemoteContentLibrary>(() => ({
     version: 1,
@@ -359,8 +361,10 @@ export default function GlobalPresenterClient({
       setLiveAuxiliarySlide(null);
       setSavedPptxPresentations(nextTeachingPresentations);
       setSelectedTeachingPresentationId(nextTeachingPresentations[0]?.id || "");
-      setImportedPptxSlides(teachingPresentationSlides(nextTeachingPresentations[0]));
+      setImportedPptxSlides(teachingPresentationSlides(nextTeachingPresentations[0], desktopSceneLayers[setlist.id] || {}));
       setPptxReport(nextTeachingPresentations[0]?.report || null);
+      setPptxSaveStatus("idle");
+      setPptxSaveMessage("");
       setLyricShortcutOverrides(lyricShortcutsBySetlistRef.current[setlist.id] || []);
       setPublishedSnapshot(isLivePresentationSnapshot(storedSnapshot) && storedSnapshot.setlistId === setlist.id
         ? { ...storedSnapshot, settings: nextSettings }
@@ -510,8 +514,65 @@ export default function GlobalPresenterClient({
 
   const activeSlide = useMemo(() => slides.find(s => s.id === activeSlideId), [slides, activeSlideId]);
   const activeSlideIndex = useMemo(() => slides.findIndex((slide) => slide.id === activeSlideId), [slides, activeSlideId]);
-  const openTeachingPresentation = (presentation: DesktopTeachingPresentation) => {
-    const nextSlides = teachingPresentationSlides(presentation);
+  const replaceTeachingPresentationState = (presentation: DesktopTeachingPresentation, preferredSlideId?: string) => {
+    for (const [setlistId, teachingFiles] of Object.entries(teachingPresentationsBySetlistRef.current)) {
+      teachingPresentationsBySetlistRef.current[setlistId] = teachingFiles.map((item) => item.id === presentation.id ? presentation : item);
+    }
+    setSavedPptxPresentations((current) => current.map((item) => item.id === presentation.id ? presentation : item));
+    if (selectedTeachingPresentationId === presentation.id) {
+      const nextSlides = teachingPresentationSlides(presentation, sceneLayers);
+      setImportedPptxSlides(nextSlides);
+      if (preferredSlideId) setActiveSlideId(preferredSlideId);
+      else if (activeSlideId && !nextSlides.some((slide) => slide.id === activeSlideId)) setActiveSlideId(nextSlides[0]?.id || null);
+    }
+  };
+
+  const flushPptxSave = async () => {
+    const pending = pendingPptxSaveRef.current;
+    if (!pending) return;
+    pendingPptxSaveRef.current = null;
+    if (pptxSaveTimerRef.current !== null) {
+      window.clearTimeout(pptxSaveTimerRef.current);
+      pptxSaveTimerRef.current = null;
+    }
+    const task = async () => {
+      setPptxSaveStatus("saving");
+      setPptxSaveMessage("Saving PowerPoint edits on this PC…");
+      try {
+        await saveDesktopPptxSlideLayersAction(pending.presentationId, pending.slideId, pending.layers);
+        if (!pendingPptxSaveRef.current) {
+          setPptxSaveStatus("saved");
+          setPptxSaveMessage(`Saved at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+        }
+      } catch (error) {
+        setPptxSaveStatus("error");
+        setPptxSaveMessage(error instanceof Error ? error.message : "PowerPoint edits could not be saved.");
+        setTeachingError(error instanceof Error ? error.message : "PowerPoint edits could not be saved.");
+      }
+    };
+    pptxSaveChainRef.current = pptxSaveChainRef.current.then(task, task);
+    await pptxSaveChainRef.current;
+  };
+
+  const queuePptxSave = (presentationId: string, slideId: string, layers: SceneLayer[]) => {
+    pendingPptxSaveRef.current = { presentationId, slideId, layers };
+    setPptxSaveStatus("dirty");
+    setPptxSaveMessage("Unsaved PowerPoint changes");
+    if (pptxSaveTimerRef.current !== null) window.clearTimeout(pptxSaveTimerRef.current);
+    pptxSaveTimerRef.current = window.setTimeout(() => { void flushPptxSave(); }, 450);
+  };
+  useEffect(() => {
+    flushPptxSaveRef.current = flushPptxSave;
+  });
+
+  useEffect(() => () => {
+    if (pptxSaveTimerRef.current !== null) window.clearTimeout(pptxSaveTimerRef.current);
+    void flushPptxSaveRef.current();
+  }, []);
+
+  const openTeachingPresentation = async (presentation: DesktopTeachingPresentation) => {
+    await flushPptxSave();
+    const nextSlides = teachingPresentationSlides(presentation, sceneLayers);
     setSelectedTeachingPresentationId(presentation.id);
     setImportedPptxSlides(nextSlides);
     setPptxReport(presentation.report);
@@ -549,7 +610,7 @@ export default function GlobalPresenterClient({
         teachingPresentationsBySetlistRef.current[setlist.id] = next;
         return next;
       });
-      if (latest) openTeachingPresentation(latest);
+      if (latest) await openTeachingPresentation(latest);
       setDraftMessage(`${importedItems.length} Teaching file${importedItems.length === 1 ? "" : "s"} saved to ${setlist.name}. Live output was not changed.`);
     } catch (error) {
       setTeachingError(error instanceof Error ? error.message : "The Teaching file could not be imported.");
@@ -581,6 +642,7 @@ export default function GlobalPresenterClient({
 
   const changeTeachingSlideViewMode = async (viewMode: "original" | "edited") => {
     if (!selectedTeachingPresentationId || !activeSlideId) return;
+    await flushPptxSave();
     const presentation = savedPptxPresentations.find((item) => item.id === selectedTeachingPresentationId);
     const storedSlide = presentation?.slides.find((slide) => slide.id === activeSlideId);
     if (!presentation || !storedSlide?.renderedMediaUrl || storedSlide.viewMode === viewMode) return;
@@ -597,7 +659,7 @@ export default function GlobalPresenterClient({
         );
       }
       setSavedPptxPresentations((current) => current.map((item) => item.id === presentation.id ? updatedPresentation : item));
-      setImportedPptxSlides(teachingPresentationSlides(updatedPresentation));
+      setImportedPptxSlides(teachingPresentationSlides(updatedPresentation, sceneLayers));
       setSelectedSceneLayerId(null);
       setSelectedSceneLayerIds([]);
       if (viewMode === "edited") setActiveTab("Layers");
@@ -606,6 +668,86 @@ export default function GlobalPresenterClient({
         : "Edit mode opened. Changes stay local until you present this slide.");
     } catch (error) {
       setTeachingError(error instanceof Error ? error.message : "The PowerPoint view could not be changed.");
+    }
+  };
+
+  const finishPptxMutation = (presentation: DesktopTeachingPresentation, preferredSlideId?: string) => {
+    replaceTeachingPresentationState(presentation, preferredSlideId);
+    setPptxSaveStatus("saved");
+    setPptxSaveMessage(`Saved at ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+    setTeachingError("");
+  };
+
+  const addTeachingSlide = async () => {
+    if (!selectedTeachingPresentationId) return;
+    await flushPptxSave();
+    setPptxSaveStatus("saving");
+    try {
+      const before = new Set(savedPptxPresentations.find((item) => item.id === selectedTeachingPresentationId)?.slides.map((slide) => slide.id) || []);
+      const updated = await addDesktopPptxSlideAction(selectedTeachingPresentationId, activeSlideId || undefined);
+      const added = updated.slides.find((slide) => !before.has(slide.id));
+      finishPptxMutation(updated, added?.id);
+      setActiveTab("Layers");
+    } catch (error) {
+      setPptxSaveStatus("error");
+      setPptxSaveMessage(error instanceof Error ? error.message : "A slide could not be added.");
+      setTeachingError(error instanceof Error ? error.message : "A slide could not be added.");
+    }
+  };
+
+  const duplicateTeachingSlide = async () => {
+    if (!selectedTeachingPresentationId || !activeSlideId) return;
+    await flushPptxSave();
+    setPptxSaveStatus("saving");
+    try {
+      const before = new Set(savedPptxPresentations.find((item) => item.id === selectedTeachingPresentationId)?.slides.map((slide) => slide.id) || []);
+      const updated = await duplicateDesktopPptxSlideAction(selectedTeachingPresentationId, activeSlideId);
+      const duplicated = updated.slides.find((slide) => !before.has(slide.id));
+      finishPptxMutation(updated, duplicated?.id);
+    } catch (error) {
+      setPptxSaveStatus("error");
+      setPptxSaveMessage(error instanceof Error ? error.message : "The slide could not be duplicated.");
+      setTeachingError(error instanceof Error ? error.message : "The slide could not be duplicated.");
+    }
+  };
+
+  const deleteTeachingSlide = async () => {
+    if (!selectedTeachingPresentationId || !activeSlideId) return;
+    const presentation = savedPptxPresentations.find((item) => item.id === selectedTeachingPresentationId);
+    if (!presentation || presentation.slides.length <= 1) return;
+    await flushPptxSave();
+    setPptxSaveStatus("saving");
+    try {
+      const currentIndex = presentation.slides.findIndex((slide) => slide.id === activeSlideId);
+      const fallbackId = presentation.slides[currentIndex + 1]?.id || presentation.slides[currentIndex - 1]?.id;
+      const updated = await deleteDesktopPptxSlideAction(selectedTeachingPresentationId, activeSlideId);
+      finishPptxMutation(updated, fallbackId);
+      setSelectedSceneLayerId(null);
+      setSelectedSceneLayerIds([]);
+    } catch (error) {
+      setPptxSaveStatus("error");
+      setPptxSaveMessage(error instanceof Error ? error.message : "The slide could not be deleted.");
+      setTeachingError(error instanceof Error ? error.message : "The slide could not be deleted.");
+    }
+  };
+
+  const moveTeachingSlide = async (direction: -1 | 1) => {
+    if (!selectedTeachingPresentationId || !activeSlideId) return;
+    const presentation = savedPptxPresentations.find((item) => item.id === selectedTeachingPresentationId);
+    if (!presentation) return;
+    const currentIndex = presentation.slides.findIndex((slide) => slide.id === activeSlideId);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= presentation.slides.length) return;
+    await flushPptxSave();
+    const order = presentation.slides.map((slide) => slide.id);
+    [order[currentIndex], order[targetIndex]] = [order[targetIndex], order[currentIndex]];
+    setPptxSaveStatus("saving");
+    try {
+      finishPptxMutation(await reorderDesktopPptxSlidesAction(selectedTeachingPresentationId, order), activeSlideId);
+    } catch (error) {
+      setPptxSaveStatus("error");
+      setPptxSaveMessage(error instanceof Error ? error.message : "The slide order could not be saved.");
+      setTeachingError(error instanceof Error ? error.message : "The slide order could not be saved.");
     }
   };
 
@@ -756,7 +898,8 @@ export default function GlobalPresenterClient({
             acknowledge("rejected", "That presentation slide is unavailable on this PC.");
             return;
           }
-          const slide = teachingPresentationSlides(presentation).find((item) => item.id === storedSlide.id)!;
+          await flushPptxSave();
+          const slide = teachingPresentationSlides(presentation, sceneLayers).find((item) => item.id === storedSlide.id)!;
           await projectorActionsRef.current.ensureProjector();
           setLiveSource({ kind: "presentation", presentationId: presentation.id, presentationName: presentation.name });
           setLiveAuxiliarySlide(slide);
@@ -819,7 +962,7 @@ export default function GlobalPresenterClient({
         const activePresentation = liveSource.kind === "presentation"
           ? savedPptxPresentations.find((item) => item.id === liveSource.presentationId)
           : undefined;
-        const activePresentationSlides = teachingPresentationSlides(activePresentation);
+        const activePresentationSlides = teachingPresentationSlides(activePresentation, sceneLayers);
         const currentSlides: PresentationSlide[] = liveSource.kind === "presentation"
           ? activePresentationSlides
           : liveSource.kind === "bible" && liveAuxiliarySlide
@@ -933,7 +1076,7 @@ export default function GlobalPresenterClient({
       removeDesktopListener = () => { desktopChannel.removeEventListener("message", listener); removeLanListener?.(); };
     }
     return () => { removeDesktopListener?.(); };
-  }, [broadcast, controllerLease, countdownInput, countdownTarget, currentOutputSlide, desktopChannel, desktopMode, liveAuxiliarySlide, liveSlideId, liveSongIndex, liveSource, outputMode, pausedCountdownMs, publishedSnapshot, remoteContentLibrary, savedPptxPresentations, sendRemoteEvent, setlist, stageFlashStyle, stageLayoutPresetId, stageMessageInput]);
+  }, [broadcast, controllerLease, countdownInput, countdownTarget, currentOutputSlide, desktopChannel, desktopMode, liveAuxiliarySlide, liveSlideId, liveSongIndex, liveSource, outputMode, pausedCountdownMs, publishedSnapshot, remoteContentLibrary, savedPptxPresentations, sceneLayers, sendRemoteEvent, setlist, stageFlashStyle, stageLayoutPresetId, stageMessageInput]);
 
   useRemoteCommandSubscription(
     remoteChannel,
@@ -1089,30 +1232,60 @@ export default function GlobalPresenterClient({
   };
   const updateSceneLayers = async (nextLayers: SceneLayer[]) => {
     if (!desktopMode || !setlist || !activeSlideId) return;
+    if (activeItemIndex === -3 && selectedTeachingPresentationId) {
+      const presentation = savedPptxPresentations.find((item) => item.id === selectedTeachingPresentationId);
+      if (!presentation || presentation.kind !== "pptx") return;
+      const updatedPresentation: DesktopTeachingPresentation = {
+        ...presentation,
+        slides: presentation.slides.map((slide) => slide.id === activeSlideId
+          ? { ...slide, layers: nextLayers, viewMode: "edited" }
+          : slide),
+      };
+      for (const [setlistId, teachingFiles] of Object.entries(teachingPresentationsBySetlistRef.current)) {
+        teachingPresentationsBySetlistRef.current[setlistId] = teachingFiles.map((item) => item.id === presentation.id ? updatedPresentation : item);
+      }
+      setSavedPptxPresentations((current) => current.map((item) => item.id === presentation.id ? updatedPresentation : item));
+      const remainingLegacyLayers = { ...sceneLayers };
+      delete remainingLegacyLayers[activeSlideId];
+      setSceneLayers(remainingLegacyLayers);
+      setImportedPptxSlides(teachingPresentationSlides(updatedPresentation, remainingLegacyLayers));
+      queuePptxSave(presentation.id, activeSlideId, nextLayers);
+      return;
+    }
     setSceneLayers((previous) => ({ ...previous, [activeSlideId]: nextLayers }));
-    const saved = await saveDesktopSceneLayersAction(setlist.id, activeSlideId, nextLayers);
-    setSceneLayers(saved);
+    try {
+      const saved = await saveDesktopSceneLayersAction(setlist.id, activeSlideId, nextLayers);
+      setSceneLayers(saved);
+    } catch (error) {
+      setTeachingError(error instanceof Error ? error.message : "The scene layers could not be saved.");
+    }
   };
   const addSceneLayer = (kind: SceneLayer["kind"], captureSourceId?: string) => {
     if (!activeSlideId) return;
-    const current = sceneLayers[activeSlideId] || [];
+    const current = activeSceneLayers;
     const number = current.length + 1;
     const layer: SceneLayer = {
       id: crypto.randomUUID(), kind, name: `${kind[0].toUpperCase()}${kind.slice(1)} ${number}`,
       x: 10 + (number % 5) * 4, y: 10 + (number % 5) * 4, width: kind === "text" ? 50 : 30, height: kind === "text" ? 14 : 20, rotation: 0,
-      text: kind === "text" ? "New text" : undefined, captureSourceId, color: "#ffffff", backgroundColor: kind === "shape" ? "#6d28d9" : "#000000", fontSize: 56, borderRadius: 0, zIndex: current.length,
+      text: kind === "text" ? "New text" : undefined, captureSourceId, color: "#ffffff", backgroundColor: kind === "shape" ? "#6d28d9" : undefined, fontFamily: "Arial", fontSize: 56, bold: kind === "text", textAlign: "left", opacity: 1, borderRadius: 0, objectFit: kind === "video" ? "cover" : "contain", zIndex: current.length,
     };
     void updateSceneLayers([...current, layer]);
     setSelectedSceneLayerId(layer.id);
     setSelectedSceneLayerIds([layer.id]);
   };
-  const activeSceneLayers = useMemo(
-    () => activeSlideId && activeSlide?.teachingViewMode !== "original"
-      ? sceneLayers[activeSlideId] ?? activeSlide?.sceneLayers ?? []
-      : [],
-    [activeSlide?.sceneLayers, activeSlide?.teachingViewMode, activeSlideId, sceneLayers],
-  );
+  const activeSceneLayers = activeSlideId && activeSlide?.teachingViewMode !== "original"
+    ? activeItemIndex === -3
+      ? activeSlide?.sceneLayers ?? []
+      : sceneLayers[activeSlideId] ?? activeSlide?.sceneLayers ?? []
+    : [];
   const selectedSceneLayer = activeSceneLayers.find((layer) => layer.id === selectedSceneLayerId) || null;
+  const boundedSceneLayerNumber = (field: "x" | "y" | "width" | "height" | "rotation" | "fontSize", raw: string) => {
+    const value = Number(raw) || 0;
+    if (field === "width" || field === "height") return Math.max(1, Math.min(100, value));
+    if (field === "x" || field === "y") return Math.max(0, Math.min(100, value));
+    if (field === "fontSize") return Math.max(1, Math.min(2_000, value));
+    return Math.max(-3_600, Math.min(3_600, value));
+  };
   const updateSelectedSceneLayer = (updates: Partial<SceneLayer>) => {
     if (!selectedSceneLayer) return;
     void updateSceneLayers(activeSceneLayers.map((layer) => layer.id === selectedSceneLayer.id ? { ...layer, ...updates } : layer));
@@ -1120,7 +1293,7 @@ export default function GlobalPresenterClient({
   const moveSelectedSceneLayer = (direction: -1 | 1) => {
     if (!selectedSceneLayer) return;
     const index = activeSceneLayers.findIndex((layer) => layer.id === selectedSceneLayer.id);
-    const target = index + direction;
+    const target = index - direction;
     if (index < 0 || target < 0 || target >= activeSceneLayers.length) return;
     const next = [...activeSceneLayers];
     [next[index], next[target]] = [next[target], next[index]];
@@ -1132,6 +1305,13 @@ export default function GlobalPresenterClient({
     void updateSceneLayers([...activeSceneLayers, copy]);
     setSelectedSceneLayerId(copy.id);
     setSelectedSceneLayerIds([copy.id]);
+  };
+  const deleteSelectedSceneLayers = () => {
+    const ids = new Set(selectedSceneLayerIds.length ? selectedSceneLayerIds : selectedSceneLayer ? [selectedSceneLayer.id] : []);
+    if (!ids.size) return;
+    void updateSceneLayers(activeSceneLayers.filter((layer) => !ids.has(layer.id)));
+    setSelectedSceneLayerId(null);
+    setSelectedSceneLayerIds([]);
   };
   const selectSceneLayer = (id: string | null, additive = false) => {
     setSelectedSceneLayerId(id);
@@ -1282,6 +1462,8 @@ export default function GlobalPresenterClient({
     }));
   };
   const keyboardActionsRef = useRef({
+    deleteSelectedSceneLayers,
+    duplicateSelectedSceneLayer,
     handleDeleteBlock,
     handleDuplicateBlock,
     redo,
@@ -1291,6 +1473,8 @@ export default function GlobalPresenterClient({
   });
   useEffect(() => {
     keyboardActionsRef.current = {
+      deleteSelectedSceneLayers,
+      duplicateSelectedSceneLayer,
       handleDeleteBlock,
       handleDuplicateBlock,
       redo,
@@ -1317,17 +1501,20 @@ export default function GlobalPresenterClient({
           : slides[Math.max(0, activeSlideIndex - 1)];
         if (target) {
           e.preventDefault();
-          setActiveSlideId(target.id);
+          if (activeItemIndex === -3) void flushPptxSaveRef.current().then(() => setActiveSlideId(target.id));
+          else setActiveSlideId(target.id);
         }
       } else if (e.code === "Space") {
         e.preventDefault();
         setPlayKey(Date.now());
       } else if (e.code === "Backspace" || e.code === "Delete") {
         e.preventDefault();
-        keyboardActionsRef.current.handleDeleteBlock();
+        if (selectedSceneLayerIds.length > 0) keyboardActionsRef.current.deleteSelectedSceneLayers();
+        else keyboardActionsRef.current.handleDeleteBlock();
       } else if (e.ctrlKey && e.code === "KeyD") {
         e.preventDefault();
-        keyboardActionsRef.current.handleDuplicateBlock();
+        if (selectedSceneLayerIds.length > 0) keyboardActionsRef.current.duplicateSelectedSceneLayer();
+        else keyboardActionsRef.current.handleDuplicateBlock();
       } else if (e.ctrlKey && e.code === "KeyZ") {
         if (e.shiftKey) keyboardActionsRef.current.redo();
         else keyboardActionsRef.current.undo();
@@ -1359,7 +1546,7 @@ export default function GlobalPresenterClient({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeSlideIndex, desktopMode, future, past, selectedBlockIds, selectedSceneLayerIds, activeSlideId, slideOverrides, slides, activeSceneLayers, selectedSceneLayer]);
+  }, [activeItemIndex, activeSlideIndex, desktopMode, future, past, selectedBlockIds, selectedSceneLayerIds, activeSlideId, slideOverrides, slides]);
 
   const handleFetchChapter = async (book: string, chapter: number) => {
     setSelectedBibleChapter(chapter);
@@ -1699,12 +1886,29 @@ export default function GlobalPresenterClient({
                    </div>}
                 </div>
               )}
+              {activeItemIndex === -3 && savedPptxPresentations.find((presentation) => presentation.id === selectedTeachingPresentationId)?.kind === "pptx" && (
+                <div className="border-b border-white/5 bg-[#151515] p-2">
+                  <div className="grid grid-cols-5 gap-1">
+                    <button type="button" onClick={() => void addTeachingSlide()} className="rounded bg-violet-600/25 px-1 py-1.5 text-[9px] font-bold text-violet-100 hover:bg-violet-600/40">+ Slide</button>
+                    <button type="button" onClick={() => void duplicateTeachingSlide()} disabled={!activeSlideId} className="rounded bg-white/10 px-1 py-1.5 text-[9px] font-bold disabled:opacity-40">Duplicate</button>
+                    <button type="button" onClick={() => void moveTeachingSlide(-1)} disabled={activeSlideIndex <= 0} className="rounded bg-white/10 px-1 py-1.5 text-[9px] font-bold disabled:opacity-40">Move up</button>
+                    <button type="button" onClick={() => void moveTeachingSlide(1)} disabled={activeSlideIndex < 0 || activeSlideIndex >= slides.length - 1} className="rounded bg-white/10 px-1 py-1.5 text-[9px] font-bold disabled:opacity-40">Move down</button>
+                    <button type="button" onClick={() => void deleteTeachingSlide()} disabled={slides.length <= 1} className="rounded bg-red-500/10 px-1 py-1.5 text-[9px] font-bold text-red-200 disabled:opacity-40">Delete</button>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className={cn("truncate text-[9px]", pptxSaveStatus === "error" ? "text-red-300" : pptxSaveStatus === "saved" ? "text-emerald-300" : "text-amber-200")}>{pptxSaveMessage || "All PowerPoint changes are stored on this PC."}</span>
+                    <button type="button" onClick={() => void flushPptxSave()} disabled={pptxSaveStatus !== "dirty" && pptxSaveStatus !== "error"} className="shrink-0 rounded bg-emerald-600 px-2 py-1 text-[9px] font-bold text-white disabled:opacity-40">Save now</button>
+                  </div>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                  {slides.map((slide) => {
+                  {slides.map((slide, slideIndex) => {
                      const isActive = activeSlideId === slide.id;
-                     const label = slide.sectionLabel || "Lyrics";
+                     const label = activeItemIndex === -3 ? `Slide ${slideIndex + 1}` : slide.sectionLabel || "Lyrics";
                      const initial = label.charAt(0).toUpperCase();
-                     const previewLines = resolveLyricsReflowPreviewLines(slide.content, slideOverrides[slide.id]);
+                     const previewLines = slide.content.length
+                       ? resolveLyricsReflowPreviewLines(slide.content, slideOverrides[slide.id])
+                       : (slide.sceneLayers || []).filter((layer) => layer.kind === "text" && layer.text).map((layer) => layer.text || "").slice(0, 4);
 
                     let colorClass = "text-[#3b82f6]"; 
                     let bgClass = "bg-[#3b82f6]";
@@ -1732,7 +1936,7 @@ export default function GlobalPresenterClient({
                     return (
                       <button 
                         key={slide.id}
-                        onClick={() => setActiveSlideId(slide.id)}
+                        onClick={() => { void flushPptxSave().then(() => { setActiveSlideId(slide.id); setSelectedSceneLayerId(null); setSelectedSceneLayerIds([]); }); }}
                         className={cn(
                           "w-full flex flex-col rounded-lg overflow-hidden transition text-left border bg-[#18181b]",
                           isActive 
@@ -1751,7 +1955,7 @@ export default function GlobalPresenterClient({
                         </div>
                         
                         <div className="p-3 w-full">
-                           {previewLines.map((line, lIdx) => (
+                           {(previewLines.length ? previewLines : [slide.mediaUrl ? "Original slide preview" : "Blank editable slide"]).map((line, lIdx) => (
                              <span key={lIdx} className={cn(
                                "text-sm font-bold block w-full leading-snug",
                                isActive ? "text-white" : "text-zinc-200"
@@ -2174,8 +2378,10 @@ export default function GlobalPresenterClient({
               {activeTab === "Layers" && (
                 <div className="p-2 space-y-1">
                    {desktopMode && pptxReport?.warnings.length ? <section className="mb-3 rounded border border-amber-400/20 bg-amber-500/5 p-2"><p className="text-[10px] font-bold uppercase tracking-wider text-amber-200">PowerPoint import report</p><ul className="mt-1 space-y-1 text-[9px] text-amber-100/80">{pptxReport.warnings.map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}</ul></section> : null}
-                   {desktopMode && activeSlideId && <section className="mb-3 rounded border border-violet-400/20 bg-violet-500/5 p-2"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-violet-200">Local Scene Layers</p><div className="grid grid-cols-2 gap-1"><button onClick={() => addSceneLayer("text")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Text</button><button onClick={() => addSceneLayer("shape")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Shape</button><button onClick={() => addSceneLayer("image")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Image</button><button onClick={() => addSceneLayer("video")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Video</button></div><p className="mt-2 text-[9px] text-zinc-500">Shift-click layers on the canvas to select several before grouping.</p>{activeSceneLayers.map((layer, index) => <button key={layer.id} onClick={(event) => selectSceneLayer(layer.id, event.shiftKey)} className={cn("mt-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[10px]", selectedSceneLayerIds.includes(layer.id) ? "bg-violet-600/30" : "bg-black/20 hover:bg-white/5")}><span className="min-w-0 flex-1 truncate font-semibold">{index + 1}. {layer.name}</span><span onClick={(event) => { event.stopPropagation(); void updateSceneLayers(activeSceneLayers.map((item) => item.id === layer.id ? { ...item, hidden: !item.hidden } : item)); }} className="text-zinc-400 hover:text-white">{layer.hidden ? "Show" : "Hide"}</span><span onClick={(event) => { event.stopPropagation(); void updateSceneLayers(activeSceneLayers.filter((item) => item.id !== layer.id)); }} className="text-red-300 hover:text-red-200">Delete</span></button>)}</section>}
-                   {desktopMode && selectedSceneLayer && <section className="mb-3 space-y-2 rounded border border-white/10 bg-black/20 p-2"><p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Layer editor</p><select value={selectedSceneLayerId || ""} onChange={(event) => setSelectedSceneLayerId(event.target.value)} className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-[10px] text-white">{activeSceneLayers.map((layer, index) => <option key={layer.id} value={layer.id}>{index + 1}. {layer.name}</option>)}</select><input value={selectedSceneLayer.name} onChange={(event) => updateSelectedSceneLayer({ name: event.target.value.slice(0, 80) })} aria-label="Layer name" className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white" />{selectedSceneLayer.kind === "text" && <textarea value={selectedSceneLayer.text || ""} onChange={(event) => updateSelectedSceneLayer({ text: event.target.value })} aria-label="Layer text" className="min-h-16 w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white" />}{(selectedSceneLayer.kind === "image" || selectedSceneLayer.kind === "video") && <><select value={selectedSceneLayer.mediaUrl || ""} onChange={(event) => updateSelectedSceneLayer({ mediaUrl: event.target.value })} aria-label="Choose local background media" className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white"><option value="">Choose PC media</option>{desktopBackgrounds.filter((asset) => asset.mediaType === selectedSceneLayer.kind).map((asset) => <option key={asset.id} value={asset.url}>{asset.displayName}</option>)}</select><input value={selectedSceneLayer.mediaUrl || ""} onChange={(event) => updateSelectedSceneLayer({ mediaUrl: event.target.value })} placeholder="Local media URL" aria-label="Layer media URL" className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white" /></>}<div className="grid grid-cols-2 gap-1">{([ ["x", "X"], ["y", "Y"], ["width", "Width"], ["height", "Height"], ["rotation", "Rotation"], ["fontSize", "Font size"] ] as const).map(([field, label]) => <label key={field} className="text-[9px] text-zinc-500">{label}<input type="number" value={selectedSceneLayer[field] ?? 0} onChange={(event) => updateSelectedSceneLayer({ [field]: Number(event.target.value) || 0 })} className="mt-0.5 w-full rounded border border-white/10 bg-[#171717] px-2 py-1 text-xs text-white" /></label>)}</div><div className="flex gap-1"><button onClick={() => moveSelectedSceneLayer(-1)} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">Bring forward</button><button onClick={() => moveSelectedSceneLayer(1)} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">Send back</button><button onClick={() => updateSelectedSceneLayer({ locked: !selectedSceneLayer.locked })} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">{selectedSceneLayer.locked ? "Unlock" : "Lock"}</button></div></section>}
+                   {desktopMode && activeItemIndex === -3 && activeSlide?.teachingViewMode === "original" && <section className="mb-3 rounded border border-amber-400/25 bg-amber-500/5 p-3 text-[10px] leading-relaxed text-amber-100">This is the exact PowerPoint rendering. Choose <strong>Edit slide</strong> above the canvas to edit its text, shapes, and media layers.</section>}
+                   {desktopMode && activeSlideId && activeSlide?.teachingViewMode !== "original" && <section className="mb-3 rounded border border-violet-400/20 bg-violet-500/5 p-2"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-violet-200">Local Scene Layers</p><div className="grid grid-cols-2 gap-1"><button onClick={() => addSceneLayer("text")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Text</button><button onClick={() => addSceneLayer("shape")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Shape</button><button onClick={() => addSceneLayer("image")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Image</button><button onClick={() => addSceneLayer("video")} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">+ Video</button></div><p className="mt-2 text-[9px] text-zinc-500">Shift-click layers on the canvas to select several before grouping.</p>{activeSceneLayers.map((layer, index) => <button key={layer.id} onClick={(event) => selectSceneLayer(layer.id, event.shiftKey)} className={cn("mt-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[10px]", selectedSceneLayerIds.includes(layer.id) ? "bg-violet-600/30" : "bg-black/20 hover:bg-white/5")}><span className="min-w-0 flex-1 truncate font-semibold">{index + 1}. {layer.name}</span><span onClick={(event) => { event.stopPropagation(); void updateSceneLayers(activeSceneLayers.map((item) => item.id === layer.id ? { ...item, hidden: !item.hidden } : item)); }} className="text-zinc-400 hover:text-white">{layer.hidden ? "Show" : "Hide"}</span><span onClick={(event) => { event.stopPropagation(); void updateSceneLayers(activeSceneLayers.filter((item) => item.id !== layer.id)); }} className="text-red-300 hover:text-red-200">Delete</span></button>)}</section>}
+                   {desktopMode && selectedSceneLayer && <section className="mb-3 space-y-2 rounded border border-white/10 bg-black/20 p-2"><p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Layer editor</p><select value={selectedSceneLayerId || ""} onChange={(event) => setSelectedSceneLayerId(event.target.value)} className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-[10px] text-white">{activeSceneLayers.map((layer, index) => <option key={layer.id} value={layer.id}>{index + 1}. {layer.name}</option>)}</select><input value={selectedSceneLayer.name} onChange={(event) => updateSelectedSceneLayer({ name: event.target.value.slice(0, 80) || "Layer" })} aria-label="Layer name" className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white" />{selectedSceneLayer.kind === "text" && <textarea value={selectedSceneLayer.text || ""} maxLength={100000} onChange={(event) => updateSelectedSceneLayer({ text: event.target.value })} aria-label="Layer text" className="min-h-16 w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white" />}{(selectedSceneLayer.kind === "image" || selectedSceneLayer.kind === "video") && <select value={selectedSceneLayer.mediaUrl || ""} onChange={(event) => updateSelectedSceneLayer({ mediaUrl: event.target.value || undefined })} aria-label="Choose local background media" className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white"><option value="">Choose PC media</option>{desktopBackgrounds.filter((asset) => asset.mediaType === selectedSceneLayer.kind).map((asset) => <option key={asset.id} value={asset.url}>{asset.displayName}</option>)}</select>}<div className="grid grid-cols-2 gap-1">{([ ["x", "X"], ["y", "Y"], ["width", "Width"], ["height", "Height"], ["rotation", "Rotation"], ["fontSize", "Font size"] ] as const).map(([field, label]) => <label key={field} className="text-[9px] text-zinc-500">{label}<input type="number" value={selectedSceneLayer[field] ?? 0} onChange={(event) => updateSelectedSceneLayer({ [field]: boundedSceneLayerNumber(field, event.target.value) })} className="mt-0.5 w-full rounded border border-white/10 bg-[#171717] px-2 py-1 text-xs text-white" /></label>)}</div><div className="flex gap-1"><button onClick={() => moveSelectedSceneLayer(-1)} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">Bring forward</button><button onClick={() => moveSelectedSceneLayer(1)} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">Send back</button><button onClick={() => updateSelectedSceneLayer({ locked: !selectedSceneLayer.locked })} className="rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">{selectedSceneLayer.locked ? "Unlock" : "Lock"}</button></div></section>}
+                   {desktopMode && selectedSceneLayer && <section className="mb-3 space-y-2 rounded border border-emerald-400/20 bg-emerald-500/5 p-2"><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-200">Layer appearance</p>{selectedSceneLayer.kind === "text" && <><select value={selectedSceneLayer.fontFamily || "Arial"} onChange={(event) => updateSelectedSceneLayer({ fontFamily: event.target.value })} className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white"><option>Arial</option><option>Aptos</option><option>Calibri</option><option>Georgia</option><option>Inter</option><option>Times New Roman</option></select><div className="grid grid-cols-4 gap-1"><button onClick={() => updateSelectedSceneLayer({ bold: !selectedSceneLayer.bold })} className={cn("rounded px-2 py-1 text-xs font-bold", selectedSceneLayer.bold ? "bg-violet-600" : "bg-white/10")}>B</button><button onClick={() => updateSelectedSceneLayer({ italic: !selectedSceneLayer.italic })} className={cn("rounded px-2 py-1 text-xs italic", selectedSceneLayer.italic ? "bg-violet-600" : "bg-white/10")}>I</button><button onClick={() => updateSelectedSceneLayer({ underline: !selectedSceneLayer.underline })} className={cn("rounded px-2 py-1 text-xs underline", selectedSceneLayer.underline ? "bg-violet-600" : "bg-white/10")}>U</button><select value={selectedSceneLayer.textAlign || "left"} onChange={(event) => updateSelectedSceneLayer({ textAlign: event.target.value as "left" | "center" | "right" })} className="rounded border border-white/10 bg-[#171717] px-1 text-[9px]"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></div><div className="grid grid-cols-2 gap-2"><label className="text-[9px] text-zinc-500">Text color<input type="color" value={selectedSceneLayer.color || "#ffffff"} onChange={(event) => updateSelectedSceneLayer({ color: event.target.value })} className="mt-1 h-7 w-full rounded bg-transparent" /></label><label className="text-[9px] text-zinc-500">Text background<input type="color" value={selectedSceneLayer.backgroundColor || "#000000"} onChange={(event) => updateSelectedSceneLayer({ backgroundColor: event.target.value })} className="mt-1 h-7 w-full rounded bg-transparent" /></label></div></>}{selectedSceneLayer.kind === "shape" && <><select value={selectedSceneLayer.shapeType || "rectangle"} onChange={(event) => updateSelectedSceneLayer({ shapeType: event.target.value as "rectangle" | "ellipse" | "triangle" })} className="w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white"><option value="rectangle">Rectangle</option><option value="ellipse">Ellipse</option><option value="triangle">Triangle</option></select><div className="grid grid-cols-2 gap-2"><label className="text-[9px] text-zinc-500">Fill<input type="color" value={selectedSceneLayer.backgroundColor || "#6d28d9"} onChange={(event) => updateSelectedSceneLayer({ backgroundColor: event.target.value })} className="mt-1 h-7 w-full rounded bg-transparent" /></label><label className="text-[9px] text-zinc-500">Border<input type="color" value={selectedSceneLayer.borderColor || "#ffffff"} onChange={(event) => updateSelectedSceneLayer({ borderColor: event.target.value })} className="mt-1 h-7 w-full rounded bg-transparent" /></label></div><div className="grid grid-cols-2 gap-1"><label className="text-[9px] text-zinc-500">Border width<input type="number" min="0" max="100" value={selectedSceneLayer.borderWidth || 0} onChange={(event) => updateSelectedSceneLayer({ borderWidth: Math.max(0, Math.min(100, Number(event.target.value) || 0)) })} className="mt-0.5 w-full rounded border border-white/10 bg-[#171717] px-2 py-1 text-xs" /></label><label className="text-[9px] text-zinc-500">Corner radius<input type="number" min="0" max="500" value={selectedSceneLayer.borderRadius || 0} onChange={(event) => updateSelectedSceneLayer({ borderRadius: Math.max(0, Math.min(500, Number(event.target.value) || 0)) })} className="mt-0.5 w-full rounded border border-white/10 bg-[#171717] px-2 py-1 text-xs" /></label></div></>}{(selectedSceneLayer.kind === "image" || selectedSceneLayer.kind === "video") && <label className="text-[9px] text-zinc-500">Media fit<select value={selectedSceneLayer.objectFit || (selectedSceneLayer.kind === "video" ? "cover" : "contain")} onChange={(event) => updateSelectedSceneLayer({ objectFit: event.target.value as "contain" | "cover" | "fill" })} className="mt-1 w-full rounded border border-white/10 bg-[#171717] px-2 py-1.5 text-xs text-white"><option value="contain">Contain</option><option value="cover">Cover</option><option value="fill">Stretch</option></select></label>}<label className="block text-[9px] text-zinc-500">Opacity {Math.round((selectedSceneLayer.opacity ?? 1) * 100)}%<input type="range" min="0" max="1" step="0.05" value={selectedSceneLayer.opacity ?? 1} onChange={(event) => updateSelectedSceneLayer({ opacity: Number(event.target.value) })} className="mt-1 w-full" /></label></section>}
                    {desktopMode && selectedSceneLayer && <><div className="mb-3 flex gap-1"><button onClick={duplicateSelectedSceneLayer} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">Duplicate selected layer</button><button onClick={() => updateSelectedSceneLayer({ groupId: selectedSceneLayer.groupId ? undefined : crypto.randomUUID() })} className="flex-1 rounded bg-white/10 px-2 py-1.5 text-[10px] font-bold hover:bg-white/15">{selectedSceneLayer.groupId ? "Ungroup" : "Group"}</button></div><section className="mb-3 space-y-1.5 rounded border border-violet-400/20 bg-violet-500/5 p-2"><p className="text-[10px] font-bold uppercase tracking-wider text-violet-200">Scene layer motion</p><div className="grid grid-cols-2 gap-1"><label className="text-[9px] text-zinc-500">Start (seconds)<input type="number" min="0" value={selectedSceneLayer.startTime || 0} onChange={(event) => updateSelectedSceneLayer({ startTime: Math.max(0, Number(event.target.value) || 0) })} className="mt-0.5 w-full rounded border border-white/10 bg-[#171717] px-2 py-1 text-xs text-white" /></label><label className="text-[9px] text-zinc-500">Duration (seconds)<input type="number" min="0" value={selectedSceneLayer.duration || 0} onChange={(event) => updateSelectedSceneLayer({ duration: Math.max(0, Number(event.target.value) || 0) })} className="mt-0.5 w-full rounded border border-white/10 bg-[#171717] px-2 py-1 text-xs text-white" /></label></div><div className="flex gap-1"><input value={motionPresetName} onChange={(event) => setMotionPresetName(event.target.value)} placeholder="Save current motion as…" className="min-w-0 flex-1 rounded border border-white/10 bg-[#171717] px-2 py-1 text-[10px] text-white" /><button onClick={() => void saveSceneLayerMotionPreset()} disabled={!motionPresetName.trim()} className="rounded bg-violet-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-40">Save</button></div>{motionPresets.length > 0 && <div className="flex gap-1"><select value={selectedMotionPresetId} onChange={(event) => setSelectedMotionPresetId(event.target.value)} className="min-w-0 flex-1 rounded border border-white/10 bg-[#171717] px-2 py-1 text-[10px] text-white"><option value="">Apply saved motion…</option>{motionPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select><button onClick={() => { const preset = motionPresets.find((item) => item.id === selectedMotionPresetId); if (preset) applySceneLayerMotionPreset(preset.motion, false); }} disabled={!selectedMotionPresetId} className="rounded bg-white/10 px-2 py-1 text-[10px] font-bold">Layer</button><button onClick={() => { const preset = motionPresets.find((item) => item.id === selectedMotionPresetId); if (preset) applySceneLayerMotionPreset(preset.motion, true); }} disabled={!selectedMotionPresetId} className="rounded bg-white/10 px-2 py-1 text-[10px] font-bold">All</button></div>}</section></>}
                    {activeBlocks.length === 0 ? (
                       <div className="p-4 text-center text-xs text-zinc-500">

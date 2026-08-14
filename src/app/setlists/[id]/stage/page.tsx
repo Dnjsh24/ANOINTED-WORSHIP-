@@ -77,7 +77,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
         return {
           id: ss.id,
           order: ss.song_order,
-          assignedKey: ss.assigned_key,
+          assignedKey: ss.assigned_key || ss.song?.original_key || "C",
           lead: leadVocal,
           youtubeUrl: ss.song?.youtube_url || null,
           arrangement: ss.arrangement || null,

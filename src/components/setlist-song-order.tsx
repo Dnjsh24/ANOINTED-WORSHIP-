@@ -106,11 +106,11 @@ function SortableSongItem({ item, setlistId, canManageSetlist }: { item: Ordered
               <ChangeKeyButton
                 setlistId={setlistId}
                 slotId={item.id}
-                currentKey={item.assignedKey}
-                originalKey={item.song.originalKey}
+                currentKey={item.assignedKey || item.song.originalKey || "C"}
+                originalKey={item.song.originalKey || "C"}
               />
             ) : (
-              <Badge>Key: {item.assignedKey}</Badge>
+              <Badge>Key: {item.assignedKey || item.song.originalKey || "C"}</Badge>
             )}
             <Badge>{item.song.bpm} BPM</Badge>
           </div>

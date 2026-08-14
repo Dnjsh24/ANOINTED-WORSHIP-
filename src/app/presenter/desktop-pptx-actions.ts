@@ -2,11 +2,17 @@
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import {
+  addImportedPresentationSlide,
+  deleteImportedPresentationSlide,
   deleteImportedPresentation,
+  duplicateImportedPresentationSlide,
   importPptx,
   renameImportedPresentation,
+  reorderImportedPresentationSlides,
+  saveImportedPresentationSlideLayers,
   setImportedPresentationSlideViewMode,
 } from "@/lib/desktop/pptx-import";
+import type { SceneLayer } from "@/lib/domain/presentation";
 import { listDesktopSetlists } from "@/lib/desktop/workspace";
 
 export async function importDesktopPptxAction(setlistId: string, file: File) {
@@ -42,4 +48,24 @@ export async function setDesktopPptxSlideViewModeAction(
 ) {
   if (viewMode !== "original" && viewMode !== "edited") throw new Error("Choose Original or Edit view.");
   return setImportedPresentationSlideViewMode(await desktopTeamId(), presentationId, slideId, viewMode);
+}
+
+export async function saveDesktopPptxSlideLayersAction(presentationId: string, slideId: string, layers: SceneLayer[]) {
+  return saveImportedPresentationSlideLayers(await desktopTeamId(), presentationId, slideId, layers);
+}
+
+export async function addDesktopPptxSlideAction(presentationId: string, afterSlideId?: string) {
+  return addImportedPresentationSlide(await desktopTeamId(), presentationId, afterSlideId);
+}
+
+export async function duplicateDesktopPptxSlideAction(presentationId: string, slideId: string) {
+  return duplicateImportedPresentationSlide(await desktopTeamId(), presentationId, slideId);
+}
+
+export async function deleteDesktopPptxSlideAction(presentationId: string, slideId: string) {
+  return deleteImportedPresentationSlide(await desktopTeamId(), presentationId, slideId);
+}
+
+export async function reorderDesktopPptxSlidesAction(presentationId: string, orderedSlideIds: string[]) {
+  return reorderImportedPresentationSlides(await desktopTeamId(), presentationId, orderedSlideIds);
 }

@@ -115,13 +115,13 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
           return [{
             id: row.id,
             order: row.song_order,
-            assignedKey: row.assigned_key,
+            assignedKey: row.assigned_key || s.original_key || "C",
             song: {
               id: s.id,
               title: s.title,
               artist: "",
               originalKey: s.original_key,
-              currentKey: row.assigned_key,
+              currentKey: row.assigned_key || s.original_key || "C",
               bpm: s.bpm,
               timeSignature: "4/4",
               tags: [],

@@ -63,8 +63,17 @@ export type SceneLayer = {
   captureSourceId?: string;
   color?: string;
   backgroundColor?: string;
+  fontFamily?: string;
   fontSize?: number;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  textAlign?: "left" | "center" | "right";
+  opacity?: number;
   borderRadius?: number;
+  borderColor?: string;
+  borderWidth?: number;
+  objectFit?: "contain" | "cover" | "fill";
   shapeType?: "rectangle" | "ellipse" | "triangle";
   startTime?: number;
   duration?: number;

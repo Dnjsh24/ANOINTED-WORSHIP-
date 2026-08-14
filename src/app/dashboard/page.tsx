@@ -245,14 +245,37 @@ export default async function DashboardPage() {
           time: `${dbEvent.starts_at.slice(0, 5)} - ${dbEvent.ends_at?.slice(0, 5) || ""}`,
           location: dbEvent.location ?? "Main Sanctuary",
         };
+            .then(({ data }) => (data ?? []).filter((item) => Boolean(item.events)))
+        : Promise.resolve([]),
+    ]);
+
+    if (profileResult.data?.full_name) userFullName = profileResult.data.full_name;
+
+    if (teamContext.teamId) {
+      if (upcomingCountResult.count !== null) upcomingEventsCount = upcomingCountResult.count;
+
+      const dbEvent = dbEventResult.data;
+      if (dbEvent) {
+        nextEvent = {
+          id: dbEvent.id,
+          name: dbEvent.name,
+          date: dbEvent.event_date,
+          time: `${dbEvent.starts_at.slice(0, 5)} - ${dbEvent.ends_at?.slice(0, 5) || ""}`,
+          location: dbEvent.location ?? "Main Sanctuary",
+        };
       } else {
         nextEvent = null;
       }
 
-      const dbSetlist = ((dbSetlistResult.data ?? []) as unknown as DashboardSetlistRow[])
-        .filter((setlist) => firstRelation(setlist.events))
-        .sort((left, right) => firstRelation(left.events)!.event_date.localeCompare(firstRelation(right.events)!.event_date))[0] ?? null;
-      if (dbSetlist) {
+      const upcomingSetlists = upcomingSetlistsResult as unknown as DashboardSetlistRow[];
+      if (upcomingSetlists.length > 0) {
+        const sortedSetlists = [...upcomingSetlists].sort((a, b) => {
+          const dateA = firstRelation(a.events)?.event_date ?? "";
+          const dateB = firstRelation(b.events)?.event_date ?? "";
+          return dateA.localeCompare(dateB);
+        });
+        const dbSetlist = sortedSetlists[0];
+
         const linkedEvent = firstRelation(dbSetlist.events)!;
         const leaderName = linkedEvent.event_assignments.find((assignment) => assignment.assignment === "Worship Leader")?.team_member?.profiles?.full_name || "Not assigned";
         const dbSetlistSongs = dbSetlist.setlist_songs || [];
@@ -260,7 +283,7 @@ export default async function DashboardPage() {
         setlistSongsList = dbSetlistSongs.flatMap((setlistSong) => setlistSong.song
           ? [{
               id: setlistSong.id,
-              assignedKey: setlistSong.assigned_key,
+              assignedKey: setlistSong.assigned_key || setlistSong.song.original_key || "C",
               song: {
                 id: setlistSong.song.id,
                 title: setlistSong.song.title,

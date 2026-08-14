@@ -9,6 +9,7 @@ import type { ActionState } from "@/lib/action-state";
 import { can, permissionValues } from "@/lib/domain/rbac";
 import { getCurrentTeamContext } from "@/lib/supabase/team-context";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
+import { getDesktopDatabase } from "@/lib/desktop/db";
 import { getDesktopSetlist, getDesktopSong, restoreDesktopSong, softDeleteDesktopSetlist, softDeleteDesktopSong, upsertDesktopSetlist, upsertDesktopSong } from "@/lib/desktop/workspace";
 import { getDesktopSyncDetails, getDesktopSyncSummary, saveDesktopTeamContext } from "@/lib/desktop/workspace";
 import { syncDesktopWorkspace } from "@/lib/desktop/sync";
@@ -1009,11 +1010,18 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
 
   const songIds = formData.getAll("songIds");
   if (songIds && songIds.length > 0) {
-    const insertData = songIds.map((id, index) => ({
+    const stringIds = songIds.map(String);
+    const { data: songsData } = await context.supabase
+      .from("songs")
+      .select("id, original_key")
+      .in("id", stringIds);
+    const keyMap = new Map((songsData ?? []).map((s) => [s.id, s.original_key]));
+
+    const insertData = stringIds.map((id, index) => ({
       setlist_id: setlistData.id,
-      song_id: id as string,
+      song_id: id,
       song_order: index + 1,
-      assigned_key: "C",
+      assigned_key: keyMap.get(id) || "C",
       notes: null,
     }));
     await context.supabase.from("setlist_songs").insert(insertData);
@@ -1198,13 +1206,20 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
     await context.supabase.from("setlist_songs").delete().eq("setlist_id", id);
     
     if (songIds.length > 0) {
-      const insertData = songIds.map((songId, index) => {
+      const stringIds = songIds.map(String);
+      const { data: songsData } = await context.supabase
+        .from("songs")
+        .select("id, original_key")
+        .in("id", stringIds);
+      const keyMap = new Map((songsData ?? []).map((s) => [s.id, s.original_key]));
+
+      const insertData = stringIds.map((songId, index) => {
         const existing = currentSetlistSongs?.find((s) => s.song_id === songId);
         return {
           setlist_id: id,
-          song_id: songId as string,
+          song_id: songId,
           song_order: index + 1,
-          assigned_key: existing?.assigned_key || "C",
+          assigned_key: existing?.assigned_key || keyMap.get(songId) || "C",
           notes: existing?.notes || null,
         };
       });
@@ -1375,7 +1390,7 @@ export async function addSetlistSongAction(_previous: ActionState, formData: For
       .maybeSingle(),
     context.supabase
       .from("songs")
-      .select("title")
+      .select("title, original_key")
       .eq("id", parsed.data.songId)
       .eq("team_id", context.teamId)
       .maybeSingle(),
@@ -1385,11 +1400,13 @@ export async function addSetlistSongAction(_previous: ActionState, formData: For
     return { ok: false, message: "Setlist could not be found." };
   }
 
+  const effectiveKey = parsed.data.assignedKey || song?.original_key || "C";
+
   const { error } = await context.supabase.from("setlist_songs").insert({
     setlist_id: parsed.data.setlistId,
     song_id: parsed.data.songId,
     song_order: (count ?? 0) + 1,
-    assigned_key: parsed.data.assignedKey,
+    assigned_key: effectiveKey,
     notes: parsed.data.lead ? `Lead: ${parsed.data.lead}` : null,
     youtube_url: parsed.data.youtubeUrl || null,
   });
@@ -1401,11 +1418,11 @@ export async function addSetlistSongAction(_previous: ActionState, formData: For
   await logSetlistChange(context, {
     setlistId: parsed.data.setlistId,
     changeType: "song_added",
-    summary: `Added ${song?.title ?? "a song"} in ${parsed.data.assignedKey}.`,
+    summary: `Added ${song?.title ?? "a song"} in ${effectiveKey}.`,
     snapshot: {
       songId: parsed.data.songId,
       songTitle: song?.title ?? null,
-      assignedKey: parsed.data.assignedKey,
+      assignedKey: effectiveKey,
       lead: parsed.data.lead ?? "",
       youtubeUrl: parsed.data.youtubeUrl ?? "",
       order: (count ?? 0) + 1,
@@ -1521,9 +1538,6 @@ export async function removeSetlistSongAction(formData: FormData): Promise<Actio
 
 
 export async function updateSetlistSongKeyAction(formData: FormData): Promise<ActionState> {
-  const context = await getMutationContext("setlists.manage");
-  if (!context.ok) return context.state;
-
   const setlistId = formData.get("setlistId")?.toString();
   const slotId = formData.get("slotId")?.toString();
   const assignedKey = formData.get("assignedKey")?.toString();
@@ -1531,6 +1545,27 @@ export async function updateSetlistSongKeyAction(formData: FormData): Promise<Ac
   if (!setlistId || !slotId || !assignedKey) {
     return { ok: false, message: "Missing required fields." };
   }
+
+  if (isDesktopRuntime()) {
+    const context = await getCurrentTeamContext();
+    if (!context.teamId || !can(context.role, "setlists.manage", context.customPermissions, context.rolePermissions)) {
+      return { ok: false, message: "This cached account cannot manage setlists." };
+    }
+    try {
+      const db = getDesktopDatabase();
+      db.prepare("UPDATE local_setlist_songs SET assigned_key = ?, updated_at = ? WHERE id = ? AND setlist_id = ?")
+        .run(assignedKey, new Date().toISOString(), slotId, setlistId);
+    } catch {
+      // Ignore desktop sqlite update error if slotId is virtual
+    }
+    revalidatePath(`/setlists/${setlistId}`);
+    revalidatePath(`/setlists/${setlistId}/stage`);
+    revalidatePath(`/setlists/${setlistId}/presenter`);
+    return { ok: true, message: "Key updated." };
+  }
+
+  const context = await getMutationContext("setlists.manage");
+  if (!context.ok) return context.state;
 
   const { error } = await context.supabase
     .from("setlist_songs")

@@ -163,7 +163,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           return [{
             id: slot.id,
             order: slot.song_order,
-            assignedKey: slot.assigned_key,
+            assignedKey: slot.assigned_key || slot.song.original_key || "C",
             lead: slot.notes?.startsWith("Lead: ") ? slot.notes.slice(6) : "",
             youtubeUrl: slot.song.youtube_url,
             arrangement: slot.arrangement,

@@ -1,8 +1,14 @@
 import { CalendarDays, Library, MessageSquare, Rows3 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
 
 export default function Home() {
+  if (isDesktopRuntime()) {
+    redirect("/dashboard");
+  }
+
   return (
     <main className="min-h-screen bg-[#0d0c12] text-white overflow-x-hidden">
       {/* Nav */}

@@ -9,8 +9,12 @@ import { Plus, Search, SlidersHorizontal, Loader2, X, Music, CheckCircle2 } from
 import { cn } from "@/lib/utils";
 import { addMultipleSetlistSongsAction } from "@/app/actions";
 
+const ALL_KEYS_MAJOR = ["C", "C#", "Db", "D", "D#", "Eb", "E", "F", "F#", "Gb", "G", "G#", "Ab", "A", "A#", "Bb", "B"];
+const ALL_KEYS_MINOR = ["Cm", "C#m", "Dbm", "Dm", "D#m", "Ebm", "Em", "Fm", "F#m", "Gbm", "Gm", "G#m", "Abm", "Am", "A#m", "Bbm", "Bm"];
+
 type StagedSong = {
   song: Song;
+  assignedKey: string;
   type: "Worship" | "Praise" | "None";
 };
 
@@ -48,7 +52,8 @@ export function SetlistSongPicker({
   }, [query, selectedKey, songs, stagedSongs]);
 
   const addSongToStaging = (song: Song) => {
-    setStagedSongs(prev => [...prev, { song, type: "None" }]);
+    const defaultKey = song.currentKey || song.originalKey || "C";
+    setStagedSongs(prev => [...prev, { song, assignedKey: defaultKey, type: "None" }]);
   };
 
   const removeSongFromStaging = (songId: string) => {
@@ -59,6 +64,10 @@ export function SetlistSongPicker({
     setStagedSongs(prev => prev.map(s => s.song.id === songId ? { ...s, type } : s));
   };
 
+  const updateSongKey = (songId: string, assignedKey: string) => {
+    setStagedSongs(prev => prev.map(s => s.song.id === songId ? { ...s, assignedKey } : s));
+  };
+
   const handleSave = () => {
     if (stagedSongs.length === 0) return;
     setErrorMsg("");
@@ -66,7 +75,7 @@ export function SetlistSongPicker({
     startTransition(async () => {
       const payload = stagedSongs.map(s => ({
         songId: s.song.id,
-        assignedKey: s.song.currentKey || s.song.originalKey || "C",
+        assignedKey: s.assignedKey || s.song.currentKey || s.song.originalKey || "C",
         type: s.type
       }));
 
@@ -171,39 +180,62 @@ export function SetlistSongPicker({
               Click the <Plus className="size-3 inline mx-1" /> button on songs above to add them to your staging box.
             </p>
           ) : (
-            stagedSongs.map((staged) => (
-              <div key={staged.song.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-black/40 border border-white/5">
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-white truncate">{staged.song.title}</p>
-                  <p className="text-[10px] text-zinc-400">Key: {staged.song.currentKey || staged.song.originalKey}</p>
-                </div>
-                
-                <div className="flex items-center gap-2 shrink-0">
-                  {/* Type Toggle */}
-                  <div className="flex items-center rounded-lg border border-white/10 p-0.5 bg-black/50">
-                    <button 
-                      onClick={() => updateSongType(staged.song.id, "Worship")}
-                      className={cn("px-3 py-1 rounded-md text-[10px] font-bold uppercase transition", staged.type === "Worship" ? "bg-emerald-500/20 text-emerald-300" : "text-zinc-500 hover:text-zinc-300")}
-                    >
-                      Worship
-                    </button>
-                    <button 
-                      onClick={() => updateSongType(staged.song.id, "Praise")}
-                      className={cn("px-3 py-1 rounded-md text-[10px] font-bold uppercase transition", staged.type === "Praise" ? "bg-amber-500/20 text-amber-300" : "text-zinc-500 hover:text-zinc-300")}
-                    >
-                      Praise
-                    </button>
+            stagedSongs.map((staged) => {
+              const origKey = staged.song.originalKey || staged.song.currentKey || "C";
+              const isMinor = origKey.endsWith("m");
+              const baseKeys = isMinor ? ALL_KEYS_MINOR : ALL_KEYS_MAJOR;
+              const selectOptions = baseKeys.includes(staged.assignedKey) ? baseKeys : [...baseKeys, staged.assignedKey];
+
+              return (
+                <div key={staged.song.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-black/40 border border-white/5">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white truncate">{staged.song.title}</p>
+                    <p className="text-[10px] text-zinc-400">Orig Key: {origKey}</p>
                   </div>
                   
-                  <button 
-                    onClick={() => removeSongFromStaging(staged.song.id)}
-                    className="p-1.5 rounded text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition"
-                  >
-                    <X className="size-4" />
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Key Selector */}
+                    <div className="flex items-center gap-1 bg-black/50 border border-white/10 rounded-lg px-2 py-1">
+                      <span className="text-[10px] font-semibold text-zinc-400">Key:</span>
+                      <select
+                        value={staged.assignedKey}
+                        onChange={(e) => updateSongKey(staged.song.id, e.target.value)}
+                        className="bg-transparent text-xs font-bold text-violet-300 outline-none cursor-pointer"
+                      >
+                        {selectOptions.map((k) => (
+                          <option key={k} value={k} className="bg-[#111014] text-white">
+                            {k}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Type Toggle */}
+                    <div className="flex items-center rounded-lg border border-white/10 p-0.5 bg-black/50">
+                      <button 
+                        onClick={() => updateSongType(staged.song.id, "Worship")}
+                        className={cn("px-3 py-1 rounded-md text-[10px] font-bold uppercase transition", staged.type === "Worship" ? "bg-emerald-500/20 text-emerald-300" : "text-zinc-500 hover:text-zinc-300")}
+                      >
+                        Worship
+                      </button>
+                      <button 
+                        onClick={() => updateSongType(staged.song.id, "Praise")}
+                        className={cn("px-3 py-1 rounded-md text-[10px] font-bold uppercase transition", staged.type === "Praise" ? "bg-amber-500/20 text-amber-300" : "text-zinc-500 hover:text-zinc-300")}
+                      >
+                        Praise
+                      </button>
+                    </div>
+                    
+                    <button 
+                      onClick={() => removeSongFromStaging(staged.song.id)}
+                      className="p-1.5 rounded text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

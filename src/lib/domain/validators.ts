@@ -26,7 +26,7 @@ export const joinCodeSchema = z
 export const songInputSchema = z.object({
   title: z.string().trim().min(1).max(160),
   artist: z.string().trim().min(1).max(160),
-  originalKey: z.string().trim().min(1).max(3),
+  originalKey: z.string().trim().min(1).max(10),
   bpm: z.preprocess((val) => (val === "" || val === undefined || val === null ? null : Number(val)), z.number().int().min(40).max(240).nullable().optional()),
   timeSignature: z.string().trim().regex(/^\d{1,2}\/\d{1,2}$/),
   lyrics: z.string().trim().min(1).max(20000),
@@ -151,7 +151,7 @@ export const serviceTemplateInputSchema = z.object({
 export const setlistSongInputSchema = z.object({
   setlistId: z.string().min(1),
   songId: z.string().min(1),
-  assignedKey: z.string().trim().min(1).max(3),
+  assignedKey: z.string().trim().min(1).max(10),
   bpm: z.preprocess((val) => (val === "" || val === undefined || val === null ? null : Number(val)), z.number().int().min(40).max(240).nullable().optional()),
   lead: z.string().trim().max(160).optional(),
   youtubeUrl: z.string().trim().max(500).optional(),
@@ -159,7 +159,7 @@ export const setlistSongInputSchema = z.object({
 
 const setlistBulkSongSchema = z.object({
   songId: z.string().uuid(),
-  assignedKey: z.string().trim().min(1).max(3),
+  assignedKey: z.string().trim().min(1).max(10),
   type: z.enum(["Worship", "Praise", "None"]),
 });
 

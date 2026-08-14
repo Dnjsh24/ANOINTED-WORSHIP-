@@ -5,7 +5,23 @@ import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { getDesktopDatabase } from "./db";
 import { listDesktopLyricShortcuts, setDesktopLyricShortcut } from "./lyric-shortcuts";
-import { cleanImportedPresentationName, deleteImportedPresentation, importPdf, importPptx, importedPresentationSlides, listImportedPresentations, parsePptxPictureXml, parsePptxSlideXml, setImportedPresentationSlideViewMode } from "./pptx-import";
+import {
+  addImportedPresentationSlide,
+  cleanImportedPresentationName,
+  deleteImportedPresentation,
+  deleteImportedPresentationSlide,
+  duplicateImportedPresentationSlide,
+  importPdf,
+  importPptx,
+  importedPresentationSlides,
+  listImportedPresentations,
+  parsePptxPictureXml,
+  parsePptxSlideXml,
+  reorderImportedPresentationSlides,
+  saveImportedPresentationSlideLayers,
+  setImportedPresentationSlideViewMode,
+  validatePptxArchiveInventory,
+} from "./pptx-import";
 
 function onePagePdf() {
   const objects = [
@@ -121,6 +137,108 @@ describe("PowerPoint slide importer", () => {
     expect(listImportedPresentations("team-1")[0].slides[0]).toMatchObject({ id: "slide-a", viewMode: "edited" });
     setImportedPresentationSlideViewMode("team-1", "deck-view", "slide-a", "original");
     expect(listImportedPresentations("team-1")[0].slides[0]).toMatchObject({ id: "slide-a", viewMode: "original" });
+  });
+
+  it("preserves PowerPoint paragraphs, line breaks, and common text styling", () => {
+    const [layer] = parsePptxSlideXml(`<p:sp><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="6096000" cy="1371600"/></a:xfrm></p:spPr><p:txBody><a:p><a:pPr algn="ctr"/><a:r><a:rPr sz="3600" b="1" i="1" u="sng"><a:latin typeface="Aptos"/></a:rPr><a:t>First line</a:t></a:r><a:br/><a:r><a:t>Second line</a:t></a:r></a:p><a:p><a:r><a:t>Next paragraph</a:t></a:r></a:p></p:txBody></p:sp>`);
+    expect(layer).toMatchObject({
+      kind: "text",
+      text: "First line\nSecond line\nNext paragraph",
+      fontFamily: "Aptos",
+      fontSize: 36,
+      bold: true,
+      italic: true,
+      underline: true,
+      textAlign: "center",
+    });
+  });
+
+  it("persists edited PowerPoint layers in the imported deck used by Presenter and Remote", () => {
+    process.env.ANW_DESKTOP_MODE = "1";
+    process.env.ANW_DESKTOP_DATA_DIR = mkdtempSync(join(tmpdir(), "anw-pptx-edit-"));
+    const db = getDesktopDatabase();
+    db.prepare(`
+      INSERT INTO desktop_imported_presentations
+        (id, team_id, name, source_kind, source_file, size_bytes, presentation_json, report_json, created_at)
+      VALUES ('deck-edit', 'team-1', 'Sunday Deck', 'pptx', 'Sunday.pptx', 100, ?, '{"importedText":1,"warnings":[]}', '2026-07-29T00:00:00.000Z')
+    `).run(JSON.stringify([{
+      id: "slide-a",
+      renderedMediaUrl: "/api/desktop/presentation-media/deck-edit/rendered-1.png",
+      viewMode: "original",
+      layers: [{ id: "title", kind: "text", name: "Title", x: 10, y: 10, width: 50, height: 20, rotation: 0, text: "Old title" }],
+    }]));
+    db.prepare(`INSERT INTO desktop_scene_layer_slides (team_id, setlist_id, slide_id, layers_json, updated_at) VALUES ('team-1', 'legacy-setlist', 'slide-a', '[]', '2026-07-29T00:00:00.000Z')`).run();
+
+    const edited = saveImportedPresentationSlideLayers("team-1", "deck-edit", "slide-a", [
+      { id: "title", kind: "text", name: "Title", x: 12, y: 14, width: 60, height: 20, rotation: 0, text: "Edited title", color: "#FFFFFF", fontSize: 64 },
+    ]);
+
+    expect(edited.slides[0]).toMatchObject({
+      id: "slide-a",
+      viewMode: "edited",
+      layers: [{ id: "title", text: "Edited title", x: 12, y: 14 }],
+    });
+    expect(importedPresentationSlides(listImportedPresentations("team-1")[0])[0]).toMatchObject({
+      teachingViewMode: "edited",
+      sceneLayers: [{ text: "Edited title" }],
+    });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM desktop_scene_layer_slides WHERE slide_id = 'slide-a'").get()).toMatchObject({ count: 0 });
+  });
+
+  it("adds, duplicates, reorders, and deletes local presentation slides durably", () => {
+    process.env.ANW_DESKTOP_MODE = "1";
+    process.env.ANW_DESKTOP_DATA_DIR = mkdtempSync(join(tmpdir(), "anw-pptx-slides-"));
+    const db = getDesktopDatabase();
+    db.prepare(`
+      INSERT INTO desktop_imported_presentations
+        (id, team_id, name, source_kind, source_file, size_bytes, presentation_json, report_json, created_at)
+      VALUES ('deck-slides', 'team-1', 'Sunday Deck', 'pptx', 'Sunday.pptx', 100, ?, '{"importedText":0,"warnings":[]}', '2026-07-29T00:00:00.000Z')
+    `).run(JSON.stringify([{ id: "slide-a", viewMode: "edited", layers: [] }]));
+
+    const added = addImportedPresentationSlide("team-1", "deck-slides", "slide-a");
+    expect(added.slides).toHaveLength(2);
+    const newSlideId = added.slides[1].id;
+
+    const duplicated = duplicateImportedPresentationSlide("team-1", "deck-slides", newSlideId);
+    expect(duplicated.slides).toHaveLength(3);
+    const duplicateId = duplicated.slides[2].id;
+
+    const reordered = reorderImportedPresentationSlides("team-1", "deck-slides", [duplicateId, "slide-a", newSlideId]);
+    expect(reordered.slides.map((slide) => slide.id)).toEqual([duplicateId, "slide-a", newSlideId]);
+
+    const deleted = deleteImportedPresentationSlide("team-1", "deck-slides", "slide-a");
+    expect(deleted.slides.map((slide) => slide.id)).toEqual([duplicateId, newSlideId]);
+    expect(listImportedPresentations("team-1")[0].slides.map((slide) => slide.id)).toEqual([duplicateId, newSlideId]);
+  });
+
+  it("rejects unsafe or broken editable scene layers before writing them", () => {
+    process.env.ANW_DESKTOP_MODE = "1";
+    process.env.ANW_DESKTOP_DATA_DIR = mkdtempSync(join(tmpdir(), "anw-pptx-validate-"));
+    const db = getDesktopDatabase();
+    db.prepare(`
+      INSERT INTO desktop_imported_presentations
+        (id, team_id, name, source_kind, source_file, size_bytes, presentation_json, report_json, created_at)
+      VALUES ('deck-safe', 'team-1', 'Sunday Deck', 'pptx', 'Sunday.pptx', 100, '[{"id":"slide-a","viewMode":"edited","layers":[]}]', '{"importedText":0,"warnings":[]}', '2026-07-29T00:00:00.000Z')
+    `).run();
+
+    expect(() => saveImportedPresentationSlideLayers("team-1", "deck-safe", "slide-a", [
+      { id: "bad", kind: "image", name: "Bad", x: 0, y: 0, width: 100, height: 100, rotation: 0, mediaUrl: "file:///C:/private/secret.png" },
+    ])).toThrow(/media/i);
+    expect(() => saveImportedPresentationSlideLayers("team-1", "deck-safe", "slide-a", [
+      { id: "bad", kind: "text", name: "Bad", x: Number.NaN, y: 0, width: 100, height: 100, rotation: 0, text: "Broken" },
+    ])).toThrow(/position/i);
+  });
+
+  it("rejects PowerPoint archives that exceed slide, media, or expanded-size limits", () => {
+    expect(() => validatePptxArchiveInventory([])).toThrow(/does not contain/i);
+    expect(() => validatePptxArchiveInventory(Array.from({ length: 501 }, (_, index) => ({ name: `ppt/slides/slide${index + 1}.xml`, uncompressedSize: 100 })))).toThrow(/500 slides/i);
+    expect(() => validatePptxArchiveInventory([
+      { name: "ppt/slides/slide1.xml", uncompressedSize: 100 },
+      ...Array.from({ length: 2_001 }, (_, index) => ({ name: `ppt/media/image${index}.png`, uncompressedSize: 100 })),
+    ])).toThrow(/media/i);
+    expect(() => validatePptxArchiveInventory([
+      { name: "ppt/slides/slide1.xml", uncompressedSize: 1024 * 1024 * 1024 + 1 },
+    ])).toThrow(/1 GB/i);
   });
 
   it.skipIf(process.env.ANW_TEST_POWERPOINT_RENDER !== "1")("renders an exact PowerPoint slide image through Microsoft PowerPoint", async () => {
