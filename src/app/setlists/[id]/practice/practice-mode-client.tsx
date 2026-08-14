@@ -157,16 +157,20 @@ function DraggableWindow({
         style={{
           left: `${pos.x}px`,
           top: `${pos.y}px`,
+          width: "3.5rem",
+          height: "3.5rem",
+          maxWidth: "3.5rem",
+          maxHeight: "3.5rem",
           zIndex,
         }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onClick={() => setIsMinimized(false)}
-        className="fixed z-40 flex size-12 items-center justify-center rounded-full border border-white/25 bg-zinc-900/95 shadow-2xl backdrop-blur-md cursor-grab active:cursor-grabbing select-none hover:scale-110 hover:border-violet-400/60 transition group"
+        className="fixed z-40 flex size-14 items-center justify-center rounded-full border border-white/30 bg-zinc-900/95 shadow-2xl backdrop-blur-md cursor-grab active:cursor-grabbing select-none hover:scale-110 hover:border-violet-400 transition group"
         title={`Click to expand ${title} (drag to move)`}
       >
-        <div className="relative flex items-center justify-center">
+        <div className="relative flex items-center justify-center pointer-events-none">
           {icon}
           <div className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-violet-600 text-[9px] font-black text-white ring-2 ring-zinc-900 shadow">
             <Maximize2 className="size-2.5" />

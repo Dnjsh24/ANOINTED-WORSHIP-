@@ -486,6 +486,10 @@ export function AnnotationCanvas({
                 style={{
                   left: `${note.x}px`,
                   top: `${note.y}px`,
+                  width: "2.75rem",
+                  height: "2.75rem",
+                  maxWidth: "2.75rem",
+                  maxHeight: "2.75rem",
                 }}
                 onPointerDown={(e) => handleNotePointerDown(note.id, e)}
                 onClick={() => handleUpdateScreenNote(note.id, { isMinimized: false })}
