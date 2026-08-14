@@ -116,7 +116,7 @@ export function resolveArrangementSongSections(
   arrangementSections?: ArrangementSection[] | null,
 ): SongSection[] {
   const safeLyrics = typeof lyrics === "string" ? lyrics : "";
-  if (!arrangementSections) return parseLyricsAndChords(safeLyrics);
+  if (!arrangementSections || arrangementSections.length === 0) return parseLyricsAndChords(safeLyrics);
 
   return arrangementSections.map((section) => {
     if (!section.content || typeof section.content !== "string" || !section.content.trim()) {

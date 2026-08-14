@@ -1,57 +1,80 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo, type CSSProperties } from "react";
 import Link from "next/link";
 import {
   ChevronLeft,
+  ChevronRight,
+  X,
+  Minus,
+  Plus,
+  Play,
+  Square,
+  Guitar,
+  ChevronsDown,
   Video,
   Music,
   ListMusic,
-  Minus,
-  Plus,
-  Square,
-  ChevronDown,
-  ChevronUp,
-  ChevronsDown,
 } from "lucide-react";
 import type { PracticeSetlistSong } from "@/lib/domain/practice";
 import { getYouTubeVideoId, getSpotifyTrackInfo } from "@/lib/domain/practice";
 import { PracticePlayer } from "@/components/practice-player";
 import { PracticeMetronome } from "@/components/practice-metronome";
 import { AnnotationCanvas } from "@/components/annotation-canvas";
-import { ChordNotation, ChordNotationToggle } from "@/components/chord-notation-toggle";
-import { chordToNashville, transposeChord } from "@/lib/domain/chords";
+import { ChordNotationToggle } from "@/components/chord-notation-toggle";
+import {
+  progressionToNashville,
+  tokensToNashville,
+  transposeProgression,
+  transposeTokens,
+} from "@/lib/domain/chords";
 import { resolveArrangementSongSections } from "@/lib/domain/arrangements";
+import { updateSetlistSongKeyAction } from "@/app/actions";
 import { cn } from "@/lib/utils";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MINOR_KEYS = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
+const CAPO_FRETS = Array.from({ length: 12 }, (_, fret) => fret);
+
+function getAbbr(label: string) {
+  const lbl = label.toLowerCase();
+  if (lbl.includes("pre-chorus") || lbl.includes("prechorus")) return "PC";
+  if (lbl.includes("verse")) return label.toUpperCase().replace("VERSE", "V").trim();
+  if (lbl.includes("chorus")) return label.toUpperCase().replace("CHORUS", "C").trim();
+  if (lbl.includes("bridge")) return label.toUpperCase().replace("BRIDGE", "B").trim();
+  if (lbl.includes("intro")) return "INT";
+  if (lbl.includes("outro")) return "OUT";
+  if (lbl.includes("instrumental") || lbl.includes("interlude")) return "INS";
+  return label.substring(0, 3).toUpperCase();
+}
 
 function getSectionLabelColor(label: string) {
   const norm = label.toLowerCase();
   if (norm.includes("pre-chorus") || norm.includes("prechorus")) {
-    return "bg-violet-950/60 text-violet-300 border-violet-500/30";
+    return "bg-violet-900/50 text-violet-300 border-violet-500/30";
   }
   if (norm.includes("chorus")) {
-    return "bg-blue-950/60 text-blue-300 border-blue-500/30";
+    return "bg-blue-900/50 text-blue-300 border-blue-500/30";
   }
   if (norm.includes("bridge")) {
-    return "bg-rose-950/60 text-rose-300 border-rose-500/30";
+    return "bg-rose-900/50 text-rose-300 border-rose-500/30";
   }
   if (norm.includes("verse")) {
-    return "bg-emerald-950/60 text-emerald-300 border-emerald-500/30";
+    return "bg-emerald-900/50 text-emerald-300 border-emerald-500/30";
   }
   if (norm.includes("intro")) {
-    return "bg-amber-950/60 text-amber-300 border-amber-500/30";
+    return "bg-amber-900/50 text-amber-300 border-amber-500/30";
   }
   if (norm.includes("outro") || norm.includes("ending")) {
-    return "bg-orange-950/60 text-orange-300 border-orange-500/30";
+    return "bg-orange-900/50 text-orange-300 border-orange-500/30";
   }
   if (norm.includes("instrumental") || norm.includes("interlude") || norm.includes("solo")) {
-    return "bg-cyan-950/60 text-cyan-300 border-cyan-500/30";
+    return "bg-cyan-900/50 text-cyan-300 border-cyan-500/30";
   }
   return "bg-zinc-800 text-zinc-300 border-zinc-700";
 }
+
+type FontScaleStyle = CSSProperties & { "--user-font-scale": number };
 
 interface PracticeModeClientProps {
   setlistId: string;
@@ -68,80 +91,95 @@ export default function PracticeModeClient({
   canEditSong,
 }: PracticeModeClientProps) {
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
-  const [showQueueMobile, setShowQueueMobile] = useState(false);
-
   const activeSong = songs[currentSongIndex] || songs[0];
   const isFirstSong = currentSongIndex === 0;
   const isLastSong = currentSongIndex === songs.length - 1;
 
-  // Chart settings
-  const [selectedKey, setSelectedKey] = useState(activeSong?.assignedKey || activeSong?.originalKey || "C");
-  const [notation, setNotation] = useState<ChordNotation>("chords");
-  const showNumbers = notation === "nashville";
-  const [fontScale, setFontScale] = useState(1.0);
+  // Chart scroll & autoscroll refs
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const [scrollSpeed, setScrollSpeedState] = useState(1.0);
+  const scrollSpeedRef = useRef(1.0);
+  const setScrollSpeed = (val: number) => {
+    setScrollSpeedState(val);
+    scrollSpeedRef.current = val;
+  };
+  const scrollAnimationFrameRef = useRef<number | null>(null);
 
-  // Auto-scroll & playback state
-  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  // Swipe gesture state
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const [touchStartTime, setTouchStartTime] = useState<number>(0);
+  const minSwipeDistance = 60;
+  const maxSwipeTime = 300;
+
+  // Stage Mode Transpose, Capo, Notation, and Font Scaling
+  const baseKey = activeSong?.originalKey || "C";
+  const initialKey = activeSong?.assignedKey || activeSong?.originalKey || "C";
+  const [selectedKey, setSelectedKey] = useState(initialKey);
+  const [guitarMode, setGuitarMode] = useState(false);
+  const [capoFret, setCapoFret] = useState(0);
+  const [showNumbers, setShowNumbers] = useState(false);
+  const [fontScale, setFontScale] = useState(1);
+
+  // Practice Mode Drawer Toggles
+  const [showPlayerPanel, setShowPlayerPanel] = useState(false);
+  const [showMetronomePanel, setShowMetronomePanel] = useState(false);
+  const [showQueueDrawer, setShowQueueDrawer] = useState(false);
   const [isPlayerPlaying, setIsPlayerPlaying] = useState(false);
-  const [prevSongIndex, setPrevSongIndex] = useState(currentSongIndex);
+  const [metronomePlaying, setMetronomePlaying] = useState(false);
 
-  // Reset transient autoscroll/playback states when active song changes (render-time derivation)
+  // Reset transient states on active song change
+  const [prevSongIndex, setPrevSongIndex] = useState(currentSongIndex);
   if (prevSongIndex !== currentSongIndex) {
     setPrevSongIndex(currentSongIndex);
-    setIsAutoScrolling(false);
+    setSelectedKey(activeSong?.assignedKey || activeSong?.originalKey || "C");
+    setGuitarMode(false);
+    setCapoFret(0);
+    setIsScrolling(false);
+    setMetronomePlaying(false);
     setIsPlayerPlaying(false);
   }
 
-  const [scrollSpeed, setScrollSpeed] = useState(1.0);
-  const chartScrollRef = useRef<HTMLDivElement>(null);
-  const scrollAnimRef = useRef<number | null>(null);
-
-  // DOM side-effect for chart scroll reset
+  // Scroll reset DOM side-effect
   useEffect(() => {
-    if (chartScrollRef.current) {
-      chartScrollRef.current.scrollTop = 0;
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
     }
   }, [currentSongIndex]);
 
-  // Autoscroll animation runner
-  useEffect(() => {
-    if (!isAutoScrolling) {
-      if (scrollAnimRef.current !== null) {
-        cancelAnimationFrame(scrollAnimRef.current);
-        scrollAnimRef.current = null;
-      }
-      return;
+  // Transpose Logic
+  const isMinor = activeSong?.originalKey?.endsWith("m");
+  const activeKeys = isMinor ? MINOR_KEYS : MAJOR_KEYS;
+  const selectedKeyIndex = activeKeys.indexOf(selectedKey);
+
+  async function changeKey(direction: number) {
+    if (selectedKeyIndex === -1) return;
+    let nextIdx = (selectedKeyIndex + direction) % 12;
+    if (nextIdx < 0) nextIdx += 12;
+    const newKey = activeKeys[nextIdx];
+    setSelectedKey(newKey);
+
+    if (activeSong?.slotId) {
+      const formData = new FormData();
+      formData.set("setlistId", setlistId);
+      formData.set("slotId", activeSong.slotId);
+      formData.set("assignedKey", newKey);
+      updateSetlistSongKeyAction(formData).catch(console.error);
     }
+  }
 
-    let lastTime: number | null = null;
-    const step = (timestamp: number) => {
-      if (lastTime !== null && chartScrollRef.current) {
-        const delta = timestamp - lastTime;
-        const pixelsPerFrame = (scrollSpeed * 30 * delta) / 1000;
-        chartScrollRef.current.scrollTop += pixelsPerFrame;
+  const capoData = useMemo(() => {
+    if (!guitarMode) return null;
+    if (selectedKeyIndex === -1) return { chordKey: selectedKey, fret: capoFret };
 
-        // Stop autoscroll when reaching bottom
-        const { scrollTop, scrollHeight, clientHeight } = chartScrollRef.current;
-        if (scrollTop + clientHeight >= scrollHeight - 2) {
-          setIsAutoScrolling(false);
-          return;
-        }
-      }
-      lastTime = timestamp;
-      scrollAnimRef.current = requestAnimationFrame(step);
-    };
+    const chordKeyIndex = (selectedKeyIndex - capoFret + activeKeys.length) % activeKeys.length;
+    return { chordKey: activeKeys[chordKeyIndex] ?? selectedKey, fret: capoFret };
+  }, [activeKeys, capoFret, guitarMode, selectedKey, selectedKeyIndex]);
 
-    scrollAnimRef.current = requestAnimationFrame(step);
+  const displayKey = capoData?.chordKey ?? selectedKey;
 
-    return () => {
-      if (scrollAnimRef.current !== null) {
-        cancelAnimationFrame(scrollAnimRef.current);
-        scrollAnimRef.current = null;
-      }
-    };
-  }, [isAutoScrolling, scrollSpeed]);
-
-  // Resolve arrangement sections for active song
+  // Resolve arrangement sections
   const sections = useMemo(() => {
     if (!activeSong) return [];
     return resolveArrangementSongSections(
@@ -150,100 +188,576 @@ export default function PracticeModeClient({
     );
   }, [activeSong]);
 
+  // Transpose the text
+  const transposedSections = useMemo(() => {
+    return sections.map((sec) => ({
+      ...sec,
+      lines: sec.lines.map((line) => {
+        if (line.tokens) {
+          return { ...line, tokens: transposeTokens(line.tokens, baseKey, displayKey) };
+        }
+        if (!line.chords) return line;
+        return { ...line, chords: transposeProgression(line.chords, baseKey, displayKey) };
+      }),
+    }));
+  }, [sections, baseKey, displayKey]);
+
+  const displayedSections = useMemo(() => {
+    if (!showNumbers) return transposedSections;
+    return transposedSections.map((sec) => ({
+      ...sec,
+      lines: sec.lines.map((line) => {
+        if (line.tokens) {
+          return { ...line, tokens: tokensToNashville(line.tokens, baseKey) };
+        }
+        if (!line.chords) return line;
+        return { ...line, chords: progressionToNashville(line.chords, baseKey) };
+      }),
+    }));
+  }, [transposedSections, showNumbers, baseKey]);
+
+  // Auto-scroll loop
+  const toggleAutoScroll = () => {
+    setIsScrolling((prev) => !prev);
+  };
+
+  useEffect(() => {
+    if (!isScrolling) {
+      if (scrollAnimationFrameRef.current) {
+        cancelAnimationFrame(scrollAnimationFrameRef.current);
+        scrollAnimationFrameRef.current = null;
+      }
+      return;
+    }
+
+    let lastTime: number | null = null;
+    const step = (timestamp: number) => {
+      if (lastTime !== null && scrollRef.current) {
+        const delta = timestamp - lastTime;
+        const pixelsPerFrame = (scrollSpeedRef.current * 30 * delta) / 1000;
+        scrollRef.current.scrollTop += pixelsPerFrame;
+
+        const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+        if (scrollTop + clientHeight >= scrollHeight - 2) {
+          setIsScrolling(false);
+          return;
+        }
+      }
+      lastTime = timestamp;
+      scrollAnimationFrameRef.current = requestAnimationFrame(step);
+    };
+
+    scrollAnimationFrameRef.current = requestAnimationFrame(step);
+
+    return () => {
+      if (scrollAnimationFrameRef.current) {
+        cancelAnimationFrame(scrollAnimationFrameRef.current);
+        scrollAnimationFrameRef.current = null;
+      }
+    };
+  }, [isScrolling]);
+
+  // Handle section jump
+  const handleJumpToSection = (sectionIndex: number) => {
+    const el = document.getElementById(`section-${sectionIndex}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  // Song Queue Navigation
   const handleSelectSong = (index: number) => {
     setCurrentSongIndex(index);
-    if (songs[index]) {
-      setSelectedKey(songs[index].assignedKey || songs[index].originalKey || "C");
-    }
-    setShowQueueMobile(false);
+    setShowQueueDrawer(false);
   };
 
   const handleNextSong = useCallback(() => {
     if (currentSongIndex < songs.length - 1) {
-      const nextIdx = currentSongIndex + 1;
-      setCurrentSongIndex(nextIdx);
-      if (songs[nextIdx]) {
-        setSelectedKey(songs[nextIdx].assignedKey || songs[nextIdx].originalKey || "C");
-      }
+      setCurrentSongIndex(currentSongIndex + 1);
     }
-  }, [currentSongIndex, songs]);
+  }, [currentSongIndex, songs.length]);
 
   const handlePreviousSong = useCallback(() => {
     if (currentSongIndex > 0) {
-      const prevIdx = currentSongIndex - 1;
-      setCurrentSongIndex(prevIdx);
-      if (songs[prevIdx]) {
-        setSelectedKey(songs[prevIdx].assignedKey || songs[prevIdx].originalKey || "C");
+      setCurrentSongIndex(currentSongIndex - 1);
+    }
+  }, [currentSongIndex]);
+
+  // Touch Swipe Handlers
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEndX(null);
+    setTouchStartX(e.targetTouches[0].clientX);
+    setTouchStartTime(Date.now());
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEndX(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStartX || !touchEndX) return;
+    const distance = touchStartX - touchEndX;
+    const timeElapsed = Date.now() - touchStartTime;
+
+    if (timeElapsed <= maxSwipeTime && Math.abs(distance) >= minSwipeDistance) {
+      if (distance > 0 && currentSongIndex < songs.length - 1) {
+        handleNextSong();
+      } else if (distance < 0 && currentSongIndex > 0) {
+        handlePreviousSong();
       }
     }
-  }, [currentSongIndex, songs]);
+  };
+
+  if (!activeSong) return null;
 
   return (
-    <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
-      {/* Top Header Bar */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-zinc-900/90 px-4 backdrop-blur-md z-20">
-        <div className="flex items-center gap-3">
+    <div className="fixed inset-0 h-[100dvh] bg-black text-white flex flex-col font-sans overflow-hidden transition-shadow duration-300 z-50">
+      {/* Stage Top Bar - Controls */}
+      <header className="flex items-center justify-between px-2 md:px-6 py-3 md:py-4 bg-zinc-950 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar gap-4 md:gap-8 z-30">
+        {/* Left: Back Link & Title */}
+        <div className="flex items-center gap-2 md:gap-4 shrink-0">
           <Link
             href={`/setlists/${setlistId}`}
-            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-zinc-800 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-zinc-700 transition"
+            className="p-2 rounded-full hover:bg-white/10 transition"
+            title={`Return to ${setlistName}`}
           >
-            <ChevronLeft className="size-4" />
-            <span className="hidden sm:inline">Setlist</span>
+            <X className="size-5 md:size-6 text-zinc-400" />
           </Link>
-          <div className="h-4 w-px bg-white/10" />
-          <h1 className="text-sm font-extrabold tracking-tight truncate max-w-[200px] sm:max-w-xs md:max-w-md">
-            {setlistName}
-            <span className="ml-2 font-mono text-xs font-semibold text-violet-400 uppercase">
-              Practice Mode
-            </span>
-          </h1>
-        </div>
-
-        {/* Mobile Queue Toggle Button */}
-        <div className="flex items-center gap-2 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setShowQueueMobile(!showQueueMobile)}
-            className="flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-950/60 px-3 py-1.5 text-xs font-bold text-violet-300 hover:bg-violet-900/80 min-h-[38px]"
-          >
-            <ListMusic className="size-4" />
-            <span>Queue ({songs.length})</span>
-            {showQueueMobile ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content Area: 3-Column Responsive Layout */}
-      <div className="relative flex flex-1 overflow-hidden">
-        {/* Left Column: Setlist Queue (Desktop Permanent / Mobile Collapsible Drawer) */}
-        <aside
-          className={cn(
-            "absolute inset-y-0 left-0 z-30 flex w-full flex-col border-r border-white/10 bg-zinc-900/95 p-3 transition-transform lg:static lg:w-72 lg:translate-x-0 lg:bg-zinc-900/60",
-            showQueueMobile ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-          )}
-        >
-          <div className="flex items-center justify-between pb-3 border-b border-white/10">
-            <div className="flex items-center gap-2">
-              <ListMusic className="size-4 text-violet-400" />
-              <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-300">
-                Setlist Queue ({songs.length})
-              </h2>
+          <div className="flex flex-col justify-center">
+            <h1 className="text-base md:text-xl font-bold flex items-center gap-2">
+              <span className="truncate max-w-[120px] sm:max-w-[200px] md:max-w-none">
+                {activeSong.title}
+              </span>
+              <span className="px-1.5 py-0.5 rounded bg-violet-600/30 text-violet-300 text-[10px] md:text-xs font-black tracking-widest uppercase border border-violet-500/40 whitespace-nowrap">
+                PRACTICE MODE
+              </span>
+              {guitarMode && (
+                <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] md:text-xs font-black tracking-widest uppercase border border-red-500/30 whitespace-nowrap">
+                  {capoFret === 0 ? "Open" : `Capo ${capoFret}`}
+                </span>
+              )}
+            </h1>
+            <div className="text-xs md:text-sm text-zinc-500 font-semibold leading-none mt-1 flex items-center gap-2">
+              <span className="text-zinc-400 font-bold uppercase text-[11px] truncate max-w-[120px]">
+                {setlistName}
+              </span>
+              <span>• {activeSong.bpm || "--"} BPM</span>
+              {activeSong.lead && (
+                <span className="text-violet-300 truncate max-w-[150px]">
+                  Lead: {activeSong.lead}
+                </span>
+              )}
+              {activeSong.arrangement && (
+                <span
+                  className="text-zinc-400 truncate max-w-[200px] hidden sm:inline"
+                  title={activeSong.arrangement}
+                >
+                  • {activeSong.arrangement}
+                </span>
+              )}
             </div>
+          </div>
+        </div>
+
+        {/* Stage & Practice Toolbar */}
+        <div className="flex items-center gap-3 md:gap-4 shrink-0">
+          {/* Transpose */}
+          <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-1">
             <button
               type="button"
-              onClick={() => setShowQueueMobile(false)}
-              className="rounded p-1 text-zinc-400 hover:text-white lg:hidden"
-              aria-label="Close queue menu"
+              onClick={() => changeKey(-1)}
+              className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white"
+              aria-label="Lower key by half step"
             >
-              <ChevronUp className="size-4" />
+              <Minus className="size-4" />
+            </button>
+            <span className="w-12 text-center font-bold text-lg text-violet-300">
+              {selectedKey}
+            </span>
+            <button
+              type="button"
+              onClick={() => changeKey(1)}
+              className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white"
+              aria-label="Raise key by half step"
+            >
+              <Plus className="size-4" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto pt-2 space-y-1.5 pr-1">
+          {/* Chords vs Nashville Toggle */}
+          <ChordNotationToggle
+            value={showNumbers ? "nashville" : "chords"}
+            onChange={(notation) => setShowNumbers(notation === "nashville")}
+          />
+
+          {/* Font Scaling */}
+          <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-1">
+            <button
+              type="button"
+              onClick={() => setFontScale((s) => Math.max(0.6, s - 0.1))}
+              className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white font-bold text-xs"
+              title="Decrease Font"
+            >
+              A-
+            </button>
+            <span className="w-10 text-center font-bold text-sm">
+              {Math.round(fontScale * 100)}%
+            </span>
+            <button
+              type="button"
+              onClick={() => setFontScale((s) => Math.min(1.8, s + 0.1))}
+              className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white font-bold text-sm"
+              title="Increase Font"
+            >
+              A+
+            </button>
+          </div>
+
+          {/* Guitar Mode (Capo) */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setGuitarMode(!guitarMode)}
+              className={cn(
+                "p-3 rounded-lg transition border min-h-[44px]",
+                guitarMode
+                  ? "bg-violet-600/20 border-violet-500/50 text-violet-400"
+                  : "bg-white/5 border-white/10 text-zinc-400 hover:text-white",
+              )}
+              title="Guitar Mode (Capo)"
+            >
+              <Guitar className="size-5" />
+            </button>
+            {guitarMode && (
+              <select
+                aria-label="Capo fret"
+                value={capoFret}
+                onChange={(e) => setCapoFret(Number(e.target.value))}
+                className="h-11 rounded-lg border border-violet-500/50 bg-zinc-900 px-3 text-sm font-bold text-violet-300 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-500/30"
+              >
+                {CAPO_FRETS.map((fret) => (
+                  <option key={fret} value={fret}>
+                    {fret === 0 ? "Open" : `Capo ${fret}`}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Auto Scroll Speed */}
+          <div
+            className="flex items-center bg-white/5 rounded-lg border border-white/10 p-1"
+            title="Auto Scroll"
+          >
+            <button
+              type="button"
+              onClick={toggleAutoScroll}
+              className={cn(
+                "p-2 rounded transition",
+                isScrolling ? "bg-violet-600/20 text-violet-400" : "text-zinc-400 hover:text-white",
+              )}
+              aria-label="Toggle Auto Scroll"
+            >
+              <ChevronsDown className="size-4" />
+            </button>
+            <input
+              type="range"
+              min="0.2"
+              max="3"
+              step="0.1"
+              value={scrollSpeed}
+              onChange={(e) => setScrollSpeed(parseFloat(e.target.value))}
+              className="w-16 md:w-24 mx-2 accent-violet-500"
+              title="Scroll Speed"
+            />
+          </div>
+
+          <div className="w-px h-8 bg-white/10 mx-1" />
+
+          {/* Practice Media Player Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setShowPlayerPanel(!showPlayerPanel)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition border min-h-[44px]",
+              showPlayerPanel || isPlayerPlaying
+                ? "border-red-500/60 bg-red-950/80 text-red-200 shadow-md"
+                : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10",
+            )}
+            title="Media Player"
+          >
+            <Video className="size-4 text-red-400" />
+            <span className="hidden sm:inline">Player</span>
+          </button>
+
+          {/* Metronome Panel Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setShowMetronomePanel(!showMetronomePanel)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition border min-h-[44px]",
+              showMetronomePanel || metronomePlaying
+                ? "border-violet-500/60 bg-violet-950/80 text-violet-200 shadow-md"
+                : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10",
+            )}
+            title="Metronome Settings"
+          >
+            {metronomePlaying ? <Square className="size-4 text-violet-400" /> : <Play className="size-4 text-violet-400" />}
+            <span className="hidden sm:inline">Metronome</span>
+          </button>
+
+          {/* Setlist Queue Drawer Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowQueueDrawer(!showQueueDrawer)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition border min-h-[44px]",
+              showQueueDrawer
+                ? "border-violet-500/60 bg-violet-950/80 text-violet-200 shadow-md"
+                : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10",
+            )}
+            title="Setlist Queue"
+          >
+            <ListMusic className="size-4 text-violet-400" />
+            <span>Queue ({songs.length})</span>
+          </button>
+
+          {/* Queue Navigation Buttons */}
+          <div className="flex items-center gap-1 md:gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handlePreviousSong}
+              disabled={isFirstSong}
+              className="p-2 md:p-3 rounded-full bg-white/5 hover:bg-white/10 disabled:opacity-30 transition min-h-[44px]"
+              aria-label="Previous Song"
+            >
+              <ChevronLeft className="size-5 md:size-6" />
+            </button>
+            <span className="text-xs md:text-sm font-bold text-zinc-400 w-8 md:w-12 text-center font-mono">
+              {currentSongIndex + 1} / {songs.length}
+            </span>
+            <button
+              type="button"
+              onClick={handleNextSong}
+              disabled={isLastSong}
+              className="p-2 md:p-3 rounded-full bg-white/5 hover:bg-white/10 disabled:opacity-30 transition min-h-[44px]"
+              aria-label="Next Song"
+            >
+              <ChevronRight className="size-5 md:size-6" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Arrangement Blocks (Desktop Header Bar) */}
+      <div className="hidden md:flex items-center gap-2 px-6 py-2.5 bg-zinc-900 border-b border-white/5 overflow-x-auto no-scrollbar shrink-0 z-20">
+        {displayedSections.map((section, idx) => {
+          if (!section.label || section.label === "unknown") return null;
+          const colorClass = getSectionLabelColor(section.label);
+          return (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => handleJumpToSection(idx)}
+              className={cn(
+                "px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider whitespace-nowrap border transition hover:brightness-125",
+                colorClass,
+              )}
+            >
+              {section.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Main Container: Chart View + Mobile Jump Blocks */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Full Scrollable Stage Chord Chart Area */}
+        <div
+          ref={scrollRef}
+          style={{ "--user-font-scale": fontScale } as FontScaleStyle}
+          className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-8 pb-64 relative z-10"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          {/* Unified Text Notes & Drawing Canvas Toolbar */}
+          <AnnotationCanvas
+            songId={activeSong.songId || activeSong.slotId}
+            setlistId={setlistId}
+            setlistSongId={activeSong.slotId}
+            songTitle={activeSong.title}
+            containerRef={scrollRef}
+          />
+
+          <div className="max-w-4xl mx-auto space-y-8 relative z-10">
+            {/* Song Sections Display */}
+            {displayedSections.length > 0 ? (
+              displayedSections.map((section, idx) => (
+                <div key={idx} id={`section-${idx}`} className="space-y-3 scroll-mt-6">
+                  {section.label && section.label !== "unknown" && (
+                    <div
+                      className={cn(
+                        "inline-block rounded border px-3 py-1 text-xs font-bold uppercase tracking-wider",
+                        getSectionLabelColor(section.label),
+                      )}
+                    >
+                      {section.label}
+                    </div>
+                  )}
+                  <div className="space-y-4">
+                    {section.lines.map((line, lIdx) => (
+                      <div
+                        key={lIdx}
+                        className="leading-relaxed max-w-full overflow-x-auto no-scrollbar"
+                      >
+                        {line.tokens ? (
+                          // Syllable-aligned ChordPro format
+                          <div className="flex flex-wrap items-end leading-none">
+                            {line.tokens.map((token, tIdx) => (
+                              <span key={tIdx} className="inline-flex flex-col items-start">
+                                <span className="font-mono font-bold text-violet-400 leading-none pb-1 min-h-[1em] block whitespace-pre text-[calc(0.85rem*var(--user-font-scale))]">
+                                  {token.chord || ""}
+                                </span>
+                                <span className="font-semibold text-zinc-100 whitespace-pre text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
+                                  {token.lyric || (token.chord ? "\u00a0" : "")}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          // Space-aligned format fallback
+                          <>
+                            {line.chords && (
+                              <div className="font-mono font-bold text-violet-400 whitespace-pre leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]">
+                                {line.chords}
+                              </div>
+                            )}
+                            {line.lyric && (
+                              <div className="font-semibold text-zinc-100 whitespace-pre-wrap leading-tight mt-1 text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
+                                {line.lyric}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-12 text-center text-zinc-500 italic font-semibold">
+                No lyrics or chords found for this song.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Mobile Right Side Arrangement Jump Blocks */}
+        <div className="md:hidden flex flex-col items-center gap-3 py-4 w-16 bg-zinc-900 border-l border-white/5 overflow-y-auto shrink-0 z-20">
+          {displayedSections.map((section, idx) => {
+            if (!section.label || section.label === "unknown") return null;
+            const colorClass = getSectionLabelColor(section.label);
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleJumpToSection(idx)}
+                className={cn(
+                  "w-12 py-3 rounded-lg text-xs font-black uppercase tracking-tighter border transition hover:brightness-125 shadow-md",
+                  colorClass,
+                )}
+                title={section.label}
+              >
+                {getAbbr(section.label)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* FLOATING PRACTICE PANELS */}
+
+      {/* 1. Floating Media Player Panel */}
+      {showPlayerPanel && (
+        <div className="fixed bottom-20 right-4 z-40 w-96 max-w-[95vw] rounded-xl border border-white/10 bg-zinc-900/95 p-4 shadow-2xl backdrop-blur-md animate-fade-up">
+          <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+            <div className="flex items-center gap-2">
+              <Video className="size-4 text-red-400" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-200">
+                Media Player ({activeSong.title})
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPlayerPanel(false)}
+              className="text-zinc-400 hover:text-white"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+
+          <PracticePlayer
+            activeSong={activeSong}
+            isFirstSong={isFirstSong}
+            isLastSong={isLastSong}
+            onPreviousSong={handlePreviousSong}
+            onNextSong={handleNextSong}
+            onPlaybackStateChange={setIsPlayerPlaying}
+          />
+        </div>
+      )}
+
+      {/* 2. Floating Metronome Settings Panel */}
+      {showMetronomePanel && (
+        <div className="fixed bottom-20 right-4 lg:right-96 z-40 w-96 max-w-[95vw] rounded-xl border border-white/10 bg-zinc-900/95 p-4 shadow-2xl backdrop-blur-md animate-fade-up">
+          <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+            <div className="flex items-center gap-2">
+              <Square className="size-4 text-violet-400" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-200">
+                Metronome Engine
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMetronomePanel(false)}
+              className="text-zinc-400 hover:text-white"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+
+          <PracticeMetronome
+            activeSong={activeSong}
+            setlistId={setlistId}
+            canEditSong={canEditSong}
+            isPlayerPlaying={isPlayerPlaying}
+          />
+        </div>
+      )}
+
+      {/* 3. Collapsible Setlist Queue Drawer */}
+      {showQueueDrawer && (
+        <div className="fixed inset-y-0 left-0 z-40 flex w-80 max-w-[90vw] flex-col border-r border-white/10 bg-zinc-900/98 p-4 shadow-2xl backdrop-blur-md animate-fade-in">
+          <div className="flex items-center justify-between pb-3 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <ListMusic className="size-5 text-violet-400" />
+              <h3 className="text-sm font-extrabold text-white">Setlist Queue ({songs.length})</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowQueueDrawer(false)}
+              className="rounded p-1 text-zinc-400 hover:text-white"
+            >
+              <X className="size-5" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto pt-3 space-y-2 pr-1">
             {songs.map((item, idx) => {
               const isActive = idx === currentSongIndex;
-              const hasYt = Boolean(getYouTubeVideoId(item.youtubeUrl));
-              const hasSp = Boolean(getSpotifyTrackInfo(item.spotifyUrl));
+              const itemYt = Boolean(getYouTubeVideoId(item.youtubeUrl));
+              const itemSp = Boolean(getSpotifyTrackInfo(item.spotifyUrl));
 
               return (
                 <button
@@ -251,13 +765,13 @@ export default function PracticeModeClient({
                   type="button"
                   onClick={() => handleSelectSong(idx)}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-lg p-2.5 text-left text-xs font-semibold transition-all border min-h-[44px]",
+                    "flex w-full items-center justify-between rounded-lg p-3 text-left text-xs font-semibold transition border min-h-[44px]",
                     isActive
-                      ? "border-violet-500/60 bg-violet-950/70 text-white shadow-md"
-                      : "border-white/5 bg-zinc-800/40 text-zinc-300 hover:border-white/20 hover:bg-zinc-800",
+                      ? "border-violet-500/60 bg-violet-950/80 text-white shadow-md"
+                      : "border-white/5 bg-zinc-800/50 text-zinc-300 hover:border-white/20 hover:bg-zinc-800",
                   )}
                 >
-                  <div className="flex items-center gap-2.5 overflow-hidden">
+                  <div className="flex items-center gap-3 overflow-hidden">
                     <span
                       className={cn(
                         "flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-bold",
@@ -276,251 +790,32 @@ export default function PracticeModeClient({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                    <span className="rounded bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] font-extrabold text-violet-300 border border-white/10">
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <span className="rounded bg-zinc-800 px-2 py-0.5 font-mono text-[10px] font-extrabold text-violet-300 border border-white/10">
                       {item.assignedKey}
                     </span>
-                    {item.bpm && (
-                      <span className="font-mono text-[10px] font-semibold text-zinc-400">
-                        {item.bpm}
-                      </span>
-                    )}
-                    <div className="flex items-center gap-0.5">
-                      {hasYt && <Video className="size-3.5 text-red-500" />}
-                      {hasSp && <Music className="size-3.5 text-emerald-500" />}
+                    <div className="flex items-center gap-1">
+                      {itemYt && <Video className="size-3.5 text-red-500" />}
+                      {itemSp && <Music className="size-3.5 text-emerald-500" />}
                     </div>
                   </div>
                 </button>
               );
             })}
           </div>
-        </aside>
+        </div>
+      )}
 
-        {/* Center Column: Active Chord Chart with Annotation Overlay */}
-        <main className="relative flex flex-1 flex-col overflow-hidden bg-zinc-950">
-          {/* Chart Control Toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-zinc-900/80 p-3 z-10">
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Key Selector */}
-              <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-1 border border-white/10">
-                <span className="px-1.5 font-mono text-[11px] font-bold uppercase text-zinc-400">
-                  Key:
-                </span>
-                <select
-                  value={selectedKey}
-                  onChange={(e) => setSelectedKey(e.target.value)}
-                  className="bg-transparent font-mono text-xs font-bold text-violet-300 focus:outline-none cursor-pointer"
-                  aria-label="Transposed Key"
-                >
-                  <optgroup label="Major Keys">
-                    {MAJOR_KEYS.map((k) => (
-                      <option key={k} value={k} className="bg-zinc-900 text-white">
-                        {k}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Minor Keys">
-                    {MINOR_KEYS.map((k) => (
-                      <option key={k} value={k} className="bg-zinc-900 text-white">
-                        {k}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-              </div>
-
-              {/* Notation Toggle */}
-              <ChordNotationToggle
-                value={notation}
-                onChange={setNotation}
-              />
-
-              {/* Font Scale Controls */}
-              <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-1 border border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setFontScale((prev) => Math.max(0.7, prev - 0.1))}
-                  className="p-1 text-zinc-400 hover:text-white rounded"
-                  aria-label="Decrease chart font size"
-                >
-                  <Minus className="size-3.5" />
-                </button>
-                <span className="font-mono text-[11px] font-bold px-1 text-zinc-300">
-                  {Math.round(fontScale * 100)}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setFontScale((prev) => Math.min(1.6, prev + 0.1))}
-                  className="p-1 text-zinc-400 hover:text-white rounded"
-                  aria-label="Increase chart font size"
-                >
-                  <Plus className="size-3.5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Autoscroll Controls */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsAutoScrolling(!isAutoScrolling)}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition border min-h-[36px]",
-                  isAutoScrolling
-                    ? "border-red-500/60 bg-red-950/80 text-red-200"
-                    : "border-white/10 bg-zinc-800 text-zinc-200 hover:bg-zinc-700",
-                )}
-              >
-                {isAutoScrolling ? (
-                  <>
-                    <Square className="size-3.5 fill-current" /> Pause Scroll
-                  </>
-                ) : (
-                  <>
-                    <ChevronsDown className="size-3.5" /> Auto-Scroll
-                  </>
-                )}
-              </button>
-
-              {isAutoScrolling && (
-                <select
-                  value={scrollSpeed}
-                  onChange={(e) => setScrollSpeed(parseFloat(e.target.value))}
-                  className="bg-zinc-800 border border-white/10 rounded-lg px-2 py-1 font-mono text-xs font-bold text-violet-300 focus:outline-none"
-                  aria-label="Auto-scroll speed"
-                >
-                  <option value={0.5}>0.5x</option>
-                  <option value={1.0}>1.0x</option>
-                  <option value={1.5}>1.5x</option>
-                  <option value={2.0}>2.0x</option>
-                  <option value={3.0}>3.0x</option>
-                </select>
-              )}
-            </div>
-          </div>
-
-          {/* Canvas & Notes Drawing Overlay */}
-          <AnnotationCanvas
-            songId={activeSong.songId || activeSong.slotId}
-            setlistId={setlistId}
-            setlistSongId={activeSong.slotId}
-            songTitle={activeSong.title}
-            containerRef={chartScrollRef}
-          />
-
-          {/* Scrollable Song Chart View */}
-          <div
-            ref={chartScrollRef}
-            className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8"
-            style={{ fontSize: `${fontScale}rem` }}
-          >
-            <div className="max-w-3xl mx-auto space-y-6">
-              {/* Song Title & Header Info */}
-              <div className="border-b border-white/10 pb-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-black text-white tracking-tight">
-                      {activeSong.title}
-                    </h2>
-                    {activeSong.lead && (
-                      <p className="text-sm font-semibold text-violet-300 mt-0.5">
-                        Lead Vocal: {activeSong.lead}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-extrabold uppercase px-2.5 py-1 rounded bg-violet-900/60 text-violet-200 border border-violet-500/40">
-                        {selectedKey}
-                      </span>
-                      {activeSong.bpm && (
-                        <span className="font-mono text-xs font-semibold px-2 py-1 rounded bg-zinc-800 text-zinc-300 border border-white/10">
-                          {activeSong.bpm} BPM
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Sections Display */}
-              {sections.length > 0 ? (
-                <div className="space-y-6">
-                  {sections.map((section, idx) => (
-                    <div key={`${section.label}-${idx}`} className="space-y-2">
-                      <span
-                        className={cn(
-                          "inline-block rounded-md border px-2.5 py-1 font-mono text-xs font-black uppercase tracking-wide",
-                          getSectionLabelColor(section.label),
-                        )}
-                      >
-                        {section.label}
-                      </span>
-
-                      <div className="space-y-2 pl-1">
-                        {section.lines.map((line, lineIdx) => (
-                          <div key={lineIdx} className="leading-relaxed">
-                            {line.tokens && line.tokens.length > 0 ? (
-                              <div className="flex flex-wrap items-end leading-none mb-1">
-                                {line.tokens.map((token, tokenIdx) => (
-                                  <span key={tokenIdx} className="inline-flex flex-col items-start">
-                                    <span className="font-mono font-bold text-violet-300 text-sm leading-none pb-1 min-h-[16px] block whitespace-pre">
-                                      {token.chord
-                                        ? showNumbers
-                                          ? chordToNashville(token.chord, activeSong.originalKey)
-                                          : transposeChord(
-                                              token.chord,
-                                              activeSong.originalKey,
-                                              selectedKey,
-                                            )
-                                        : ""}
-                                    </span>
-                                    <span className="font-semibold text-zinc-100 text-base whitespace-pre">
-                                      {token.lyric || (token.chord ? "\u00a0" : "")}
-                                    </span>
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="font-semibold text-zinc-200 whitespace-pre-wrap">
-                                {line.lyric}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-8 text-center text-zinc-500 font-semibold italic">
-                  No lyrics or chords available for this song.
-                </div>
-              )}
-            </div>
-          </div>
-        </main>
-
-        {/* Right Column: Player & Metronome Panel */}
-        <aside className="w-full border-t border-white/10 bg-zinc-900/90 p-4 lg:w-96 lg:border-t-0 lg:border-l overflow-y-auto space-y-4">
-          {/* Media Player */}
-          <PracticePlayer
-            activeSong={activeSong}
-            isFirstSong={isFirstSong}
-            isLastSong={isLastSong}
-            onPreviousSong={handlePreviousSong}
-            onNextSong={handleNextSong}
-            onPlaybackStateChange={setIsPlayerPlaying}
-          />
-
-          {/* Metronome */}
-          <PracticeMetronome
-            activeSong={activeSong}
-            setlistId={setlistId}
-            canEditSong={canEditSong}
-            isPlayerPlaying={isPlayerPlaying}
-          />
-        </aside>
+      {/* Floating Auto-Scroll Status Banner */}
+      <div className="absolute bottom-8 right-8 pointer-events-none z-30">
+        <div
+          className={cn(
+            "px-4 py-2 rounded-full font-bold text-xs uppercase tracking-widest transition-opacity duration-500",
+            isScrolling ? "opacity-100 bg-violet-600/80 text-white shadow-lg" : "opacity-0",
+          )}
+        >
+          Auto-Scrolling
+        </div>
       </div>
     </div>
   );

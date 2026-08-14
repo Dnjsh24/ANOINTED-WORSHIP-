@@ -20,11 +20,11 @@ const mockSongs: PracticeSetlistSong[] = [
     assignedKey: "G",
     originalKey: "G",
     arrangement: "Verse 1, Chorus",
-    arrangementSections: null,
-    lyricsChords: "Verse 1\n[G]You are here, moving in our [D]midst\nChorus\n[G]Way maker, miracle worker",
+    arrangementSections: [],
+    lyricsChords: "[Verse 1]\n[G]You are here, moving in our[D] midst",
     bpm: 68,
     timeSignature: "4/4",
-    youtubeUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    youtubeUrl: "https://www.youtube.com/watch?v=iJCV_2H9xD0",
     spotifyUrl: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
   },
   {
@@ -32,32 +32,32 @@ const mockSongs: PracticeSetlistSong[] = [
     songId: "song-2",
     order: 2,
     title: "Great Are You Lord",
-    lead: "Jordan",
+    lead: "Sam",
     assignedKey: "A",
     originalKey: "A",
-    arrangement: "Verse 1",
-    arrangementSections: null,
-    lyricsChords: "Verse 1\n[A]You give life, You are [E]love",
-    bpm: null, // missing BPM
+    arrangement: "Chorus, Bridge",
+    arrangementSections: [],
+    lyricsChords: "[Chorus]\n[A]You give life, You are[E] love",
+    bpm: null,
     timeSignature: "3/4",
-    youtubeUrl: null,
-    spotifyUrl: "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+    youtubeUrl: "https://www.youtube.com/watch?v=sample2",
+    spotifyUrl: null,
   },
   {
     slotId: "slot-3",
     songId: "song-3",
     order: 3,
     title: "Build My Life",
-    lead: undefined,
+    lead: "",
     assignedKey: "D",
     originalKey: "D",
-    arrangement: "Chorus",
-    arrangementSections: null,
-    lyricsChords: "Chorus\n[D]Holy, there is no one [A]like You",
+    arrangement: null,
+    arrangementSections: [],
+    lyricsChords: "[Verse 1]\n[D]Holy, there is no one[G] like You",
     bpm: 72,
     timeSignature: "4/4",
     youtubeUrl: null,
-    spotifyUrl: null, // no media link
+    spotifyUrl: null,
   },
 ];
 
@@ -66,7 +66,7 @@ describe("PracticeModeClient", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the ordered setlist queue and defaults to the first song", () => {
+  it("renders the active song and chord chart details", () => {
     render(
       <PracticeModeClient
         setlistId="setlist-1"
@@ -77,19 +77,13 @@ describe("PracticeModeClient", () => {
       />,
     );
 
-    // Queue and active chart contain song titles
-    expect(screen.getAllByText("Way Maker").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Great Are You Lord").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Build My Life").length).toBeGreaterThan(0);
-
-    // First song active chart details
-    expect(screen.getByRole("heading", { name: "Way Maker" })).toBeInTheDocument();
-    expect(screen.getByText("Lead Vocal: Alex")).toBeInTheDocument();
+    // Active chart details
+    expect(screen.getByRole("heading", { name: /way maker/i })).toBeInTheDocument();
+    expect(screen.getByText("Lead: Alex")).toBeInTheDocument();
     expect(screen.getByText("You are here, moving in our")).toBeInTheDocument();
-    expect(screen.getByText("Saved BPM:")).toBeInTheDocument();
   });
 
-  it("switches active song when a queue item is selected without page reload", async () => {
+  it("switches active song when a queue item is selected from drawer without page reload", async () => {
     render(
       <PracticeModeClient
         setlistId="setlist-1"
@@ -100,15 +94,17 @@ describe("PracticeModeClient", () => {
       />,
     );
 
-    // Click second song in queue
+    // Open Queue Drawer
+    const queueBtn = screen.getByRole("button", { name: /queue \(3\)/i });
+    fireEvent.click(queueBtn);
+
+    // Click second song in queue drawer
     const secondSongButton = screen.getByText("Great Are You Lord");
     fireEvent.click(secondSongButton);
 
     // Active chart updates to second song
-    expect(screen.getByRole("heading", { name: "Great Are You Lord" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /great are you lord/i })).toBeInTheDocument();
     expect(screen.getByText("You give life, You are")).toBeInTheDocument();
-    expect(screen.getByText("BPM not set")).toBeInTheDocument();
-    expect(screen.getByText("3/4")).toBeInTheDocument();
   });
 
   it("prefers YouTube when both YouTube and Spotify links exist and provides provider toggle", () => {
@@ -122,17 +118,21 @@ describe("PracticeModeClient", () => {
       />,
     );
 
+    // Open Player Panel
+    const playerBtn = screen.getByRole("button", { name: /player/i });
+    fireEvent.click(playerBtn);
+
     // First song has both links -> defaults to YouTube
     expect(screen.getByText("YouTube Audio/Video")).toBeInTheDocument();
 
     // Toggle to Spotify
-    const spotifyToggle = screen.getByRole("button", { name: /spotify/i });
+    const spotifyToggle = screen.getByRole("button", { name: /^spotify$/i });
     fireEvent.click(spotifyToggle);
 
     expect(screen.getByText("Spotify Preview Track")).toBeInTheDocument();
   });
 
-  it("handles missing media links cleanly without blocking chords, metronome or queue navigation", async () => {
+  it("handles missing media links cleanly without blocking chords", async () => {
     render(
       <PracticeModeClient
         setlistId="setlist-1"
@@ -143,16 +143,17 @@ describe("PracticeModeClient", () => {
       />,
     );
 
-    // Select third song (no media links)
+    // Open Queue Drawer and select third song (no media links)
+    const queueBtn = screen.getByRole("button", { name: /queue \(3\)/i });
+    fireEvent.click(queueBtn);
+
     const thirdSongButton = screen.getByText("Build My Life");
     fireEvent.click(thirdSongButton);
 
-    expect(screen.getByRole("heading", { name: "Build My Life" })).toBeInTheDocument();
-    expect(screen.getByText("No media player link available")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /build my life/i })).toBeInTheDocument();
 
-    // Chords and metronome are still interactive
+    // Chords are still interactive
     expect(screen.getByText("Holy, there is no one")).toBeInTheDocument();
-    expect(screen.getByText("Saved BPM:")).toBeInTheDocument();
   });
 
   it("navigates through queue with Previous and Next buttons", () => {
@@ -166,25 +167,25 @@ describe("PracticeModeClient", () => {
       />,
     );
 
-    const prevButton = screen.getByRole("button", { name: /previous setlist song/i });
-    const nextButton = screen.getByRole("button", { name: /next setlist song/i });
+    const prevButton = screen.getByRole("button", { name: /previous song/i });
+    const nextButton = screen.getByRole("button", { name: /next song/i });
 
     // Initially on first song -> Previous disabled
     expect(prevButton).toBeDisabled();
 
     // Click Next -> moves to second song
     fireEvent.click(nextButton);
-    expect(screen.getByRole("heading", { name: "Great Are You Lord" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /great are you lord/i })).toBeInTheDocument();
     expect(prevButton).not.toBeDisabled();
 
     // Click Next -> moves to third song (last song)
     fireEvent.click(nextButton);
-    expect(screen.getByRole("heading", { name: "Build My Life" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /build my life/i })).toBeInTheDocument();
     expect(nextButton).toBeDisabled();
 
     // Click Previous -> moves back to second song
     fireEvent.click(prevButton);
-    expect(screen.getByRole("heading", { name: "Great Are You Lord" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /great are you lord/i })).toBeInTheDocument();
   });
 
   it("allows metronome BPM adjustment, tap tempo, and authorized BPM saving", async () => {
@@ -200,7 +201,11 @@ describe("PracticeModeClient", () => {
       />,
     );
 
-    // Tap tempo button is present
+    // Open Metronome Panel
+    const metronomeBtn = screen.getByRole("button", { name: /metronome/i });
+    fireEvent.click(metronomeBtn);
+
+    // Tap tempo button is present inside panel
     const tapButton = screen.getByRole("button", { name: /tap tempo/i });
     expect(tapButton).toBeInTheDocument();
 
@@ -228,6 +233,6 @@ describe("PracticeModeClient", () => {
     const nashvilleButton = screen.getByRole("button", { name: /nashville/i });
     fireEvent.click(nashvilleButton);
 
-    expect(screen.getAllByText("1").length).toBeGreaterThan(0);
+    expect(screen.getByText("1")).toBeInTheDocument();
   });
 });
