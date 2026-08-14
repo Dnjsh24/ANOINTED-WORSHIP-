@@ -183,7 +183,7 @@ export function PracticeMetronome({
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-white/10 bg-zinc-900/90 p-4 shadow-lg backdrop-blur-md">
+    <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-zinc-900/90 p-4 shadow-lg backdrop-blur-md w-full h-full flex-1 min-h-0 overflow-auto justify-between">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

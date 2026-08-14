@@ -325,9 +325,9 @@ export function PracticePlayer({
   const canSeek = provider === "youtube" && duration > 0;
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-white/10 bg-zinc-900/90 p-4 shadow-lg backdrop-blur-md">
+    <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-zinc-900/90 p-4 shadow-lg backdrop-blur-md w-full h-full flex-1 min-h-0 justify-between">
       {/* Top Header & Session Provider Toggle */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           {provider === "youtube" ? (
             <Video className="size-5 text-red-500" />
@@ -373,7 +373,7 @@ export function PracticePlayer({
       </div>
 
       {/* Embed Container Area */}
-      <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black border border-white/10 flex items-center justify-center">
+      <div className="relative flex-1 w-full min-h-[140px] overflow-hidden rounded-lg bg-black border border-white/10 flex items-center justify-center">
         {provider === "youtube" && ytVideoId && (
           <div className="h-full w-full">
             <iframe

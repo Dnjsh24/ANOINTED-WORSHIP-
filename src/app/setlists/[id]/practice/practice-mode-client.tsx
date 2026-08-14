@@ -185,7 +185,7 @@ function DraggableWindow({
       }}
       onPointerDown={onFocus}
       className={cn(
-        "fixed rounded-xl border border-white/15 bg-zinc-900/95 p-4 shadow-2xl backdrop-blur-md transition-shadow select-none resize overflow-auto min-w-[280px] min-h-[140px]",
+        "fixed rounded-xl border border-white/15 bg-zinc-900/95 p-4 shadow-2xl backdrop-blur-md transition-shadow select-none resize overflow-auto min-w-[280px] min-h-[160px] flex flex-col",
         className,
       )}
     >
@@ -193,7 +193,7 @@ function DraggableWindow({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        className="flex items-center justify-between pb-3 border-b border-white/10 mb-3 cursor-grab active:cursor-grabbing bg-zinc-800/40 -mx-4 -mt-4 px-4 pt-3.5 rounded-t-xl"
+        className="flex items-center justify-between pb-3 border-b border-white/10 mb-3 cursor-grab active:cursor-grabbing bg-zinc-800/40 -mx-4 -mt-4 px-4 pt-3.5 rounded-t-xl shrink-0"
       >
         <div className="flex items-center gap-2 overflow-hidden">
           <GripHorizontal className="size-4 text-zinc-400 shrink-0" />
@@ -224,7 +224,7 @@ function DraggableWindow({
         </div>
       </div>
 
-      <div className="select-text h-[calc(100%-2.5rem)] overflow-y-auto">{children}</div>
+      <div className="select-text flex-1 w-full h-full min-h-0 overflow-auto flex flex-col">{children}</div>
     </div>
   );
 }
