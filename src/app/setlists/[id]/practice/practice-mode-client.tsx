@@ -17,6 +17,9 @@ import {
   ListMusic,
   GripHorizontal,
   Maximize2,
+  Columns,
+  Repeat,
+  Mic,
 } from "lucide-react";
 import type { PracticeSetlistSong } from "@/lib/domain/practice";
 import { getYouTubeVideoId, getSpotifyTrackInfo } from "@/lib/domain/practice";
@@ -24,6 +27,14 @@ import { PracticePlayer } from "@/components/practice-player";
 import { PracticeMetronome } from "@/components/practice-metronome";
 import { AnnotationCanvas } from "@/components/annotation-canvas";
 import { ChordNotationToggle } from "@/components/chord-notation-toggle";
+import { ChordDiagram } from "@/components/chord-diagram";
+import { PracticeChecklist } from "@/components/practice-checklist";
+import { PracticeSessionTimer } from "@/components/practice-session-timer";
+import {
+  evaluateVocalRange,
+  getSongConfidence,
+  type ReadinessRating,
+} from "@/lib/domain/practice-features";
 import {
   progressionToNashville,
   tokensToNashville,
@@ -279,13 +290,22 @@ export default function PracticeModeClient({
   const [showNumbers, setShowNumbers] = useState(false);
   const [fontScale, setFontScale] = useState(1);
 
-  // Practice Mode Drawer Toggles
+  // Practice Mode Drawer & Feature Toggles
   const [showPlayerPanel, setShowPlayerPanel] = useState(false);
   const [showMetronomePanel, setShowMetronomePanel] = useState(false);
   const [showQueueDrawer, setShowQueueDrawer] = useState(false);
   const [isPlayerPlaying, setIsPlayerPlaying] = useState(false);
   const [metronomePlaying, setMetronomePlaying] = useState(false);
   const [focusedWindow, setFocusedWindow] = useState<"player" | "metronome" | "queue" | null>(null);
+
+  // Advanced Feature States
+  const [activeChordDiagram, setActiveChordDiagram] = useState<string | null>(null);
+  const [isSplitView, setIsSplitView] = useState(false);
+  const [loopSectionIndex, setLoopSectionIndex] = useState<number | null>(null);
+  const [showVoiceCues, setShowVoiceCues] = useState(false);
+  const [readinessRating, setReadinessRating] = useState<ReadinessRating | null>(() =>
+    activeSong ? getSongConfidence(setlistId, activeSong.slotId) : null,
+  );
 
   // Reset transient states on active song change
   const [prevSongIndex, setPrevSongIndex] = useState(currentSongIndex);
@@ -297,7 +317,16 @@ export default function PracticeModeClient({
     setIsScrolling(false);
     setMetronomePlaying(false);
     setIsPlayerPlaying(false);
+    setLoopSectionIndex(null);
+    if (activeSong) {
+      setReadinessRating(getSongConfidence(setlistId, activeSong.slotId));
+    }
   }
+
+  const vocalRange = useMemo(
+    () => evaluateVocalRange(selectedKey),
+    [selectedKey],
+  );
 
   // Scroll reset DOM side-effect
   useEffect(() => {
@@ -494,8 +523,27 @@ export default function PracticeModeClient({
                   {capoFret === 0 ? "Open" : `Capo ${capoFret}`}
                 </span>
               )}
+              {readinessRating && (
+                <span
+                  className={cn(
+                    "px-1.5 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap",
+                    readinessRating === "READY"
+                      ? "bg-emerald-950/80 border-emerald-500 text-emerald-300"
+                      : readinessRating === "GETTING_THERE"
+                        ? "bg-amber-950/80 border-amber-500 text-amber-300"
+                        : "bg-red-950/80 border-red-500 text-red-300",
+                  )}
+                  title="Song Service Readiness Rating"
+                >
+                  {readinessRating === "READY"
+                    ? "🟢 Ready"
+                    : readinessRating === "GETTING_THERE"
+                      ? "🟡 Almost Ready"
+                      : "🔴 Needs Work"}
+                </span>
+              )}
             </h1>
-            <div className="text-xs md:text-sm text-zinc-500 font-semibold leading-none mt-1 flex items-center gap-2">
+            <div className="text-xs md:text-sm text-zinc-500 font-semibold leading-none mt-1 flex items-center gap-2 flex-wrap">
               <span className="text-zinc-400 font-bold uppercase text-[11px] truncate max-w-[120px]">
                 {setlistName}
               </span>
@@ -503,6 +551,14 @@ export default function PracticeModeClient({
               {activeSong.lead && (
                 <span className="text-violet-300 truncate max-w-[150px]">
                   Lead: {activeSong.lead}
+                </span>
+              )}
+              {vocalRange.status !== "COMFORTABLE" && (
+                <span
+                  className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30"
+                  title={vocalRange.recommendation}
+                >
+                  {vocalRange.status === "HIGH" ? "⚠️ High Key" : "ℹ️ Low Key"}
                 </span>
               )}
               {activeSong.arrangement && (
@@ -519,6 +575,12 @@ export default function PracticeModeClient({
 
         {/* Stage & Practice Toolbar */}
         <div className="flex items-center gap-3 md:gap-4 shrink-0">
+          {/* Practice Session Timer */}
+          <PracticeSessionTimer
+            setlistId={setlistId}
+            activeSongSlotId={activeSong.slotId}
+            activeSongTitle={activeSong.title}
+          />
           {/* Transpose */}
           <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-1">
             <button
@@ -632,6 +694,38 @@ export default function PracticeModeClient({
 
           <div className="w-px h-8 bg-white/10 mx-1" />
 
+          {/* Split View Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsSplitView(!isSplitView)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition border min-h-[44px]",
+              isSplitView
+                ? "border-emerald-500/60 bg-emerald-950/80 text-emerald-200 shadow-md"
+                : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10",
+            )}
+            title="Split-Screen Layout (Chords + Goals Checklist)"
+          >
+            <Columns className="size-4 text-emerald-400" />
+            <span className="hidden sm:inline">Split View</span>
+          </button>
+
+          {/* Voice Cues Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowVoiceCues(!showVoiceCues)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition border min-h-[44px]",
+              showVoiceCues
+                ? "border-amber-500/60 bg-amber-950/80 text-amber-200 shadow-md"
+                : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10",
+            )}
+            title="Voice Cues (Section Countdown Overlay)"
+          >
+            <Mic className="size-4 text-amber-400" />
+            <span className="hidden sm:inline font-mono">Cues</span>
+          </button>
+
           {/* Practice Media Player Toggle Button */}
           <button
             type="button"
@@ -712,29 +806,54 @@ export default function PracticeModeClient({
         {displayedSections.map((section, idx) => {
           if (!section.label || section.label === "unknown") return null;
           const colorClass = getSectionLabelColor(section.label);
+          const isLooping = loopSectionIndex === idx;
           return (
             <button
               key={idx}
               type="button"
-              onClick={() => handleJumpToSection(idx)}
+              onClick={() => {
+                setLoopSectionIndex(isLooping ? null : idx);
+                handleJumpToSection(idx);
+              }}
               className={cn(
-                "px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider whitespace-nowrap border transition hover:brightness-125",
-                colorClass,
+                "px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider whitespace-nowrap border transition flex items-center gap-1.5",
+                isLooping
+                  ? "bg-amber-500/30 border-amber-400 text-amber-300 ring-2 ring-amber-400/50 shadow-lg"
+                  : colorClass,
               )}
+              title={isLooping ? "Loop Active – Click to Stop" : "Click to Jump & Loop Section"}
             >
-              {section.label}
+              <span>{section.label}</span>
+              {isLooping && <Repeat className="size-3 text-amber-300 animate-spin" />}
             </button>
           );
         })}
       </div>
 
-      {/* Main Container: Chart View + Mobile Jump Blocks */}
+      {/* Voice Cue Section Overlay Banner */}
+      {showVoiceCues && displayedSections.length > 0 && (
+        <div className="bg-amber-950/90 border-b border-amber-500/40 px-4 py-2 text-center text-xs font-bold text-amber-200 flex items-center justify-center gap-2 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+          <Mic className="size-4 text-amber-400 animate-bounce" />
+          <span>Active Cue:</span>
+          <span className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400 text-amber-300 uppercase tracking-widest font-mono">
+            {displayedSections[loopSectionIndex ?? 0]?.label || "Verse 1"}
+          </span>
+          <span className="text-zinc-400 font-normal">
+            (Next section transition coming up)
+          </span>
+        </div>
+      )}
+
+      {/* Main Container: Chart View + Split View Goals Panel */}
       <div className="flex-1 flex overflow-hidden relative">
         {/* Full Scrollable Stage Chord Chart Area */}
         <div
           ref={scrollRef}
           style={{ "--user-font-scale": fontScale } as FontScaleStyle}
-          className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-8 pb-64 relative z-10"
+          className={cn(
+            "overflow-y-auto overflow-x-hidden px-4 md:px-8 py-8 pb-64 relative z-10 transition-all duration-300",
+            isSplitView ? "w-full md:w-3/5 border-r border-white/10" : "flex-1 w-full",
+          )}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
@@ -754,14 +873,25 @@ export default function PracticeModeClient({
               displayedSections.map((section, idx) => (
                 <div key={idx} id={`section-${idx}`} className="space-y-3 scroll-mt-6">
                   {section.label && section.label !== "unknown" && (
-                    <div
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoopSectionIndex(loopSectionIndex === idx ? null : idx);
+                        handleJumpToSection(idx);
+                      }}
                       className={cn(
-                        "inline-block rounded border px-3 py-1 text-xs font-bold uppercase tracking-wider",
-                        getSectionLabelColor(section.label),
+                        "inline-flex items-center gap-1.5 rounded border px-3 py-1 text-xs font-bold uppercase tracking-wider transition hover:brightness-125",
+                        loopSectionIndex === idx
+                          ? "bg-amber-500/30 border-amber-400 text-amber-300 ring-2 ring-amber-400/50"
+                          : getSectionLabelColor(section.label),
                       )}
+                      title="Click to loop this section"
                     >
-                      {section.label}
-                    </div>
+                      <span>{section.label}</span>
+                      {loopSectionIndex === idx && (
+                        <Repeat className="size-3 text-amber-300 animate-spin" />
+                      )}
+                    </button>
                   )}
                   <div className="space-y-4">
                     {section.lines.map((line, lIdx) => (
@@ -770,13 +900,25 @@ export default function PracticeModeClient({
                         className="leading-relaxed max-w-full overflow-x-auto no-scrollbar"
                       >
                         {line.tokens ? (
-                          // Syllable-aligned ChordPro format
+                          // Syllable-aligned ChordPro format with clickable chord diagrams
                           <div className="flex flex-wrap items-end leading-none">
                             {line.tokens.map((token, tIdx) => (
                               <span key={tIdx} className="inline-flex flex-col items-start">
-                                <span className="font-mono font-bold text-violet-400 leading-none pb-1 min-h-[1em] block whitespace-pre text-[calc(0.85rem*var(--user-font-scale))]">
-                                  {token.chord || ""}
-                                </span>
+                                {token.chord ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveChordDiagram(token.chord || null);
+                                    }}
+                                    className="font-mono font-bold text-violet-400 hover:text-violet-200 hover:underline cursor-pointer leading-none pb-1 min-h-[1em] block whitespace-pre text-[calc(0.85rem*var(--user-font-scale))]"
+                                    title={`Click for ${token.chord} guitar chord diagram`}
+                                  >
+                                    {token.chord}
+                                  </button>
+                                ) : (
+                                  <span className="pb-1 min-h-[1em] block font-mono text-[calc(0.85rem*var(--user-font-scale))]" />
+                                )}
                                 <span className="font-semibold text-zinc-100 whitespace-pre text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
                                   {token.lyric || (token.chord ? "\u00a0" : "")}
                                 </span>
@@ -810,6 +952,18 @@ export default function PracticeModeClient({
             )}
           </div>
         </div>
+
+        {/* Split View Right Side Panel: Goals & Readiness Checklist */}
+        {isSplitView && (
+          <div className="hidden md:flex flex-col w-2/5 p-4 bg-zinc-950 border-l border-white/10 overflow-y-auto no-scrollbar z-20 animate-in fade-in slide-in-from-right-4 duration-300">
+            <PracticeChecklist
+              setlistId={setlistId}
+              songSlotId={activeSong.slotId}
+              songTitle={activeSong.title}
+              onRatingChange={(newRating) => setReadinessRating(newRating)}
+            />
+          </div>
+        )}
 
         {/* Mobile Right Side Arrangement Jump Blocks */}
         <div className="md:hidden flex flex-col items-center gap-3 py-4 w-16 bg-zinc-900 border-l border-white/5 overflow-y-auto shrink-0 z-20">
@@ -954,6 +1108,29 @@ export default function PracticeModeClient({
           Auto-Scrolling
         </div>
       </div>
+
+      {/* Interactive Guitar Chord Diagram Popover Modal */}
+      {activeChordDiagram && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in zoom-in-95 duration-150"
+          onClick={() => setActiveChordDiagram(null)}
+        >
+          <div
+            className="relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setActiveChordDiagram(null)}
+              className="absolute -top-3 -right-3 z-10 size-7 rounded-full bg-zinc-800 border border-white/20 text-white flex items-center justify-center font-bold text-xs hover:bg-zinc-700 shadow-md"
+              title="Close Diagram"
+            >
+              ✕
+            </button>
+            <ChordDiagram chordName={activeChordDiagram} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
