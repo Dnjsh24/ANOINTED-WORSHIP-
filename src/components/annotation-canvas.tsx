@@ -16,7 +16,6 @@ import {
   Lock,
   Share2,
   GripHorizontal,
-  Minus,
   Maximize2,
 } from "lucide-react";
 import {
@@ -43,7 +42,7 @@ const STROKE_COLORS = [
 ] as const;
 
 const STROKE_SIZES = [2, 4, 8, 12] as const;
-const FONT_SIZES = [14, 18, 24, 32] as const;
+const FONT_SIZES = [14, 18, 24, 32, 48, 64] as const;
 
 const TEAM_ROLES = [
   { id: "lead_vocal", label: "Lead Vocalist & Singers", icon: "🎤" },
@@ -509,44 +508,19 @@ export function AnnotationCanvas({
               style={{
                 left: `${note.x}px`,
                 top: `${note.y}px`,
-                width: note.width ? `${note.width}px` : "240px",
-                minHeight: note.height ? `${note.height}px` : "120px",
               }}
-              className="absolute pointer-events-auto flex flex-col rounded-xl border border-amber-500/30 bg-zinc-950/95 p-2.5 shadow-2xl backdrop-blur-md transition-shadow resize overflow-auto min-w-[180px] min-h-[100px] select-none"
+              className="absolute pointer-events-auto flex items-start gap-1 group select-none transition-all"
             >
-              {/* Note Header Drag Handle */}
+              {/* Drag Handle visible on hover/focus */}
               <div
                 onPointerDown={(e) => handleNotePointerDown(note.id, e)}
-                className="flex items-center justify-between pb-1.5 border-b border-white/10 mb-1.5 cursor-grab active:cursor-grabbing bg-zinc-900/60 -mx-2.5 -mt-2.5 px-2.5 pt-2 rounded-t-xl"
+                className="opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1 text-zinc-400 hover:text-white rounded bg-zinc-900/90 backdrop-blur-sm border border-white/15 shrink-0 mt-0.5"
+                title="Drag note position"
               >
-                <div className="flex items-center gap-1.5">
-                  <GripHorizontal className="size-3.5 text-zinc-400 shrink-0" />
-                  <StickyNote className="size-3 text-amber-400 shrink-0" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
-                    On-Screen Note
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => handleUpdateScreenNote(note.id, { isMinimized: true })}
-                    className="p-0.5 text-zinc-400 hover:text-white rounded"
-                    title="Minimize Note"
-                  >
-                    <Minus className="size-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteScreenNote(note.id)}
-                    className="p-0.5 text-zinc-400 hover:text-red-400 rounded"
-                    title="Delete Note"
-                  >
-                    <X className="size-3" />
-                  </button>
-                </div>
+                <GripHorizontal className="size-3.5" />
               </div>
 
-              {/* Text Note Area */}
+              {/* Direct Frameless Textarea directly on page */}
               <textarea
                 value={note.text}
                 onChange={(e) => handleUpdateScreenNote(note.id, { text: e.target.value })}
@@ -554,43 +528,26 @@ export function AnnotationCanvas({
                   fontSize: `${note.fontSize}px`,
                   color: note.color,
                 }}
-                placeholder="Type note on screen..."
-                rows={3}
-                className="w-full flex-1 bg-transparent font-bold focus:outline-none placeholder-zinc-600 resize-none select-text"
+                placeholder="Type directly on page..."
+                rows={1}
+                autoFocus
+                className="bg-transparent font-extrabold focus:outline-none placeholder-white/30 border-b border-dashed border-transparent focus:border-amber-400/60 resize-none overflow-hidden select-text drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] min-w-[140px] px-1 py-0.5"
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = "auto";
+                  target.style.height = `${target.scrollHeight}px`;
+                }}
               />
 
-              {/* Inline Font Size & Color Controls */}
-              <div className="flex items-center justify-between pt-1.5 border-t border-white/10 mt-1 text-[10px]">
-                <div className="flex items-center gap-1">
-                  {FONT_SIZES.map((sz) => (
-                    <button
-                      key={sz}
-                      type="button"
-                      onClick={() => handleUpdateScreenNote(note.id, { fontSize: sz })}
-                      className={cn(
-                        "px-1 font-mono rounded transition",
-                        note.fontSize === sz ? "bg-amber-500 text-black font-extrabold" : "text-zinc-400 hover:text-white",
-                      )}
-                    >
-                      {sz}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-1">
-                  {STROKE_COLORS.map((c) => (
-                    <button
-                      key={c.name}
-                      type="button"
-                      onClick={() => handleUpdateScreenNote(note.id, { color: c.value })}
-                      style={{ backgroundColor: c.value }}
-                      className={cn(
-                        "size-3.5 rounded-full border border-white/20 transition-transform",
-                        note.color === c.value ? "scale-125 ring-1 ring-white" : "hover:scale-110",
-                      )}
-                    />
-                  ))}
-                </div>
-              </div>
+              {/* Delete button visible on hover/focus */}
+              <button
+                type="button"
+                onClick={() => handleDeleteScreenNote(note.id)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-zinc-400 hover:text-red-400 rounded bg-zinc-900/90 backdrop-blur-sm border border-white/15 shrink-0 mt-0.5"
+                title="Delete note"
+              >
+                <X className="size-3.5" />
+              </button>
             </div>
           );
         })}
