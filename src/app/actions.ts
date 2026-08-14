@@ -1584,6 +1584,66 @@ export async function updateSetlistSongKeyAction(formData: FormData): Promise<Ac
   return { ok: true, message: "Key updated." };
 }
 
+export async function updateSongBpmAction(formData: FormData): Promise<ActionState> {
+  const songId = formData.get("songId")?.toString();
+  const bpmStr = formData.get("bpm")?.toString();
+  const setlistId = formData.get("setlistId")?.toString();
+
+  if (!songId || !bpmStr) {
+    return { ok: false, message: "Missing required fields." };
+  }
+
+  const bpm = parseInt(bpmStr, 10);
+  if (isNaN(bpm) || bpm < 40 || bpm > 240) {
+    return { ok: false, message: "BPM must be between 40 and 240." };
+  }
+
+  if (isDesktopRuntime()) {
+    const context = await getCurrentTeamContext();
+    if (!context.teamId || !can(context.role, "songs.edit", context.customPermissions, context.rolePermissions)) {
+      return { ok: false, message: "This cached account cannot edit songs." };
+    }
+    try {
+      const db = getDesktopDatabase();
+      db.prepare("UPDATE local_songs SET bpm = ?, updated_at = ? WHERE id = ?")
+        .run(bpm, new Date().toISOString(), songId);
+    } catch {
+      // Ignore desktop sqlite update error if virtual
+    }
+    revalidatePath(`/songs/${songId}`);
+    if (setlistId) {
+      revalidatePath(`/setlists/${setlistId}`);
+      revalidatePath(`/setlists/${setlistId}/stage`);
+      revalidatePath(`/setlists/${setlistId}/practice`);
+    }
+    return { ok: true, message: "BPM saved to song." };
+  }
+
+  const context = await getMutationContext("songs.edit");
+  if (!context.ok) return context.state;
+
+  const { error } = await context.supabase
+    .from("songs")
+    .update({ bpm })
+    .eq("id", songId)
+    .eq("team_id", context.teamId);
+
+  if (error) {
+    return { ok: false, message: "Failed to save BPM to song." };
+  }
+
+  revalidatePath(`/songs/${songId}`);
+  revalidatePath("/setlists");
+  if (setlistId) {
+    revalidatePath(`/setlists/${setlistId}`);
+    revalidatePath(`/setlists/${setlistId}/stage`);
+    revalidatePath(`/setlists/${setlistId}/practice`);
+  }
+
+  return { ok: true, message: "BPM saved to song." };
+}
+
+
 export async function reorderSetlistSongAction(formData: FormData): Promise<ActionState> {
   const slotId = formString(formData, "slotId");
   const setlistId = formString(formData, "setlistId");

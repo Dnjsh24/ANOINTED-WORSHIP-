@@ -115,10 +115,11 @@ export function resolveArrangementSongSections(
   lyrics: string,
   arrangementSections?: ArrangementSection[] | null,
 ): SongSection[] {
-  if (!arrangementSections) return parseLyricsAndChords(lyrics);
+  const safeLyrics = typeof lyrics === "string" ? lyrics : "";
+  if (!arrangementSections) return parseLyricsAndChords(safeLyrics);
 
   return arrangementSections.map((section) => {
-    if (!section.content.trim()) {
+    if (!section.content || typeof section.content !== "string" || !section.content.trim()) {
       return { label: section.label, lines: [] };
     }
     const parsed = parseLyricsAndChords(`[${section.label}]\n${section.content}`);

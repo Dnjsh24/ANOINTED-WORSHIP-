@@ -180,6 +180,7 @@ export function tokensToNashville(tokens: ChordToken[], key: string): ChordToken
 }
 
 export function parseLyricsAndChords(text: string): SongSection[] {
+  if (!text || typeof text !== "string") return [];
   const sections: SongSection[] = [];
   const lines = text.split(/\r?\n/);
   

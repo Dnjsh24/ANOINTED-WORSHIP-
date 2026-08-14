@@ -366,6 +366,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
         </div>
         <div className="flex flex-wrap gap-3">
           <ButtonLink href={`/setlists/${setlist.id}/stage`} className="border-transparent bg-violet-600 text-white hover:bg-violet-500">Stage</ButtonLink>
+          <ButtonLink href={`/setlists/${setlist.id}/practice`} variant="secondary">Practice</ButtonLink>
           {canManageSetlist ? <ButtonLink href={`/setlists/${setlist.id}/edit`} variant="secondary">Edit Setlist</ButtonLink> : null}
           <ShareButton path={`/setlists/${setlist.id}`} />
           {linkedEvent ? <ButtonLink href={`/events/${linkedEvent.id}`} variant="ghost">View Timeline Event</ButtonLink> : null}
