@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { can } from "@/lib/domain/rbac";
 import { parseArrangementSections } from "@/lib/domain/arrangements";
+import { getEffectiveAssignedKey } from "@/lib/domain/setlists";
 import type { PracticeSetlistSong } from "@/lib/domain/practice";
 import type { Database } from "@/lib/supabase/database.types";
 import { setlists as sampleSetlists } from "@/lib/sample-data";
@@ -86,7 +87,7 @@ export default async function SetlistPracticePage({ params }: { params: Promise<
           order: ss.song_order ?? 1,
           title: ss.song?.title || "Untitled Song",
           lead: leadVocal,
-          assignedKey: ss.assigned_key || ss.song?.original_key || "C",
+          assignedKey: getEffectiveAssignedKey(ss.assigned_key, ss.song?.original_key),
           originalKey: ss.song?.original_key || "C",
           arrangement: ss.arrangement || null,
           arrangementSections: parseArrangementSections(ss.arrangement_sections),
@@ -119,7 +120,7 @@ export default async function SetlistPracticePage({ params }: { params: Promise<
       order: ss.order ?? idx + 1,
       title: ss.song.title,
       lead: ss.lead,
-      assignedKey: ss.assignedKey || ss.song.originalKey || "C",
+      assignedKey: getEffectiveAssignedKey(ss.assignedKey, ss.song.originalKey),
       originalKey: ss.song.originalKey || "C",
       arrangement: ss.arrangement ?? null,
       arrangementSections: [],

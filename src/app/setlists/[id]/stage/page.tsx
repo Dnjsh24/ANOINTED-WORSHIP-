@@ -6,6 +6,7 @@ import StageModeClient from "./stage-mode-client";
 import type { Viewport } from "next";
 import type { Database } from "@/lib/supabase/database.types";
 import { parseArrangementSections } from "@/lib/domain/arrangements";
+import { getEffectiveAssignedKey } from "@/lib/domain/setlists";
 
 type StageSetlistSongRow = Pick<
   Database["public"]["Tables"]["setlist_songs"]["Row"],
@@ -77,7 +78,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
         return {
           id: ss.id,
           order: ss.song_order,
-          assignedKey: ss.assigned_key || ss.song?.original_key || "C",
+          assignedKey: getEffectiveAssignedKey(ss.assigned_key, ss.song?.original_key),
           lead: leadVocal,
           youtubeUrl: ss.song?.youtube_url || null,
           arrangement: ss.arrangement || null,

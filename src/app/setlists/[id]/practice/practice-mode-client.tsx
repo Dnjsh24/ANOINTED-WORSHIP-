@@ -29,6 +29,7 @@ import {
   transposeTokens,
 } from "@/lib/domain/chords";
 import { resolveArrangementSongSections } from "@/lib/domain/arrangements";
+import { getEffectiveAssignedKey } from "@/lib/domain/setlists";
 import { updateSetlistSongKeyAction } from "@/app/actions";
 import { cn } from "@/lib/utils";
 
@@ -115,7 +116,7 @@ export default function PracticeModeClient({
 
   // Stage Mode Transpose, Capo, Notation, and Font Scaling
   const baseKey = activeSong?.originalKey || "C";
-  const initialKey = activeSong?.assignedKey || activeSong?.originalKey || "C";
+  const initialKey = getEffectiveAssignedKey(activeSong?.assignedKey, activeSong?.originalKey);
   const [selectedKey, setSelectedKey] = useState(initialKey);
   const [guitarMode, setGuitarMode] = useState(false);
   const [capoFret, setCapoFret] = useState(0);
@@ -133,7 +134,7 @@ export default function PracticeModeClient({
   const [prevSongIndex, setPrevSongIndex] = useState(currentSongIndex);
   if (prevSongIndex !== currentSongIndex) {
     setPrevSongIndex(currentSongIndex);
-    setSelectedKey(activeSong?.assignedKey || activeSong?.originalKey || "C");
+    setSelectedKey(getEffectiveAssignedKey(activeSong?.assignedKey, activeSong?.originalKey));
     setGuitarMode(false);
     setCapoFret(0);
     setIsScrolling(false);
