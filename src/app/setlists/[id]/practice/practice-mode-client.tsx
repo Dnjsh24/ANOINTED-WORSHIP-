@@ -15,6 +15,7 @@ import {
   Video,
   Music,
   ListMusic,
+  GripHorizontal,
 } from "lucide-react";
 import type { PracticeSetlistSong } from "@/lib/domain/practice";
 import { getYouTubeVideoId, getSpotifyTrackInfo } from "@/lib/domain/practice";
@@ -77,6 +78,118 @@ function getSectionLabelColor(label: string) {
 
 type FontScaleStyle = CSSProperties & { "--user-font-scale": number };
 
+interface DraggableWindowProps {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  defaultPos: { x: number; y: number };
+  onClose: () => void;
+  children: React.ReactNode;
+  className?: string;
+  zIndex?: number;
+  onFocus?: () => void;
+}
+
+function DraggableWindow({
+  id,
+  title,
+  icon,
+  defaultPos,
+  onClose,
+  children,
+  className = "w-96 max-w-[95vw]",
+  zIndex = 40,
+  onFocus,
+}: DraggableWindowProps) {
+  const [pos, setPos] = useState<{ x: number; y: number }>(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem(`win_pos_${id}`);
+        if (saved) return JSON.parse(saved);
+      }
+    } catch {
+      // ignore
+    }
+    return defaultPos;
+  });
+
+  const isDraggingRef = useRef(false);
+  const offsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    onFocus?.();
+    if ((e.target as HTMLElement).closest("button, input, a, select, textarea")) return;
+    isDraggingRef.current = true;
+    offsetRef.current = {
+      x: e.clientX - pos.x,
+      y: e.clientY - pos.y,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    const maxX = (typeof window !== "undefined" ? window.innerWidth : 1200) - 80;
+    const maxY = (typeof window !== "undefined" ? window.innerHeight : 800) - 60;
+    const nextX = Math.max(10, Math.min(maxX, e.clientX - offsetRef.current.x));
+    const nextY = Math.max(10, Math.min(maxY, e.clientY - offsetRef.current.y));
+    const updated = { x: nextX, y: nextY };
+    setPos(updated);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false;
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+        localStorage.setItem(`win_pos_${id}`, JSON.stringify(pos));
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  return (
+    <div
+      style={{
+        left: `${pos.x}px`,
+        top: `${pos.y}px`,
+        zIndex,
+      }}
+      onPointerDown={onFocus}
+      className={cn(
+        "fixed rounded-xl border border-white/15 bg-zinc-900/95 p-4 shadow-2xl backdrop-blur-md transition-shadow select-none",
+        className,
+      )}
+    >
+      <div
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        className="flex items-center justify-between pb-3 border-b border-white/10 mb-3 cursor-grab active:cursor-grabbing bg-zinc-800/40 -mx-4 -mt-4 px-4 pt-3.5 rounded-t-xl"
+      >
+        <div className="flex items-center gap-2 overflow-hidden">
+          <GripHorizontal className="size-4 text-zinc-400 shrink-0" />
+          {icon}
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-200 truncate">
+            {title}
+          </h3>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded p-1 text-zinc-400 hover:text-white hover:bg-zinc-800 shrink-0"
+          aria-label="Close window"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+
+      <div className="select-text">{children}</div>
+    </div>
+  );
+}
+
 interface PracticeModeClientProps {
   setlistId: string;
   setlistName: string;
@@ -129,6 +242,7 @@ export default function PracticeModeClient({
   const [showQueueDrawer, setShowQueueDrawer] = useState(false);
   const [isPlayerPlaying, setIsPlayerPlaying] = useState(false);
   const [metronomePlaying, setMetronomePlaying] = useState(false);
+  const [focusedWindow, setFocusedWindow] = useState<"player" | "metronome" | "queue" | null>(null);
 
   // Reset transient states on active song change
   const [prevSongIndex, setPrevSongIndex] = useState(currentSongIndex);
@@ -677,27 +791,19 @@ export default function PracticeModeClient({
         </div>
       </div>
 
-      {/* FLOATING PRACTICE PANELS */}
+      {/* FLOATING PRACTICE PANELS (Freely Draggable Windowed Panels) */}
 
-      {/* 1. Floating Media Player Panel */}
+      {/* 1. Freely Draggable Media Player Window */}
       {showPlayerPanel && (
-        <div className="fixed bottom-20 right-4 z-40 w-96 max-w-[95vw] rounded-xl border border-white/10 bg-zinc-900/95 p-4 shadow-2xl backdrop-blur-md animate-fade-up">
-          <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
-            <div className="flex items-center gap-2">
-              <Video className="size-4 text-red-400" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-200">
-                Media Player ({activeSong.title})
-              </h3>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowPlayerPanel(false)}
-              className="text-zinc-400 hover:text-white"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-
+        <DraggableWindow
+          id="player"
+          title={`Media Player (${activeSong.title})`}
+          icon={<Video className="size-4 text-red-400 shrink-0" />}
+          defaultPos={{ x: typeof window !== "undefined" ? Math.max(20, window.innerWidth - 420) : 700, y: 80 }}
+          onClose={() => setShowPlayerPanel(false)}
+          zIndex={focusedWindow === "player" ? 50 : 40}
+          onFocus={() => setFocusedWindow("player")}
+        >
           <PracticePlayer
             activeSong={activeSong}
             isFirstSong={isFirstSong}
@@ -706,55 +812,42 @@ export default function PracticeModeClient({
             onNextSong={handleNextSong}
             onPlaybackStateChange={setIsPlayerPlaying}
           />
-        </div>
+        </DraggableWindow>
       )}
 
-      {/* 2. Floating Metronome Settings Panel */}
+      {/* 2. Freely Draggable Metronome Engine Window */}
       {showMetronomePanel && (
-        <div className="fixed bottom-20 right-4 lg:right-96 z-40 w-96 max-w-[95vw] rounded-xl border border-white/10 bg-zinc-900/95 p-4 shadow-2xl backdrop-blur-md animate-fade-up">
-          <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
-            <div className="flex items-center gap-2">
-              <Square className="size-4 text-violet-400" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-200">
-                Metronome Engine
-              </h3>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowMetronomePanel(false)}
-              className="text-zinc-400 hover:text-white"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-
+        <DraggableWindow
+          id="metronome"
+          title="Metronome Engine"
+          icon={<Square className="size-4 text-violet-400 shrink-0" />}
+          defaultPos={{ x: typeof window !== "undefined" ? Math.max(20, window.innerWidth - 840) : 280, y: 80 }}
+          onClose={() => setShowMetronomePanel(false)}
+          zIndex={focusedWindow === "metronome" ? 50 : 40}
+          onFocus={() => setFocusedWindow("metronome")}
+        >
           <PracticeMetronome
             activeSong={activeSong}
             setlistId={setlistId}
             canEditSong={canEditSong}
             isPlayerPlaying={isPlayerPlaying}
           />
-        </div>
+        </DraggableWindow>
       )}
 
-      {/* 3. Collapsible Setlist Queue Drawer */}
+      {/* 3. Freely Draggable Setlist Queue Window */}
       {showQueueDrawer && (
-        <div className="fixed inset-y-0 left-0 z-40 flex w-80 max-w-[90vw] flex-col border-r border-white/10 bg-zinc-900/98 p-4 shadow-2xl backdrop-blur-md animate-fade-in">
-          <div className="flex items-center justify-between pb-3 border-b border-white/10">
-            <div className="flex items-center gap-2">
-              <ListMusic className="size-5 text-violet-400" />
-              <h3 className="text-sm font-extrabold text-white">Setlist Queue ({songs.length})</h3>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowQueueDrawer(false)}
-              className="rounded p-1 text-zinc-400 hover:text-white"
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto pt-3 space-y-2 pr-1">
+        <DraggableWindow
+          id="queue"
+          title={`Setlist Queue (${songs.length})`}
+          icon={<ListMusic className="size-4 text-violet-400 shrink-0" />}
+          defaultPos={{ x: 20, y: 80 }}
+          onClose={() => setShowQueueDrawer(false)}
+          className="w-80 max-w-[90vw]"
+          zIndex={focusedWindow === "queue" ? 50 : 40}
+          onFocus={() => setFocusedWindow("queue")}
+        >
+          <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-1">
             {songs.map((item, idx) => {
               const isActive = idx === currentSongIndex;
               const itemYt = Boolean(getYouTubeVideoId(item.youtubeUrl));
@@ -804,7 +897,7 @@ export default function PracticeModeClient({
               );
             })}
           </div>
-        </div>
+        </DraggableWindow>
       )}
 
       {/* Floating Auto-Scroll Status Banner */}
