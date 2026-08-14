@@ -95,13 +95,13 @@ describe("Practice Features Domain Logic", () => {
 
   describe("Vocal Range Evaluator", () => {
     it("evaluates assigned keys", () => {
-      const high = evaluateVocalRange("A", "Lead Singer");
+      const high = evaluateVocalRange("A");
       expect(high.status).toBe("HIGH");
 
-      const comfortable = evaluateVocalRange("C", "Lead Singer");
+      const comfortable = evaluateVocalRange("C");
       expect(comfortable.status).toBe("COMFORTABLE");
 
-      const low = evaluateVocalRange("D", "Lead Singer");
+      const low = evaluateVocalRange("D");
       expect(low.status).toBe("LOW");
     });
   });
