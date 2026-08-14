@@ -93,6 +93,12 @@ describe("AnnotationCanvas", () => {
     expect(visibilityBtn).toBeInTheDocument();
 
     await user.click(visibilityBtn);
+    const teamOption = screen.getByRole("button", { name: /entire team/i });
+    await user.click(teamOption);
+
+    const saveShareBtn = screen.getByRole("button", { name: /save sharing settings/i });
+    await user.click(saveShareBtn);
+
     expect(screen.getByRole("button", { name: /team shared/i })).toBeInTheDocument();
   });
 

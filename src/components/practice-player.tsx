@@ -263,31 +263,40 @@ export function PracticePlayer({
 
   // User Play / Pause controls
   const handlePlayPause = () => {
-    if (playbackState === "playing") {
-      if (provider === "youtube" && ytPlayerRef.current) {
+    const isCurrentlyPlaying = playbackState === "playing";
+    const nextState = isCurrentlyPlaying ? "paused" : "playing";
+
+    if (provider === "youtube") {
+      const iframeEl = document.getElementById(ytContainerDomId) as HTMLIFrameElement | null;
+      if (iframeEl?.contentWindow) {
         try {
-          const player = ytPlayerRef.current as { pauseVideo?: () => void };
-          player.pauseVideo?.();
+          const cmd = isCurrentlyPlaying ? "pauseVideo" : "playVideo";
+          iframeEl.contentWindow.postMessage(
+            JSON.stringify({ event: "command", func: cmd, args: "" }),
+            "*"
+          );
+        } catch {
+          // ignore postMessage errors
+        }
+      }
+
+      if (ytPlayerRef.current) {
+        try {
+          const player = ytPlayerRef.current as { playVideo?: () => void; pauseVideo?: () => void };
+          if (isCurrentlyPlaying) {
+            player.pauseVideo?.();
+          } else {
+            player.playVideo?.();
+          }
         } catch {
           // ignore
         }
-      } else {
-        setPlaybackState("paused");
       }
-      onPlaybackStateChange?.(false);
-    } else {
-      if (provider === "youtube" && ytPlayerRef.current) {
-        try {
-          const player = ytPlayerRef.current as { playVideo?: () => void };
-          player.playVideo?.();
-        } catch {
-          // fallback
-          setPlaybackState("playing");
-        }
-      } else {
-        setPlaybackState("playing");
-      }
-      onPlaybackStateChange?.(true);
+    }
+
+    setPlaybackState(nextState);
+    onPlaybackStateChange?.(nextState === "playing");
+    if (nextState === "playing") {
       setIsSetComplete(false);
     }
   };

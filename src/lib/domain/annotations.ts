@@ -1,3 +1,13 @@
+export interface OnScreenTextNote {
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  fontSize: number;
+  color: string;
+  targetRoles?: string[];
+}
+
 export interface SongAnnotation {
   id?: string;
   songId: string;
@@ -5,8 +15,10 @@ export interface SongAnnotation {
   setlistSongId?: string | null;
   userId?: string | null;
   textNotes: string;
+  screenNotes?: OnScreenTextNote[];
   drawingDataUrl: string;
   isShared: boolean;
+  shareTargets?: string[];
   updatedAt?: string;
 }
 
