@@ -456,11 +456,10 @@ export function AnnotationCanvas({
   };
 
   return (
-    <>
-      {/* HTML5 Canvas Overlay */}
+    <div className="relative w-full overflow-visible">
+      {/* Drawing Canvas */}
       <canvas
         ref={canvasRef}
-        onClick={handleCanvasClick}
         onMouseDown={startDrawing}
         onMouseMove={draw}
         onMouseUp={stopDrawing}
@@ -468,15 +467,15 @@ export function AnnotationCanvas({
         onTouchStart={startDrawing}
         onTouchMove={draw}
         onTouchEnd={stopDrawing}
+        onClick={handleCanvasClick}
+        style={{ touchAction: "none" }}
         className={cn(
-          "absolute inset-0",
-          drawMode
-            ? "z-30 pointer-events-auto touch-none " + (penTool === "text" ? "cursor-text" : "cursor-crosshair")
-            : "z-10 pointer-events-none",
+          "absolute inset-0 z-20 overflow-visible touch-none",
+          drawMode ? "pointer-events-auto cursor-crosshair" : "pointer-events-none",
         )}
       />
 
-      {/* Render Draggable, Resizable, Minimizable Floating On-Screen Text Note Boxes */}
+      {/* Screen Notes Container */}
       <div className="absolute inset-0 z-30 pointer-events-none overflow-visible">
         {screenNotes.map((note, index) => {
           if (note.isMinimized) {
@@ -490,10 +489,11 @@ export function AnnotationCanvas({
                   height: "2.75rem",
                   maxWidth: "2.75rem",
                   maxHeight: "2.75rem",
+                  touchAction: "none",
                 }}
                 onPointerDown={(e) => handleNotePointerDown(note.id, e)}
                 onClick={() => handleUpdateScreenNote(note.id, { isMinimized: false })}
-                className="absolute pointer-events-auto flex size-11 items-center justify-center rounded-full border border-amber-500/50 bg-zinc-950/95 shadow-2xl backdrop-blur-md transition-transform cursor-grab active:cursor-grabbing select-none hover:scale-110"
+                className="absolute pointer-events-auto flex size-11 items-center justify-center rounded-full border border-amber-500/50 bg-zinc-950/95 shadow-2xl backdrop-blur-md transition-transform cursor-grab active:cursor-grabbing select-none hover:scale-110 touch-none"
                 title={`Expand Note (${note.text || `Note ${index + 1}`}) - Drag to move`}
               >
                 <div className="relative flex items-center justify-center">
@@ -512,13 +512,14 @@ export function AnnotationCanvas({
               style={{
                 left: `${note.x}px`,
                 top: `${note.y}px`,
+                touchAction: "none",
               }}
-              className="absolute pointer-events-auto flex items-start gap-1 group select-none transition-all"
+              className="absolute pointer-events-auto flex items-start gap-1 group select-none transition-all touch-none"
             >
               {/* Drag Handle visible on hover/focus */}
               <div
                 onPointerDown={(e) => handleNotePointerDown(note.id, e)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1 text-zinc-400 hover:text-white rounded bg-zinc-900/90 backdrop-blur-sm border border-white/15 shrink-0 mt-0.5"
+                className="opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1 text-zinc-400 hover:text-white rounded bg-zinc-900/90 backdrop-blur-sm border border-white/15 shrink-0 mt-0.5 touch-none"
                 title="Drag note position"
               >
                 <GripHorizontal className="size-3.5" />
@@ -890,6 +891,6 @@ export function AnnotationCanvas({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

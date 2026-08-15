@@ -127,44 +127,95 @@ function DraggableWindow({
 
   const [isMinimized, setIsMinimized] = useState(false);
   const isDraggingRef = useRef(false);
+  const hasMovedRef = useRef(false);
+  const startPointerPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const offsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const posRef = useRef(pos);
+
+  const nodeRef = useRef<HTMLDivElement | null>(null);
+  const rafIdRef = useRef<number | null>(null);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     onFocus?.();
     if ((e.target as HTMLElement).closest("button, input, a, select, textarea")) return;
+
+    if (e.pointerType === "touch" || e.pointerType === "pen") {
+      e.preventDefault();
+    }
+
+    posRef.current = pos;
     isDraggingRef.current = true;
+    hasMovedRef.current = false;
+    startPointerPosRef.current = { x: e.clientX, y: e.clientY };
     offsetRef.current = {
-      x: e.clientX - pos.x,
-      y: e.clientY - pos.y,
+      x: e.clientX - posRef.current.x,
+      y: e.clientY - posRef.current.y,
     };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingRef.current) return;
-    const maxX = (typeof window !== "undefined" ? window.innerWidth : 1200) - 80;
-    const maxY = (typeof window !== "undefined" ? window.innerHeight : 800) - 60;
-    const nextX = Math.max(10, Math.min(maxX, e.clientX - offsetRef.current.x));
-    const nextY = Math.max(10, Math.min(maxY, e.clientY - offsetRef.current.y));
-    const updated = { x: nextX, y: nextY };
-    setPos(updated);
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (isDraggingRef.current) {
+    const cleanup = () => {
       isDraggingRef.current = false;
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+      window.removeEventListener("mouseup", handlePointerUp);
+    };
+
+    const handlePointerMove = (moveEv: PointerEvent) => {
+      if (!isDraggingRef.current) return;
+
+      const dx = Math.abs(moveEv.clientX - startPointerPosRef.current.x);
+      const dy = Math.abs(moveEv.clientY - startPointerPosRef.current.y);
+      if (dx > 4 || dy > 4) {
+        hasMovedRef.current = true;
+      }
+
+      const windowWidth = typeof window !== "undefined" ? window.innerWidth : 1200;
+      const windowHeight = typeof window !== "undefined" ? window.innerHeight : 800;
+      const maxX = Math.max(10, windowWidth - 60);
+      const maxY = Math.max(10, windowHeight - 60);
+
+      const nextX = Math.max(10, Math.min(maxX, moveEv.clientX - offsetRef.current.x));
+      const nextY = Math.max(10, Math.min(maxY, moveEv.clientY - offsetRef.current.y));
+
+      posRef.current = { x: nextX, y: nextY };
+
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+      rafIdRef.current = requestAnimationFrame(() => {
+        if (nodeRef.current) {
+          nodeRef.current.style.left = `${nextX}px`;
+          nodeRef.current.style.top = `${nextY}px`;
+        }
+      });
+    };
+
+    const handlePointerUp = () => {
+      cleanup();
+
+      const finalPos = posRef.current;
+      setPos(finalPos);
       try {
-        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-        localStorage.setItem(`win_pos_${id}`, JSON.stringify(pos));
+        localStorage.setItem(`win_pos_${id}`, JSON.stringify(finalPos));
       } catch {
         // ignore
       }
-    }
+    };
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    window.addEventListener("mouseup", handlePointerUp);
   };
 
   if (isMinimized) {
     return (
       <div
+        ref={nodeRef}
         style={{
           left: `${pos.x}px`,
           top: `${pos.y}px`,
@@ -173,12 +224,15 @@ function DraggableWindow({
           maxWidth: "3.5rem",
           maxHeight: "3.5rem",
           zIndex,
+          touchAction: "none",
         }}
         onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onClick={() => setIsMinimized(false)}
-        className="fixed z-40 flex size-14 items-center justify-center rounded-full border border-white/30 bg-zinc-900/95 shadow-2xl backdrop-blur-md cursor-grab active:cursor-grabbing select-none hover:scale-110 hover:border-violet-400 transition group"
+        onClick={() => {
+          if (!hasMovedRef.current) {
+            setIsMinimized(false);
+          }
+        }}
+        className="fixed z-40 flex size-14 items-center justify-center rounded-full border border-white/30 bg-zinc-900/95 shadow-2xl backdrop-blur-md cursor-grab active:cursor-grabbing select-none hover:scale-110 hover:border-violet-400 transition group touch-none"
         title={`Click to expand ${title} (drag to move)`}
       >
         <div className="relative flex items-center justify-center pointer-events-none">
@@ -193,24 +247,24 @@ function DraggableWindow({
 
   return (
     <div
+      ref={nodeRef}
       style={{
         left: `${pos.x}px`,
         top: `${pos.y}px`,
         zIndex,
+        touchAction: "none",
       }}
       onPointerDown={onFocus}
       className={cn(
-        "fixed rounded-xl border border-white/15 bg-zinc-900/95 p-3 sm:p-3.5 shadow-2xl backdrop-blur-md transition-shadow select-none resize overflow-auto min-w-[220px] min-h-[120px] flex flex-col",
+        "fixed rounded-xl border border-white/15 bg-zinc-900/95 p-3 sm:p-3.5 shadow-2xl backdrop-blur-md transition-shadow select-none resize overflow-auto min-w-[220px] min-h-[120px] flex flex-col touch-none",
         className,
       )}
     >
       <div
         onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        className="flex items-center justify-between pb-2 border-b border-white/10 mb-2 cursor-grab active:cursor-grabbing bg-zinc-800/40 -mx-3 -mt-3 sm:-mx-3.5 sm:-mt-3.5 px-3 pt-2.5 rounded-t-xl shrink-0"
+        className="flex items-center justify-between pb-2 border-b border-white/10 mb-2 cursor-grab active:cursor-grabbing bg-zinc-800/40 -mx-3 -mt-3 sm:-mx-3.5 sm:-mt-3.5 px-3 pt-2.5 rounded-t-xl shrink-0 touch-none select-none"
       >
-        <div className="flex items-center gap-2 overflow-hidden">
+        <div className="flex items-center gap-2 overflow-hidden pointer-events-none">
           <GripHorizontal className="size-4 text-zinc-400 shrink-0" />
           {icon}
           <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-200 truncate">
