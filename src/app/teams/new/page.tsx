@@ -90,30 +90,30 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
       <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 h-96 w-96 rounded-full bg-violet-600/8 blur-[100px]" />
 
       {/* Nav */}
-      <nav className="flex items-center gap-2.5 px-8 py-5 relative z-10">
+      <nav className="flex items-center gap-2.5 px-4 sm:px-8 py-4 sm:py-5 relative z-10">
         <span className="flex size-8 items-center justify-center rounded-lg bg-violet-500/20 border border-violet-400/30">
           <Music2 className="size-4 text-violet-300" />
         </span>
         <span className="text-sm font-bold">Anointed Worship</span>
       </nav>
 
-      <div className="relative z-10 mx-auto max-w-4xl px-6 pb-20 pt-6 animate-fade-up">
+      <div className="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 pb-16 sm:pb-20 pt-4 sm:pt-6 animate-fade-up">
         {/* Stepper */}
-        <div className="mb-10 flex items-center justify-center gap-2">
+        <div className="mb-6 sm:mb-10 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
           {STEPS.map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div className={`flex size-7 items-center justify-center rounded-full text-xs font-extrabold transition-all ${i === step ? "bg-violet-600 text-white" : i < step ? "bg-violet-600/30 text-violet-300" : "bg-white/[0.06] text-zinc-500"}`}>
-                {i < step ? <Check className="size-3.5" /> : i + 1}
+            <div key={s} className="flex items-center gap-1.5 sm:gap-2">
+              <div className={`flex size-6 sm:size-7 items-center justify-center rounded-full text-[11px] sm:text-xs font-extrabold transition-all shrink-0 ${i === step ? "bg-violet-600 text-white" : i < step ? "bg-violet-600/30 text-violet-300" : "bg-white/[0.06] text-zinc-500"}`}>
+                {i < step ? <Check className="size-3 sm:size-3.5" /> : i + 1}
               </div>
-              <span className={`text-xs font-bold ${i === step ? "text-white" : "text-zinc-500"}`}>{s}</span>
-              {i < STEPS.length - 1 && <div className="mx-2 h-px w-10 bg-white/[0.08]" />}
+              <span className={`text-[11px] sm:text-xs font-bold ${i === step ? "text-white" : "text-zinc-500"}`}>{s}</span>
+              {i < STEPS.length - 1 && <div className="mx-1 sm:mx-2 h-px w-6 sm:w-10 bg-white/[0.08]" />}
             </div>
           ))}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
           {/* Left Panel */}
-          <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-7">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-4 sm:p-7">
             {errorMessage ? (
               <p className="mb-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-200">
                 {errorMessage}

@@ -370,27 +370,29 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           </div>
         </div>
 
-        <div className="relative z-10 flex flex-col gap-6 p-7 text-left md:flex-row md:items-center md:justify-between">
-          <div>
-            <span className="inline-block rounded-full bg-violet-500/20 px-2.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-violet-300">{serviceLabel}</span>
-            {event.approvalStatus === "pending" ? <StatusBadge label="Pending approval" className="border-amber-300/30 bg-amber-500/15 text-amber-100" /> : null}
-            {event.recurrenceRule ? <StatusBadge label={`Recurring (${event.recurrenceRule})`} className="border-blue-400/30 bg-blue-500/15 text-blue-200" /> : null}
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-white md:text-3xl">{event.name}</h1>
+        <div className="relative z-10 flex flex-col gap-4 sm:gap-6 p-4 sm:p-7 text-left md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="inline-block rounded-full bg-violet-500/20 px-2.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-violet-300">{serviceLabel}</span>
+              {event.approvalStatus === "pending" ? <StatusBadge label="Pending approval" className="border-amber-300/30 bg-amber-500/15 text-amber-100" /> : null}
+              {event.recurrenceRule ? <StatusBadge label={`Recurring (${event.recurrenceRule})`} className="border-blue-400/30 bg-blue-500/15 text-blue-200" /> : null}
+            </div>
+            <h1 className="mt-2 text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-white break-words">{event.name}</h1>
             <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-violet-300">
               <CalendarDays className="size-3.5" />{formatDate(event.date)}
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-3">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
             {linkedSetlist ? (
               <>
-                <ButtonLink href={`/setlists/${linkedSetlist.id}/stage`} className="border-transparent bg-violet-600 text-white hover:bg-violet-500">Stage</ButtonLink>
+                <ButtonLink href={`/setlists/${linkedSetlist.id}/stage`} className="border-transparent bg-violet-600 text-white hover:bg-violet-500 text-xs sm:text-sm px-3.5 sm:px-4">Stage</ButtonLink>
                 {canManageEvent ? <ButtonLink href={`/events/${event.id}/edit`} variant="secondary">Edit Event</ButtonLink> : null}
                 <ShareButton path={`/events/${event.id}`} />
               </>
             ) : canLinkSetlist ? (
               <>
-                <ButtonLink href={`/setlists/new?eventId=${event.id}`} className="border-transparent bg-violet-600 text-white hover:bg-violet-500">Create Setlist</ButtonLink>
-                <ButtonLink href={`/events/${event.id}/edit`} variant="secondary">Link Existing Setlist</ButtonLink>
+                <ButtonLink href={`/setlists/new?eventId=${event.id}`} className="border-transparent bg-violet-600 text-white hover:bg-violet-500 text-xs sm:text-sm px-3.5 sm:px-4">Create Setlist</ButtonLink>
+                <ButtonLink href={`/events/${event.id}/edit`} variant="secondary" className="text-xs sm:text-sm px-3.5 sm:px-4">Link Existing Setlist</ButtonLink>
               </>
             ) : null}
           </div>

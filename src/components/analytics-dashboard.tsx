@@ -32,8 +32,8 @@ export function AnalyticsDashboard({
   const strongestAttendance = [...attendanceStats].sort((a, b) => b.rate - a.rate)[0];
 
   return (
-    <div className="mt-7 space-y-5">
-      <section aria-label="Engagement summary" className="stagger grid gap-3 sm:grid-cols-3">
+    <div className="mt-6 sm:mt-7 space-y-5">
+      <section aria-label="Engagement summary" className="stagger grid grid-cols-1 sm:grid-cols-3 gap-3">
         <MetricCard
           icon={Music2}
           label="Top rotation"
@@ -120,10 +120,10 @@ export function AnalyticsDashboard({
           />
 
           {attendanceStats.length > 0 ? (
-            <div className="px-5 pb-6 sm:px-6">
-              <div className="flex items-center gap-5 border-y border-white/[0.07] py-5">
+            <div className="px-4 pb-5 sm:px-6 sm:pb-6">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4 sm:gap-5 border-y border-white/[0.07] py-5">
                 <div
-                  className="grid size-28 shrink-0 place-items-center rounded-full p-2"
+                  className="grid size-24 sm:size-28 shrink-0 place-items-center rounded-full p-2"
                   style={{
                     background: `conic-gradient(#34d399 0 ${averageAttendance}%, rgba(255,255,255,0.07) ${averageAttendance}% 100%)`,
                   }}
@@ -132,7 +132,7 @@ export function AnalyticsDashboard({
                 >
                   <div className="grid size-full place-items-center rounded-full border border-white/[0.07] bg-[#111014] text-center">
                     <div>
-                      <p className="text-2xl font-black tracking-tight text-white">{averageAttendance}%</p>
+                      <p className="text-xl sm:text-2xl font-black tracking-tight text-white">{averageAttendance}%</p>
                       <p className="font-mono text-[8px] font-bold uppercase tracking-[0.16em] text-zinc-400">
                         Average
                       </p>
@@ -143,7 +143,7 @@ export function AnalyticsDashboard({
                   <p className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-emerald-300">
                     Team readiness
                   </p>
-                  <p className="mt-1 text-sm font-semibold leading-5 text-zinc-200">
+                  <p className="mt-1 text-xs sm:text-sm font-semibold leading-5 text-zinc-200">
                     {averageAttendance >= 85
                       ? "Your team is showing strong availability."
                       : "A little follow-up could lift team readiness."}
@@ -321,21 +321,21 @@ function PanelHeader({
   meta?: string;
 }) {
   return (
-    <header className="flex items-start justify-between gap-4 p-5 sm:p-6">
-      <div className="flex min-w-0 items-start gap-3">
-        <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl border border-violet-400/15 bg-violet-500/10 text-violet-300">
-          <Icon className="size-4" aria-hidden="true" />
+    <header className="flex items-start justify-between gap-3 sm:gap-4 p-4 sm:p-6">
+      <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
+        <span className="mt-0.5 grid size-8 sm:size-9 shrink-0 place-items-center rounded-xl border border-violet-400/15 bg-violet-500/10 text-violet-300">
+          <Icon className="size-3.5 sm:size-4" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className="font-mono text-[9px] font-bold uppercase tracking-[0.18em] text-violet-300">
+          <p className="font-mono text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.18em] text-violet-300">
             {eyebrow}
           </p>
-          <h2 className="mt-1 text-lg font-extrabold tracking-tight text-white">{title}</h2>
-          <p className="mt-1 text-xs font-medium leading-5 text-zinc-400">{description}</p>
+          <h2 className="mt-0.5 sm:mt-1 text-base sm:text-lg font-extrabold tracking-tight text-white">{title}</h2>
+          <p className="mt-0.5 sm:mt-1 text-xs font-medium leading-5 text-zinc-400">{description}</p>
         </div>
       </div>
       {meta && (
-        <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 font-mono text-[9px] font-bold uppercase tracking-wider text-zinc-300">
+        <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2 sm:px-2.5 py-0.5 sm:py-1 font-mono text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-zinc-300">
           {meta}
         </span>
       )}

@@ -130,9 +130,9 @@ export function SettingsClientView({
   }
 
   return (
-    <div className="mt-7 grid gap-6 lg:grid-cols-[240px_1fr] animate-fade-up">
-      {/* Sidebar Tabs */}
-      <aside className="flex flex-col gap-1">
+    <div className="mt-6 sm:mt-7 grid gap-6 lg:grid-cols-[240px_1fr] animate-fade-up">
+      {/* Sidebar Tabs — Horizontal scroll on mobile, vertical on desktop */}
+      <aside className="flex lg:flex-col gap-1.5 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0 no-scrollbar border-b border-white/[0.06] lg:border-b-0">
         {TABS.map((tab) => {
           const TabIcon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -144,13 +144,13 @@ export function SettingsClientView({
                 setSettingsStatus("");
               }}
               className={cn(
-                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all text-left w-full",
+                "flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-bold transition-all text-left whitespace-nowrap shrink-0 lg:shrink lg:w-full",
                 isActive
-                  ? "bg-violet-500/10 text-violet-300 border-l-2 border-violet-500"
+                  ? "bg-violet-500/10 text-violet-300 border border-violet-500/40 lg:border-l-2 lg:border-t-0 lg:border-r-0 lg:border-b-0 lg:border-violet-500"
                   : "text-zinc-500 hover:bg-white/[0.04] hover:text-white"
               )}
             >
-              <TabIcon className="size-4 shrink-0" />
+              <TabIcon className="size-3.5 sm:size-4 shrink-0" />
               {tab.label}
             </button>
           );

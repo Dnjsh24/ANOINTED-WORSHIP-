@@ -24,7 +24,7 @@ export default async function TeamsPage() {
       <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 h-96 w-96 rounded-full bg-violet-600/10 blur-[100px]" />
 
       {/* Header */}
-      <nav className="flex items-center justify-between px-8 py-5 relative z-10">
+      <nav className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 relative z-10">
         <div className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center rounded-lg bg-violet-500/20 border border-violet-400/30">
             <Music2 className="size-4 text-violet-300" />
@@ -42,20 +42,20 @@ export default async function TeamsPage() {
         </form>
       </nav>
 
-      <div className="relative z-10 mx-auto max-w-3xl px-6 py-16 text-center animate-fade-up">
-        <h1 className="text-3xl font-extrabold text-white">Welcome to Anointed Worship</h1>
-        <p className="mt-3 text-sm font-semibold text-zinc-400">
+      <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6 py-10 sm:py-16 text-center animate-fade-up">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Welcome to Anointed Worship</h1>
+        <p className="mt-2 sm:mt-3 text-xs sm:text-sm font-semibold text-zinc-400">
           To get started, create a new team or join an existing one.
         </p>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-2">
+        <div className="mt-8 sm:mt-10 grid gap-5 md:grid-cols-2">
           {/* Create a Team */}
-          <div className="group flex min-h-[440px] flex-col rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-8 text-left transition-all duration-200 hover:border-violet-400/30 hover:bg-white/[0.05]">
+          <div className="group flex min-h-[380px] sm:min-h-[440px] flex-col rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5 sm:p-8 text-left transition-all duration-200 hover:border-violet-400/30 hover:bg-white/[0.05]">
             <div className="flex size-12 items-center justify-center rounded-2xl bg-violet-500/15 border border-violet-400/20 transition-all duration-200 group-hover:bg-violet-500/25">
               <Users className="size-6 text-violet-300" />
             </div>
-            <h2 className="mt-5 text-xl font-extrabold text-white">Create a Team</h2>
-            <p className="mt-2 text-sm font-semibold text-zinc-400 leading-relaxed">
+            <h2 className="mt-4 sm:mt-5 text-lg sm:text-xl font-extrabold text-white">Create a Team</h2>
+            <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm font-semibold text-zinc-400 leading-relaxed">
               Build your team from scratch. Invite members, set roles, and start planning together.
             </p>
 

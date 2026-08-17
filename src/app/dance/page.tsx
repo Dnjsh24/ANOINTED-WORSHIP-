@@ -50,8 +50,6 @@ type DanceNoteRow = {
   video_url: string | null;
 };
 
-
-
 export default async function DanceChartsPage({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
   const { new: isNew } = await searchParams;
   const teamContext = await getRequiredTeamContext();
@@ -116,15 +114,15 @@ export default async function DanceChartsPage({ searchParams }: { searchParams: 
       <div className="animate-fade-up text-left">
         <p className="font-mono text-xs font-bold uppercase tracking-widest text-violet-200">Dance Ministry</p>
         <div className="mt-2 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-4xl font-extrabold tracking-tight">
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">
               {showForm ? "New Dance Chart" : "Dance Charts"}
             </h1>
-            <p className="mt-2 text-sm font-semibold text-zinc-400">
+            <p className="mt-1 sm:mt-2 text-xs sm:text-sm font-semibold text-zinc-400">
               {showForm ? "Create a choreography chart linked to songs or events." : "Choreography, formation, and tambourine notes for the team."}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0">
             <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-bold text-zinc-300">
               <Footprints className="size-4 text-violet-300" />
               {charts.length} {charts.length === 1 ? "chart" : "charts"}
@@ -133,14 +131,14 @@ export default async function DanceChartsPage({ searchParams }: { searchParams: 
               showForm ? (
                 <Link
                   href="/dance"
-                  className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 transition hover:bg-white/[0.08]"
+                  className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 sm:px-4 py-2 text-xs font-bold text-zinc-300 transition hover:bg-white/[0.08]"
                 >
                   Back to Charts
                 </Link>
               ) : (
                 <Link
                   href="/dance?new=true"
-                  className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-violet-500 active:scale-[0.98]"
+                  className="flex items-center gap-2 rounded-xl bg-violet-600 px-3.5 sm:px-4 py-2 text-xs font-bold text-white transition hover:bg-violet-500 active:scale-[0.98]"
                 >
                   + Add Dance Chart
                 </Link>
@@ -150,7 +148,7 @@ export default async function DanceChartsPage({ searchParams }: { searchParams: 
         </div>
       </div>
 
-      <div className="mt-7 text-left">
+      <div className="mt-6 sm:mt-7 text-left">
         {showForm ? (
           <div className="max-w-2xl mx-auto">
             <DanceChartForm songs={songOptions} events={eventOptions} />
@@ -162,7 +160,6 @@ export default async function DanceChartsPage({ searchParams }: { searchParams: 
     </AppShell>
   );
 }
-
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("en-US", {

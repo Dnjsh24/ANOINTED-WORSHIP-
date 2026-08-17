@@ -92,23 +92,23 @@ export default async function SongsPage() {
 
   return (
     <AppShell active="Song Library" teamContext={teamContext}>
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Song Library</h1>
-          <p className="mt-2 text-sm font-medium text-zinc-300">
+      <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold">Song Library</h1>
+          <p className="mt-1 sm:mt-2 text-xs sm:text-sm font-medium text-zinc-300">
             Manage and browse your team&apos;s song catalog. Keep setlists fresh and transpose keys on the fly.
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          <ButtonLink href="/songs/trash" variant="secondary" className="px-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 shrink-0">
+          <ButtonLink href="/songs/trash" variant="secondary" className="px-3" aria-label="Song trash">
             <Trash2 className="size-4" />
           </ButtonLink>
-          <div className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-[#18171c] px-4 py-2.5 text-sm font-bold">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Total Songs</span>
-            <span className="text-white font-extrabold text-base">{totalSongsCount}</span>
+          <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#18171c] px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold">
+            <span className="font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-zinc-500">Total Songs</span>
+            <span className="text-white font-extrabold text-sm sm:text-base">{totalSongsCount}</span>
           </div>
           {can(teamContext.role, "songs.create", teamContext.customPermissions, teamContext.rolePermissions) && (
-            <ButtonLink href="/songs/new">
+            <ButtonLink href="/songs/new" className="text-xs sm:text-sm px-3.5 sm:px-4">
               <Plus className="size-4" />
               Add New Song
             </ButtonLink>
@@ -116,7 +116,7 @@ export default async function SongsPage() {
         </div>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-6 sm:mt-8">
         <SongLibraryGrid songs={songsList} />
       </div>
     </AppShell>

@@ -170,25 +170,24 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
     return counts;
   }, [officialEvents, today]);
 
-
   return (
     <div className="animate-fade-up">
       {/* Header row */}
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-4xl font-extrabold tracking-tight">Events & Rehearsals</h1>
-          <p className="mt-1.5 text-sm font-semibold text-zinc-400">
+      <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">Events & Rehearsals</h1>
+          <p className="mt-1 sm:mt-1.5 text-xs sm:text-sm font-semibold text-zinc-400">
             {memberSubmissionMode ? "View the team calendar and request new gatherings." : "Manage gatherings, rehearsals, and special events."}
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 shrink-0">
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
-            <Input className="pl-10" placeholder="Search events..." value={query} onChange={(event) => setQuery(event.target.value)} />
+            <Input className="pl-10 text-xs sm:text-sm" placeholder="Search events..." value={query} onChange={(event) => setQuery(event.target.value)} />
           </div>
           <Link
             href="/events/new"
-            className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-violet-500"
+            className="flex items-center gap-2 rounded-lg bg-violet-600 px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold text-white transition-all hover:bg-violet-500 shrink-0"
           >
             <Plus className="size-4" />
             {memberSubmissionMode ? "Request Event" : "Add Event"}
@@ -197,13 +196,13 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
       </div>
 
       {/* Tabs */}
-      <div className="mt-6 flex border-b border-white/[0.08] text-sm">
+      <div className="mt-6 flex border-b border-white/[0.08] text-xs sm:text-sm overflow-x-auto no-scrollbar">
         {(["all", "upcoming", "past", "calendar"] as const).map((filter) => (
           <button
             key={filter}
             onClick={() => setDateFilter(filter)}
             className={cn(
-              "px-5 py-3 font-semibold transition-all border-b-2 -mb-px",
+              "px-3.5 sm:px-5 py-2.5 sm:py-3 font-semibold transition-all border-b-2 -mb-px whitespace-nowrap",
               dateFilter === filter ? "border-violet-500 text-violet-300 font-bold" : "border-transparent text-zinc-500 hover:text-white"
             )}
           >
@@ -216,31 +215,31 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
 
       {/* Main Grid or Calendar View */}
       {dateFilter === "calendar" ? (
-        <div className="mt-7 rounded-2xl border border-white/10 bg-[#111014]/60 p-6 animate-fade-up">
+        <div className="mt-6 sm:mt-7 rounded-2xl border border-white/10 bg-[#111014]/60 p-3 sm:p-6 animate-fade-up">
           {/* Calendar controls */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <h2 className="text-xl font-extrabold text-white">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
+            <h2 className="text-lg sm:text-xl font-extrabold text-white">
               {currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
             </h2>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={prevMonth}
-                className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition"
+                className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 sm:px-3 py-1.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition"
               >
-                &larr; Previous
+                &larr; Prev
               </button>
               <button
                 type="button"
                 onClick={() => setCurrentDate(new Date(2026, 6, 1))}
-                className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition"
+                className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 sm:px-3 py-1.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition"
               >
                 Today
               </button>
               <button
                 type="button"
                 onClick={nextMonth}
-                className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition"
+                className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 sm:px-3 py-1.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition"
               >
                 Next &rarr;
               </button>
@@ -248,7 +247,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
           </div>
 
           {/* Grid header: Days of week */}
-          <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 pb-2 border-b border-white/[0.04]">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[10px] sm:text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 sm:mb-3 pb-2 border-b border-white/[0.04]">
             <div>Sun</div>
             <div>Mon</div>
             <div>Tue</div>
@@ -274,20 +273,20 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
                   type="button"
                   onClick={() => router.push(`/events/new?date=${cell.dateStr}`)}
                   className={cn(
-                    "flex flex-col items-center md:items-stretch p-1 md:p-2.5 rounded-xl border text-left transition-all duration-150 relative group overflow-hidden aspect-square md:aspect-auto",
+                    "flex flex-col items-center md:items-stretch p-1 md:p-2.5 rounded-lg sm:rounded-xl border text-left transition-all duration-150 relative group overflow-hidden min-h-[42px] sm:min-h-[56px] md:min-h-0 aspect-square md:aspect-auto",
                     cell.isCurrentMonth
                       ? "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.05] hover:border-violet-500/30"
                       : "bg-black/20 border-white/[0.02] opacity-30 hover:opacity-50"
                   )}
                 >
                   <span className={cn(
-                    "text-xs font-extrabold",
+                    "text-[10px] sm:text-xs font-extrabold",
                     cell.isCurrentMonth ? "text-zinc-300 group-hover:text-white" : "text-zinc-600"
                   )}>
                     {cell.day}
                   </span>
 
-                  <div className="mt-1.5 space-y-1 overflow-y-auto max-h-[70px] scrollbar-thin">
+                  <div className="mt-0.5 sm:mt-1.5 space-y-0.5 sm:space-y-1 overflow-y-auto max-h-[70px] scrollbar-thin w-full">
                     {dayEvents.map((evt) => {
                       const isPending = evt.approvalStatus === "pending";
                       const pillStyle = isPending
@@ -321,7 +320,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
                   </div>
 
                   {/* Add action hover overlay indicator */}
-                  <span className="absolute bottom-1.5 right-2 text-[9px] font-mono font-bold text-violet-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="hidden sm:inline-block absolute bottom-1.5 right-2 text-[9px] font-mono font-bold text-violet-400 opacity-0 group-hover:opacity-100 transition-opacity">
                     + Add
                   </span>
                 </button>
@@ -330,34 +329,37 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
           </div>
         </div>
       ) : (
-        <section className="mt-7 grid gap-6 lg:grid-cols-[1fr_320px]">
+        <section className="mt-6 sm:mt-7 grid gap-6 lg:grid-cols-[1fr_320px]">
           {/* Left Column: Timeline List */}
-          <div className="relative pl-6 space-y-6">
-            {/* Vertical timeline connector line */}
-            <div className="absolute left-10 top-2 bottom-2 w-px bg-white/[0.08]" />
+          <div className="relative pl-0 sm:pl-6 space-y-4 sm:space-y-6">
+            {/* Vertical timeline connector line (hidden on mobile for compact card presentation) */}
+            <div className="hidden sm:block absolute left-10 top-2 bottom-2 w-px bg-white/[0.08]" />
 
             {filtered.map((event) => {
               const { month, day } = getMonthDay(event.date);
 
               return (
-                <div key={event.id} className="relative flex gap-6 items-start group animate-fade-up">
+                <div key={event.id} className="relative flex flex-col sm:flex-row gap-3 sm:gap-6 items-start group animate-fade-up">
                   {/* Date block on the left */}
-                  <div className="flex flex-col items-center justify-center text-center w-12 shrink-0">
-                    <p className="font-mono text-[9px] font-bold text-zinc-500 tracking-wider uppercase">{month}</p>
-                    <p className="text-2xl font-extrabold text-white mt-0.5 leading-none">{day}</p>
+                  <div className="flex sm:flex-col items-center justify-between sm:justify-center text-left sm:text-center w-full sm:w-12 shrink-0 border-b border-white/[0.06] pb-2 sm:border-b-0 sm:pb-0">
+                    <div className="flex items-baseline sm:flex-col gap-2 sm:gap-0">
+                      <p className="font-mono text-[10px] sm:text-[9px] font-bold text-violet-300 sm:text-zinc-500 tracking-wider uppercase">{month}</p>
+                      <p className="text-xl sm:text-2xl font-extrabold text-white sm:mt-0.5 leading-none">{day}</p>
+                    </div>
+                    <span className="sm:hidden text-xs font-semibold text-zinc-400">{event.time}</span>
                   </div>
 
                   {/* Bullet node on timeline */}
-                  <div className="absolute left-[38px] top-3.5 z-10 flex size-2.5 items-center justify-center">
+                  <div className="hidden sm:flex absolute left-[38px] top-3.5 z-10 size-2.5 items-center justify-center">
                     <div className={cn("size-2 rounded-full border border-[#0d0c12] bg-zinc-600 transition-all group-hover:scale-125 group-hover:bg-violet-400", event.type === "service" && "bg-emerald-500", event.type === "rehearsal" && "bg-amber-500", event.type === "service_rehearsal" && "bg-gradient-to-br from-emerald-500 to-amber-400", event.type === "meeting" && "bg-blue-500")} />
                   </div>
 
                   {/* Details card */}
-                  <Card className="flex-1 p-4 border border-white/[0.06] bg-[#111014]/60 hover:border-violet-500/25 hover:bg-white/[0.02] transition-all">
-                    <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <div>
+                  <Card className="w-full sm:flex-1 p-3.5 sm:p-4 border border-white/[0.06] bg-[#111014]/60 hover:border-violet-500/25 hover:bg-white/[0.02] transition-all">
+                    <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Link href={`/events/${event.id}`} className="text-base font-extrabold text-white hover:text-violet-300 transition-colors">
+                          <Link href={`/events/${event.id}`} className="text-sm sm:text-base font-extrabold text-white hover:text-violet-300 transition-colors break-words">
                             {event.name}
                           </Link>
                           <EventTypeBadges eventType={event.type} />
@@ -367,7 +369,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
                             </span>
                           ) : null}
                         </div>
-                        <div className="mt-2 flex flex-wrap items-center gap-4 text-xs font-semibold text-zinc-400">
+                        <div className="mt-2 flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-semibold text-zinc-400">
                           <span className="flex items-center gap-1.5"><Clock className="size-3.5 text-violet-400" /> {event.time}</span>
                           <span className="flex items-center gap-1.5"><MapPin className="size-3.5 text-violet-400" /> {event.location}</span>
                           {event.rehearsalDate && event.type === "service_rehearsal" && (
@@ -376,18 +378,18 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         {!memberSubmissionMode && (
                           <Link
                             href={`/events/${event.id}/edit`}
-                            className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-bold text-zinc-300 transition hover:bg-zinc-700 hover:text-white"
+                            className="rounded-lg bg-zinc-800 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-zinc-300 transition hover:bg-zinc-700 hover:text-white"
                           >
                             Edit
                           </Link>
                         )}
                         <Link
                           href={`/events/${event.id}`}
-                          className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-violet-500"
+                          className="rounded-lg bg-violet-600 px-2.5 sm:px-3 py-1.5 text-xs font-bold text-white transition hover:bg-violet-500"
                         >
                           Details
                         </Link>
@@ -399,7 +401,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
             })}
 
             {filtered.length === 0 && (
-              <p className="rounded-2xl border border-white/[0.08] bg-[#111014]/40 p-10 text-center text-sm font-bold text-zinc-500">
+              <p className="rounded-2xl border border-white/[0.08] bg-[#111014]/40 p-8 sm:p-10 text-center text-xs sm:text-sm font-bold text-zinc-500">
                 No events scheduled for this period.
               </p>
             )}
@@ -408,7 +410,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
           {/* Right Column: Widgets */}
           <aside className="flex flex-col gap-5">
             {canReviewEvents && pendingReviewEvents.length > 0 ? (
-              <Panel className="border-t-4 border-t-amber-400 bg-[#111014]/80">
+              <Panel className="border-t-4 border-t-amber-400 bg-[#111014]/80 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-sm font-bold text-white">Event Requests</h2>
                   <span className="rounded bg-amber-500/10 px-2 py-1 font-mono text-[9px] font-bold uppercase text-amber-200">
@@ -451,26 +453,26 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
 
             {/* Up Next widget */}
             {nextEvent ? (
-              <Panel className="border-t-4 border-t-violet-500 bg-[#111014]/80">
+              <Panel className="border-t-4 border-t-violet-500 bg-[#111014]/80 p-4 sm:p-5">
                 <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
                   <CalendarDays className="size-4.5 text-violet-300" />
                   Up Next
                 </h2>
-                <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5 sm:p-4">
                   <p className="font-mono text-[9px] font-bold uppercase tracking-wider text-violet-400">Upcoming Service</p>
-                  <h3 className="mt-2 text-sm font-bold text-white">{nextEvent.name}</h3>
+                  <h3 className="mt-1.5 text-sm font-bold text-white">{nextEvent.name}</h3>
                   <p className="mt-1 text-xs font-semibold text-zinc-400">{nextEvent.time}</p>
                   <p className="mt-0.5 text-xs font-semibold text-zinc-500">{nextEvent.location}</p>
                   <Link
                     href={`/events/${nextEvent.id}`}
-                    className="mt-4 block text-center text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors"
+                    className="mt-3.5 block text-center text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors"
                   >
                     View Details →
                   </Link>
                 </div>
               </Panel>
             ) : (
-              <Panel className="border-t-4 border-t-violet-500 bg-[#111014]/80">
+              <Panel className="border-t-4 border-t-violet-500 bg-[#111014]/80 p-4 sm:p-5">
                 <h2 className="text-sm font-bold text-white flex items-center gap-1.5">
                   <CalendarDays className="size-4.5 text-violet-300" />
                   Up Next
@@ -480,7 +482,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
             )}
 
             {/* My Availability RSVP Summary */}
-            <Panel className="bg-[#111014]/80">
+            <Panel className="bg-[#111014]/80 p-4 sm:p-5">
               <h2 className="text-sm font-bold text-white">My Availability (Upcoming)</h2>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/5 p-3 text-center">
@@ -509,7 +511,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
             </Panel>
 
             {/* Event Types summary */}
-            <Panel className="bg-[#111014]/80">
+            <Panel className="bg-[#111014]/80 p-4 sm:p-5">
               <h3 className="text-sm font-bold text-white mb-3">Event Types</h3>
               <div className="space-y-2">
                 {[

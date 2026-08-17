@@ -461,7 +461,7 @@ export function SetlistForm({
 
             {/* Right Column: Song Library */}
             {songs && songs.length > 0 && (
-              <div className="rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 text-left h-[600px] flex flex-col">
+              <div className="rounded-xl border border-white/[0.08] bg-[#111014]/60 p-4 sm:p-5 text-left h-[380px] sm:h-[480px] lg:h-[600px] flex flex-col">
                 <div className="mb-4 space-y-3 border-b border-white/[0.04] pb-4">
                   <h3 className="text-sm font-bold text-white">Song Library</h3>
                   <Input 
@@ -489,11 +489,11 @@ export function SetlistForm({
           </div>
 
           {/* Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/[0.04]">
-            <ButtonLink href={setlist ? `/setlists/${setlist.id}` : "/setlists"} variant="secondary" className="rounded-xl px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]">
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-white/[0.04]">
+            <ButtonLink href={setlist ? `/setlists/${setlist.id}` : "/setlists"} variant="secondary" className="rounded-xl px-5 sm:px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]">
               Cancel
             </ButtonLink>
-            <SubmitButton className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
+            <SubmitButton className="rounded-xl bg-violet-600 px-5 sm:px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
               {setlist ? "Save Changes" : "Create Setlist"}
             </SubmitButton>
           </div>

@@ -292,11 +292,11 @@ export function MembersClient({
     <div className="space-y-6 animate-fade-up">
       {/* Top Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">Team Management</h1>
-          <p className="mt-1 text-xs sm:text-sm font-semibold text-zinc-400">Manage members, appoint leadership roles, review requests, and configure team settings.</p>
+          <p className="mt-1 text-xs sm:text-sm font-semibold text-zinc-400 leading-snug">Manage members, appoint leadership roles, review requests, and configure team settings.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <ButtonLink href="/members/invite" className="gap-2">
             <UserPlus className="size-4" />
             Invite Member
@@ -306,12 +306,12 @@ export function MembersClient({
 
       {status && (
         <div className="rounded-xl border border-violet-500/20 bg-violet-500/10 px-4 py-3 text-xs font-semibold text-violet-200 animate-fade-in flex items-center justify-between">
-          <span>{status}</span>
-          <button type="button" onClick={() => setStatus("")} className="text-violet-400 hover:text-white">✕</button>
+          <span className="min-w-0 break-words">{status}</span>
+          <button type="button" onClick={() => setStatus("")} className="text-violet-400 hover:text-white ml-2 shrink-0">✕</button>
         </div>
       )}
 
-      {/* 3-Column Dashboard Grid */}
+      {/* 3-Column Dashboard Grid — stacks on mobile */}
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr_260px]">
 
         {/* COLUMN 1: Pending Join Requests & Team Code */}
@@ -433,17 +433,17 @@ export function MembersClient({
             id="active-team"
             data-testid="active-team-panel"
             tabIndex={-1}
-            className="scroll-mt-24 bg-[#111014]/80 p-5 focus:outline-none focus:ring-2 focus:ring-violet-400/60"
+            className="scroll-mt-24 bg-[#111014]/80 p-4 sm:p-5 focus:outline-none focus:ring-2 focus:ring-violet-400/60"
           >
-            <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between flex-wrap">
               <h2 className="text-lg font-bold text-white">Active Team ({filteredMembers.length})</h2>
-              <div className="flex gap-2 max-w-sm flex-1">
-                <Input placeholder="Search members..." value={query} onChange={(event) => setQuery(event.target.value)} className="h-9 text-xs" />
+              <div className="flex gap-2 min-w-0 sm:max-w-sm sm:flex-1">
+                <Input placeholder="Search members..." value={query} onChange={(event) => setQuery(event.target.value)} className="h-9 text-xs min-w-0 flex-1" />
                 <select
                   aria-label="Role filter"
                   value={roleFilter}
                   onChange={(event) => setRoleFilter(event.target.value)}
-                  className="h-9 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-xs font-semibold text-white outline-none focus:border-violet-400"
+                  className="h-9 rounded-xl border border-white/10 bg-white/[0.04] px-2 text-xs font-semibold text-white outline-none focus:border-violet-400 shrink-0"
                 >
                   <option value="all" className="bg-[#111014] text-white">All Roles</option>
                   <optgroup label="👑 Leadership Roles" className="bg-[#111014] text-amber-300 font-bold">
@@ -465,7 +465,8 @@ export function MembersClient({
             </div>
 
             <div className="mt-5 overflow-hidden rounded-xl border border-white/[0.08]">
-              <div className="grid grid-cols-[minmax(0,2.4fr)_minmax(0,1.8fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_32px] bg-white/[0.04] px-4 py-3 font-mono text-[9px] font-bold uppercase text-zinc-500 tracking-wider">
+              {/* Desktop table header — hidden on mobile */}
+              <div className="hidden md:grid md:grid-cols-[minmax(0,2.4fr)_minmax(0,1.8fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_32px] bg-white/[0.04] px-4 py-3 font-mono text-[9px] font-bold uppercase text-zinc-500 tracking-wider">
                 <span>Member</span>
                 <span>Role / Position</span>
                 <span>Status</span>
@@ -474,7 +475,7 @@ export function MembersClient({
               </div>
               <div className="divide-y divide-white/[0.06]">
                 {filteredMembers.map((member) => {
-                  const isOnline = onlineMemberUserIds.length > 0 
+                  const isOnline = onlineMemberUserIds.length > 0
                     ? onlineMemberUserIds.includes(member.profile.id)
                     : (member.status === "active");
                   const memberLeadership = getMemberLeadershipRole(member.role, member.ministries);
@@ -486,91 +487,169 @@ export function MembersClient({
                   })();
 
                   return (
-                    <div key={member.id} className="grid grid-cols-[minmax(0,2.4fr)_minmax(0,1.8fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_32px] items-center px-4 py-3 text-xs font-semibold group">
-                      <button
-                        type="button"
-                        aria-label={`View ${member.profile.fullName}`}
-                        onClick={() => setSelectedMember(member)}
-                        className="flex items-center gap-3 hover:text-violet-300 transition-colors min-w-0 text-left"
-                      >
-                        <Avatar name={member.profile.fullName} src={member.profile.avatarUrl} className="size-8" />
-                        <span className="min-w-0">
-                          <span className="block font-bold text-white truncate">{member.profile.fullName}</span>
-                          <span className="block text-[10px] text-zinc-400 truncate">{member.profile.email}</span>
-                          {(memberLeadership || displayedMinistries.length > 0) && (
-                            <span className="mt-1 flex flex-wrap items-center gap-1">
-                              {memberLeadership && (
-                                <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0 text-[9px] h-4 font-bold border", memberLeadership.badgeClass)}>
-                                  <span>{memberLeadership.iconEmoji}</span>
-                                  <span>{memberLeadership.badgeLabel}</span>
-                                </span>
-                              )}
-                              {displayedMinistries.map((m) => (
-                                <Badge key={m} className="px-1.5 py-0 text-[9px] h-4 bg-violet-500/10 text-violet-300 border-violet-500/20 uppercase tracking-wider">{m}</Badge>
-                              ))}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-
-                      {/* Role selection dropdown (Admin & Owner manageable) */}
-                      <div>
-                        {canManage && member.role !== "owner" ? (
-                          <select
-                            aria-label={`Role for ${member.profile.fullName}`}
-                            value={activeRoleValue}
-                            disabled={isPending}
-                            onChange={(event) => updateRole(member.id, event.target.value)}
-                            className="h-8 w-full max-w-[155px] rounded-lg border border-white/10 bg-white/[0.04] px-2 text-[11px] font-bold text-white outline-none focus:border-violet-400"
+                    <div key={member.id} className="group px-4 py-3">
+                      {/* Mobile card layout */}
+                      <div className="flex items-start gap-3 md:hidden">
+                        <div
+                          onClick={() => setSelectedMember(member)}
+                          className="shrink-0 cursor-pointer"
+                        >
+                          <Avatar name={member.profile.fullName} src={member.profile.avatarUrl} className="size-10" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div
+                            onClick={() => setSelectedMember(member)}
+                            className="text-left min-w-0 w-full cursor-pointer"
                           >
-                            <optgroup label="👑 Leadership Roles" className="bg-[#111014] text-amber-300 font-bold">
-                              {LEADERSHIP_ROLES.map((lead) => (
-                                <option key={lead.key} value={lead.key} className="bg-[#111014] text-white">
-                                  {lead.iconEmoji} {lead.shortLabel}
-                                </option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="⚙️ Team Roles" className="bg-[#111014] text-zinc-400 font-bold">
-                              {["admin", "band_member", "dancer", "media", "member"].map((role) => (
-                                <option key={role} value={role} className="bg-[#111014] text-white">
-                                  {role.replace("_", " ")}
-                                </option>
-                              ))}
-                            </optgroup>
-                            {customRoles.length > 0 && <optgroup label="🏷️ Custom Roles" className="bg-[#111014] text-violet-300 font-bold" />}
-                            {customRoles.map((role) => (
-                              <option key={role.id} value={role.id} className="bg-[#111014] text-violet-300 font-bold">
-                                {role.name}
-                              </option>
+                            <span className="block font-bold text-white truncate text-sm">{member.profile.fullName}</span>
+                            <span className="block text-[10px] text-zinc-400 truncate">{member.profile.email}</span>
+                          </div>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            {memberLeadership && (
+                              <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0 text-[9px] h-4 font-bold border", memberLeadership.badgeClass)}>
+                                <span>{memberLeadership.iconEmoji}</span>
+                                <span>{memberLeadership.badgeLabel}</span>
+                              </span>
+                            )}
+                            {displayedMinistries.slice(0, 2).map((m) => (
+                              <Badge key={m} className="px-1.5 py-0 text-[9px] h-4 bg-violet-500/10 text-violet-300 border-violet-500/20 uppercase tracking-wider">{m}</Badge>
                             ))}
-                          </select>
-                        ) : (
-                          <span className={cn(
-                            "inline-flex items-center gap-1 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase",
-                            member.role === "owner" ? "border border-amber-400/40 bg-amber-500/20 text-amber-300" : "bg-white/[0.06] text-zinc-300"
-                          )}>
-                            {member.role === "owner" ? "👑 Owner" : memberLeadership?.shortLabel || member.role.replace("_", " ")}
-                          </span>
+                            <span className={cn("inline-flex items-center gap-1 text-[10px] font-bold", isOnline ? "text-emerald-400" : "text-zinc-500")}>
+                              <span className={cn("size-1.5 rounded-full", isOnline ? "bg-emerald-500" : "bg-zinc-500")} />
+                              {isOnline ? "Online" : "Offline"}
+                            </span>
+                          </div>
+                          {canManage && member.role !== "owner" && (
+                            <div className="mt-2">
+                              <select
+                                aria-label={`Role for ${member.profile.fullName}`}
+                                value={activeRoleValue}
+                                disabled={isPending}
+                                onChange={(event) => updateRole(member.id, event.target.value)}
+                                className="h-7 w-full max-w-[180px] rounded-lg border border-white/10 bg-white/[0.04] px-2 text-[11px] font-bold text-white outline-none focus:border-violet-400"
+                              >
+                                <optgroup label="👑 Leadership Roles" className="bg-[#111014] text-amber-300 font-bold">
+                                  {LEADERSHIP_ROLES.map((lead) => (
+                                    <option key={lead.key} value={lead.key} className="bg-[#111014] text-white">
+                                      {lead.iconEmoji} {lead.shortLabel}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                                <optgroup label="⚙️ Team Roles" className="bg-[#111014] text-zinc-400 font-bold">
+                                  {["admin", "band_member", "dancer", "media", "member"].map((role) => (
+                                    <option key={role} value={role} className="bg-[#111014] text-white">
+                                      {role.replace("_", " ")}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                                {customRoles.map((role) => (
+                                  <option key={role.id} value={role.id} className="bg-[#111014] text-violet-300 font-bold">
+                                    {role.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                        {canManage && member.role !== "owner" && (
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => kickMember(member.id)}
+                            className="flex size-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition shrink-0"
+                            aria-label={`Remove ${member.profile.fullName}`}
+                          >
+                            <X className="size-4" />
+                          </button>
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className={cn("size-2 rounded-full", isOnline ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-zinc-500")} />
-                        <span className={cn("text-[10px] font-bold capitalize", isOnline ? "text-emerald-400" : "text-zinc-500")}>
-                          {isOnline ? "Online" : "Offline"}
-                        </span>
+                      {/* Desktop row layout */}
+                      <div className="hidden md:grid md:grid-cols-[minmax(0,2.4fr)_minmax(0,1.8fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_32px] items-center text-xs font-semibold">
+                        <button
+                          type="button"
+                          aria-label={`View ${member.profile.fullName}`}
+                          onClick={() => setSelectedMember(member)}
+                          className="flex items-center gap-3 hover:text-violet-300 transition-colors min-w-0 text-left"
+                        >
+                          <Avatar name={member.profile.fullName} src={member.profile.avatarUrl} className="size-8" />
+                          <span className="min-w-0">
+                            <span className="block font-bold text-white truncate">{member.profile.fullName}</span>
+                            <span className="block text-[10px] text-zinc-400 truncate">{member.profile.email}</span>
+                            {(memberLeadership || displayedMinistries.length > 0) && (
+                              <span className="mt-1 flex flex-wrap items-center gap-1">
+                                {memberLeadership && (
+                                  <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0 text-[9px] h-4 font-bold border", memberLeadership.badgeClass)}>
+                                    <span>{memberLeadership.iconEmoji}</span>
+                                    <span>{memberLeadership.badgeLabel}</span>
+                                  </span>
+                                )}
+                                {displayedMinistries.map((m) => (
+                                  <Badge key={m} className="px-1.5 py-0 text-[9px] h-4 bg-violet-500/10 text-violet-300 border-violet-500/20 uppercase tracking-wider">{m}</Badge>
+                                ))}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+
+                        <div>
+                          {canManage && member.role !== "owner" ? (
+                            <select
+                              aria-label={`Role for ${member.profile.fullName}`}
+                              value={activeRoleValue}
+                              disabled={isPending}
+                              onChange={(event) => updateRole(member.id, event.target.value)}
+                              className="h-8 w-full max-w-[155px] rounded-lg border border-white/10 bg-white/[0.04] px-2 text-[11px] font-bold text-white outline-none focus:border-violet-400"
+                            >
+                              <optgroup label="👑 Leadership Roles" className="bg-[#111014] text-amber-300 font-bold">
+                                {LEADERSHIP_ROLES.map((lead) => (
+                                  <option key={lead.key} value={lead.key} className="bg-[#111014] text-white">
+                                    {lead.iconEmoji} {lead.shortLabel}
+                                  </option>
+                                ))}
+                              </optgroup>
+                              <optgroup label="⚙️ Team Roles" className="bg-[#111014] text-zinc-400 font-bold">
+                                {["admin", "band_member", "dancer", "media", "member"].map((role) => (
+                                  <option key={role} value={role} className="bg-[#111014] text-white">
+                                    {role.replace("_", " ")}
+                                  </option>
+                                ))}
+                              </optgroup>
+                              {customRoles.length > 0 && <optgroup label="🏷️ Custom Roles" className="bg-[#111014] text-violet-300 font-bold" />}
+                              {customRoles.map((role) => (
+                                <option key={role.id} value={role.id} className="bg-[#111014] text-violet-300 font-bold">
+                                  {role.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className={cn(
+                              "inline-flex items-center gap-1 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase",
+                              member.role === "owner" ? "border border-amber-400/40 bg-amber-500/20 text-amber-300" : "bg-white/[0.06] text-zinc-300"
+                            )}>
+                              {member.role === "owner" ? "👑 Owner" : memberLeadership?.shortLabel || member.role.replace("_", " ")}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className={cn("size-2 rounded-full", isOnline ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-zinc-500")} />
+                          <span className={cn("text-[10px] font-bold capitalize", isOnline ? "text-emerald-400" : "text-zinc-500")}>
+                            {isOnline ? "Online" : "Offline"}
+                          </span>
+                        </div>
+                        <span className="font-bold text-zinc-200 pl-2">{member.attendanceRate}%</span>
+                        <button
+                          type="button"
+                          disabled={isPending || member.role === "owner" || !canManage}
+                          onClick={() => kickMember(member.id)}
+                          className="flex size-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition ml-auto opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                          aria-label={`Remove ${member.profile.fullName}`}
+                          title="Kick member"
+                        >
+                          <X className="size-4" />
+                        </button>
                       </div>
-                      <span className="font-bold text-zinc-200 pl-2">{member.attendanceRate}%</span>
-                      <button
-                        type="button"
-                        disabled={isPending || member.role === "owner" || !canManage}
-                        onClick={() => kickMember(member.id)}
-                        className="flex size-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition ml-auto opacity-0 group-hover:opacity-100 disabled:opacity-50"
-                        aria-label={`Remove ${member.profile.fullName}`}
-                        title="Kick member"
-                      >
-                        <X className="size-4" />
-                      </button>
                     </div>
                   );
                 })}
@@ -594,7 +673,7 @@ export function MembersClient({
             <h2 className="text-sm font-bold text-white mb-4">Role Distribution</h2>
             <div className="space-y-3.5">
               {Object.entries(roleCounts).map(([role, count]) => (
-                <div key={role} className="grid grid-cols-[120px_1fr_24px] items-center gap-3 text-xs font-semibold text-zinc-400">
+                <div key={role} className="grid grid-cols-[minmax(0,1fr)_1fr_24px] items-center gap-3 text-xs font-semibold text-zinc-400">
                   <span className="capitalize truncate">{role.replace(/_/g, " ")}</span>
                   <span className="h-1.5 rounded-full bg-white/[0.06]">
                     <span className="block h-full rounded-full bg-violet-400 transition-all duration-300" style={{ width: `${(count / maxRoleCount) * 100}%` }} />

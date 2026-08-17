@@ -347,30 +347,30 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
 
   return (
     <AppShell active="Setlists" teamContext={teamContext}>
-      <div className="flex flex-col gap-5 border-b border-white/10 pb-6 lg:flex-row lg:items-end lg:justify-between animate-fade-up">
-        <div>
-          <p className="font-mono text-xs font-bold uppercase text-violet-200">
+      <div className="flex flex-col gap-4 sm:gap-5 border-b border-white/10 pb-6 lg:flex-row lg:items-end lg:justify-between animate-fade-up">
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] sm:text-xs font-bold uppercase text-violet-200">
             {linkedEvent ? "Linked Setlist" : "Standalone Setlist"}
           </p>
-          <h1 className="mt-3 text-4xl font-bold">{setlist.name}</h1>
+          <h1 className="mt-2 sm:mt-3 text-2xl sm:text-3xl lg:text-4xl font-bold break-words">{setlist.name}</h1>
           {linkedEvent ? (
             <>
-              <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-zinc-300">
-                <CalendarDays className="size-4" />
+              <p className="mt-1.5 sm:mt-2 flex items-center gap-2 text-xs sm:text-sm font-semibold text-zinc-300">
+                <CalendarDays className="size-3.5 sm:size-4" />
                 {formatDate(linkedEvent.date)}
               </p>
-              <p className="mt-2 text-sm font-semibold text-violet-300">{getLinkedEventLabel(linkedEvent)}</p>
+              <p className="mt-1 sm:mt-2 text-xs sm:text-sm font-semibold text-violet-300">{getLinkedEventLabel(linkedEvent)}</p>
             </>
           ) : (
-            <p className="mt-2 text-sm font-semibold text-zinc-400">Songs, notes, practice tools, and stage controls.</p>
+            <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm font-semibold text-zinc-400">Songs, notes, practice tools, and stage controls.</p>
           )}
         </div>
-        <div className="flex flex-wrap gap-3">
-          <ButtonLink href={`/setlists/${setlist.id}/stage`} className="border-transparent bg-violet-600 text-white hover:bg-violet-500">Stage</ButtonLink>
-          <ButtonLink href={`/setlists/${setlist.id}/practice`} variant="secondary">Practice</ButtonLink>
-          {canManageSetlist ? <ButtonLink href={`/setlists/${setlist.id}/edit`} variant="secondary">Edit Setlist</ButtonLink> : null}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
+          <ButtonLink href={`/setlists/${setlist.id}/stage`} className="border-transparent bg-violet-600 text-white hover:bg-violet-500 text-xs sm:text-sm px-3.5 sm:px-4">Stage</ButtonLink>
+          <ButtonLink href={`/setlists/${setlist.id}/practice`} variant="secondary" className="text-xs sm:text-sm px-3.5 sm:px-4">Practice</ButtonLink>
+          {canManageSetlist ? <ButtonLink href={`/setlists/${setlist.id}/edit`} variant="secondary" className="text-xs sm:text-sm px-3.5 sm:px-4">Edit Setlist</ButtonLink> : null}
           <ShareButton path={`/setlists/${setlist.id}`} />
-          {linkedEvent ? <ButtonLink href={`/events/${linkedEvent.id}`} variant="ghost">View Timeline Event</ButtonLink> : null}
+          {linkedEvent ? <ButtonLink href={`/events/${linkedEvent.id}`} variant="ghost" className="text-xs sm:text-sm px-3 sm:px-4">View Timeline Event</ButtonLink> : null}
         </div>
       </div>
 

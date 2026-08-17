@@ -296,33 +296,33 @@ export function SongViewer({
   return (
     <div className="space-y-6 text-left animate-fade-in">
       {/* Top Header Card */}
-      <div className="flex flex-col md:flex-row items-start justify-between gap-6">
-        <div className="flex items-start gap-4">
+      <div className="flex flex-col md:flex-row items-start justify-between gap-4 sm:gap-6">
+        <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
           {song.imageUrl ? (
-            <Image unoptimized width={96} height={96} src={song.imageUrl} alt={song.album || song.title} className="size-24 rounded-lg object-cover shadow-lg" />
+            <Image unoptimized width={96} height={96} src={song.imageUrl} alt={song.album || song.title} className="size-16 sm:size-24 rounded-lg object-cover shadow-lg shrink-0" />
           ) : (
-            <div className="size-24 rounded-lg bg-white/5 flex items-center justify-center shadow-lg border border-white/10">
-              <Music className="size-8 text-zinc-600" />
+            <div className="size-16 sm:size-24 rounded-lg bg-white/5 flex items-center justify-center shadow-lg border border-white/10 shrink-0">
+              <Music className="size-6 sm:size-8 text-zinc-600" />
             </div>
           )}
-          <div className="pt-1">
-            <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">{song.title}</h1>
-            <p className="mt-2 text-base font-semibold text-zinc-400">
+          <div className="pt-0.5 min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-extrabold text-white tracking-tight break-words">{song.title}</h1>
+            <p className="mt-1 sm:mt-2 text-xs sm:text-base font-semibold text-zinc-400">
               {song.artist}
               {song.album && <span className="text-zinc-500 font-normal italic ml-2">({song.album})</span>}
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 w-full md:w-auto md:justify-end">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto md:justify-end shrink-0">
           <Link
             href={`/songs/${song.id}/edit`}
-            className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]"
+            className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 sm:px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]"
           >
             Edit Song
           </Link>
           <Link
             href="/setlists"
-            className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white hover:bg-violet-500"
+            className="rounded-xl bg-violet-600 px-3.5 sm:px-4 py-2 text-xs font-bold text-white hover:bg-violet-500"
           >
             Add to Setlist
           </Link>
@@ -330,9 +330,9 @@ export function SongViewer({
       </div>
 
       {/* Controls Panel */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5 grid gap-4 sm:grid-cols-2 md:grid-cols-4 items-center">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-4 sm:p-5 grid gap-3 sm:gap-4 sm:grid-cols-2 md:grid-cols-4 items-center">
         {/* Key Selector */}
-        <div className="flex flex-col border-r border-white/[0.06] pr-4 md:pr-6 justify-center gap-2">
+        <div className="flex flex-col border-b sm:border-b-0 sm:border-r border-white/[0.06] pb-3 sm:pb-0 pr-0 sm:pr-4 md:pr-6 justify-center gap-2">
           <div className="flex items-center justify-between w-full">
             <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Key</span>
             <div className="flex items-center gap-2">
@@ -356,7 +356,7 @@ export function SongViewer({
         </div>
 
         {/* Transpose Selector */}
-        <div className="flex items-center justify-between border-r border-white/[0.06] px-4 md:px-6">
+        <div className="flex items-center justify-between border-b sm:border-b-0 md:border-r border-white/[0.06] pb-3 sm:pb-0 px-0 sm:px-4 md:px-6">
           <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Transpose</span>
           <div className="flex items-center gap-2">
             <button onClick={() => changeTranspose(-1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">-</button>
@@ -365,14 +365,14 @@ export function SongViewer({
           </div>
         </div>
 
-        {/* BPM Display (Original, not changeable here) */}
-        <div className="flex items-center justify-between border-r border-white/[0.06] px-4 md:px-6">
+        {/* BPM Display */}
+        <div className="flex items-center justify-between border-b sm:border-b-0 sm:border-r border-white/[0.06] pb-3 sm:pb-0 px-0 sm:px-4 md:px-6">
           <span className="text-xs font-bold text-zinc-500 tracking-wide uppercase">BPM</span>
           <span className="font-mono text-base font-extrabold text-white mr-4">{song.bpm ?? '--'}</span>
         </div>
 
         {/* Time Signature */}
-        <div className="flex items-center justify-between pl-4 md:pl-6">
+        <div className="flex items-center justify-between px-0 sm:pl-4 md:pl-6">
           <span className="text-xs font-bold text-zinc-500 tracking-wide uppercase">Time Sig</span>
           <select defaultValue="4/4" className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-xs font-bold text-white outline-none focus:border-violet-400">
             <option value="4/4" className="bg-[#111014]">4/4</option>
@@ -383,7 +383,7 @@ export function SongViewer({
       </div>
 
       {spotifyTrackUrls && (
-        <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-4 sm:p-5">
           <iframe
             src={spotifyTrackUrls.embed}
             title={`Spotify player for ${song.title}`}
@@ -410,7 +410,7 @@ export function SongViewer({
 
       {/* Chord Shapes Card on Top */}
       {showChords && uniqueChords.length > 0 && (
-        <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-4 sm:p-5">
           <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/[0.04]">
             <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500">Chord Shapes</h3>
             <div className="flex items-center gap-2">
