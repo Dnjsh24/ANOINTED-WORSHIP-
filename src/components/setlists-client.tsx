@@ -78,29 +78,29 @@ export function SetlistsClient({
 
   return (
     <div className="animate-fade-up">
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight">Setlists</h1>
-          <p className="mt-1.5 text-sm font-semibold text-zinc-400">Build song plans and connect them to Timeline events when they are scheduled.</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">Setlists</h1>
+          <p className="mt-1 sm:mt-1.5 text-xs sm:text-sm font-semibold text-zinc-400">Build song plans and connect them to Timeline events when they are scheduled.</p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2.5 sm:gap-3">
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
-            <Input className="pl-10" placeholder="Search setlists..." value={query} onChange={(event) => setQuery(event.target.value)} />
+            <Input className="pl-10 text-xs sm:text-sm" placeholder="Search setlists..." value={query} onChange={(event) => setQuery(event.target.value)} />
           </div>
           {activeFilter !== "standalone" ? (
             <Button
               type="button"
               variant="secondary"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 text-xs sm:text-sm h-10 px-3 sm:px-4"
               onClick={() => setFiltersOpen((value) => !value)}
             >
-              <SlidersHorizontal className="size-4 text-violet-300" />
+              <SlidersHorizontal className="size-3.5 sm:size-4 text-violet-300" />
               Filters
             </Button>
           ) : null}
-          <Link href="/setlists/new" className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-violet-500">
-            <Plus className="size-4" />
+          <Link href="/setlists/new" className="flex items-center gap-2 rounded-lg bg-violet-600 px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold text-white transition hover:bg-violet-500">
+            <Plus className="size-3.5 sm:size-4" />
             New Setlist
           </Link>
         </div>
@@ -200,21 +200,22 @@ function SetlistRowCard({ setlist, today, onOpen }: { setlist: SetlistWithEvent;
       onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onOpen(); }}
       role="link"
       tabIndex={0}
-      className="group flex cursor-pointer flex-col gap-5 border border-white/[0.08] bg-[#111014]/70 p-5 transition hover:border-violet-500/40 hover:bg-white/[0.03] sm:flex-row"
+      className="group flex cursor-pointer flex-col gap-3.5 sm:gap-5 border border-white/[0.08] bg-[#111014]/70 p-3.5 sm:p-5 transition hover:border-violet-500/40 hover:bg-white/[0.03] sm:flex-row"
     >
       {date ? (
-        <div className="flex w-full shrink-0 items-center justify-center border-b border-white/[0.08] pb-3 text-center sm:w-20 sm:flex-col sm:border-b-0 sm:border-r sm:pb-0 sm:pr-5">
+        <div className="flex w-full shrink-0 items-center justify-between border-b border-white/[0.08] pb-2.5 text-left sm:w-20 sm:flex-col sm:border-b-0 sm:border-r sm:pb-0 sm:pr-5 sm:text-center">
           <div>
-            <p className="font-mono text-xs font-bold tracking-wider text-violet-400">{date.toLocaleDateString("en-US", { month: "short" }).toUpperCase()}</p>
-            <p className="mt-1 text-4xl font-extrabold leading-none text-white">{date.toLocaleDateString("en-US", { day: "2-digit" })}</p>
+            <p className="font-mono text-[10px] sm:text-xs font-bold tracking-wider text-violet-400">{date.toLocaleDateString("en-US", { month: "short" }).toUpperCase()}</p>
+            <p className="text-2xl sm:text-4xl font-extrabold leading-none text-white sm:mt-1">{date.toLocaleDateString("en-US", { day: "2-digit" })}</p>
           </div>
+          <span className="sm:hidden font-mono text-[10px] font-bold text-zinc-400">{date.toLocaleDateString("en-US", { weekday: "short" })}</span>
         </div>
       ) : null}
 
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-2 sm:gap-3">
           <div>
-            <h3 className="text-xl font-extrabold leading-tight text-white transition group-hover:text-violet-300">{setlist.name}</h3>
+            <h3 className="text-lg sm:text-xl font-extrabold leading-tight text-white transition group-hover:text-violet-300">{setlist.name}</h3>
             {metadata ? (
               <div className="mt-2 flex flex-wrap items-center gap-4 text-xs font-semibold text-zinc-400">
                 <span className="flex items-center gap-1.5"><Clock className="size-3.5 text-violet-400" />{metadata.serviceLabel}</span>

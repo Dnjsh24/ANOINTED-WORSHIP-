@@ -465,125 +465,125 @@ export default async function DashboardPage() {
       {/* ── Header row ─────────────────────────────── */}
       <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between animate-fade-down">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight">Home</h1>
-          <p className="mt-1 text-sm font-semibold text-zinc-400">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">Home</h1>
+          <p className="mt-1 text-xs sm:text-sm font-semibold text-zinc-400">
             Welcome back, <span className="text-violet-300">{firstName}</span>. Ready for {teamContext.teamName ?? "Anointed Worship"} this week.
           </p>
         </div>
         {nextEvent && (
           <Link
             href={`/events/${nextEvent.id}`}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-zinc-200 transition-all duration-200 hover:border-violet-400/50 hover:bg-white/[0.09] hover:text-white"
+            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-zinc-200 transition-all duration-200 hover:border-violet-400/50 hover:bg-white/[0.09] hover:text-white shrink-0 self-start sm:self-auto"
           >
-            <CalendarDays className="size-4 text-violet-400" />
-            Next up: {nextEvent.name}
+            <CalendarDays className="size-3.5 sm:size-4 text-violet-400 shrink-0" />
+            <span className="truncate">Next up: {nextEvent.name}</span>
           </Link>
         )}
       </section>
 
-      {/* ── Main grid ─────────────────────────────── */}
-      <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+      {/* ── Main grid (Adapts to 2-columns on tablets / Z Fold 5 unfolded) ─────────────────────────────── */}
+      <div className="mt-5 sm:mt-7 grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
 
         {/* ── LEFT COLUMN: Hero + Setlist Preview ─── */}
-        <div className="flex h-full flex-col gap-5">
+        <div className="flex h-full flex-col gap-4 sm:gap-5">
           {/* Hero card */}
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0f0e14] animate-fade-up" style={{ minHeight: 260 }}>
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0f0e14] animate-fade-up min-h-[220px] sm:min-h-[260px]">
             {nextSetlist && <OfflinePreloader setlistId={nextSetlist.id} songIds={setlistSongsList.map((song) => song.song.id)} />}
             {/* Background gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-br from-violet-900/60 via-purple-900/30 to-[#0f0e14]/80 pointer-events-none" />
             {/* Cross silhouette glow */}
-            <div className="absolute right-0 top-0 h-full w-1/2 flex items-center justify-center pointer-events-none select-none opacity-30">
+            <div className="absolute -right-2 sm:right-0 top-0 h-full w-2/5 sm:w-1/2 flex items-center justify-center pointer-events-none select-none opacity-15 sm:opacity-25">
               <div className="relative">
-                <div className="absolute inset-0 blur-3xl bg-violet-500/40 rounded-full scale-150" />
-                <svg viewBox="0 0 80 120" className="relative w-28 text-white fill-current drop-shadow-[0_0_30px_rgba(139,92,246,0.8)]">
+                <div className="absolute inset-0 blur-2xl sm:blur-3xl bg-violet-500/30 rounded-full scale-125" />
+                <svg viewBox="0 0 80 120" className="relative w-16 sm:w-24 lg:w-28 text-white fill-current drop-shadow-[0_0_20px_rgba(139,92,246,0.6)]">
                   <rect x="33" y="0" width="14" height="120" rx="3" />
                   <rect x="10" y="28" width="60" height="14" rx="3" />
                 </svg>
               </div>
             </div>
 
-            <div className="relative z-10 flex h-full flex-col justify-between p-7">
+            <div className="relative z-10 flex h-full flex-col justify-between p-4 sm:p-6 lg:p-7">
               <div>
-                <p className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-widest text-violet-400">
+                <p className="mb-1.5 sm:mb-2 flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-violet-400">
                   <CalendarDays className="size-3" /> Next Service
                 </p>
-                <h2 className="text-3xl font-extrabold text-white leading-tight">{nextSetlist?.name ?? "No Service Scheduled"}</h2>
-                <p className="mt-1 text-sm font-semibold text-violet-300">
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white leading-tight">{nextSetlist?.name ?? "No Service Scheduled"}</h2>
+                <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm font-semibold text-violet-300">
                   {nextDateLabel}
                   {nextSetlistTypeLabel ? ` - ${nextSetlistTypeLabel}` : ""}
                 </p>
 
-                <div className="mt-5 flex flex-wrap gap-5 text-sm text-zinc-300">
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="size-3.5 text-violet-400" />
-                    <span className="font-mono text-[10px] uppercase text-zinc-500 mr-1">Location</span>
-                    {nextSetlist?.location ?? "Set a location"}
+                <div className="mt-3.5 sm:mt-5 flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-zinc-300">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1 text-xs border border-white/[0.06] sm:border-0 sm:bg-transparent sm:p-0">
+                    <MapPin className="size-3.5 text-violet-400 shrink-0" />
+                    <span className="font-mono text-[9px] uppercase text-zinc-400 mr-0.5">Loc:</span>
+                    <span className="truncate max-w-[120px] sm:max-w-none">{nextSetlist?.location ?? "Set a location"}</span>
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="size-3.5 text-violet-400" />
-                    <span className="font-mono text-[10px] uppercase text-zinc-500 mr-1">Call Time</span>
-                    {nextSetlist?.callTime ?? "--:--"}
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1 text-xs border border-white/[0.06] sm:border-0 sm:bg-transparent sm:p-0">
+                    <Clock className="size-3.5 text-violet-400 shrink-0" />
+                    <span className="font-mono text-[9px] uppercase text-zinc-400 mr-0.5">Call:</span>
+                    <span>{nextSetlist?.callTime ?? "--:--"}</span>
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <User className="size-3.5 text-violet-400" />
-                    <span className="font-mono text-[10px] uppercase text-zinc-500 mr-1">Leader</span>
-                    {nextSetlist?.leader ?? "Unassigned"}
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1 text-xs border border-white/[0.06] sm:border-0 sm:bg-transparent sm:p-0">
+                    <User className="size-3.5 text-violet-400 shrink-0" />
+                    <span className="font-mono text-[9px] uppercase text-zinc-400 mr-0.5">Lead:</span>
+                    <span className="truncate max-w-[120px] sm:max-w-none">{nextSetlist?.leader ?? "Unassigned"}</span>
                   </span>
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className="mt-4 sm:mt-6 grid grid-cols-1 xs:grid-cols-3 sm:flex sm:flex-wrap gap-2 sm:gap-3">
                 {nextEvent ? (
                   <Link
                     href={`/events/${nextEvent.id}`}
-                    className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500"
+                    className="flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm"
                   >
-                    <CheckCircle2 className="size-4" /> Confirm Availability
+                    <CheckCircle2 className="size-3.5 sm:size-4 shrink-0" /> Confirm Availability
                   </Link>
                 ) : (
                   <Link
                     href="/events/new"
-                    className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500"
+                    className="flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm"
                   >
-                    <CalendarDays className="size-4" /> Add Event
+                    <CalendarDays className="size-3.5 sm:size-4 shrink-0" /> Add Event
                   </Link>
                 )}
                 <Link
                   href={nextSetlist ? `/setlists/${nextSetlist.id}` : "/setlists/new"}
-                  className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12]"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12]"
                 >
-                  <Music className="size-4" /> {nextSetlist ? "Open Setlist" : "Create Setlist"}
+                  <Music className="size-3.5 sm:size-4 shrink-0" /> {nextSetlist ? "Open Setlist" : "Create Setlist"}
                 </Link>
                 <Link
                   href="/messages"
-                  className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12]"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12]"
                 >
-                  <MessageSquare className="size-4" /> Message Team
+                  <MessageSquare className="size-3.5 sm:size-4 shrink-0" /> Message Team
                 </Link>
               </div>
             </div>
           </div>
 
           {/* Setlist Preview */}
-          <div className="flex flex-1 flex-col rounded-2xl border border-white/10 bg-[#111014]/80 p-5 animate-fade-up" style={{ animationDelay: "80ms" }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-white">Setlist Preview</h3>
-              <Link href={nextSetlist ? `/setlists/${nextSetlist.id}` : "/setlists/new"} className="text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1">
-                {nextSetlist ? "View full setlist ->" : "Create setlist ->"}
+          <div className="flex flex-1 flex-col rounded-2xl border border-white/10 bg-[#111014]/80 p-3.5 sm:p-5 animate-fade-up" style={{ animationDelay: "80ms" }}>
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-sm sm:text-base font-bold text-white">Setlist Preview</h3>
+              <Link href={nextSetlist ? `/setlists/${nextSetlist.id}` : "/setlists/new"} className="text-[11px] sm:text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1">
+                {nextSetlist ? "View full setlist →" : "Create setlist →"}
               </Link>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1 sm:space-y-1.5">
               {setlistSongsList.slice(0, 5).map((item, idx) => (
                 <Link
                   key={item.id}
                   href={`/songs/${item.song.id}`}
-                  className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 hover:bg-white/[0.06]"
+                  className="group flex items-center gap-2 sm:gap-3 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2.5 text-xs sm:text-sm transition-all duration-150 hover:bg-white/[0.06]"
                   style={{ animationDelay: `${idx * 40}ms` }}
                 >
-                  <span className="w-5 shrink-0 text-right font-mono text-[11px] text-zinc-500">{idx + 1}</span>
-                  <span className="flex-1 font-semibold text-zinc-200 group-hover:text-white transition-colors">{item.song.title}</span>
-                  <span className="rounded px-2 py-0.5 font-mono text-[11px] font-bold bg-violet-500/15 text-violet-300">{item.assignedKey}</span>
-                  <span className="rounded px-2 py-0.5 font-mono text-[11px] font-bold bg-white/[0.06] text-zinc-400">{item.song.bpm} BPM</span>
+                  <span className="w-4 sm:w-5 shrink-0 text-right font-mono text-[10px] sm:text-[11px] text-zinc-500">{idx + 1}</span>
+                  <span className="flex-1 font-semibold text-zinc-200 group-hover:text-white transition-colors truncate">{item.song.title}</span>
+                  <span className="rounded px-1.5 sm:px-2 py-0.5 font-mono text-[10px] sm:text-[11px] font-bold bg-violet-500/15 text-violet-300 shrink-0">{item.assignedKey}</span>
+                  <span className="rounded px-1.5 sm:px-2 py-0.5 font-mono text-[10px] sm:text-[11px] font-bold bg-white/[0.06] text-zinc-400 shrink-0">{item.song.bpm} BPM</span>
                 </Link>
               ))}
               {setlistSongsList.length === 0 && (
@@ -591,139 +591,139 @@ export default async function DashboardPage() {
               )}
             </div>
             <p className="mt-auto border-t border-white/10 pt-3 flex items-center gap-2 text-xs font-semibold text-zinc-500">
-              <Music className="size-3.5" />
+              <Music className="size-3.5 shrink-0" />
               {setlistSongsList.length} songs &nbsp;·&nbsp; Est. duration {Math.ceil(setlistSongsList.length * 5.5)} min
             </p>
           </div>
         </div>
 
         {/* ── RIGHT COLUMN: Stats (3-col row) + Announcements + Reminders ── */}
-        <div className="flex h-full flex-col gap-5">
+        <div className="flex h-full flex-col gap-4 sm:gap-5">
 
-          {/* 3 stat cards in a horizontal row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* 3 stat cards in a horizontal row on all viewports */}
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {isAdminOrOwner ? (
               <>
                 <MiniStatCard
-                  label="CONFIRMED THIS MONTH"
+                  label="CONFIRMED"
                   value={confirmedThisMonthCount}
-                  sub="+2 from last month ↑"
+                  sub="+2 this month"
                   subColor="text-emerald-400"
-                  icon={<CheckCircle2 className="size-4 text-emerald-400" />}
+                  icon={<CheckCircle2 className="size-3.5 sm:size-4 text-emerald-400" />}
                   iconBg="bg-emerald-500/10"
                   href="/events"
-                  linkLabel="View confirmations →"
+                  linkLabel="View →"
                 />
                 <MiniStatCard
-                  label="PENDING REQUESTS"
+                  label="PENDING"
                   value={pendingRequestsCount}
-                  sub="Needs your review"
+                  sub="Needs review"
                   subColor="text-amber-400"
-                  icon={<AlertCircle className="size-4 text-amber-400" />}
+                  icon={<AlertCircle className="size-3.5 sm:size-4 text-amber-400" />}
                   iconBg="bg-amber-500/10"
                   href="/members"
-                  linkLabel="Review requests →"
+                  linkLabel="Review →"
                 />
                 <MiniStatCard
-                  label="UPCOMING EVENTS"
+                  label="UPCOMING"
                   value={upcomingEventsCount}
-                  sub="In the next 7 days"
+                  sub="Next 7 days"
                   subColor="text-blue-400"
-                  icon={<CalendarDays className="size-4 text-blue-400" />}
+                  icon={<CalendarDays className="size-3.5 sm:size-4 text-blue-400" />}
                   iconBg="bg-blue-500/10"
                   href="/events"
-                  linkLabel="View calendar →"
+                  linkLabel="Calendar →"
                 />
               </>
             ) : (
               <>
-                <MiniStatCard label="MY CONFIRMED" value={myConfirmedCount} sub="Events confirmed" subColor="text-emerald-400" icon={<CheckCircle2 className="size-4 text-emerald-400" />} iconBg="bg-emerald-500/10" href="/events" linkLabel="View events →" />
-                <MiniStatCard label="TOTAL SETLISTS" value={totalSetlistsCount} sub="Available to you" subColor="text-violet-400" icon={<Music className="size-4 text-violet-400" />} iconBg="bg-violet-500/10" href="/setlists" linkLabel="View setlists →" />
-                <MiniStatCard label="UPCOMING EVENTS" value={upcomingEventsCount} sub="In the next 7 days" subColor="text-blue-400" icon={<CalendarDays className="size-4 text-blue-400" />} iconBg="bg-blue-500/10" href="/events" linkLabel="View calendar →" />
+                <MiniStatCard label="CONFIRMED" value={myConfirmedCount} sub="My events" subColor="text-emerald-400" icon={<CheckCircle2 className="size-3.5 sm:size-4 text-emerald-400" />} iconBg="bg-emerald-500/10" href="/events" linkLabel="View →" />
+                <MiniStatCard label="SETLISTS" value={totalSetlistsCount} sub="Available" subColor="text-violet-400" icon={<Music className="size-3.5 sm:size-4 text-violet-400" />} iconBg="bg-violet-500/10" href="/setlists" linkLabel="View →" />
+                <MiniStatCard label="UPCOMING" value={upcomingEventsCount} sub="Next 7 days" subColor="text-blue-400" icon={<CalendarDays className="size-3.5 sm:size-4 text-blue-400" />} iconBg="bg-blue-500/10" href="/events" linkLabel="Calendar →" />
               </>
             )}
           </div>
 
-          {/* Announcements + Reminders side by side on desktop, stacked on mobile */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 flex-1">
+          {/* Announcements + Reminders side by side on md+, stacked on mobile */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 flex-1">
             {/* Announcements */}
-            <div className="rounded-2xl border border-white/10 bg-[#111014]/80 p-4 animate-fade-up" style={{ animationDelay: "180ms" }}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-white">Announcements</h3>
+            <div className="rounded-2xl border border-white/10 bg-[#111014]/80 p-3.5 sm:p-4 animate-fade-up" style={{ animationDelay: "180ms" }}>
+              <div className="flex items-center justify-between mb-2.5 sm:mb-3">
+                <h3 className="text-xs sm:text-sm font-bold text-white">Announcements</h3>
                 <Link href="/announcements" className="text-[10px] font-bold text-violet-400 hover:text-violet-300 transition-colors">View all →</Link>
               </div>
               <div className="space-y-2">
                 {announcementItems.length > 0 ? (
                   announcementItems.map((a, i) => (
-                    <Link key={i} href="/announcements" className="group flex gap-2 rounded-xl bg-white/[0.03] p-2.5 transition-all duration-150 hover:bg-white/[0.07]">
-                      <span className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg ${a.bg}`}>
-                        <a.icon className={`size-3.5 ${a.color}`} />
+                    <Link key={i} href="/announcements" className="group flex gap-2 rounded-xl bg-white/[0.03] p-2 sm:p-2.5 transition-all duration-150 hover:bg-white/[0.07]">
+                      <span className={`mt-0.5 flex size-6 sm:size-7 shrink-0 items-center justify-center rounded-lg ${a.bg}`}>
+                        <a.icon className={`size-3 sm:size-3.5 ${a.color}`} />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-1">
-                          <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight">{a.title}</p>
-                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold ${a.badgeColor}`}>{a.badge}</span>
+                          <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight truncate">{a.title}</p>
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[8px] sm:text-[9px] font-bold ${a.badgeColor}`}>{a.badge}</span>
                         </div>
-                        <p className="mt-0.5 text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2">{a.body}</p>
+                        <p className="mt-0.5 text-[10px] sm:text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2">{a.body}</p>
                       </div>
                     </Link>
                   ))
                 ) : (
-                  <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-4 text-center">
+                  <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-3 sm:p-4 text-center">
                     <p className="text-xs font-bold text-zinc-400">No announcements yet.</p>
-                    <p className="mt-1 text-[10px] font-semibold text-zinc-600">New team announcements will appear here.</p>
+                    <p className="mt-0.5 text-[10px] font-semibold text-zinc-600">New team announcements will appear here.</p>
                   </div>
                 )}
               </div>
-              <Link href="/announcements" className="mt-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-violet-300 transition-colors">
+              <Link href="/announcements" className="mt-2.5 sm:mt-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-violet-300 transition-colors">
                 View all announcements →
               </Link>
             </div>
 
             {/* Reminders */}
-            <div className="rounded-2xl border border-white/10 bg-[#111014]/80 p-4 animate-fade-up" style={{ animationDelay: "220ms" }}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-bold text-white">Reminders</h3>
+            <div className="rounded-2xl border border-white/10 bg-[#111014]/80 p-3.5 sm:p-4 animate-fade-up" style={{ animationDelay: "220ms" }}>
+              <div className="flex items-center justify-between mb-2.5 sm:mb-3">
+                <h3 className="text-xs sm:text-sm font-bold text-white">Reminders</h3>
                 <Link href="/reminders" className="text-[10px] font-bold text-violet-400 hover:text-violet-300 transition-colors">View all →</Link>
               </div>
               <div className="space-y-2">
                 {reminders.length > 0 ? (
                   reminders.map((r, i) => (
-                    <Link key={i} href={r.href} className="group flex gap-2 rounded-xl bg-white/[0.03] p-2.5 transition-all duration-150 hover:bg-white/[0.07]">
-                      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
-                        <r.icon className="size-3.5 text-violet-300" />
+                    <Link key={i} href={r.href} className="group flex gap-2 rounded-xl bg-white/[0.03] p-2 sm:p-2.5 transition-all duration-150 hover:bg-white/[0.07]">
+                      <span className="mt-0.5 flex size-6 sm:size-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
+                        <r.icon className="size-3 sm:size-3.5 text-violet-300" />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-1">
-                          <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight">{r.title}</p>
-                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold ${r.dueColor}`}>{r.due}</span>
+                          <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight truncate">{r.title}</p>
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[8px] sm:text-[9px] font-bold ${r.dueColor}`}>{r.due}</span>
                         </div>
-                        <p className="mt-0.5 text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2">{r.body}</p>
+                        <p className="mt-0.5 text-[10px] sm:text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2">{r.body}</p>
                       </div>
                     </Link>
                   ))
                 ) : (
-                  <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-4 text-center">
+                  <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-3 sm:p-4 text-center">
                     <p className="text-xs font-bold text-zinc-400">No reminders right now.</p>
-                    <p className="mt-1 text-[10px] font-semibold text-zinc-600">Unread team reminders will show up here.</p>
+                    <p className="mt-0.5 text-[10px] font-semibold text-zinc-600">Unread team reminders will show up here.</p>
                   </div>
                 )}
               </div>
-              <Link href="/reminders" className="mt-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-violet-300 transition-colors">
+              <Link href="/reminders" className="mt-2.5 sm:mt-3 flex items-center gap-1 text-[10px] font-bold text-zinc-500 hover:text-violet-300 transition-colors">
                 View all reminders →
               </Link>
             </div>
           </div>
           
-          {/* Activity Logs (Full Width Row below Announcements/Reminders) */}
-          <div className="rounded-2xl border border-white/10 bg-[#111014]/80 p-4 animate-fade-up mt-2" style={{ animationDelay: "240ms" }}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-white flex items-center gap-1.5"><Activity className="size-4 text-violet-400" /> Recent Activity</h3>
+          {/* Activity Logs */}
+          <div className="rounded-2xl border border-white/10 bg-[#111014]/80 p-3.5 sm:p-4 animate-fade-up mt-1 sm:mt-2" style={{ animationDelay: "240ms" }}>
+            <div className="flex items-center justify-between mb-2.5 sm:mb-3">
+              <h3 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5"><Activity className="size-3.5 sm:size-4 text-violet-400" /> Recent Activity</h3>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2.5 sm:space-y-3">
               {activityLogs.length > 0 ? (
                 activityLogs.map((log) => (
-                  <div key={log.id} className="flex gap-3 text-sm border-b border-white/[0.04] pb-3 last:border-0 last:pb-0">
+                  <div key={log.id} className="flex gap-2 sm:gap-3 text-xs sm:text-sm border-b border-white/[0.04] pb-2.5 sm:pb-3 last:border-0 last:pb-0">
                     <div className="flex-1 min-w-0">
                       <p className="text-zinc-300 truncate">
                         <span className="font-bold text-white mr-1">{log.profile?.full_name}</span>
@@ -735,13 +735,13 @@ export default async function DashboardPage() {
                         ) : null}
                       </p>
                     </div>
-                    <span className="shrink-0 text-[10px] font-semibold text-zinc-500 whitespace-nowrap">
+                    <span className="shrink-0 text-[9px] sm:text-[10px] font-semibold text-zinc-500 whitespace-nowrap">
                       {new Date(log.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                     </span>
                   </div>
                 ))
               ) : (
-                <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-4 text-center">
+                <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-3 sm:p-4 text-center">
                   <p className="text-xs font-bold text-zinc-400">No recent activity.</p>
                 </div>
               )}
@@ -750,21 +750,21 @@ export default async function DashboardPage() {
           
           {/* Celebrations */}
           {upcomingCelebrations.length > 0 && (
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-pink-500/10 to-orange-500/5 p-4 animate-fade-up mt-2" style={{ animationDelay: "260ms" }}>
-              <div className="flex items-center gap-2 mb-3">
-                <Gift className="size-4 text-pink-400" />
-                <h3 className="text-sm font-bold text-white">Upcoming Celebrations</h3>
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-pink-500/10 to-orange-500/5 p-3.5 sm:p-4 animate-fade-up mt-1 sm:mt-2" style={{ animationDelay: "260ms" }}>
+              <div className="flex items-center gap-2 mb-2.5 sm:mb-3">
+                <Gift className="size-3.5 sm:size-4 text-pink-400" />
+                <h3 className="text-xs sm:text-sm font-bold text-white">Upcoming Celebrations</h3>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {upcomingCelebrations.map((c, i) => (
-                  <div key={i} className="flex justify-between items-center bg-white/[0.03] p-3 rounded-xl border border-white/[0.04]">
+                  <div key={i} className="flex justify-between items-center bg-white/[0.03] p-2.5 sm:p-3 rounded-xl border border-white/[0.04]">
                     <div>
-                      <p className="text-sm font-bold text-white">{c.name}</p>
-                      <p className="text-[10px] uppercase font-bold tracking-widest text-pink-400/80">{c.type}</p>
+                      <p className="text-xs sm:text-sm font-bold text-white">{c.name}</p>
+                      <p className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-pink-400/80">{c.type}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-semibold text-white">{c.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
-                      <p className="text-[10px] text-zinc-400">{c.daysAway === 0 ? "Today!" : `In ${c.daysAway} days`}</p>
+                      <p className="text-xs sm:text-sm font-semibold text-white">{c.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
+                      <p className="text-[9px] sm:text-[10px] text-zinc-400">{c.daysAway === 0 ? "Today!" : `In ${c.daysAway} days`}</p>
                     </div>
                   </div>
                 ))}
@@ -775,23 +775,23 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Quick Access ─────────────────────────── */}
-      <section className="mt-8 animate-fade-up" style={{ animationDelay: "260ms" }}>
-        <h2 className="mb-5 text-xl font-bold">Quick Access</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
+      {/* ── Quick Access (Fluid 4-column on mobile, up to 8 on desktop) ─────────────────────────── */}
+      <section className="mt-6 sm:mt-8 animate-fade-up" style={{ animationDelay: "260ms" }}>
+        <h2 className="mb-3 sm:mb-5 text-lg sm:text-xl font-bold">Quick Access</h2>
+        <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 sm:gap-3">
           {quickLinks.map((item, i) => (
             <Link
               key={item.href + item.label}
               href={item.href}
-              className="group flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-[#111014]/80 p-4 text-center transition-all duration-200 hover:border-violet-400/40 hover:bg-white/[0.07]"
+              className="group flex flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-white/10 bg-[#111014]/80 p-2 sm:p-3.5 text-center transition-all duration-200 hover:border-violet-400/40 hover:bg-white/[0.07] min-w-0"
               style={{ animationDelay: `${260 + i * 30}ms` }}
             >
-              <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/10 transition-all duration-200 group-hover:bg-violet-500/20">
-                <item.icon className="size-4 text-violet-400 transition-transform duration-200 group-hover:scale-110" />
+              <span className="flex size-7 sm:size-9 items-center justify-center rounded-lg bg-violet-500/10 transition-all duration-200 group-hover:bg-violet-500/20 shrink-0">
+                <item.icon className="size-3.5 sm:size-4 text-violet-400 transition-transform duration-200 group-hover:scale-110" />
               </span>
-              <span>
-                <span className="block text-xs font-bold text-white">{item.label}</span>
-                <span className="mt-0.5 block text-[10px] font-semibold text-zinc-500">{item.sub}</span>
+              <span className="w-full min-w-0">
+                <span className="block text-[11px] sm:text-xs font-bold text-white truncate">{item.label}</span>
+                <span className="hidden sm:block mt-0.5 text-[10px] font-semibold text-zinc-500 truncate">{item.sub}</span>
               </span>
             </Link>
           ))}
@@ -884,17 +884,19 @@ function MiniStatCard({
   return (
     <Link
       href={href}
-      className="group flex flex-col rounded-2xl border border-white/10 bg-[#111014]/80 p-4 transition-all duration-200 hover:border-violet-400/30 hover:bg-white/[0.06] animate-fade-up"
+      className="group flex flex-col justify-between rounded-2xl border border-white/10 bg-[#111014]/80 p-2.5 sm:p-4 transition-all duration-200 hover:border-violet-400/30 hover:bg-white/[0.06] animate-fade-up min-w-0"
     >
-      <div className="flex items-start justify-between gap-1">
-        <p className="font-mono text-[9px] font-bold uppercase tracking-widest text-zinc-400 leading-tight">{label}</p>
-        <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${iconBg} transition-transform duration-200 group-hover:scale-110`}>
-          {icon}
-        </span>
+      <div>
+        <div className="flex items-start justify-between gap-1">
+          <p className="font-mono text-[8px] sm:text-[9px] font-bold uppercase tracking-wider sm:tracking-widest text-zinc-400 leading-tight truncate">{label}</p>
+          <span className={`flex size-6 sm:size-7 shrink-0 items-center justify-center rounded-md sm:rounded-lg ${iconBg} transition-transform duration-200 group-hover:scale-110`}>
+            {icon}
+          </span>
+        </div>
+        <p className="mt-1.5 sm:mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-white leading-none">{value}</p>
+        <p className={`mt-1 text-[10px] sm:text-[11px] font-bold ${subColor} leading-tight truncate`}>{sub}</p>
       </div>
-      <p className="mt-3 text-3xl font-extrabold text-white">{value}</p>
-      <p className={`mt-0.5 text-[11px] font-bold ${subColor}`}>{sub}</p>
-      <p className="mt-3 text-[10px] font-bold text-zinc-500 group-hover:text-violet-400 transition-colors">{linkLabel}</p>
+      <p className="mt-2 sm:mt-3 text-[9px] sm:text-[10px] font-bold text-zinc-500 group-hover:text-violet-400 transition-colors truncate">{linkLabel}</p>
     </Link>
   );
 }

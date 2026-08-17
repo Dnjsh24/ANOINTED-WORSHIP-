@@ -95,7 +95,7 @@ export async function AppShell({
         </div>
       </header>
       <MobileIconRail active={active} items={mobileNavigation} canManageTeam={context.canManageMembers} />
-      <main className="mx-auto max-w-7xl px-4 py-6 pb-[calc(96px+env(safe-area-inset-bottom))] md:px-6 md:pb-8">{children}</main>
+      <main className="mx-auto max-w-7xl px-3.5 sm:px-4 md:px-6 py-4 sm:py-6 pb-[calc(84px+env(safe-area-inset-bottom))] md:pb-8">{children}</main>
       <QuickReportButton />
     </div>
   );

@@ -89,16 +89,16 @@ export function SongLibraryGrid({ songs }: { songs: Song[] }) {
                 </div>
               </div>
             )}
-            <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-5 sm:mt-8 grid gap-3.5 sm:gap-5 md:grid-cols-2 xl:grid-cols-3">
               {sortedSongs.map((song) => (
-                <Card key={song.id} className="p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-4 flex-1">
+                <Card key={song.id} className="p-3.5 sm:p-5">
+                  <div className="flex items-start justify-between gap-2.5 sm:gap-3">
+                    <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
                       {song.imageUrl ? (
-                        <Image unoptimized width={56} height={56} src={song.imageUrl} alt={song.title} className="size-14 rounded-md object-cover shadow-sm shrink-0" />
+                        <Image unoptimized width={56} height={56} src={song.imageUrl} alt={song.title} className="size-11 sm:size-14 rounded-md object-cover shadow-sm shrink-0" />
                       ) : (
-                        <div className="size-14 rounded-md bg-white/10 flex items-center justify-center shrink-0">
-                          <Heart className="size-5 text-zinc-500 opacity-50" />
+                        <div className="size-11 sm:size-14 rounded-md bg-white/10 flex items-center justify-center shrink-0">
+                          <Play className="size-4 sm:size-5 text-zinc-400" />
                         </div>
                       )}
                       <div>

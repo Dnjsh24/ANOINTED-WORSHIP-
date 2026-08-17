@@ -105,7 +105,7 @@ export function MobileIconRail({
       {/* Bottom Nav Bar */}
       <nav
         aria-label="Mobile bottom navigation"
-        className="fixed bottom-0 inset-x-0 z-40 border-t border-white/[0.08] bg-[#111014]/90 backdrop-blur-lg px-2 py-2 text-white shadow-2xl md:hidden flex justify-around items-center h-16 animate-fade-up"
+        className="fixed bottom-0 inset-x-0 z-40 border-t border-white/[0.08] bg-[#111014]/95 backdrop-blur-lg px-1 sm:px-2 pt-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] text-white shadow-2xl md:hidden flex justify-around items-center h-[calc(3.75rem+env(safe-area-inset-bottom))] animate-fade-up select-none"
       >
         {defaultTabs.map((tab) => {
           const isActive = activeLabel === tab.label.toLowerCase() && !showMoreMenu;
@@ -115,7 +115,7 @@ export function MobileIconRail({
               href={tab.href}
               onClick={() => setShowMoreMenu(false)}
               className={cn(
-                "relative flex flex-1 flex-col items-center justify-center gap-1 py-1",
+                "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-1 px-0.5",
                 isActive ? "text-violet-400" : "text-zinc-500 hover:text-zinc-300 transition-colors"
               )}
             >
@@ -127,7 +127,7 @@ export function MobileIconRail({
                   </span>
                 )}
               </div>
-              <span className={cn("text-[10px] font-semibold", isActive && "font-bold")}>{tab.label}</span>
+              <span className={cn("text-[10px] font-semibold truncate max-w-full text-center", isActive && "font-bold")}>{tab.label}</span>
             </Link>
           );
         })}
@@ -140,12 +140,12 @@ export function MobileIconRail({
               href={fourthTab.href}
               onClick={() => setShowMoreMenu(false)}
               className={cn(
-                "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors",
+                "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-1 px-0.5 transition-colors",
                 isActive ? "text-violet-400" : "text-zinc-500 hover:text-zinc-300"
               )}
             >
               <fourthTab.icon className={cn("size-5 transition-transform", isActive && "scale-110")} />
-              <span className={cn("text-[10px] font-semibold", isActive && "font-bold")}>
+              <span className={cn("text-[10px] font-semibold truncate max-w-full text-center", isActive && "font-bold")}>
                 {fourthTab.label}
               </span>
             </Link>
@@ -160,12 +160,12 @@ export function MobileIconRail({
               onClick={toggleMoreMenu}
               aria-label="Expand navigation"
               className={cn(
-                "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors focus:outline-none",
+                "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-1 px-0.5 transition-colors focus:outline-none",
                 isActive ? "text-violet-400" : "text-zinc-500 hover:text-zinc-300"
               )}
             >
               <MoreHorizontal className={cn("size-5 transition-transform", isActive && "scale-110")} />
-              <span className={cn("text-[10px] font-semibold", isActive && "font-bold")}>
+              <span className={cn("text-[10px] font-semibold truncate max-w-full text-center", isActive && "font-bold")}>
                 More
               </span>
             </button>

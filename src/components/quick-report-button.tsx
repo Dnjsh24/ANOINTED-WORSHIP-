@@ -79,11 +79,11 @@ export function QuickReportButton() {
           setOpen(true);
         }}
         className={cn(
-          "fixed bottom-24 left-4 z-20 size-12 items-center justify-center rounded-full bg-violet-600 text-white transition-all duration-200 hover:bg-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-300 md:bottom-6 md:left-auto md:right-6 md:z-40",
+          "fixed bottom-20 right-3.5 z-30 size-10 sm:size-12 items-center justify-center rounded-full bg-violet-600 text-white hover:bg-violet-500 shadow-lg shadow-violet-950/50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-violet-300 md:bottom-6 md:right-6 md:z-40",
           pathname === "/messages" ? "hidden md:flex" : "flex",
         )}
       >
-        <Bug className="size-5" />
+        <Bug className="size-4 sm:size-5" />
       </button>
 
       {open && (
