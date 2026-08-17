@@ -38,9 +38,8 @@
   ],
   "exclude": [
     "node_modules",
-    "desktop/node_modules",
-    "desktop/dist",
-    "desktop/server",
+    "desktop",
+    "anointed-worship-mobile",
     ".next/dev"
   ]
 }
