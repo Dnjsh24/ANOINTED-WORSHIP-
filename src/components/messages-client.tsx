@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Camera,
   Check,
   CheckCheck,
   Download,
@@ -143,6 +144,7 @@ export function MessagesClient({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const channelAvatarInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const [onlineMemberIds, setOnlineMemberIds] = useState<string[]>([]);
@@ -489,6 +491,70 @@ export function MessagesClient({
     });
     setAttachmentOpen(false);
     setStatus("Attachment ready.");
+  }
+
+  async function handleChannelAvatarUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validation = validatePracticeFile(file);
+    if (!validation.valid) {
+      setStatus(validation.reason ?? "Please choose a valid image file.");
+      return;
+    }
+
+    const mimeType = inferPracticeFileMimeType(file);
+    if (!isImageMimeType(mimeType)) {
+      setStatus("Please choose a JPG, PNG, or WEBP image.");
+      return;
+    }
+
+    try {
+      setStatus("Uploading photo...");
+      const supabase = createOptionalClient();
+      if (!supabase || !teamId) {
+        const previewUrl = URL.createObjectURL(file);
+        setChannelList((prev) =>
+          prev.map((c) => (c.id === activeChannel.id ? { ...c, avatarUrl: previewUrl } : c))
+        );
+        setStatus("Photo updated!");
+        setTimeout(() => setStatus(""), 2000);
+        return;
+      }
+
+      const objectId = generateObjectId();
+      const path = storagePath(teamId, "channel-avatars", activeChannel.id, `${objectId}-${file.name}`);
+      const { error: uploadError } = await supabase.storage
+        .from("practice-files")
+        .upload(path, file, {
+          cacheControl: "3600",
+          contentType: mimeType,
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: signedUrl } = await supabase.storage
+        .from("practice-files")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+
+      const finalUrl = signedUrl?.signedUrl || URL.createObjectURL(file);
+
+      await supabase
+        .from("message_channels")
+        .update({ avatar_url: finalUrl })
+        .eq("id", activeChannel.id);
+
+      setChannelList((prev) =>
+        prev.map((c) => (c.id === activeChannel.id ? { ...c, avatarUrl: finalUrl } : c))
+      );
+
+      setStatus("Group photo updated!");
+      setTimeout(() => setStatus(""), 2000);
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Failed to upload photo.");
+      setTimeout(() => setStatus(""), 3000);
+    }
   }
 
   async function uploadSelectedAttachment(attachment: PendingAttachment): Promise<AttachmentDetails> {
@@ -1039,7 +1105,7 @@ export function MessagesClient({
 
         {/* Pinned Setlist Strip */}
         <Link
-          href="/setlists/sunday-service"
+          href="/setlists"
           className="group flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-4 sm:px-6 py-2.5 transition hover:bg-white/[0.04]"
         >
           <div className="flex items-center gap-2">
@@ -1582,9 +1648,42 @@ export function MessagesClient({
 
         {/* Profile Card */}
         <div className="flex flex-col items-center text-center mt-3">
-          <Avatar name={activeChannel.name} src={activeChannel.avatarUrl} className="size-16 rounded-full text-xl shadow-lg ring-2 ring-violet-500/30" />
+          <div
+            className="relative group cursor-pointer"
+            onClick={() => channelAvatarInputRef.current?.click()}
+            title="Click to upload group photo"
+          >
+            <Avatar
+              name={activeChannel.name}
+              src={activeChannel.avatarUrl}
+              className="size-16 rounded-full text-xl shadow-lg ring-2 ring-violet-500/30 transition group-hover:opacity-80"
+            />
+            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition">
+              <Camera className="size-5 text-white" />
+            </div>
+          </div>
+
           <h3 className="mt-3 text-base font-extrabold text-white">{activeChannel.name}</h3>
           <p className="text-xs text-zinc-400 mt-0.5 capitalize">{activeChannel.type || "Worship"} Team</p>
+
+          {/* Hidden Channel Photo Input */}
+          <input
+            ref={channelAvatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleChannelAvatarUpload}
+          />
+
+          {/* Add Photo / Change Photo Button */}
+          <button
+            type="button"
+            onClick={() => channelAvatarInputRef.current?.click()}
+            className="mt-2.5 flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-violet-300 hover:bg-white/[0.1] hover:text-white transition active:scale-95 shadow-sm"
+          >
+            <Camera className="size-3.5" />
+            <span>{activeChannel.avatarUrl ? "Change Photo" : "Add Photo"}</span>
+          </button>
         </div>
 
         {/* Members */}
