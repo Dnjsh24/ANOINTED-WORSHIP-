@@ -6,6 +6,8 @@ import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import { getDesktopPresenterLiveState, getDesktopSetlist } from "@/lib/desktop/workspace";
 import ConfidenceClient, { type ConfidenceSetlist } from "./confidence-client";
 import type { Database } from "@/lib/supabase/database.types";
+import { setlists as sampleSetlists } from "@/lib/sample-data";
+import type { Song } from "@/lib/types";
 
 type ConfidenceSetlistSongRow = Pick<
   Database["public"]["Tables"]["setlist_songs"]["Row"],
@@ -21,21 +23,46 @@ type ConfidenceSetlistRow = Pick<Database["public"]["Tables"]["setlists"]["Row"]
   setlist_songs: ConfidenceSetlistSongRow[];
 };
 
+function getConfidenceSongLyrics(song: Song): string {
+  if (song.rawLyricsChords && song.rawLyricsChords.trim()) {
+    return song.rawLyricsChords;
+  }
+  if (Array.isArray(song.sections) && song.sections.length > 0) {
+    return song.sections
+      .map((section) => {
+        const header = section.label ? `[${section.label}]\n` : "";
+        const body = (section.lines || [])
+          .map((line) => {
+            const chords = line.chords ? `${line.chords}\n` : "";
+            const lyric = line.lyric ? `${line.lyric}\n` : "";
+            return `${chords}${lyric}`;
+          })
+          .join("");
+        return `${header}${body}`;
+      })
+      .join("\n");
+  }
+  return "";
+}
+
 export default async function ConfidenceMonitorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
 
   if (isDesktopRuntime() && teamContext.teamId) {
-    const setlist = getDesktopSetlist(teamContext.teamId, id);
+    const setlist = getDesktopSetlist(teamContext.teamId, id) || sampleSetlists.find((s) => s.id === id);
     if (setlist) {
       return <ConfidenceClient initialLiveState={getDesktopPresenterLiveState(id)} setlist={{
         id: setlist.id,
         songs: setlist.songs.map((item) => ({
           id: item.id,
           notes: item.bandNotes || item.lead || "",
-          song: { id: item.song.id, title: item.song.title, lyricsChords: item.song.rawLyricsChords || "" },
+          song: { id: item.song.id, title: item.song.title, lyricsChords: getConfidenceSongLyrics(item.song) },
         })),
       }} />;
+    }
+    if (id === "quick-presentation") {
+      return <ConfidenceClient initialLiveState={getDesktopPresenterLiveState(id)} setlist={{ id: "quick-presentation", songs: [] }} />;
     }
   } else if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();

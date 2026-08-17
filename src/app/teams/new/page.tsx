@@ -27,12 +27,17 @@ const TIMEZONES = [
 const DAYS = ["Sundays", "Saturdays", "Fridays", "Wednesdays"];
 const TIMES = ["8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "6:00 PM"];
 const ROLE_OPTIONS = [
+  { label: "Worship Team Chairman", value: "worship_team_chairman" },
   { label: "Worship Leader", value: "worship_leader" },
+  { label: "Band Leader / Music Director", value: "band_leader" },
+  { label: "Vocal Director", value: "vocal_director" },
+  { label: "Dance Leader", value: "dance_leader" },
+  { label: "Media & Tech Leader", value: "media_leader" },
+  { label: "Pastor / Elder", value: "pastor" },
   { label: "Band Member", value: "band_member" },
   { label: "Singer / Member", value: "member" },
   { label: "Dance Ministry", value: "dancer" },
   { label: "Media & Tech", value: "media" },
-  { label: "Pastor", value: "pastor" },
 ];
 
 interface NewTeamPageProps {

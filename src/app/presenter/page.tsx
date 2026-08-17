@@ -11,6 +11,34 @@ import { listImportedPresentations } from "@/lib/desktop/pptx-import";
 import { listDesktopLyricShortcuts } from "@/lib/desktop/lyric-shortcuts";
 import PresenterClient, { type PresenterSetlist } from "./presenter-client";
 import { getPresenterDestination } from "@/lib/presentation/remote-pairing";
+import { setlists as sampleSetlists } from "@/lib/sample-data";
+import { hasSupabaseEnv } from "@/lib/supabase/env";
+import type { Song } from "@/lib/types";
+
+function getSongLyricsChords(song: { rawLyricsChords?: string; lyricsChords?: string; sections?: Song["sections"] }): string {
+  if (typeof song.rawLyricsChords === "string" && song.rawLyricsChords.trim()) {
+    return song.rawLyricsChords;
+  }
+  if (typeof song.lyricsChords === "string" && song.lyricsChords.trim()) {
+    return song.lyricsChords;
+  }
+  if (Array.isArray(song.sections) && song.sections.length > 0) {
+    return song.sections
+      .map((section) => {
+        const header = section.label ? `[${section.label}]\n` : "";
+        const body = (section.lines || [])
+          .map((line) => {
+            const chords = line.chords ? `${line.chords}\n` : "";
+            const lyric = line.lyric ? `${line.lyric}\n` : "";
+            return `${chords}${lyric}`;
+          })
+          .join("");
+        return `${header}${body}`;
+      })
+      .join("\n");
+  }
+  return "";
+}
 
 export default async function GlobalPresenterPage({
   searchParams,
@@ -23,12 +51,39 @@ export default async function GlobalPresenterPage({
   const teamContext = await getRequiredTeamContext();
 
   if (teamContext.teamId) {
-    const setlists = listDesktopSetlists(teamContext.teamId).map((setlist) => ({
+    let rawSetlists = listDesktopSetlists(teamContext.teamId);
+    if (rawSetlists.length === 0) {
+      const allLocal = listDesktopSetlists();
+      if (allLocal.length > 0) {
+        rawSetlists = allLocal;
+      } else if (!hasSupabaseEnv() || sampleSetlists.length > 0) {
+        rawSetlists = sampleSetlists;
+      }
+    }
+
+    if (rawSetlists.length === 0) {
+      rawSetlists = [
+        {
+          id: "quick-presentation",
+          name: "Quick Presentation",
+          date: new Date().toISOString().split("T")[0],
+          leader: "Worship Leader",
+          location: "Main Sanctuary",
+          callTime: "09:00",
+          rehearsalTime: "08:00",
+          serviceTimes: ["Sunday Worship"],
+          songs: [],
+          eventType: "service",
+        },
+      ];
+    }
+
+    const setlists = rawSetlists.map((setlist) => ({
       id: setlist.id,
       name: setlist.name,
       date: setlist.date,
       type: setlist.eventType || "sunday_service",
-      songs: setlist.songs.map((item) => ({
+      songs: (setlist.songs || []).map((item) => ({
         id: item.id,
         order: item.order,
         assignedKey: item.assignedKey,
@@ -37,9 +92,7 @@ export default async function GlobalPresenterPage({
           title: item.song.title,
           bpm: item.song.bpm || 70,
           originalKey: item.song.originalKey,
-          // Keep the original text. Joining parsed line objects produced
-          // "[object Object]" and made desktop Lyrics Reflow appear empty.
-          lyricsChords: item.song.rawLyricsChords || "",
+          lyricsChords: getSongLyricsChords(item.song),
           notes: item.bandNotes || item.lead || "",
         },
       })),

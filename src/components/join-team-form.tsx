@@ -7,13 +7,12 @@ import { getTeamPreviewAction, joinTeamAction } from "@/app/actions";
 const STEPS = ["Enter Code", "Review Team", "Request Access"];
 const ROLES = [
   { label: "Worship Leader", value: "worship_leader" },
-  { label: "Backup Singer", value: "member" },
+  { label: "Singer / Vocalist", value: "member" },
   { label: "Acoustic Guitarist", value: "band_member" },
   { label: "Electric Guitarist", value: "band_member" },
   { label: "Bassist", value: "band_member" },
   { label: "Drummer", value: "band_member" },
   { label: "Pianist / Keys", value: "band_member" },
-  { label: "Pastor", value: "pastor" },
   { label: "Media & Tech", value: "media" },
   { label: "Dance Ministry", value: "dancer" },
   { label: "General Member", value: "member" },

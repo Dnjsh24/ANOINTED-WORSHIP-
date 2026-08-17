@@ -121,7 +121,7 @@ export default async function ProfilePage() {
         <Panel>
           <h2 className="text-2xl font-bold">Profile Settings</h2>
           <div className="mt-6">
-            <ProfileForm fullName={fullName} email={email} ministries={ministries} birthday={birthday} teamAnniversary={teamAnniversary} />
+            <ProfileForm fullName={fullName} email={email} ministries={ministries} birthday={birthday} teamAnniversary={teamAnniversary} role={accessLevel} />
           </div>
         </Panel>
       </div>

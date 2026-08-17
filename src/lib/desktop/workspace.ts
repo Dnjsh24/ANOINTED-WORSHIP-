@@ -4,6 +4,7 @@ import { getEffectiveAssignedKey } from "@/lib/domain/setlists";
 import { getDesktopDatabase, newMutationId, nowIso, withDesktopTransaction } from "@/lib/desktop/db";
 import type { TeamContext } from "@/lib/supabase/team-context";
 import type { Setlist, Song, TeamRole } from "@/lib/types";
+import { setlists as sampleSetlists } from "@/lib/sample-data";
 
 type Row = Record<string, unknown>;
 
@@ -94,14 +95,41 @@ export function getDesktopPresenterLiveState(setlistId: string) {
 }
 
 export function saveDesktopPresenterDraft(teamId: string, setlistId: string, presentationSettings: unknown) {
-  const existing = row("SELECT * FROM local_setlists WHERE id = ? AND team_id = ? AND deleted_at IS NULL", setlistId, teamId);
-  if (!existing) throw new Error("The setlist is not available in this offline workspace.");
+  let existing = row("SELECT * FROM local_setlists WHERE id = ? AND team_id = ? AND deleted_at IS NULL", setlistId, teamId);
+  if (!existing) {
+    existing = row("SELECT * FROM local_setlists WHERE id = ? AND deleted_at IS NULL", setlistId);
+  }
   const serialized = JSON.stringify(presentationSettings ?? {});
   if (serialized.length > 2_000_000) throw new Error("The Presenter draft is too large to save.");
   const timestamp = nowIso();
+
+  if (!existing) {
+    const sample = sampleSetlists.find((s) => s.id === setlistId);
+    withDesktopTransaction((db) => {
+      db.prepare(`
+        INSERT INTO local_setlists (id, team_id, event_id, name, setlist_date, location, call_time, rehearsal_time, service_times, notes, presentation_settings, deleted_at, sync_revision, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, ?)
+      `).run(
+        setlistId,
+        teamId,
+        sample?.eventId ?? null,
+        sample?.name ?? "Quick Presentation",
+        sample?.date ?? timestamp.split("T")[0],
+        sample?.location ?? "Main Sanctuary",
+        sample?.callTime ?? "09:00",
+        sample?.rehearsalTime ?? "08:00",
+        JSON.stringify(sample?.serviceTimes ?? ["Sunday Worship"]),
+        sample?.notes ?? null,
+        serialized,
+        timestamp,
+      );
+    });
+    return;
+  }
+
   withDesktopTransaction((db) => {
-    db.prepare("UPDATE local_setlists SET presentation_settings = ?, updated_at = ? WHERE id = ? AND team_id = ?")
-      .run(serialized, timestamp, setlistId, teamId);
+    db.prepare("UPDATE local_setlists SET presentation_settings = ?, updated_at = ? WHERE id = ?")
+      .run(serialized, timestamp, setlistId);
     // A draft may be saved repeatedly before the PC reconnects. Only the
     // latest presentation payload should be pushed against the cloud base
     // revision; older pending drafts would otherwise conflict with each other.
@@ -112,7 +140,7 @@ export function saveDesktopPresenterDraft(teamId: string, setlistId: string, pre
       entityType: "setlist",
       entityId: setlistId,
       baseRevision: Number(existing.sync_revision ?? 0),
-      payload: { id: setlistId, teamId, presentationSettings },
+      payload: { id: setlistId, teamId: existing.team_id ? String(existing.team_id) : teamId, presentationSettings },
       baseSnapshot: existing,
     });
   });
@@ -150,16 +178,26 @@ function toSong(value: Row): Song {
   };
 }
 
-export function listDesktopSetlists(teamId: string): Setlist[] {
-  const setlists = rows(
-    "SELECT * FROM local_setlists WHERE team_id = ? AND deleted_at IS NULL ORDER BY setlist_date DESC",
-    teamId,
-  );
+export function listDesktopSetlists(teamId?: string): Setlist[] {
+  let setlists = teamId
+    ? rows(
+        "SELECT * FROM local_setlists WHERE team_id = ? AND deleted_at IS NULL ORDER BY setlist_date DESC",
+        teamId,
+      )
+    : [];
+  if (setlists.length === 0) {
+    setlists = rows(
+      "SELECT * FROM local_setlists WHERE deleted_at IS NULL ORDER BY setlist_date DESC",
+    );
+  }
   return setlists.map((setlist) => toSetlist(setlist));
 }
 
 export function getDesktopSetlist(teamId: string, id: string): Setlist | null {
-  const setlist = row("SELECT * FROM local_setlists WHERE team_id = ? AND id = ?", teamId, id);
+  let setlist = row("SELECT * FROM local_setlists WHERE team_id = ? AND id = ? AND deleted_at IS NULL", teamId, id);
+  if (!setlist) {
+    setlist = row("SELECT * FROM local_setlists WHERE id = ? AND deleted_at IS NULL", id);
+  }
   return setlist && !setlist.deleted_at ? toSetlist(setlist) : null;
 }
 

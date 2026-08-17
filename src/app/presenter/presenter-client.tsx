@@ -139,8 +139,16 @@ export default function GlobalPresenterClient({
   desktopImportedPresentations?: Record<string, DesktopTeachingPresentation[]>;
   desktopLyricShortcuts?: Record<string, Array<{ setlistSongId: string; slideId: string; keyCode: string }>>;
 }) {
+  const fallbackSetlist: PresenterSetlist = useMemo(() => ({
+    id: "quick-presentation",
+    name: "Quick Presentation",
+    date: new Date().toISOString(),
+    type: "service",
+    songs: [],
+  }), []);
+
   const [selectedSetlistId, setSelectedSetlistId] = useState<string>(
-    setlists.some((setlist) => setlist.id === initialSetlistId) ? initialSetlistId! : setlists[0]?.id || "",
+    setlists.some((setlist) => setlist.id === initialSetlistId) ? initialSetlistId! : setlists[0]?.id || fallbackSetlist.id,
   );
   const [activeItemIndex, setActiveItemIndex] = useState<number>(0);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
@@ -170,7 +178,10 @@ export default function GlobalPresenterClient({
   const [motionPresetName, setMotionPresetName] = useState("");
   const [selectedMotionPresetId, setSelectedMotionPresetId] = useState("");
   
-  const setlist = useMemo(() => setlists.find(s => s.id === selectedSetlistId) || setlists[0], [selectedSetlistId, setlists]);
+  const setlist = useMemo(
+    () => setlists.find(s => s.id === selectedSetlistId) || setlists[0] || fallbackSetlist,
+    [selectedSetlistId, setlists, fallbackSetlist]
+  );
   
   // Presentation Settings
   const [settings, setSettings] = useState<PresentationSettings>(setlist?.presentationSettings?.settings || defaultPresentationSettings);
@@ -1583,10 +1594,6 @@ export default function GlobalPresenterClient({
     }
   };
 
-  if (!setlist) {
-    return <div className="p-8 text-white">No upcoming setlists found.</div>;
-  }
-
   const cloudPairingSecondsRemaining = cloudPairing
     ? Math.max(0, Math.ceil((Date.parse(cloudPairing.claimExpiresAt) - pairingClock) / 1_000))
     : 0;
@@ -1604,7 +1611,7 @@ export default function GlobalPresenterClient({
           <div className="flex items-center gap-3">
              <span className="text-xs font-bold uppercase text-zinc-500 tracking-wider">Presenter</span>
              <select 
-               value={selectedSetlistId} 
+               value={selectedSetlistId || setlist.id} 
                onChange={(e) => {
                   setSelectedSetlistId(e.target.value);
                   setActiveItemIndex(0);
@@ -1612,9 +1619,13 @@ export default function GlobalPresenterClient({
                }}
                className="bg-[#1a1a1a] border border-white/10 text-white text-sm font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-violet-500"
              >
-                {setlists.map(s => (
-                  <option key={s.id} value={s.id}>{s.name} ({new Date(s.date).toLocaleDateString()})</option>
-                ))}
+                {setlists.length > 0 ? (
+                  setlists.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({new Date(s.date).toLocaleDateString()})</option>
+                  ))
+                ) : (
+                  <option value={setlist.id}>{setlist.name}</option>
+                )}
              </select>
           </div>
         </div>
@@ -1681,27 +1692,53 @@ export default function GlobalPresenterClient({
           </div>
 
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {setlist.songs.map((item, idx) => (
-              <button
-                key={item.id}
-                onClick={() => { setActiveItemIndex(idx); setActiveSlideId(null); }}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors",
-                  activeItemIndex === idx 
-                    ? "bg-violet-600/20 text-violet-300 border border-violet-500/30" 
-                    : "hover:bg-white/5 text-zinc-400 border border-transparent"
-                )}
-              >
-                {/* Thumbnail placeholder */}
-                <div className="size-8 rounded bg-white/10 flex items-center justify-center shrink-0">
-                   <Music className="size-4" />
+            {setlist.songs.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-white/10 p-3 text-center my-2">
+                <Music className="mx-auto size-5 text-zinc-600 mb-1.5" />
+                <p className="text-xs font-bold text-zinc-300">No songs in setlist</p>
+                <p className="mt-1 text-[10px] text-zinc-500 leading-relaxed">
+                  Use Scripture or Teaching below, or create songs in Dashboard.
+                </p>
+                <div className="mt-2.5 flex flex-col gap-1">
+                  <button
+                    type="button"
+                    onClick={() => { setActiveItemIndex(-2); setActiveSlideId(null); }}
+                    className="w-full rounded bg-blue-600/20 px-2 py-1.5 text-[10px] font-bold text-blue-200 hover:bg-blue-600/30"
+                  >
+                    📖 Present Scripture
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setActiveItemIndex(-1); setActiveSlideId(null); }}
+                    className="w-full rounded bg-emerald-600/20 px-2 py-1.5 text-[10px] font-bold text-emerald-200 hover:bg-emerald-600/30"
+                  >
+                    📑 Teaching / PPTX
+                  </button>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-bold text-sm truncate text-white">{item.song.title}</p>
-                  <p className="text-xs font-semibold opacity-70 truncate">{item.song.originalKey}</p>
-                </div>
-              </button>
-            ))}
+              </div>
+            ) : (
+              setlist.songs.map((item, idx) => (
+                <button
+                  key={item.id}
+                  onClick={() => { setActiveItemIndex(idx); setActiveSlideId(null); }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors",
+                    activeItemIndex === idx 
+                      ? "bg-violet-600/20 text-violet-300 border border-violet-500/30" 
+                      : "hover:bg-white/5 text-zinc-400 border border-transparent"
+                  )}
+                >
+                  {/* Thumbnail placeholder */}
+                  <div className="size-8 rounded bg-white/10 flex items-center justify-center shrink-0">
+                     <Music className="size-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm truncate text-white">{item.song.title}</p>
+                    <p className="text-xs font-semibold opacity-70 truncate">{item.song.originalKey}</p>
+                  </div>
+                </button>
+              ))
+            )}
             
             <div className="pt-4 mt-4 border-t border-white/5">
                <h3 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 px-3 mb-2">{desktopMode ? "Teaching" : "Teaching & Media"}</h3>
@@ -2098,8 +2135,32 @@ export default function GlobalPresenterClient({
                      />
                   ) : activeItem && (draftLyricsBySetlistSongId[activeItem.id] ?? activeItem.song.lyricsChords ?? "").trim().length === 0 ? (
                      <div className="max-w-sm text-center"><p className="font-bold text-amber-300">No lyrics saved for this song</p><p className="mt-2 text-sm text-zinc-500">Add lyrics/chords in the Songs page, then sync this PC.</p></div>
-                  ) : (
+                  ) : slides.length > 0 ? (
                      <div className="text-zinc-600 font-bold">Select a slide to edit</div>
+                  ) : (
+                     <div className="max-w-md text-center p-6 rounded-xl border border-white/5 bg-white/[0.02]">
+                       <LayoutTemplate className="size-10 text-zinc-600 mx-auto mb-3" />
+                       <p className="font-bold text-zinc-300">Presenter Ready</p>
+                       <p className="mt-1 text-xs text-zinc-500">
+                         Select a slide from the lineup, look up Scripture, or import Teaching slides to present.
+                       </p>
+                       <div className="mt-4 flex items-center justify-center gap-2">
+                         <button
+                           type="button"
+                           onClick={() => { setActiveItemIndex(-2); setActiveSlideId(null); }}
+                           className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/10"
+                         >
+                           📖 Bible Search
+                         </button>
+                         <button
+                           type="button"
+                           onClick={() => { setActiveItemIndex(-1); setActiveSlideId(null); }}
+                           className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/10"
+                         >
+                           📑 Teaching Slides
+                         </button>
+                       </div>
+                     </div>
                   )}
                   {desktopMode && <div className="absolute right-4 top-4 rounded border border-white/10 bg-black/40 px-3 py-2 text-right text-[10px]"><p className="font-bold text-zinc-300">Published live: {liveActiveSlide ? `${Math.max(0, liveSlides.findIndex((slide) => slide.id === liveActiveSlide.id)) + 1}/${liveSlides.length}` : outputMode}</p><p className="mt-1 max-w-48 truncate text-zinc-500">Remote revision {publishedSnapshot.revision}</p></div>}
                   

@@ -27,13 +27,21 @@ export default async function ProjectorPage({ params }: { params: Promise<{ id: 
   const teamContext = await getRequiredTeamContext();
 
   if (isDesktopRuntime() && teamContext.teamId) {
-    const setlist = getDesktopSetlist(teamContext.teamId, id);
+    const setlist = getDesktopSetlist(teamContext.teamId, id) || sampleSetlists.find((s) => s.id === id);
     if (setlist) {
       const desktopSetlist = setlist as Setlist & { presentationSettings?: unknown };
       return (
         <ProjectorClient
           setlistId={id}
           initialSettings={nestedPresentationSettings(desktopSetlist.presentationSettings)}
+          initialLiveState={getDesktopPresenterLiveState(id) as ProjectorLiveState}
+        />
+      );
+    }
+    if (id === "quick-presentation") {
+      return (
+        <ProjectorClient
+          setlistId={id}
           initialLiveState={getDesktopPresenterLiveState(id) as ProjectorLiveState}
         />
       );

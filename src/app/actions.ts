@@ -24,6 +24,12 @@ import {
   parseArrangementSections,
 } from "@/lib/domain/arrangements";
 import {
+  SELF_SELECTABLE_MINISTRIES,
+  SELF_SELECTABLE_BAND_ROLES,
+  isLeadershipRole,
+} from "@/lib/domain/leadership-roles";
+import { getMemberLeadershipRole } from "@/lib/domain/member-ministries";
+import {
   announcementInputSchema,
   attendanceSchema,
   canMutateTeamMember,
@@ -3037,7 +3043,7 @@ export async function updateMemberRoleAction(_previous: ActionState, formData: F
 
   const { data: target } = await context.supabase
     .from("team_members")
-    .select("role")
+    .select("role, ministries")
     .eq("id", parsed.data.memberId)
     .eq("team_id", context.teamId)
     .maybeSingle();
@@ -3045,25 +3051,64 @@ export async function updateMemberRoleAction(_previous: ActionState, formData: F
     return { ok: false, message: "Team member could not be found." };
   }
 
-  const nextRole = ["owner", "admin", "pastor", "worship_leader", "member"].includes(parsed.data.role)
-    ? parsed.data.role as TeamRole
-    : "member";
+  const targetRole = target.role as TeamRole;
+  let nextRole: TeamRole = "member";
+  let leadershipTitleToSet: string | null = null;
+
+  if (parsed.data.role === "worship_team_chairman") {
+    nextRole = "admin";
+    leadershipTitleToSet = "Worship Team Chairman";
+  } else if (parsed.data.role === "worship_leader") {
+    nextRole = "worship_leader";
+    leadershipTitleToSet = "Worship Leader";
+  } else if (parsed.data.role === "band_leader") {
+    nextRole = "band_leader";
+    leadershipTitleToSet = "Band Leader / Music Director";
+  } else if (parsed.data.role === "vocal_director") {
+    nextRole = "member";
+    leadershipTitleToSet = "Vocal Director";
+  } else if (parsed.data.role === "dance_leader") {
+    nextRole = "dancer";
+    leadershipTitleToSet = "Dance Leader";
+  } else if (parsed.data.role === "media_leader") {
+    nextRole = "media";
+    leadershipTitleToSet = "Media & Tech Leader";
+  } else if (parsed.data.role === "pastor") {
+    nextRole = "pastor";
+    leadershipTitleToSet = "Pastor / Elder";
+  } else if (["owner", "admin", "pastor", "worship_leader", "band_leader", "band_member", "dancer", "media", "member"].includes(parsed.data.role)) {
+    nextRole = parsed.data.role as TeamRole;
+  }
+
   if (!canMutateTeamMember({
     actorRole: context.role,
-    targetRole: target.role as TeamRole,
+    targetRole,
     action: "update",
     nextRole,
   })) {
     return { ok: false, message: "Use the ownership transfer workflow to change the team owner." };
   }
 
+  // Clean existing ministries of old leadership tags, and add new one if set
+  const currentMinistries = target.ministries ?? [];
+  const baseMinistries = currentMinistries.filter((m) => !isLeadershipRole(m));
+  const updatedMinistries = leadershipTitleToSet
+    ? [leadershipTitleToSet, ...baseMinistries]
+    : baseMinistries;
+
+  const isBuiltInRole = [
+    "owner", "admin", "pastor", "worship_leader", "band_leader", "band_member",
+    "dancer", "media", "member", "worship_team_chairman", "vocal_director",
+    "dance_leader", "media_leader"
+  ].includes(parsed.data.role);
+
   const { error } = await context.supabase
     .from("team_members")
-    .update(
-      ["owner", "admin", "pastor", "worship_leader", "member"].includes(parsed.data.role)
-        ? { role: parsed.data.role as TeamRole, custom_role_id: null }
-        : { role: "member", custom_role_id: parsed.data.role }
-    )
+    .update({
+      role: nextRole,
+      custom_role_id: isBuiltInRole ? null : parsed.data.role,
+      ministries: updatedMinistries,
+    })
     .eq("id", parsed.data.memberId)
     .eq("team_id", context.teamId);
 
@@ -3235,6 +3280,26 @@ export async function updateProfileAction(_previous: ActionState, formData: Form
     return { ...context.state, message: "Profile save requires sign-in." };
   }
 
+  const { data: currentMember } = await context.supabase
+    .from("team_members")
+    .select("role, ministries")
+    .eq("id", context.memberId)
+    .maybeSingle();
+
+  // Preserve existing leadership role assigned by admin
+  const currentLeadershipRole = getMemberLeadershipRole(currentMember?.role, currentMember?.ministries);
+
+  // Filter self-submitted ministries so members cannot spoof leadership roles
+  const allowedSelfMinistries = parsed.data.ministries.filter(
+    (m) =>
+      SELF_SELECTABLE_MINISTRIES.includes(m as any) ||
+      SELF_SELECTABLE_BAND_ROLES.includes(m as any),
+  );
+
+  const finalMinistries = currentLeadershipRole
+    ? [currentLeadershipRole.label, ...allowedSelfMinistries.filter((m) => m !== currentLeadershipRole.label)]
+    : allowedSelfMinistries;
+
   const { error: profileError } = await context.supabase.from("profiles").update({ 
     full_name: parsed.data.fullName,
     birthday: parsed.data.birthday 
@@ -3242,7 +3307,7 @@ export async function updateProfileAction(_previous: ActionState, formData: Form
   const { error: memberError } = await context.supabase
     .from("team_members")
     .update({ 
-      ministries: parsed.data.ministries,
+      ministries: finalMinistries,
       team_anniversary: parsed.data.teamAnniversary
     })
     .eq("id", context.memberId);

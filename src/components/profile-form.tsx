@@ -1,11 +1,19 @@
 "use client";
 
+import { ShieldCheck, Sparkles, UserCheck } from "lucide-react";
 import { useState } from "react";
 import { useActionState } from "react";
 import { signOut, updateProfileAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { initialActionState } from "@/lib/action-state";
+import {
+  SELF_SELECTABLE_MINISTRIES,
+  SELF_SELECTABLE_BAND_ROLES,
+  getLeadershipRole,
+} from "@/lib/domain/leadership-roles";
+import { getMemberLeadershipRole } from "@/lib/domain/member-ministries";
 import { cn } from "@/lib/utils";
 
 const TIMEZONES = [
@@ -18,39 +26,20 @@ const TIMEZONES = [
 
 const LANGUAGES = ["English", "Spanish", "French", "Tagalog"];
 
-const AVAILABLE_MINISTRIES = [
-  "Band Member",
-  "Worship Leader",
-  "Media & Tech",
-  "Dance Ministry",
-  "Pastor",
-  "Singer / Member",
-  "Ushers / Greeters",
-];
-
-const BAND_ROLES = [
-  "Band Leader",
-  "Acoustic Guitar",
-  "Electric Guitar",
-  "Bass",
-  "Drums",
-  "Main Keys",
-  "Second Keys",
-  "Vocals",
-];
-
 export function ProfileForm({
   fullName,
   email,
   ministries: initialMinistries,
   birthday,
-  teamAnniversary
+  teamAnniversary,
+  role,
 }: {
   fullName: string;
   email: string;
   ministries: string[];
   birthday: string | null;
   teamAnniversary: string | null;
+  role?: string;
 }) {
   const [state, formAction] = useActionState(updateProfileAction, initialActionState);
   const [phone, setPhone] = useState("(555) 555-0123");
@@ -61,14 +50,16 @@ export function ProfileForm({
   const [profileStatus, setProfileStatus] = useState("");
   const [ministries, setMinistries] = useState<string[]>(initialMinistries);
 
+  const leadershipRole = getMemberLeadershipRole(role, initialMinistries);
+
   function toggleMinistry(m: string) {
-    setMinistries(prev => {
+    setMinistries((prev) => {
       if (prev.includes(m)) {
         // If unchecking "Band Member", also uncheck all band roles
         if (m === "Band Member") {
-          return prev.filter(x => x !== m && !BAND_ROLES.includes(x));
+          return prev.filter((x) => x !== m && !SELF_SELECTABLE_BAND_ROLES.includes(x as any));
         }
-        return prev.filter(x => x !== m);
+        return prev.filter((x) => x !== m);
       } else {
         return [...prev, m];
       }
@@ -99,17 +90,17 @@ export function ProfileForm({
           </label>
           <label className="block space-y-1.5">
             <span className="text-xs font-bold text-zinc-300">Phone</span>
-            <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} />
+            <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </label>
           <label className="block space-y-1.5">
             <span className="text-xs font-bold text-zinc-300">Time Zone</span>
             <div className="relative">
               <select
                 value={timezone}
-                onChange={e => setTimezone(e.target.value)}
+                onChange={(e) => setTimezone(e.target.value)}
                 className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400"
               >
-                {TIMEZONES.map(t => <option key={t} value={t} className="bg-[#111014]">{t}</option>)}
+                {TIMEZONES.map((t) => <option key={t} value={t} className="bg-[#111014]">{t}</option>)}
               </select>
             </div>
           </label>
@@ -118,10 +109,10 @@ export function ProfileForm({
             <div className="relative">
               <select
                 value={language}
-                onChange={e => setLanguage(e.target.value)}
+                onChange={(e) => setLanguage(e.target.value)}
                 className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400"
               >
-                {LANGUAGES.map(l => <option key={l} value={l} className="bg-[#111014]">{l}</option>)}
+                {LANGUAGES.map((l) => <option key={l} value={l} className="bg-[#111014]">{l}</option>)}
               </select>
             </div>
           </label>
@@ -139,14 +130,47 @@ export function ProfileForm({
         </div>
       </div>
 
-      {/* Ministries Section */}
+      {/* Leadership Role Section (Admin-managed) */}
+      <div className="mt-8 border-t border-white/[0.06] pt-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500">Leadership Role</h3>
+          <span className="inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase text-zinc-500">
+            <ShieldCheck className="size-3 text-violet-400" /> Admin Appointed
+          </span>
+        </div>
+
+        {leadershipRole ? (
+          <div className="flex items-center justify-between rounded-xl border border-amber-400/20 bg-amber-500/[0.06] p-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-2xl">{leadershipRole.iconEmoji}</span>
+              <div>
+                <p className="text-sm font-bold text-white leading-tight">{leadershipRole.label}</p>
+                <p className="text-xs font-semibold text-amber-200/80 mt-0.5">Active team leadership position</p>
+              </div>
+            </div>
+            <span className="rounded-full px-3 py-1 font-mono text-[10px] font-bold border border-amber-400/40 bg-amber-400/10 text-amber-300">
+              Official Role
+            </span>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-4 text-xs font-semibold text-zinc-400">
+            <p className="text-zinc-300 font-bold">General Member</p>
+            <p className="mt-1 text-zinc-500 text-[11px]">
+              Leadership roles (such as Worship Team Chairman, Worship Leader, Band Leader, Vocal Director, etc.) are assigned by Team Owners and Admins in Team Management.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Ministries Section (Self-service) */}
       <div className="mt-8 border-t border-white/[0.06] pt-6 space-y-4">
         <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500">Ministry Involvement</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {AVAILABLE_MINISTRIES.map((m) => (
+        <p className="text-xs font-semibold text-zinc-400">Select the ministries and areas you serve in:</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+          {SELF_SELECTABLE_MINISTRIES.map((m) => (
             <label key={m} className={cn(
-              "flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors",
-              ministries.includes(m) ? "border-violet-500/50 bg-violet-500/10 text-violet-100" : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:bg-white/[0.04]"
+              "flex items-center gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors select-none",
+              ministries.includes(m) ? "border-violet-500/50 bg-violet-500/10 text-violet-100 font-bold" : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:bg-white/[0.04]"
             )}>
               <input
                 type="checkbox"
@@ -154,27 +178,27 @@ export function ProfileForm({
                 checked={ministries.includes(m)}
                 onChange={() => toggleMinistry(m)}
               />
-              <span className="text-xs font-bold">{m}</span>
+              <span className="text-xs">{m}</span>
             </label>
           ))}
         </div>
 
         {ministries.includes("Band Member") && (
-          <div className="mt-4 pt-4 border-t border-white/[0.04] animate-fade-in">
-            <h4 className="text-xs font-bold text-zinc-400 mb-3 uppercase tracking-wider">Band Roles</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {BAND_ROLES.map((role) => (
-                <label key={role} className={cn(
-                  "flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors",
-                  ministries.includes(role) ? "border-violet-500/50 bg-violet-500/10 text-violet-100" : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:bg-white/[0.04]"
+          <div className="mt-4 pt-4 border-t border-white/[0.04] animate-fade-in space-y-3">
+            <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Band Roles & Instruments</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+              {SELF_SELECTABLE_BAND_ROLES.map((roleName) => (
+                <label key={roleName} className={cn(
+                  "flex items-center gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors select-none",
+                  ministries.includes(roleName) ? "border-violet-500/50 bg-violet-500/10 text-violet-100 font-bold" : "border-white/[0.06] bg-white/[0.02] text-zinc-400 hover:bg-white/[0.04]"
                 )}>
                   <input
                     type="checkbox"
                     className="sr-only"
-                    checked={ministries.includes(role)}
-                    onChange={() => toggleMinistry(role)}
+                    checked={ministries.includes(roleName)}
+                    onChange={() => toggleMinistry(roleName)}
                   />
-                  <span className="text-xs font-bold">{role}</span>
+                  <span className="text-xs">{roleName}</span>
                 </label>
               ))}
             </div>

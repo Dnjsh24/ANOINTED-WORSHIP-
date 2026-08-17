@@ -52,7 +52,21 @@ export default async function SetlistRemotePage({
   }
 
   const teamContext = await getRequiredTeamContext();
-  const desktopSetlist = listDesktopSetlists(teamContext.teamId).find((setlist) => setlist.id === id);
+  let desktopSetlist = listDesktopSetlists(teamContext.teamId).find((setlist) => setlist.id === id);
+  if (!desktopSetlist && id === "quick-presentation") {
+    desktopSetlist = {
+      id: "quick-presentation",
+      name: "Quick Presentation",
+      date: new Date().toISOString().split("T")[0],
+      leader: "Worship Leader",
+      location: "Main Sanctuary",
+      callTime: "09:00",
+      rehearsalTime: "08:00",
+      serviceTimes: ["Sunday Worship"],
+      songs: [],
+      eventType: "service",
+    };
+  }
   if (!desktopSetlist) notFound();
   const presentationSettings = "presentationSettings" in desktopSetlist
     ? normalizeRemotePresentationSettings(desktopSetlist.presentationSettings)

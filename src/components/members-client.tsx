@@ -16,7 +16,11 @@ import {
   normalizeJoinRequest,
   type RawJoinRequest,
 } from "@/lib/domain/join-requests";
-import { getDisplayedMinistries } from "@/lib/domain/member-ministries";
+import {
+  LEADERSHIP_ROLES,
+  getLeadershipRole,
+} from "@/lib/domain/leadership-roles";
+import { getDisplayedMinistries, getMemberLeadershipRole } from "@/lib/domain/member-ministries";
 import { createOptionalClient } from "@/lib/supabase/client";
 import { teamRoles, type JoinRequestSummary, type TeamMember, type TeamRole, type CustomRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -55,6 +59,13 @@ export function MembersClient({
     open: selectedMember !== null,
     onClose: () => setSelectedMember(null),
   });
+
+  const selectedMemberLeadership = selectedMember
+    ? getMemberLeadershipRole(selectedMember.role, selectedMember.ministries)
+    : null;
+  const selectedMemberMinistries = selectedMember
+    ? getDisplayedMinistries(selectedMember.ministries ?? [], selectedMember.role)
+    : [];
 
   function toggleRequest(id: string) {
     const next = new Set(selectedRequests);
@@ -173,8 +184,15 @@ export function MembersClient({
   const filteredMembers = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return memberList.filter((member) => {
-      const haystack = `${member.profile.fullName} ${member.profile.email} ${member.role} ${member.ministry} ${member.status}`.toLowerCase();
-      return (!normalized || haystack.includes(normalized)) && (roleFilter === "all" || member.role === roleFilter);
+      const leaderRole = getMemberLeadershipRole(member.role, member.ministries);
+      const haystack = `${member.profile.fullName} ${member.profile.email} ${member.role} ${leaderRole?.label ?? ""} ${member.ministry} ${(member.ministries ?? []).join(" ")} ${member.status}`.toLowerCase();
+      return (
+        (!normalized || haystack.includes(normalized)) &&
+        (roleFilter === "all" ||
+          member.role === roleFilter ||
+          leaderRole?.key === roleFilter ||
+          (member.ministries ?? []).some((m) => m.toLowerCase() === roleFilter.toLowerCase()))
+      );
     });
   }, [memberList, query, roleFilter]);
 
@@ -194,7 +212,7 @@ export function MembersClient({
     });
   }
 
-  function updateRole(memberId: string, role: TeamRole) {
+  function updateRole(memberId: string, role: string) {
     const formData = new FormData();
     formData.set("memberId", memberId);
     formData.set("role", role);
@@ -202,10 +220,18 @@ export function MembersClient({
       const result = await updateMemberRoleAction({ ok: false, message: "" }, formData);
       setStatus(result.message);
       if (result.ok) {
-        setRoleValues((current) => ({ ...current, [memberId]: role }));
+        const lead = getLeadershipRole(role);
+        setRoleValues((current) => ({ ...current, [memberId]: (role as TeamRole) }));
         setMemberList((current) =>
-          current.map((m) => (m.id === memberId ? { ...m, role } : m))
+          current.map((m) => {
+            if (m.id !== memberId) return m;
+            const updatedMinistries = lead
+              ? [lead.label, ...(m.ministries ?? []).filter((x) => x !== lead.label)]
+              : (m.ministries ?? []);
+            return { ...m, role: (role as TeamRole), ministries: updatedMinistries };
+          })
         );
+        router.refresh();
       }
     });
   }
@@ -258,78 +284,91 @@ export function MembersClient({
 
   const maxRoleCount = useMemo(() => Math.max(...Object.values(roleCounts), 1), [roleCounts]);
 
-  const requestPreview = requests.slice(0, 3);
-  const hiddenRequestCount = Math.max(0, requests.length - requestPreview.length);
-  const selectedMemberMinistries = selectedMember
-    ? getDisplayedMinistries(selectedMember.ministries ?? [], selectedMember.role)
-    : [];
+  const canManage = currentUserRole === "owner" || currentUserRole === "admin";
+  const previewRequests = requests.slice(0, 3);
+  const hiddenRequestCount = Math.max(0, requests.length - previewRequests.length);
 
   return (
-    <div className="animate-fade-up">
-      {/* Header row */}
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-6 animate-fade-up">
+      {/* Top Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight">Team Management</h1>
-          <p className="mt-1.5 text-sm font-semibold text-zinc-400">Manage your team, roles, and permissions.</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">Team Management</h1>
+          <p className="mt-1 text-xs sm:text-sm font-semibold text-zinc-400">Manage members, appoint leadership roles, review requests, and configure team settings.</p>
         </div>
-        <ButtonLink href="/members/invite" className="flex items-center gap-2">
-          <UserPlus className="size-4" />
-          Invite Member
-        </ButtonLink>
+        <div className="flex items-center gap-3">
+          <ButtonLink href="/members/invite" className="gap-2">
+            <UserPlus className="size-4" />
+            Invite Member
+          </ButtonLink>
+        </div>
       </div>
 
-      {status && <p aria-live="polite" className="mt-4 text-sm font-bold text-emerald-300">{status}</p>}
+      {status && (
+        <div className="rounded-xl border border-violet-500/20 bg-violet-500/10 px-4 py-3 text-xs font-semibold text-violet-200 animate-fade-in flex items-center justify-between">
+          <span>{status}</span>
+          <button type="button" onClick={() => setStatus("")} className="text-violet-400 hover:text-white">✕</button>
+        </div>
+      )}
 
-      {/* 3-Column main layout */}
-      <section className="mt-7 grid gap-6 lg:grid-cols-[300px_1fr_300px]">
-        
-        {/* COLUMN 1: Pending Requests & Team Code */}
+      {/* 3-Column Dashboard Grid */}
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr_260px]">
+
+        {/* COLUMN 1: Pending Join Requests & Team Code */}
         <div className="flex flex-col gap-5">
           {/* Pending Requests */}
           <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-white">Pending Requests ({requests.length})</h2>
-              {requestPreview.length > 0 && (
-                <label className="flex items-center gap-2 text-xs font-semibold text-zinc-400 cursor-pointer hover:text-white transition">
-                  <input
-                    type="checkbox"
-                    className="accent-violet-600 cursor-pointer"
-                    checked={selectedRequests.size === requestPreview.length && requestPreview.length > 0}
-                    onChange={() => toggleAllRequests(requestPreview.map(r => r.id))}
-                  />
-                  Select All
-                </label>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                Join Requests
+                {requests.length > 0 && (
+                  <span className="rounded-full bg-violet-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-violet-300">
+                    {requests.length}
+                  </span>
+                )}
+              </h2>
+              {requests.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => toggleAllRequests(previewRequests.map((r) => r.id))}
+                  className="text-[11px] font-bold text-violet-400 hover:text-violet-300 transition-colors"
+                >
+                  {selectedRequests.size === previewRequests.length ? "Deselect" : "Select all"}
+                </button>
               )}
             </div>
+
             {selectedRequests.size > 0 && (
-              <div className="mb-3">
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-violet-500/10 border border-violet-500/20 p-2.5 animate-fade-in">
+                <span className="text-[11px] font-bold text-violet-300">{selectedRequests.size} selected</span>
                 <button
                   type="button"
                   disabled={isPending}
                   onClick={approveSelected}
-                  className="w-full rounded-xl bg-violet-600 py-2 text-xs font-bold text-white transition hover:bg-violet-500 disabled:opacity-50"
+                  className="rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-violet-500 transition disabled:opacity-50"
                 >
-                  Approve Selected ({selectedRequests.size})
+                  Approve Selected
                 </button>
               </div>
             )}
-            <div className="space-y-3">
-              {requestPreview.map((request) => (
-                <div key={request.id} className="flex items-center justify-between rounded-xl bg-white/[0.02] border border-white/[0.06] p-3">
-                  <div className="flex items-center gap-3">
+
+            <div className="mt-4 space-y-3">
+              {previewRequests.map((request) => (
+                <div key={request.id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/10">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <input
                       type="checkbox"
-                      className="accent-violet-600 cursor-pointer shrink-0"
                       checked={selectedRequests.has(request.id)}
                       onChange={() => toggleRequest(request.id)}
+                      className="size-3.5 rounded border-white/20 bg-white/5 text-violet-600 focus:ring-violet-500/20 focus:ring-offset-0"
                     />
-                    <Avatar name={request.name} src={request.avatarUrl} className="size-9" />
-                    <div>
-                      <span className="block text-xs font-bold text-white">{request.name}</span>
-                      <span className="text-[10px] font-semibold text-zinc-400">{request.ministry}</span>
+                    <Avatar name={request.name} src={request.avatarUrl} className="size-7 text-[10px]" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white truncate">{request.name}</p>
+                      <p className="text-[10px] text-zinc-400 truncate">{request.email || "No email"}</p>
                     </div>
                   </div>
-                  <div className="flex gap-1.5 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0 ml-2">
                     <button
                       type="button"
                       disabled={isPending}
@@ -407,21 +446,30 @@ export function MembersClient({
                   className="h-9 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-xs font-semibold text-white outline-none focus:border-violet-400"
                 >
                   <option value="all" className="bg-[#111014] text-white">All Roles</option>
-                  {teamRoles.map((role) => (
-                    <option key={role} value={role} className="bg-[#111014] text-white">
-                      {role.replace("_", " ")}
-                    </option>
-                  ))}
+                  <optgroup label="👑 Leadership Roles" className="bg-[#111014] text-amber-300 font-bold">
+                    {LEADERSHIP_ROLES.map((r) => (
+                      <option key={r.key} value={r.key} className="bg-[#111014] text-white">
+                        {r.iconEmoji} {r.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="⚙️ Team Roles" className="bg-[#111014] text-zinc-400 font-bold">
+                    {["owner", "admin", "band_member", "dancer", "media", "member"].map((role) => (
+                      <option key={role} value={role} className="bg-[#111014] text-white">
+                        {role.replace("_", " ")}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
             </div>
 
             <div className="mt-5 overflow-hidden rounded-xl border border-white/[0.08]">
-              <div className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_32px] bg-white/[0.04] px-4 py-3 font-mono text-[9px] font-bold uppercase text-zinc-500 tracking-wider">
+              <div className="grid grid-cols-[minmax(0,2.4fr)_minmax(0,1.8fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_32px] bg-white/[0.04] px-4 py-3 font-mono text-[9px] font-bold uppercase text-zinc-500 tracking-wider">
                 <span>Member</span>
-                <span>Role</span>
+                <span>Role / Position</span>
                 <span>Status</span>
-                <span>Attendance (30 Days)</span>
+                <span>Attendance</span>
                 <span className="sr-only">Actions</span>
               </div>
               <div className="divide-y divide-white/[0.06]">
@@ -429,10 +477,16 @@ export function MembersClient({
                   const isOnline = onlineMemberUserIds.length > 0 
                     ? onlineMemberUserIds.includes(member.profile.id)
                     : (member.status === "active");
+                  const memberLeadership = getMemberLeadershipRole(member.role, member.ministries);
                   const displayedMinistries = getDisplayedMinistries(member.ministries ?? [], member.role);
 
+                  const activeRoleValue = (() => {
+                    if (memberLeadership) return memberLeadership.key;
+                    return roleValues[member.id] ?? member.role;
+                  })();
+
                   return (
-                    <div key={member.id} className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_32px] items-center px-4 py-3 text-xs font-semibold group">
+                    <div key={member.id} className="grid grid-cols-[minmax(0,2.4fr)_minmax(0,1.8fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_32px] items-center px-4 py-3 text-xs font-semibold group">
                       <button
                         type="button"
                         aria-label={`View ${member.profile.fullName}`}
@@ -443,8 +497,14 @@ export function MembersClient({
                         <span className="min-w-0">
                           <span className="block font-bold text-white truncate">{member.profile.fullName}</span>
                           <span className="block text-[10px] text-zinc-400 truncate">{member.profile.email}</span>
-                          {displayedMinistries.length > 0 && (
-                            <span className="mt-1 flex flex-wrap gap-1">
+                          {(memberLeadership || displayedMinistries.length > 0) && (
+                            <span className="mt-1 flex flex-wrap items-center gap-1">
+                              {memberLeadership && (
+                                <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0 text-[9px] h-4 font-bold border", memberLeadership.badgeClass)}>
+                                  <span>{memberLeadership.iconEmoji}</span>
+                                  <span>{memberLeadership.badgeLabel}</span>
+                                </span>
+                              )}
                               {displayedMinistries.map((m) => (
                                 <Badge key={m} className="px-1.5 py-0 text-[9px] h-4 bg-violet-500/10 text-violet-300 border-violet-500/20 uppercase tracking-wider">{m}</Badge>
                               ))}
@@ -452,38 +512,58 @@ export function MembersClient({
                           )}
                         </span>
                       </button>
-                      <select
-                        aria-label={`Role for ${member.profile.fullName}`}
-                        value={roleValues[member.id] ?? member.role}
-                        disabled={isPending || member.role === "owner"}
-                        onChange={(event) => updateRole(member.id, event.target.value as TeamRole)}
-                        className="h-8 w-full max-w-[130px] rounded-lg border border-white/10 bg-white/[0.04] px-2 text-[11px] font-bold text-white outline-none focus:border-violet-400"
-                      >
-                        {member.role === "owner" && (
-                          <option value="owner" className="bg-[#111014] text-white">owner</option>
+
+                      {/* Role selection dropdown (Admin & Owner manageable) */}
+                      <div>
+                        {canManage && member.role !== "owner" ? (
+                          <select
+                            aria-label={`Role for ${member.profile.fullName}`}
+                            value={activeRoleValue}
+                            disabled={isPending}
+                            onChange={(event) => updateRole(member.id, event.target.value)}
+                            className="h-8 w-full max-w-[155px] rounded-lg border border-white/10 bg-white/[0.04] px-2 text-[11px] font-bold text-white outline-none focus:border-violet-400"
+                          >
+                            <optgroup label="👑 Leadership Roles" className="bg-[#111014] text-amber-300 font-bold">
+                              {LEADERSHIP_ROLES.map((lead) => (
+                                <option key={lead.key} value={lead.key} className="bg-[#111014] text-white">
+                                  {lead.iconEmoji} {lead.shortLabel}
+                                </option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="⚙️ Team Roles" className="bg-[#111014] text-zinc-400 font-bold">
+                              {["admin", "band_member", "dancer", "media", "member"].map((role) => (
+                                <option key={role} value={role} className="bg-[#111014] text-white">
+                                  {role.replace("_", " ")}
+                                </option>
+                              ))}
+                            </optgroup>
+                            {customRoles.length > 0 && <optgroup label="🏷️ Custom Roles" className="bg-[#111014] text-violet-300 font-bold" />}
+                            {customRoles.map((role) => (
+                              <option key={role.id} value={role.id} className="bg-[#111014] text-violet-300 font-bold">
+                                {role.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className={cn(
+                            "inline-flex items-center gap-1 rounded-md px-2 py-1 font-mono text-[10px] font-bold uppercase",
+                            member.role === "owner" ? "border border-amber-400/40 bg-amber-500/20 text-amber-300" : "bg-white/[0.06] text-zinc-300"
+                          )}>
+                            {member.role === "owner" ? "👑 Owner" : memberLeadership?.shortLabel || member.role.replace("_", " ")}
+                          </span>
                         )}
-                        {teamRoles.filter((role) => role !== "owner").map((role) => (
-                          <option key={role} value={role} className="bg-[#111014] text-white">
-                            {role.replace("_", " ")}
-                          </option>
-                        ))}
-                        {customRoles.length > 0 && <optgroup label="Custom Roles" className="bg-[#111014] text-white text-xs font-bold" />}
-                        {customRoles.map((role) => (
-                          <option key={role.id} value={role.id} className="bg-[#111014] text-violet-300 font-bold">
-                            {role.name}
-                          </option>
-                        ))}
-                      </select>
+                      </div>
+
                       <div className="flex items-center gap-2">
                         <span className={cn("size-2 rounded-full", isOnline ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-zinc-500")} />
                         <span className={cn("text-[10px] font-bold capitalize", isOnline ? "text-emerald-400" : "text-zinc-500")}>
                           {isOnline ? "Online" : "Offline"}
                         </span>
                       </div>
-                      <span className="font-bold text-zinc-200 pl-4">{member.attendanceRate}%</span>
+                      <span className="font-bold text-zinc-200 pl-2">{member.attendanceRate}%</span>
                       <button
                         type="button"
-                        disabled={isPending || member.role === "owner"}
+                        disabled={isPending || member.role === "owner" || !canManage}
                         onClick={() => kickMember(member.id)}
                         className="flex size-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition ml-auto opacity-0 group-hover:opacity-100 disabled:opacity-50"
                         aria-label={`Remove ${member.profile.fullName}`}
@@ -571,12 +651,57 @@ export function MembersClient({
               <div className="text-center mt-6">
                 <Avatar name={selectedMember.profile.fullName} src={selectedMember.profile.avatarUrl} className="size-24 mx-auto text-3xl" />
                 <h2 id="member-profile-title" className="mt-4 text-2xl font-bold">{selectedMember.profile.fullName}</h2>
-                <p className="text-zinc-400">{selectedMember.profile.email}</p>
+                <p className="text-zinc-400 text-xs">{selectedMember.profile.email}</p>
+                {selectedMemberLeadership ? (
+                  <div className="mt-3 flex justify-center">
+                    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border", selectedMemberLeadership.badgeClass)}>
+                      <span>{selectedMemberLeadership.iconEmoji}</span>
+                      <span>{selectedMemberLeadership.label}</span>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex justify-center">
+                    <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold border border-zinc-700 bg-zinc-800 text-zinc-300 capitalize">
+                      {selectedMember.role.replace("_", " ")}
+                    </span>
+                  </div>
+                )}
               </div>
               
               <div className="mt-8 space-y-6">
+                {/* Leadership role management in drawer */}
+                {canManage && selectedMember.role !== "owner" && (
+                  <div className="rounded-xl border border-amber-400/20 bg-amber-500/[0.04] p-4 space-y-2">
+                    <label className="block text-xs font-mono font-bold uppercase tracking-wider text-amber-300">
+                      Appoint Leadership Role
+                    </label>
+                    <select
+                      aria-label="Appoint leadership role"
+                      value={selectedMemberLeadership?.key || selectedMember.role}
+                      disabled={isPending}
+                      onChange={(e) => updateRole(selectedMember.id, e.target.value)}
+                      className="h-9 w-full rounded-lg border border-white/10 bg-[#17161b] px-3 text-xs font-bold text-white outline-none focus:border-violet-400"
+                    >
+                      <optgroup label="👑 Leadership Roles" className="bg-[#111014] text-amber-300 font-bold">
+                        {LEADERSHIP_ROLES.map((lead) => (
+                          <option key={lead.key} value={lead.key} className="bg-[#111014] text-white">
+                            {lead.iconEmoji} {lead.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="⚙️ Team Roles" className="bg-[#111014] text-zinc-400 font-bold">
+                        {["admin", "band_member", "dancer", "media", "member"].map((role) => (
+                          <option key={role} value={role} className="bg-[#111014] text-white">
+                            {role.replace("_", " ")}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                )}
+
                 <div>
-                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 mb-3">Ministries</h3>
+                  <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500 mb-3">Ministries & Areas</h3>
                   <div className="flex flex-wrap gap-2">
                     {selectedMemberMinistries.length > 0 ? (
                       selectedMemberMinistries.map(m => (

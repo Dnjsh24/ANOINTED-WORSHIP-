@@ -6,12 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Panel } from "@/components/ui/card";
 import { joinRequestWithRequesterProfileSelect } from "@/lib/domain/join-requests";
-import { getDisplayedMinistries } from "@/lib/domain/member-ministries";
+import { getDisplayedMinistries, getMemberLeadershipRole } from "@/lib/domain/member-ministries";
 import { members, pendingRequests } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { TeamRole } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type MemberProfileRow = {
   id: string;
@@ -130,6 +131,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
     }
   }
 
+  const memberLeadership = getMemberLeadershipRole(member.role, member.ministries);
   const displayedMinistries = getDisplayedMinistries(member.ministries, member.role);
 
   return (
@@ -138,7 +140,16 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
         <Card className="p-6 text-center">
           <Avatar name={request?.name ?? member.profile.fullName} src={member.profile.avatarUrl} className="mx-auto size-20 text-2xl" />
           <h1 className="mt-5 text-2xl font-bold">{request?.name ?? member.profile.fullName}</h1>
-          <p className="mt-1 text-sm font-semibold text-zinc-400">{request?.ministry ?? (displayedMinistries.length > 0 ? displayedMinistries.join(", ") : "Member")}</p>
+          {memberLeadership ? (
+            <div className="mt-2 flex justify-center">
+              <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border", memberLeadership.badgeClass)}>
+                <span>{memberLeadership.iconEmoji}</span>
+                <span>{memberLeadership.label}</span>
+              </span>
+            </div>
+          ) : (
+            <p className="mt-1 text-sm font-semibold text-zinc-400 capitalize">{request?.ministry ?? (displayedMinistries.length > 0 ? displayedMinistries.join(", ") : "Member")}</p>
+          )}
           <div className="mt-5 flex justify-center gap-2">
             <Badge>{request ? "Pending" : member.status}</Badge>
             {!request && <Badge>{member.attendanceRate}% Attendance</Badge>}
