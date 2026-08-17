@@ -463,17 +463,17 @@ export default async function DashboardPage() {
   return (
     <AppShell active="Home" teamContext={teamContext}>
       {/* ── Header row ─────────────────────────────── */}
-      <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between animate-fade-down">
-        <div>
+      <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between animate-fade-down min-w-0">
+        <div className="min-w-0">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">Home</h1>
-          <p className="mt-1 text-xs sm:text-sm font-semibold text-zinc-400">
-            Welcome back, <span className="text-violet-300">{firstName}</span>. Ready for {teamContext.teamName ?? "Anointed Worship"} this week.
+          <p className="mt-1 text-xs sm:text-sm font-semibold text-zinc-400 leading-snug">
+            Welcome back, <span className="text-violet-300">{firstName}</span>{teamContext.teamName ? `. Ready for ${teamContext.teamName} this week.` : ". Ready for Anointed Worship this week."}
           </p>
         </div>
         {nextEvent && (
           <Link
             href={`/events/${nextEvent.id}`}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-zinc-200 transition-all duration-200 hover:border-violet-400/50 hover:bg-white/[0.09] hover:text-white shrink-0 self-start sm:self-auto"
+            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-zinc-200 transition-all duration-200 hover:border-violet-400/50 hover:bg-white/[0.09] hover:text-white shrink-0 self-start sm:self-auto min-w-0 max-w-full"
           >
             <CalendarDays className="size-3.5 sm:size-4 text-violet-400 shrink-0" />
             <span className="truncate">Next up: {nextEvent.name}</span>
@@ -502,61 +502,63 @@ export default async function DashboardPage() {
               </div>
             </div>
 
-            <div className="relative z-10 flex h-full flex-col justify-between p-4 sm:p-6 lg:p-7">
-              <div>
+            <div className="relative z-10 flex h-full flex-col justify-between p-4 sm:p-6 lg:p-7 min-w-0">
+              <div className="min-w-0">
                 <p className="mb-1.5 sm:mb-2 flex items-center gap-1.5 font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-violet-400">
                   <CalendarDays className="size-3" /> Next Service
                 </p>
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white leading-tight">{nextSetlist?.name ?? "No Service Scheduled"}</h2>
-                <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm font-semibold text-violet-300">
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white leading-tight break-words">{nextSetlist?.name ?? "No Service Scheduled"}</h2>
+                <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm font-semibold text-violet-300 break-words">
                   {nextDateLabel}
                   {nextSetlistTypeLabel ? ` - ${nextSetlistTypeLabel}` : ""}
                 </p>
 
-                <div className="mt-3.5 sm:mt-5 flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-zinc-300">
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1 text-xs border border-white/[0.06] sm:border-0 sm:bg-transparent sm:p-0">
+                {/* Metadata badges — stack vertically on narrow phones, horizontal on sm+ */}
+                <div className="mt-3.5 sm:mt-5 grid grid-cols-1 gap-1.5 sm:flex sm:flex-wrap sm:gap-4 text-xs text-zinc-300">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1.5 sm:py-1 border border-white/[0.06] sm:border-0 sm:bg-transparent sm:p-0 min-w-0">
                     <MapPin className="size-3.5 text-violet-400 shrink-0" />
-                    <span className="font-mono text-[9px] uppercase text-zinc-400 mr-0.5">Loc:</span>
-                    <span className="truncate max-w-[120px] sm:max-w-none">{nextSetlist?.location ?? "Set a location"}</span>
+                    <span className="font-mono text-[9px] uppercase text-zinc-400 shrink-0 mr-0.5">Loc:</span>
+                    <span className="truncate min-w-0">{nextSetlist?.location ?? "Set a location"}</span>
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1 text-xs border border-white/[0.06] sm:border-0 sm:bg-transparent sm:p-0">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1.5 sm:py-1 border border-white/[0.06] sm:border-0 sm:bg-transparent sm:p-0 min-w-0">
                     <Clock className="size-3.5 text-violet-400 shrink-0" />
-                    <span className="font-mono text-[9px] uppercase text-zinc-400 mr-0.5">Call:</span>
+                    <span className="font-mono text-[9px] uppercase text-zinc-400 shrink-0 mr-0.5">Call:</span>
                     <span>{nextSetlist?.callTime ?? "--:--"}</span>
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1 text-xs border border-white/[0.06] sm:border-0 sm:bg-transparent sm:p-0">
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1.5 sm:py-1 border border-white/[0.06] sm:border-0 sm:bg-transparent sm:p-0 min-w-0">
                     <User className="size-3.5 text-violet-400 shrink-0" />
-                    <span className="font-mono text-[9px] uppercase text-zinc-400 mr-0.5">Lead:</span>
-                    <span className="truncate max-w-[120px] sm:max-w-none">{nextSetlist?.leader ?? "Unassigned"}</span>
+                    <span className="font-mono text-[9px] uppercase text-zinc-400 shrink-0 mr-0.5">Lead:</span>
+                    <span className="truncate min-w-0">{nextSetlist?.leader ?? "Unassigned"}</span>
                   </span>
                 </div>
               </div>
 
-              <div className="mt-4 sm:mt-6 grid grid-cols-1 xs:grid-cols-3 sm:flex sm:flex-wrap gap-2 sm:gap-3">
+              {/* Action buttons — full-width stacked on mobile, row on sm+ */}
+              <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3">
                 {nextEvent ? (
                   <Link
                     href={`/events/${nextEvent.id}`}
-                    className="flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm"
+                    className="flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-3.5 py-2.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm w-full sm:w-auto"
                   >
                     <CheckCircle2 className="size-3.5 sm:size-4 shrink-0" /> Confirm Availability
                   </Link>
                 ) : (
                   <Link
                     href="/events/new"
-                    className="flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm"
+                    className="flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-3.5 py-2.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm w-full sm:w-auto"
                   >
                     <CalendarDays className="size-3.5 sm:size-4 shrink-0" /> Add Event
                   </Link>
                 )}
                 <Link
                   href={nextSetlist ? `/setlists/${nextSetlist.id}` : "/setlists/new"}
-                  className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12]"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3.5 py-2.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12] w-full sm:w-auto"
                 >
                   <Music className="size-3.5 sm:size-4 shrink-0" /> {nextSetlist ? "Open Setlist" : "Create Setlist"}
                 </Link>
                 <Link
                   href="/messages"
-                  className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12]"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3.5 py-2.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12] w-full sm:w-auto"
                 >
                   <MessageSquare className="size-3.5 sm:size-4 shrink-0" /> Message Team
                 </Link>
@@ -660,11 +662,11 @@ export default async function DashboardPage() {
                         <a.icon className={`size-3 sm:size-3.5 ${a.color}`} />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-1">
-                          <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight truncate">{a.title}</p>
+                        <div className="flex flex-wrap items-start gap-x-1 gap-y-0.5">
+                          <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight flex-1 min-w-0 break-words">{a.title}</p>
                           <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[8px] sm:text-[9px] font-bold ${a.badgeColor}`}>{a.badge}</span>
                         </div>
-                        <p className="mt-0.5 text-[10px] sm:text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2">{a.body}</p>
+                        <p className="mt-0.5 text-[10px] sm:text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2 break-words">{a.body}</p>
                       </div>
                     </Link>
                   ))
@@ -694,11 +696,11 @@ export default async function DashboardPage() {
                         <r.icon className="size-3 sm:size-3.5 text-violet-300" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-1">
-                          <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight truncate">{r.title}</p>
+                        <div className="flex flex-wrap items-start gap-x-1 gap-y-0.5">
+                          <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight flex-1 min-w-0 break-words">{r.title}</p>
                           <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[8px] sm:text-[9px] font-bold ${r.dueColor}`}>{r.due}</span>
                         </div>
-                        <p className="mt-0.5 text-[10px] sm:text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2">{r.body}</p>
+                        <p className="mt-0.5 text-[10px] sm:text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2 break-words">{r.body}</p>
                       </div>
                     </Link>
                   ))
@@ -723,19 +725,17 @@ export default async function DashboardPage() {
             <div className="space-y-2.5 sm:space-y-3">
               {activityLogs.length > 0 ? (
                 activityLogs.map((log) => (
-                  <div key={log.id} className="flex gap-2 sm:gap-3 text-xs sm:text-sm border-b border-white/[0.04] pb-2.5 sm:pb-3 last:border-0 last:pb-0">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-zinc-300 truncate">
-                        <span className="font-bold text-white mr-1">{log.profile?.full_name}</span>
-                        {log.action} a {log.target_type}
-                        {log.details?.name ? (
-                          <span className="font-bold text-violet-300 ml-1">{log.details.name}</span>
-                        ) : log.details?.title ? (
-                          <span className="font-bold text-violet-300 ml-1">{log.details.title}</span>
-                        ) : null}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-[9px] sm:text-[10px] font-semibold text-zinc-500 whitespace-nowrap">
+                  <div key={log.id} className="flex flex-col gap-0.5 border-b border-white/[0.04] pb-2.5 sm:pb-3 last:border-0 last:pb-0">
+                    <p className="text-xs sm:text-sm text-zinc-300 break-words leading-snug">
+                      <span className="font-bold text-white mr-1">{log.profile?.full_name}</span>
+                      {log.action} a {log.target_type}
+                      {log.details?.name ? (
+                        <span className="font-bold text-violet-300 ml-1">{log.details.name}</span>
+                      ) : log.details?.title ? (
+                        <span className="font-bold text-violet-300 ml-1">{log.details.title}</span>
+                      ) : null}
+                    </p>
+                    <span className="text-[9px] sm:text-[10px] font-semibold text-zinc-500">
                       {new Date(log.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                     </span>
                   </div>
@@ -778,19 +778,19 @@ export default async function DashboardPage() {
       {/* ── Quick Access (Fluid 4-column on mobile, up to 8 on desktop) ─────────────────────────── */}
       <section className="mt-6 sm:mt-8 animate-fade-up" style={{ animationDelay: "260ms" }}>
         <h2 className="mb-3 sm:mb-5 text-lg sm:text-xl font-bold">Quick Access</h2>
-        <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 sm:gap-3">
+        <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-1.5 sm:gap-3">
           {quickLinks.map((item, i) => (
             <Link
               key={item.href + item.label}
               href={item.href}
-              className="group flex flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-white/10 bg-[#111014]/80 p-2 sm:p-3.5 text-center transition-all duration-200 hover:border-violet-400/40 hover:bg-white/[0.07] min-w-0"
+              className="group flex flex-col items-center justify-center gap-1 sm:gap-2 rounded-xl border border-white/10 bg-[#111014]/80 p-1.5 sm:p-3.5 text-center transition-all duration-200 hover:border-violet-400/40 hover:bg-white/[0.07] min-w-0 overflow-hidden"
               style={{ animationDelay: `${260 + i * 30}ms` }}
             >
               <span className="flex size-7 sm:size-9 items-center justify-center rounded-lg bg-violet-500/10 transition-all duration-200 group-hover:bg-violet-500/20 shrink-0">
                 <item.icon className="size-3.5 sm:size-4 text-violet-400 transition-transform duration-200 group-hover:scale-110" />
               </span>
-              <span className="w-full min-w-0">
-                <span className="block text-[11px] sm:text-xs font-bold text-white truncate">{item.label}</span>
+              <span className="w-full min-w-0 overflow-hidden">
+                <span className="block text-[10px] sm:text-xs font-bold text-white truncate leading-tight">{item.label}</span>
                 <span className="hidden sm:block mt-0.5 text-[10px] font-semibold text-zinc-500 truncate">{item.sub}</span>
               </span>
             </Link>
@@ -884,19 +884,19 @@ function MiniStatCard({
   return (
     <Link
       href={href}
-      className="group flex flex-col justify-between rounded-2xl border border-white/10 bg-[#111014]/80 p-2.5 sm:p-4 transition-all duration-200 hover:border-violet-400/30 hover:bg-white/[0.06] animate-fade-up min-w-0"
+      className="group flex flex-col justify-between rounded-2xl border border-white/10 bg-[#111014]/80 p-2 sm:p-4 transition-all duration-200 hover:border-violet-400/30 hover:bg-white/[0.06] animate-fade-up min-w-0 overflow-hidden"
     >
-      <div>
+      <div className="min-w-0">
         <div className="flex items-start justify-between gap-1">
-          <p className="font-mono text-[8px] sm:text-[9px] font-bold uppercase tracking-wider sm:tracking-widest text-zinc-400 leading-tight truncate">{label}</p>
-          <span className={`flex size-6 sm:size-7 shrink-0 items-center justify-center rounded-md sm:rounded-lg ${iconBg} transition-transform duration-200 group-hover:scale-110`}>
+          <p className="font-mono text-[7px] sm:text-[9px] font-bold uppercase tracking-wide text-zinc-400 leading-tight truncate">{label}</p>
+          <span className={`flex size-5 sm:size-7 shrink-0 items-center justify-center rounded-md sm:rounded-lg ${iconBg} transition-transform duration-200 group-hover:scale-110`}>
             {icon}
           </span>
         </div>
-        <p className="mt-1.5 sm:mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-white leading-none">{value}</p>
-        <p className={`mt-1 text-[10px] sm:text-[11px] font-bold ${subColor} leading-tight truncate`}>{sub}</p>
+        <p className="mt-1 sm:mt-3 text-xl sm:text-2xl lg:text-3xl font-extrabold text-white leading-none">{value}</p>
+        <p className={`mt-1 text-[9px] sm:text-[11px] font-bold ${subColor} leading-tight truncate`}>{sub}</p>
       </div>
-      <p className="mt-2 sm:mt-3 text-[9px] sm:text-[10px] font-bold text-zinc-500 group-hover:text-violet-400 transition-colors truncate">{linkLabel}</p>
+      <p className="mt-1.5 sm:mt-3 text-[8px] sm:text-[10px] font-bold text-zinc-500 group-hover:text-violet-400 transition-colors">{linkLabel}</p>
     </Link>
   );
 }

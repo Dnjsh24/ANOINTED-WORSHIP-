@@ -419,3 +419,24 @@ main {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ─── Mobile safety ──────────────────────────────── */
+/* Prevent ANY element from causing horizontal scroll on mobile */
+@media (max-width: 640px) {
+  /* Force all flex/grid children to respect their container width */
+  * {
+    min-width: 0;
+  }
+
+  /* Long URLs, long team names, long song names — wrap instead of overflow */
+  .break-words {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /* Hard clamp: nothing should ever escape the viewport horizontally */
+  html, body {
+    overflow-x: clip;
+    max-width: 100vw;
+  }
+}

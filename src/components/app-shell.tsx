@@ -62,7 +62,7 @@ export async function AppShell({
   }));
 
   return (
-    <div className="min-h-screen bg-[#0d0d10] text-white">
+    <div className="min-h-screen bg-[#0d0d10] text-white overflow-x-hidden">
       <header className="sticky top-0 z-30 hidden border-b border-white/10 bg-[#111014]/95 backdrop-blur md:block animate-fade-down">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/dashboard" className="text-lg font-bold text-white transition-colors duration-200 hover:text-violet-200">
@@ -95,7 +95,7 @@ export async function AppShell({
         </div>
       </header>
       <MobileIconRail active={active} items={mobileNavigation} canManageTeam={context.canManageMembers} />
-      <main className="mx-auto max-w-7xl px-3.5 sm:px-4 md:px-6 py-4 sm:py-6 pb-[calc(84px+env(safe-area-inset-bottom))] md:pb-8">{children}</main>
+      <main className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6 py-4 sm:py-6 pb-[calc(84px+env(safe-area-inset-bottom))] md:pb-8 min-w-0">{children}</main>
       <QuickReportButton />
     </div>
   );
