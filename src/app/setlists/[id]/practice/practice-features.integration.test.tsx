@@ -31,6 +31,25 @@ const mockSongs: PracticeSetlistSong[] = [
       { id: "sec-2", label: "Chorus", content: "[C]I once [G]was lost but [D]now am [Em]found" },
     ],
   },
+  {
+    slotId: "slot-2",
+    songId: "song-2",
+    order: 2,
+    timeSignature: "4/4",
+    title: "Second Practice Song",
+    bpm: 128,
+    originalKey: "E",
+    assignedKey: "E",
+    lead: "Singer B",
+    youtubeUrl: null,
+    spotifyUrl: null,
+    lyricsChords: "[Intro]\n[E]Holy [B]Lord\n[Chorus]\n[A]Praise [E]Him",
+    arrangement: "Intro, Chorus",
+    arrangementSections: [
+      { id: "sec-21", label: "Intro", content: "[E]Holy [B]Lord" },
+      { id: "sec-22", label: "Chorus", content: "[A]Praise [E]Him" },
+    ],
+  },
 ];
 
 describe("Practice Features Integration Suite", () => {
@@ -120,6 +139,41 @@ describe("Practice Features Integration Suite", () => {
     const chordTokenButton = screen.getAllByTitle("Click for G guitar chord diagram")[0];
     await user.click(chordTokenButton);
 
+    expect(screen.getByTitle("Close Diagram")).toBeInTheDocument();
+  });
+
+  it("toggles Double View in Practice Mode with left and right flanks and chord popovers", async () => {
+    const user = userEvent.setup();
+    render(
+      <PracticeModeClient
+        setlistId="setlist-1"
+        setlistName="Sunday Service Setlist"
+        songs={mockSongs}
+        canEditSong={true}
+      />,
+    );
+
+    const doubleViewBtn = screen.getByRole("button", { name: /toggle double view/i });
+    expect(doubleViewBtn).toBeInTheDocument();
+
+    // Enable double view
+    await user.click(doubleViewBtn);
+
+    expect(screen.getByText("DOUBLE VIEW")).toBeInTheDocument();
+    expect(screen.getByText("Awesome Worship Song & Second Practice Song")).toBeInTheDocument();
+    expect(screen.getByText("Amazing")).toBeInTheDocument();
+    expect(screen.getByText("Holy")).toBeInTheDocument();
+
+    // Verify left and right flanks
+    const leftFlank = screen.getByRole("complementary", { name: /song 1 arrangement controls/i });
+    const rightFlank = screen.getByRole("complementary", { name: /song 2 arrangement controls/i });
+    expect(leftFlank).toBeInTheDocument();
+    expect(rightFlank).toBeInTheDocument();
+
+    // Check chord click in Double View
+    const chordBtn = screen.getAllByTitle("Click for G chord diagram")[0];
+    expect(chordBtn).toBeInTheDocument();
+    await user.click(chordBtn);
     expect(screen.getByTitle("Close Diagram")).toBeInTheDocument();
   });
 });

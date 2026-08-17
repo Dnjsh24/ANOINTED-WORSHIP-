@@ -4,8 +4,25 @@ import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import type { CSSProperties } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, Radio, Guitar, ChevronsDown } from "lucide-react";
-import { progressionToNashville, tokensToNashville, transposeProgression, transposeTokens } from "@/lib/domain/chords";
+import {
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Minus,
+  Plus,
+  Play,
+  Square,
+  Radio,
+  Guitar,
+  ChevronsDown,
+  Columns2,
+} from "lucide-react";
+import {
+  progressionToNashville,
+  tokensToNashville,
+  transposeProgression,
+  transposeTokens,
+} from "@/lib/domain/chords";
 import { ChordNotationToggle } from "@/components/chord-notation-toggle";
 import {
   resolveArrangementSongSections,
@@ -16,6 +33,8 @@ import { createOptionalClient } from "@/lib/supabase/client";
 import { updateSetlistSongKeyAction } from "@/app/actions";
 import { getAnnotationStorageKey } from "@/lib/domain/annotations";
 import { AnnotationCanvas } from "@/components/annotation-canvas";
+import { ArrangementFlankSidebar, getSectionColorClass, getSectionAbbr } from "@/components/arrangement-flank-sidebar";
+import { DoubleViewChordColumn } from "@/components/double-view-chord-column";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MINOR_KEYS = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
@@ -48,53 +67,6 @@ function playClick(beat: number, volume: number = 0.5) {
   }
 }
 
-// Helper for abbreviation on mobile
-function getAbbr(label: string) {
-  const lbl = label.toLowerCase();
-  if (lbl.includes("pre-chorus") || lbl.includes("prechorus")) return "PC";
-  if (lbl.includes("verse")) return label.toUpperCase().replace("VERSE", "V").trim();
-  if (lbl.includes("chorus")) return label.toUpperCase().replace("CHORUS", "C").trim();
-  if (lbl.includes("bridge")) return label.toUpperCase().replace("BRIDGE", "B").trim();
-  if (lbl.includes("intro")) return "INT";
-  if (lbl.includes("outro")) return "OUT";
-  if (lbl.includes("instrumental") || lbl.includes("interlude")) return "INS";
-  return label.substring(0, 3).toUpperCase();
-}
-
-function getSectionLabelColor(label: string) {
-  const normalizedLabel = label.toLowerCase();
-
-  if (normalizedLabel.includes("pre-chorus") || normalizedLabel.includes("prechorus")) {
-    return "bg-violet-900/50 text-violet-300 border-violet-500/30";
-  }
-  if (normalizedLabel.includes("chorus")) {
-    return "bg-blue-900/50 text-blue-300 border-blue-500/30";
-  }
-  if (normalizedLabel.includes("bridge")) {
-    return "bg-rose-900/50 text-rose-300 border-rose-500/30";
-  }
-  if (normalizedLabel.includes("verse")) {
-    return "bg-emerald-900/50 text-emerald-300 border-emerald-500/30";
-  }
-  if (normalizedLabel.includes("intro")) {
-    return "bg-amber-900/50 text-amber-300 border-amber-500/30";
-  }
-  if (normalizedLabel.includes("outro") || normalizedLabel.includes("ending")) {
-    return "bg-orange-900/50 text-orange-300 border-orange-500/30";
-  }
-  if (normalizedLabel.includes("instrumental") || normalizedLabel.includes("interlude") || normalizedLabel.includes("solo")) {
-    return "bg-cyan-900/50 text-cyan-300 border-cyan-500/30";
-  }
-  if (normalizedLabel.includes("tag")) {
-    return "bg-fuchsia-900/50 text-fuchsia-300 border-fuchsia-500/30";
-  }
-  if (normalizedLabel.includes("vamp")) {
-    return "bg-lime-900/50 text-lime-300 border-lime-500/30";
-  }
-
-  return "bg-zinc-800 text-zinc-300 border-zinc-700";
-}
-
 export type StageSetlist = {
   id: string;
   date: string;
@@ -125,7 +97,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export default function StageModeClient({ setlist }: { setlist: StageSetlist }) {
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
+  const [isDoubleView, setIsDoubleView] = useState(() => {
+    try {
+      if (typeof window !== "undefined") {
+        return localStorage.getItem(`stage_double_view_${setlist.id}`) === "true";
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  });
+
+  const toggleDoubleView = () => {
+    setIsDoubleView((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(`stage_double_view_${setlist.id}`, String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  // Scroll refs for Song 1 and Song 2
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef2 = useRef<HTMLDivElement>(null);
+
   const [isScrolling, setIsScrolling] = useState(false);
   const [scrollSpeed, setScrollSpeedState] = useState(1.0);
   const scrollSpeedRef = useRef(1.0);
@@ -141,6 +139,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
   const minSwipeDistance = 60;
   const maxSwipeTime = 300;
 
+  // --- Song 1 (Primary / Left Song) ---
   const currentSetlistSong = setlist.songs[currentSongIndex];
   const currentSong = currentSetlistSong?.song;
   const rawLyrics = currentSong?.lyricsChords || "";
@@ -154,11 +153,26 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
   const [selectedKey, setSelectedKey] = useState(initialKey);
   const [guitarMode, setGuitarMode] = useState(false);
   const [capoFret, setCapoFret] = useState(0);
+
+  // --- Song 2 (Secondary / Right Song for Double View) ---
+  const secondSongIndex = currentSongIndex + 1 < setlist.songs.length ? currentSongIndex + 1 : null;
+  const secondSetlistSong = secondSongIndex !== null ? setlist.songs[secondSongIndex] : null;
+  const secondSong = secondSetlistSong?.song;
+  const rawLyrics2 = secondSong?.lyricsChords || "";
+  const sections2 = resolveArrangementSongSections(
+    rawLyrics2,
+    secondSetlistSong?.arrangementSections,
+  );
+
+  const baseKey2 = secondSong?.originalKey || "C";
+  const initialKey2 = secondSetlistSong?.assignedKey || secondSong?.originalKey || "C";
+  const [selectedKey2, setSelectedKey2] = useState(initialKey2);
+  const [guitarMode2, setGuitarMode2] = useState(false);
+  const [capoFret2, setCapoFret2] = useState(0);
+
   const [showNumbers, setShowNumbers] = useState(false);
-  
   const [metronomePlaying, setMetronomePlaying] = useState(false);
   const [currentBeat, setCurrentBeat] = useState(0);
-
   const [fontScale, setFontScale] = useState(1);
 
   // --- Phase 4: Band Leader Sync ---
@@ -192,7 +206,8 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
       })
       .on("broadcast", { event: "sync_section" }, (event: { payload?: unknown }) => {
         if (!isBroadcasting && isRecord(event.payload) && typeof event.payload.sectionIndex === "number") {
-          const el = document.getElementById(`section-${event.payload.sectionIndex}`);
+          const prefix = event.payload.columnKey ? `${event.payload.columnKey}-` : "";
+          const el = document.getElementById(`${prefix}section-${event.payload.sectionIndex}`) || document.getElementById(`section-${event.payload.sectionIndex}`);
           if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       })
@@ -203,7 +218,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
     };
   }, [setlist.id, isBroadcasting, setSyncedSongIndex, supabase]);
 
-  // Render-time state derivation for stage notes
+  // Render-time state derivation for stage notes (Song 1)
   const [prevStageSongId, setPrevStageSongId] = useState(currentSong?.id);
   const [stageNotes, setStageNotes] = useState<string | null>(() => {
     try {
@@ -243,14 +258,62 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
     }
   }
 
+  // Render-time state derivation for stage notes (Song 2)
+  const [prevStageSongId2, setPrevStageSongId2] = useState(secondSong?.id);
+  const [stageNotes2, setStageNotes2] = useState<string | null>(() => {
+    try {
+      const songId = secondSong?.id || "";
+      const setlistSongId = secondSetlistSong?.id || "";
+      const sharedKey = getAnnotationStorageKey(songId, setlist.id, setlistSongId, null, true);
+      const userKey = getAnnotationStorageKey(songId, setlist.id, setlistSongId, null, false);
+      const masterKey = getAnnotationStorageKey(songId, null, null, null, false);
+      const raw = typeof window !== "undefined" ? (localStorage.getItem(sharedKey) || localStorage.getItem(userKey) || localStorage.getItem(masterKey)) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.textNotes) return parsed.textNotes;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
 
+  if (prevStageSongId2 !== secondSong?.id) {
+    setPrevStageSongId2(secondSong?.id);
+    try {
+      const songId = secondSong?.id || "";
+      const setlistSongId = secondSetlistSong?.id || "";
+      const sharedKey = getAnnotationStorageKey(songId, setlist.id, setlistSongId, null, true);
+      const userKey = getAnnotationStorageKey(songId, setlist.id, setlistSongId, null, false);
+      const masterKey = getAnnotationStorageKey(songId, null, null, null, false);
+      const raw = typeof window !== "undefined" ? (localStorage.getItem(sharedKey) || localStorage.getItem(userKey) || localStorage.getItem(masterKey)) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setStageNotes2(parsed.textNotes || null);
+      } else {
+        setStageNotes2(null);
+      }
+    } catch {
+      setStageNotes2(null);
+    }
+  }
 
-  const handleJumpToSection = (idx: number) => {
-    const el = document.getElementById(`section-${idx}`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  const handleJumpToSection = (idx: number, targetColumn?: "song1" | "song2") => {
+    if (isDoubleView) {
+      const targetId = targetColumn === "song2" ? `song2-section-${idx}` : `song1-section-${idx}`;
+      const el = document.getElementById(targetId);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      const el = document.getElementById(`section-${idx}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
     
     if (isBroadcasting && channel.current) {
-      channel.current.send({ type: "broadcast", event: "sync_section", payload: { sectionIndex: idx } });
+      channel.current.send({
+        type: "broadcast",
+        event: "sync_section",
+        payload: { sectionIndex: idx, columnKey: targetColumn || "song1" },
+      });
     }
   };
 
@@ -260,15 +323,25 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
       setSelectedKey(currentSetlistSong?.assignedKey || currentSong?.originalKey || "C");
       setGuitarMode(false);
       setCapoFret(0);
+      setSelectedKey2(secondSetlistSong?.assignedKey || secondSong?.originalKey || "C");
+      setGuitarMode2(false);
+      setCapoFret2(0);
       setMetronomePlaying(false);
       setIsScrolling(false);
     }, 0);
     if (scrollAnimationFrameRef.current) cancelAnimationFrame(scrollAnimationFrameRef.current);
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    if (scrollRef2.current) scrollRef2.current.scrollTop = 0;
     return () => window.clearTimeout(timer);
-  }, [currentSongIndex, currentSetlistSong?.assignedKey, currentSong?.originalKey]);
+  }, [
+    currentSongIndex,
+    currentSetlistSong?.assignedKey,
+    currentSong?.originalKey,
+    secondSetlistSong?.assignedKey,
+    secondSong?.originalKey,
+  ]);
 
-  // Transpose Logic
+  // Transpose Logic for Song 1
   const isMinor = currentSong?.originalKey?.endsWith("m");
   const activeKeys = isMinor ? MINOR_KEYS : MAJOR_KEYS;
   const selectedKeyIndex = activeKeys.indexOf(selectedKey);
@@ -289,8 +362,28 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
     }
   }
 
-  // A capo raises the played chord shapes by the selected number of semitones.
-  // Move the displayed shapes down by the same amount to preserve the concert key.
+  // Transpose Logic for Song 2
+  const isMinor2 = secondSong?.originalKey?.endsWith("m");
+  const activeKeys2 = isMinor2 ? MINOR_KEYS : MAJOR_KEYS;
+  const selectedKeyIndex2 = activeKeys2.indexOf(selectedKey2);
+
+  async function changeKey2(direction: number) {
+    if (selectedKeyIndex2 === -1) return;
+    let nextIdx = (selectedKeyIndex2 + direction) % 12;
+    if (nextIdx < 0) nextIdx += 12;
+    const newKey = activeKeys2[nextIdx];
+    setSelectedKey2(newKey);
+    
+    if (secondSetlistSong?.id) {
+      const formData = new FormData();
+      formData.set("setlistId", setlist.id);
+      formData.set("slotId", secondSetlistSong.id);
+      formData.set("assignedKey", newKey);
+      updateSetlistSongKeyAction(formData).catch(console.error);
+    }
+  }
+
+  // Capo data for Song 1
   const capoData = useMemo(() => {
     if (!guitarMode) return null;
     if (selectedKeyIndex === -1) return { chordKey: selectedKey, fret: capoFret };
@@ -300,14 +393,24 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
   }, [activeKeys, capoFret, guitarMode, selectedKey, selectedKeyIndex]);
 
   const displayKey = capoData?.chordKey ?? selectedKey;
+
+  // Capo data for Song 2
+  const capoData2 = useMemo(() => {
+    if (!guitarMode2) return null;
+    if (selectedKeyIndex2 === -1) return { chordKey: selectedKey2, fret: capoFret2 };
+
+    const chordKeyIndex = (selectedKeyIndex2 - capoFret2 + activeKeys2.length) % activeKeys2.length;
+    return { chordKey: activeKeys2[chordKeyIndex] ?? selectedKey2, fret: capoFret2 };
+  }, [activeKeys2, capoFret2, guitarMode2, selectedKey2, selectedKeyIndex2]);
+
+  const displayKey2 = capoData2?.chordKey ?? selectedKey2;
   
-  // Transpose the text
+  // Transpose the text for Song 1
   const transposedSections = useMemo(() => {
     return sections.map(sec => ({
       ...sec,
       lines: sec.lines.map(line => {
         if (line.tokens) {
-          // ChordPro format: transpose each token's chord
           return { ...line, tokens: transposeTokens(line.tokens, baseKey, displayKey) };
         }
         if (!line.chords) return line;
@@ -335,6 +438,39 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
     }));
   }, [displayKey, showNumbers, transposedSections]);
 
+  // Transpose the text for Song 2
+  const transposedSections2 = useMemo(() => {
+    return sections2.map(sec => ({
+      ...sec,
+      lines: sec.lines.map(line => {
+        if (line.tokens) {
+          return { ...line, tokens: transposeTokens(line.tokens, baseKey2, displayKey2) };
+        }
+        if (!line.chords) return line;
+        const newChords = line.chords.split(/([ \t-]+)/).map(part => {
+           if (!part.trim() || part === "-" || part === "/") return part;
+           if (/^[A-Ga-g]/.test(part.trim())) {
+             return transposeProgression(part.trim(), baseKey2, displayKey2);
+           }
+           return part;
+        }).join("");
+        return { ...line, chords: newChords };
+      })
+    }));
+  }, [sections2, baseKey2, displayKey2]);
+
+  const displayedSections2 = useMemo(() => {
+    if (!showNumbers) return transposedSections2;
+    return transposedSections2.map((section) => ({
+      ...section,
+      lines: section.lines.map((line) => ({
+        ...line,
+        tokens: line.tokens ? tokensToNashville(line.tokens, displayKey2) : line.tokens,
+        chords: line.chords ? progressionToNashville(line.chords, displayKey2) : line.chords,
+      })),
+    }));
+  }, [displayKey2, showNumbers, transposedSections2]);
+
   // Auto Scroll Engine
   const toggleAutoScroll = useCallback(() => {
     if (isScrolling) {
@@ -342,21 +478,29 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
       setIsScrolling(false);
     } else {
       const scrollStep = () => {
+        const bpm = currentSong?.bpm || 70;
+        const pixelsPerFrame = (bpm / 60) * 0.3 * scrollSpeedRef.current;
+        
         if (scrollRef.current) {
-          const bpm = currentSong?.bpm || 70;
-          const pixelsPerFrame = (bpm / 60) * 0.3 * scrollSpeedRef.current; 
           scrollRef.current.scrollBy(0, pixelsPerFrame);
-          if (scrollRef.current.scrollTop + scrollRef.current.clientHeight >= scrollRef.current.scrollHeight - 2) {
-            setIsScrolling(false);
-            return;
-          }
+        }
+        if (isDoubleView && scrollRef2.current) {
+          scrollRef2.current.scrollBy(0, pixelsPerFrame);
+        }
+
+        const isScrolledToEnd = scrollRef.current &&
+          scrollRef.current.scrollTop + scrollRef.current.clientHeight >= scrollRef.current.scrollHeight - 2;
+
+        if (isScrolledToEnd) {
+          setIsScrolling(false);
+          return;
         }
         scrollAnimationFrameRef.current = requestAnimationFrame(scrollStep);
       };
       scrollAnimationFrameRef.current = requestAnimationFrame(scrollStep);
       setIsScrolling(true);
     }
-  }, [currentSong?.bpm, isScrolling]);
+  }, [currentSong?.bpm, isDoubleView, isScrolling]);
 
   // Metronome Engine
   useEffect(() => {
@@ -432,15 +576,24 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
     <div className={cn("fixed inset-0 h-[100dvh] bg-black text-white flex flex-col font-sans overflow-hidden transition-shadow duration-300 z-50", metronomePlaying && currentBeat === 1 ? "shadow-[inset_0_0_100px_rgba(255,255,255,0.1)]" : "")}>
       
       {/* Top Bar - Tools */}
-      <div className="flex items-center justify-between px-2 md:px-6 py-3 md:py-4 bg-zinc-950 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar gap-4 md:gap-8">
+      <div className="flex items-center justify-between px-2 md:px-6 py-3 md:py-4 bg-zinc-950 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar gap-4 md:gap-8 z-30">
         <div className="flex items-center gap-2 md:gap-6 shrink-0">
           <Link href={`/setlists/${setlist.id}`} className="p-2 rounded-full hover:bg-white/10 transition">
             <X className="size-5 md:size-6 text-zinc-400" />
           </Link>
           <div className="flex flex-col justify-center">
             <h1 className="text-base md:text-xl font-bold flex items-center gap-2">
-               <span className="truncate max-w-[120px] sm:max-w-[200px] md:max-w-none">{currentSong.title}</span>
-               {guitarMode && (
+               <span className="truncate max-w-[120px] sm:max-w-[200px] md:max-w-none">
+                {isDoubleView && secondSong
+                  ? `${currentSong.title} & ${secondSong.title}`
+                  : currentSong.title}
+               </span>
+               {isDoubleView && (
+                 <span className="px-1.5 py-0.5 rounded bg-violet-600/30 text-violet-300 text-[10px] md:text-xs font-black tracking-widest uppercase border border-violet-500/40 whitespace-nowrap">
+                   DOUBLE VIEW
+                 </span>
+               )}
+               {!isDoubleView && guitarMode && (
                  <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] md:text-xs font-black tracking-widest uppercase border border-red-500/30 whitespace-nowrap">
                    {capoFret === 0 ? "Open" : `Capo ${capoFret}`}
                  </span>
@@ -448,7 +601,7 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
             </h1>
             <div className="text-xs md:text-sm text-zinc-500 font-semibold leading-none mt-1 flex flex-col gap-1">
               <span>{currentSong.bpm || 70} BPM</span>
-              {currentSetlistSong.arrangement && (
+              {currentSetlistSong.arrangement && !isDoubleView && (
                 <span className="text-violet-300 truncate max-w-[200px] md:max-w-md" title={currentSetlistSong.arrangement}>
                   {currentSetlistSong.arrangement}
                 </span>
@@ -458,17 +611,36 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
         </div>
         
         {/* Stage Tools */}
-        <div className="flex items-center gap-4 md:gap-6 shrink-0">
-           {/* Transpose */}
-           <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-1">
-             <button onClick={() => changeKey(-1)} className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white">
-               <Minus className="size-4" />
-             </button>
-             <span className="w-12 text-center font-bold text-lg">{selectedKey}</span>
-             <button onClick={() => changeKey(1)} className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white">
-               <Plus className="size-4" />
-             </button>
-           </div>
+        <div className="flex items-center gap-3 md:gap-6 shrink-0">
+           {/* Double View Toggle Button */}
+           <button
+             type="button"
+             onClick={toggleDoubleView}
+             className={cn(
+               "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition border min-h-[40px]",
+               isDoubleView
+                 ? "bg-violet-600/25 border-violet-500 text-violet-200 shadow-md ring-1 ring-violet-500/50"
+                 : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10 hover:text-white"
+             )}
+             title="Toggle Double View (Side-by-Side 2 Songs on Landscape)"
+             aria-label="Toggle Double View"
+           >
+             <Columns2 className="size-4 text-violet-400" />
+             <span className="hidden sm:inline">Double View</span>
+           </button>
+
+           {/* Single View Transpose Controls */}
+           {!isDoubleView && (
+             <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-1">
+               <button onClick={() => changeKey(-1)} className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white">
+                 <Minus className="size-4" />
+               </button>
+               <span className="w-12 text-center font-bold text-lg">{selectedKey}</span>
+               <button onClick={() => changeKey(1)} className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white">
+                 <Plus className="size-4" />
+               </button>
+             </div>
+           )}
 
            <ChordNotationToggle
              value={showNumbers ? "nashville" : "chords"}
@@ -486,30 +658,32 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
              </button>
            </div>
            
-           {/* Guitar Mode (Capo) */}
-           <div className="flex items-center gap-2">
-             <button
-               onClick={() => setGuitarMode(!guitarMode)}
-               className={cn("p-3 rounded-lg transition border", guitarMode ? "bg-violet-600/20 border-violet-500/50 text-violet-400" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white")}
-               title="Guitar Mode (Capo)"
-             >
-               <Guitar className="size-5" />
-             </button>
-             {guitarMode && (
-               <select
-                 aria-label="Capo fret"
-                 value={capoFret}
-                 onChange={(event) => setCapoFret(Number(event.target.value))}
-                 className="h-11 rounded-lg border border-violet-500/50 bg-zinc-900 px-3 text-sm font-bold text-violet-300 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-500/30"
+           {/* Single View Guitar Mode (Capo) */}
+           {!isDoubleView && (
+             <div className="flex items-center gap-2">
+               <button
+                 onClick={() => setGuitarMode(!guitarMode)}
+                 className={cn("p-3 rounded-lg transition border", guitarMode ? "bg-violet-600/20 border-violet-500/50 text-violet-400" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white")}
+                 title="Guitar Mode (Capo)"
                >
-                 {CAPO_FRETS.map((fret) => (
-                   <option key={fret} value={fret}>
-                     {fret === 0 ? "Open" : `Capo ${fret}`}
-                   </option>
-                 ))}
-               </select>
-             )}
-           </div>
+                 <Guitar className="size-5" />
+               </button>
+               {guitarMode && (
+                 <select
+                   aria-label="Capo fret"
+                   value={capoFret}
+                   onChange={(event) => setCapoFret(Number(event.target.value))}
+                   className="h-11 rounded-lg border border-violet-500/50 bg-zinc-900 px-3 text-sm font-bold text-violet-300 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-500/30"
+                 >
+                   {CAPO_FRETS.map((fret) => (
+                     <option key={fret} value={fret}>
+                       {fret === 0 ? "Open" : `Capo ${fret}`}
+                     </option>
+                   ))}
+                 </select>
+               )}
+             </div>
+           )}
            
            {/* Metronome */}
            <button 
@@ -543,143 +717,221 @@ export default function StageModeClient({ setlist }: { setlist: StageSetlist }) 
              <Radio className="size-5" />
            </button>
            
-           <div className="w-px h-8 bg-white/10 mx-2" />
+           <div className="w-px h-8 bg-white/10 mx-1" />
            
            {/* Navigation */}
            <div className="flex items-center gap-1 md:gap-2 shrink-0">
-             <button onClick={() => currentSongIndex > 0 && setSyncedSongIndex(i => i - 1)} disabled={currentSongIndex === 0} className="p-2 md:p-3 rounded-full bg-white/5 hover:bg-white/10 disabled:opacity-30 transition">
+             <button
+               type="button"
+               onClick={() => currentSongIndex > 0 && setSyncedSongIndex(i => i - 1)}
+               disabled={currentSongIndex === 0}
+               className="p-2 md:p-3 rounded-full bg-white/5 hover:bg-white/10 disabled:opacity-30 transition"
+               aria-label="Previous Song"
+             >
                <ChevronLeft className="size-5 md:size-6" />
              </button>
-             <span className="text-xs md:text-sm font-bold text-zinc-500 w-8 md:w-12 text-center">
-               {currentSongIndex + 1} / {setlist.songs.length}
+             <span className="text-xs md:text-sm font-bold text-zinc-400 w-10 md:w-16 text-center font-mono">
+               {isDoubleView && secondSong
+                 ? `${currentSongIndex + 1}-${currentSongIndex + 2}/${setlist.songs.length}`
+                 : `${currentSongIndex + 1}/${setlist.songs.length}`}
              </span>
-             <button onClick={() => currentSongIndex < setlist.songs.length - 1 && setSyncedSongIndex(i => i + 1)} disabled={currentSongIndex === setlist.songs.length - 1} className="p-2 md:p-3 rounded-full bg-white/5 hover:bg-white/10 disabled:opacity-30 transition">
+             <button
+               type="button"
+               onClick={() => currentSongIndex < setlist.songs.length - 1 && setSyncedSongIndex(i => i + 1)}
+               disabled={currentSongIndex === setlist.songs.length - 1}
+               className="p-2 md:p-3 rounded-full bg-white/5 hover:bg-white/10 disabled:opacity-30 transition"
+               aria-label="Next Song"
+             >
                <ChevronRight className="size-5 md:size-6" />
              </button>
            </div>
         </div>
       </div>
 
-      {/* Arrangement Blocks (Desktop) */}
-      <div className="hidden md:flex items-center gap-2 px-6 py-3 bg-zinc-900 border-b border-white/5 overflow-x-auto no-scrollbar shrink-0">
-        {displayedSections.map((section, idx) => {
-          if (!section.label || section.label === "unknown") return null;
-          
-          const colorClass = getSectionLabelColor(section.label);
-          
-          return (
-            <button 
-              key={idx}
-              onClick={() => handleJumpToSection(idx)}
-              className={cn("px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider whitespace-nowrap border transition hover:brightness-125", colorClass)}
-            >
-              {section.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* Arrangement Blocks (Desktop Single View Header Bar) */}
+      {!isDoubleView && (
+        <div className="hidden md:flex items-center gap-2 px-6 py-3 bg-zinc-900 border-b border-white/5 overflow-x-auto no-scrollbar shrink-0 z-20">
+          {displayedSections.map((section, idx) => {
+            if (!section.label || section.label === "unknown") return null;
+            const colorClass = getSectionColorClass(section.label);
+            return (
+              <button 
+                key={idx}
+                type="button"
+                onClick={() => handleJumpToSection(idx)}
+                className={cn("px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider whitespace-nowrap border transition hover:brightness-125", colorClass)}
+              >
+                {section.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Chord Chart Area */}
-        <div 
-          ref={scrollRef} 
-          style={{ "--user-font-scale": fontScale } as FontScaleStyle}
-          className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-10 pb-64 relative"
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-        >
-        <AnnotationCanvas
-          songId={currentSong?.id || ""}
-          setlistId={setlist.id}
-          setlistSongId={currentSetlistSong?.id}
-          songTitle={currentSong?.title}
-          containerRef={scrollRef}
-        />
-        
-        <div className="max-w-4xl mx-auto space-y-8 relative z-10">
-          {stageNotes && (
-            <div className="rounded-lg border border-amber-500/40 bg-amber-950/80 p-3 text-xs font-semibold text-amber-200 shadow-md">
-              <span className="font-bold uppercase tracking-wider text-amber-400 block mb-1">Musician Notes:</span>
-              <p className="whitespace-pre-wrap">{stageNotes}</p>
-            </div>
-          )}
-          {displayedSections.map((section, idx) => (
-            <div key={idx} id={`section-${idx}`} className="space-y-3 scroll-mt-6">
-              {section.label && section.label !== "unknown" && (
-                <div className={cn(
-                  "inline-block rounded border px-3 py-1 text-xs font-bold uppercase tracking-wider",
-                  getSectionLabelColor(section.label),
-                )}>
-                  {section.label}
+      {/* Main Content Area */}
+      {isDoubleView ? (
+        /* DOUBLE VIEW: Outer Left Flank | Song 1 Column | Song 2 Column | Outer Right Flank */
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Left Flank Sidebar: Song 1 Controls */}
+          <ArrangementFlankSidebar
+            side="left"
+            songNumberLabel="Song 1"
+            songTitle={currentSong.title}
+            sections={displayedSections}
+            onJumpToSection={(idx) => handleJumpToSection(idx, "song1")}
+          />
+
+          {/* Center Left: Song 1 Chord Chart */}
+          <DoubleViewChordColumn
+            columnKey="song1"
+            songLabel="Song 1"
+            song={currentSong}
+            selectedKey={selectedKey}
+            onChangeKey={changeKey}
+            guitarMode={guitarMode}
+            onToggleGuitarMode={() => setGuitarMode(!guitarMode)}
+            capoFret={capoFret}
+            onChangeCapoFret={setCapoFret}
+            fontScale={fontScale}
+            displayedSections={displayedSections}
+            scrollRef={scrollRef}
+            setlistId={setlist.id}
+            stageNotes={stageNotes}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            className="border-r border-white/10"
+          />
+
+          {/* Center Right: Song 2 Chord Chart */}
+          <DoubleViewChordColumn
+            columnKey="song2"
+            songLabel="Song 2"
+            song={secondSong || null}
+            selectedKey={selectedKey2}
+            onChangeKey={changeKey2}
+            guitarMode={guitarMode2}
+            onToggleGuitarMode={() => setGuitarMode2(!guitarMode2)}
+            capoFret={capoFret2}
+            onChangeCapoFret={setCapoFret2}
+            fontScale={fontScale}
+            displayedSections={displayedSections2}
+            scrollRef={scrollRef2}
+            setlistId={setlist.id}
+            stageNotes={stageNotes2}
+            emptyStateMessage="End of Setlist"
+          />
+
+          {/* Right Flank Sidebar: Song 2 Controls */}
+          <ArrangementFlankSidebar
+            side="right"
+            songNumberLabel="Song 2"
+            songTitle={secondSong?.title || "End"}
+            sections={displayedSections2}
+            onJumpToSection={(idx) => handleJumpToSection(idx, "song2")}
+          />
+        </div>
+      ) : (
+        /* SINGLE VIEW: Standard Single Song Layout */
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Chord Chart Area */}
+          <div 
+            ref={scrollRef} 
+            style={{ "--user-font-scale": fontScale } as FontScaleStyle}
+            className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-10 pb-64 relative"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
+            <AnnotationCanvas
+              songId={currentSong?.id || ""}
+              setlistId={setlist.id}
+              setlistSongId={currentSetlistSong?.id}
+              songTitle={currentSong?.title}
+              containerRef={scrollRef}
+            />
+            
+            <div className="max-w-4xl mx-auto space-y-8 relative z-10">
+              {stageNotes && (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-950/80 p-3 text-xs font-semibold text-amber-200 shadow-md">
+                  <span className="font-bold uppercase tracking-wider text-amber-400 block mb-1">Musician Notes:</span>
+                  <p className="whitespace-pre-wrap">{stageNotes}</p>
                 </div>
               )}
-              <div className="space-y-4">
-                {section.lines.map((line, lIdx) => (
-                  <div key={lIdx} className="leading-relaxed max-w-full overflow-x-auto no-scrollbar">
-                    {line.tokens ? (
-                      // ChordPro inline: chord perfectly above each syllable
-                      <div className="flex flex-wrap items-end leading-none">
-                        {line.tokens.map((token, tIdx) => (
-                          <span key={tIdx} className="inline-flex flex-col items-start">
-                            <span className="font-mono font-bold text-violet-400 leading-none pb-1 min-h-[1em] block whitespace-pre text-[calc(0.85rem*var(--user-font-scale))]">
-                              {token.chord || ""}
-                            </span>
-                            <span className="font-semibold text-zinc-100 whitespace-pre text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
-                              {token.lyric || (token.chord ? "\u00a0" : "")}
-                            </span>
-                          </span>
-                        ))}
+              {displayedSections.map((section, idx) => (
+                <div key={idx} id={`section-${idx}`} className="space-y-3 scroll-mt-6">
+                  {section.label && section.label !== "unknown" && (
+                    <div className={cn(
+                      "inline-block rounded border px-3 py-1 text-xs font-bold uppercase tracking-wider",
+                      getSectionColorClass(section.label),
+                    )}>
+                      {section.label}
+                    </div>
+                  )}
+                  <div className="space-y-4">
+                    {section.lines.map((line, lIdx) => (
+                      <div key={lIdx} className="leading-relaxed max-w-full overflow-x-auto no-scrollbar">
+                        {line.tokens ? (
+                          <div className="flex flex-wrap items-end leading-none">
+                            {line.tokens.map((token, tIdx) => (
+                              <span key={tIdx} className="inline-flex flex-col items-start">
+                                <span className="font-mono font-bold text-violet-400 leading-none pb-1 min-h-[1em] block whitespace-pre text-[calc(0.85rem*var(--user-font-scale))]">
+                                  {token.chord || ""}
+                                </span>
+                                <span className="font-semibold text-zinc-100 whitespace-pre text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
+                                  {token.lyric || (token.chord ? "\u00a0" : "")}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <>
+                            {line.chords && (
+                              <div className="font-mono font-bold text-violet-400 whitespace-pre leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]">
+                                {line.chords}
+                              </div>
+                            )}
+                            {line.lyric && (
+                              <div className="font-semibold text-zinc-100 whitespace-pre-wrap leading-tight mt-1 text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
+                                {line.lyric}
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
-                    ) : (
-                      // Legacy space-aligned format
-                      <>
-                        {line.chords && (
-                          <div className="font-mono font-bold text-violet-400 whitespace-pre leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]">
-                            {line.chords}
-                          </div>
-                        )}
-                        {line.lyric && (
-                          <div className="font-semibold text-zinc-100 whitespace-pre-wrap leading-tight mt-1 text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
-                            {line.lyric}
-                          </div>
-                        )}
-                      </>
-                    )}
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      {/* Arrangement Blocks (Mobile Right Panel) */}
-      <div className="md:hidden flex flex-col items-center gap-3 py-4 w-16 bg-zinc-900 border-l border-white/5 overflow-y-auto shrink-0 z-40">
-        {displayedSections.map((section, idx) => {
-          if (!section.label || section.label === "unknown") return null;
-          
-          const colorClass = getSectionLabelColor(section.label);
-          
-          return (
-            <button 
-              key={idx}
-              onClick={() => handleJumpToSection(idx)}
-              className={cn("w-12 py-3 rounded-lg text-xs font-black uppercase tracking-tighter border transition hover:brightness-125 shadow-md", colorClass)}
-              title={section.label}
-            >
-              {getAbbr(section.label)}
-            </button>
-          );
-        })}
-      </div>
+          {/* Arrangement Blocks (Mobile Right Panel) */}
+          <div className="md:hidden flex flex-col items-center gap-3 py-4 w-16 bg-zinc-900 border-l border-white/5 overflow-y-auto shrink-0 z-40">
+            {displayedSections.map((section, idx) => {
+              if (!section.label || section.label === "unknown") return null;
+              const colorClass = getSectionColorClass(section.label);
+              return (
+                <button 
+                  key={idx}
+                  type="button"
+                  onClick={() => handleJumpToSection(idx)}
+                  className={cn("w-12 py-3 rounded-lg text-xs font-black uppercase tracking-tighter border transition hover:brightness-125 shadow-md", colorClass)}
+                  title={section.label}
+                >
+                  {getSectionAbbr(section.label)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       
       {/* Floating Auto-Scroll Status */}
       <div className="absolute bottom-8 right-8 pointer-events-none z-50">
          <div className={cn("px-4 py-2 rounded-full font-bold text-xs uppercase tracking-widest transition-opacity duration-500", isScrolling ? "opacity-100 bg-violet-600/80 text-white shadow-lg" : "opacity-0")}>
            Auto-Scrolling
          </div>
-      </div>
       </div>
     </div>
   );

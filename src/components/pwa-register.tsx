@@ -3,6 +3,17 @@
 import { useEffect, useState } from "react";
 import { Wifi, WifiOff, X } from "lucide-react";
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 export function PwaRegister({ enabled = true }: { enabled?: boolean }) {
   const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
   const [showStatusToast, setShowStatusToast] = useState(false);
@@ -75,17 +86,33 @@ export function PwaRegister({ enabled = true }: { enabled?: boolean }) {
   if (!enabled) return null;
 
   async function enablePushNotifications() {
-    if (!swRegistration || !("Notification" in window) || !("PushManager" in window)) return;
-    setPushError(null);
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") {
-      setPushError("Notifications were not enabled. You can change this in your browser settings.");
+    if (typeof window === "undefined") return;
+    if (!window.isSecureContext) {
+      setPushError("Notifications require a secure HTTPS connection or localhost.");
       return;
     }
+    if (!swRegistration || !("Notification" in window) || !("PushManager" in window)) {
+      setPushError("Push notifications are not supported on this browser.");
+      return;
+    }
+    setPushError(null);
     try {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setPushError(
+          "Notifications are blocked. Click the lock or tune icon in your address bar to set Notifications to Allow.",
+        );
+        return;
+      }
+      const rawVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!rawVapidKey) {
+        setPushError("Notification server key is not configured.");
+        return;
+      }
+      const applicationServerKey = urlBase64ToUint8Array(rawVapidKey);
       const subscription = await swRegistration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        applicationServerKey,
       });
       const response = await fetch("/api/web-push/subscribe", {
         method: "POST",
@@ -95,7 +122,11 @@ export function PwaRegister({ enabled = true }: { enabled?: boolean }) {
       if (!response.ok) throw new Error("The server could not save this notification subscription.");
       setShowPushPrompt(false);
     } catch (error) {
-      setPushError(error instanceof Error ? error.message : "Notifications could not be enabled.");
+      setPushError(
+        error instanceof Error
+          ? error.message
+          : "Notifications could not be enabled. Please check your browser permissions.",
+      );
     }
   }
 

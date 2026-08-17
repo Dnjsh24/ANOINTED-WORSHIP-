@@ -18,6 +18,7 @@ import {
   GripHorizontal,
   Maximize2,
   Columns,
+  Columns2,
   Repeat,
   Mic,
 } from "lucide-react";
@@ -44,49 +45,13 @@ import {
 import { resolveArrangementSongSections } from "@/lib/domain/arrangements";
 import { getEffectiveAssignedKey } from "@/lib/domain/setlists";
 import { updateSetlistSongKeyAction } from "@/app/actions";
+import { ArrangementFlankSidebar, getSectionColorClass, getSectionAbbr } from "@/components/arrangement-flank-sidebar";
+import { DoubleViewChordColumn } from "@/components/double-view-chord-column";
 import { cn } from "@/lib/utils";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MINOR_KEYS = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
 const CAPO_FRETS = Array.from({ length: 12 }, (_, fret) => fret);
-
-function getAbbr(label: string) {
-  const lbl = label.toLowerCase();
-  if (lbl.includes("pre-chorus") || lbl.includes("prechorus")) return "PC";
-  if (lbl.includes("verse")) return label.toUpperCase().replace("VERSE", "V").trim();
-  if (lbl.includes("chorus")) return label.toUpperCase().replace("CHORUS", "C").trim();
-  if (lbl.includes("bridge")) return label.toUpperCase().replace("BRIDGE", "B").trim();
-  if (lbl.includes("intro")) return "INT";
-  if (lbl.includes("outro")) return "OUT";
-  if (lbl.includes("instrumental") || lbl.includes("interlude")) return "INS";
-  return label.substring(0, 3).toUpperCase();
-}
-
-function getSectionLabelColor(label: string) {
-  const norm = label.toLowerCase();
-  if (norm.includes("pre-chorus") || norm.includes("prechorus")) {
-    return "bg-violet-900/50 text-violet-300 border-violet-500/30";
-  }
-  if (norm.includes("chorus")) {
-    return "bg-blue-900/50 text-blue-300 border-blue-500/30";
-  }
-  if (norm.includes("bridge")) {
-    return "bg-rose-900/50 text-rose-300 border-rose-500/30";
-  }
-  if (norm.includes("verse")) {
-    return "bg-emerald-900/50 text-emerald-300 border-emerald-500/30";
-  }
-  if (norm.includes("intro")) {
-    return "bg-amber-900/50 text-amber-300 border-amber-500/30";
-  }
-  if (norm.includes("outro") || norm.includes("ending")) {
-    return "bg-orange-900/50 text-orange-300 border-orange-500/30";
-  }
-  if (norm.includes("instrumental") || norm.includes("interlude") || norm.includes("solo")) {
-    return "bg-cyan-900/50 text-cyan-300 border-cyan-500/30";
-  }
-  return "bg-zinc-800 text-zinc-300 border-zinc-700";
-}
 
 type FontScaleStyle = CSSProperties & { "--user-font-scale": number };
 
@@ -319,6 +284,7 @@ export default function PracticeModeClient({
 
   // Chart scroll & autoscroll refs
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef2 = useRef<HTMLDivElement>(null);
   const [isScrolling, setIsScrolling] = useState(false);
   const [scrollSpeed, setScrollSpeedState] = useState(1.0);
   const scrollSpeedRef = useRef(1.0);
@@ -335,12 +301,23 @@ export default function PracticeModeClient({
   const minSwipeDistance = 60;
   const maxSwipeTime = 300;
 
-  // Stage Mode Transpose, Capo, Notation, and Font Scaling
+  // Song 1 Transpose, Capo, Notation, and Font Scaling
   const baseKey = activeSong?.originalKey || "C";
   const initialKey = getEffectiveAssignedKey(activeSong?.assignedKey, activeSong?.originalKey);
   const [selectedKey, setSelectedKey] = useState(initialKey);
   const [guitarMode, setGuitarMode] = useState(false);
   const [capoFret, setCapoFret] = useState(0);
+
+  // Song 2 for Double View
+  const secondSongIndex = currentSongIndex + 1 < songs.length ? currentSongIndex + 1 : null;
+  const secondSong = secondSongIndex !== null ? songs[secondSongIndex] : null;
+  const baseKey2 = secondSong?.originalKey || "C";
+  const initialKey2 = getEffectiveAssignedKey(secondSong?.assignedKey, secondSong?.originalKey);
+  const [selectedKey2, setSelectedKey2] = useState(initialKey2);
+  const [guitarMode2, setGuitarMode2] = useState(false);
+  const [capoFret2, setCapoFret2] = useState(0);
+  const [loopSectionIndex2, setLoopSectionIndex2] = useState<number | null>(null);
+
   const [showNumbers, setShowNumbers] = useState(false);
   const [fontScale, setFontScale] = useState(1);
 
@@ -354,7 +331,39 @@ export default function PracticeModeClient({
 
   // Advanced Feature States
   const [activeChordDiagram, setActiveChordDiagram] = useState<string | null>(null);
+  const [isDoubleView, setIsDoubleView] = useState(() => {
+    try {
+      if (typeof window !== "undefined") {
+        return localStorage.getItem(`practice_double_view_${setlistId}`) === "true";
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  });
+
+  const toggleDoubleView = () => {
+    setIsDoubleView((prev) => {
+      const next = !prev;
+      if (next) setIsSplitView(false);
+      try {
+        localStorage.setItem(`practice_double_view_${setlistId}`, String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
   const [isSplitView, setIsSplitView] = useState(false);
+  const toggleSplitView = () => {
+    setIsSplitView((prev) => {
+      const next = !prev;
+      if (next) setIsDoubleView(false);
+      return next;
+    });
+  };
+
   const [loopSectionIndex, setLoopSectionIndex] = useState<number | null>(null);
   const [showVoiceCues, setShowVoiceCues] = useState(false);
   const [readinessRating, setReadinessRating] = useState<ReadinessRating | null>(() =>
@@ -368,10 +377,14 @@ export default function PracticeModeClient({
     setSelectedKey(getEffectiveAssignedKey(activeSong?.assignedKey, activeSong?.originalKey));
     setGuitarMode(false);
     setCapoFret(0);
+    setSelectedKey2(getEffectiveAssignedKey(secondSong?.assignedKey, secondSong?.originalKey));
+    setGuitarMode2(false);
+    setCapoFret2(0);
     setIsScrolling(false);
     setMetronomePlaying(false);
     setIsPlayerPlaying(false);
     setLoopSectionIndex(null);
+    setLoopSectionIndex2(null);
     if (activeSong) {
       setReadinessRating(getSongConfidence(setlistId, activeSong.slotId));
     }
@@ -387,9 +400,12 @@ export default function PracticeModeClient({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = 0;
     }
+    if (scrollRef2.current) {
+      scrollRef2.current.scrollTop = 0;
+    }
   }, [currentSongIndex]);
 
-  // Transpose Logic
+  // Transpose Logic for Song 1
   const isMinor = activeSong?.originalKey?.endsWith("m");
   const activeKeys = isMinor ? MINOR_KEYS : MAJOR_KEYS;
   const selectedKeyIndex = activeKeys.indexOf(selectedKey);
@@ -410,6 +426,27 @@ export default function PracticeModeClient({
     }
   }
 
+  // Transpose Logic for Song 2
+  const isMinor2 = secondSong?.originalKey?.endsWith("m");
+  const activeKeys2 = isMinor2 ? MINOR_KEYS : MAJOR_KEYS;
+  const selectedKeyIndex2 = activeKeys2.indexOf(selectedKey2);
+
+  async function changeKey2(direction: number) {
+    if (selectedKeyIndex2 === -1) return;
+    let nextIdx = (selectedKeyIndex2 + direction) % 12;
+    if (nextIdx < 0) nextIdx += 12;
+    const newKey = activeKeys2[nextIdx];
+    setSelectedKey2(newKey);
+
+    if (secondSong?.slotId) {
+      const formData = new FormData();
+      formData.set("setlistId", setlistId);
+      formData.set("slotId", secondSong.slotId);
+      formData.set("assignedKey", newKey);
+      updateSetlistSongKeyAction(formData).catch(console.error);
+    }
+  }
+
   const capoData = useMemo(() => {
     if (!guitarMode) return null;
     if (selectedKeyIndex === -1) return { chordKey: selectedKey, fret: capoFret };
@@ -420,7 +457,17 @@ export default function PracticeModeClient({
 
   const displayKey = capoData?.chordKey ?? selectedKey;
 
-  // Resolve arrangement sections
+  const capoData2 = useMemo(() => {
+    if (!guitarMode2) return null;
+    if (selectedKeyIndex2 === -1) return { chordKey: selectedKey2, fret: capoFret2 };
+
+    const chordKeyIndex = (selectedKeyIndex2 - capoFret2 + activeKeys2.length) % activeKeys2.length;
+    return { chordKey: activeKeys2[chordKeyIndex] ?? selectedKey2, fret: capoFret2 };
+  }, [activeKeys2, capoFret2, guitarMode2, selectedKey2, selectedKeyIndex2]);
+
+  const displayKey2 = capoData2?.chordKey ?? selectedKey2;
+
+  // Resolve arrangement sections for Song 1
   const sections = useMemo(() => {
     if (!activeSong) return [];
     return resolveArrangementSongSections(
@@ -429,7 +476,6 @@ export default function PracticeModeClient({
     );
   }, [activeSong]);
 
-  // Transpose the text
   const transposedSections = useMemo(() => {
     return sections.map((sec) => ({
       ...sec,
@@ -457,6 +503,42 @@ export default function PracticeModeClient({
     }));
   }, [transposedSections, showNumbers, baseKey]);
 
+  // Resolve arrangement sections for Song 2
+  const sections2 = useMemo(() => {
+    if (!secondSong) return [];
+    return resolveArrangementSongSections(
+      secondSong.lyricsChords || "",
+      secondSong.arrangementSections,
+    );
+  }, [secondSong]);
+
+  const transposedSections2 = useMemo(() => {
+    return sections2.map((sec) => ({
+      ...sec,
+      lines: sec.lines.map((line) => {
+        if (line.tokens) {
+          return { ...line, tokens: transposeTokens(line.tokens, baseKey2, displayKey2) };
+        }
+        if (!line.chords) return line;
+        return { ...line, chords: transposeProgression(line.chords, baseKey2, displayKey2) };
+      }),
+    }));
+  }, [sections2, baseKey2, displayKey2]);
+
+  const displayedSections2 = useMemo(() => {
+    if (!showNumbers) return transposedSections2;
+    return transposedSections2.map((sec) => ({
+      ...sec,
+      lines: sec.lines.map((line) => {
+        if (line.tokens) {
+          return { ...line, tokens: tokensToNashville(line.tokens, baseKey2) };
+        }
+        if (!line.chords) return line;
+        return { ...line, chords: progressionToNashville(line.chords, baseKey2) };
+      }),
+    }));
+  }, [transposedSections2, showNumbers, baseKey2]);
+
   // Auto-scroll loop
   const toggleAutoScroll = () => {
     setIsScrolling((prev) => !prev);
@@ -473,15 +555,23 @@ export default function PracticeModeClient({
 
     let lastTime: number | null = null;
     const step = (timestamp: number) => {
-      if (lastTime !== null && scrollRef.current) {
+      if (lastTime !== null) {
         const delta = timestamp - lastTime;
         const pixelsPerFrame = (scrollSpeedRef.current * 30 * delta) / 1000;
-        scrollRef.current.scrollTop += pixelsPerFrame;
+        
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop += pixelsPerFrame;
+        }
+        if (isDoubleView && scrollRef2.current) {
+          scrollRef2.current.scrollTop += pixelsPerFrame;
+        }
 
-        const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-        if (scrollTop + clientHeight >= scrollHeight - 2) {
-          setIsScrolling(false);
-          return;
+        if (scrollRef.current) {
+          const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+          if (scrollTop + clientHeight >= scrollHeight - 2) {
+            setIsScrolling(false);
+            return;
+          }
         }
       }
       lastTime = timestamp;
@@ -496,13 +586,21 @@ export default function PracticeModeClient({
         scrollAnimationFrameRef.current = null;
       }
     };
-  }, [isScrolling]);
+  }, [isDoubleView, isScrolling]);
 
   // Handle section jump
-  const handleJumpToSection = (sectionIndex: number) => {
-    const el = document.getElementById(`section-${sectionIndex}`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+  const handleJumpToSection = (sectionIndex: number, targetColumn?: "song1" | "song2") => {
+    if (isDoubleView) {
+      const targetId = targetColumn === "song2" ? `song2-section-${sectionIndex}` : `song1-section-${sectionIndex}`;
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    } else {
+      const el = document.getElementById(`section-${sectionIndex}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     }
   };
 
@@ -567,12 +665,14 @@ export default function PracticeModeClient({
           <div className="flex flex-col justify-center">
             <h1 className="text-base md:text-xl font-bold flex items-center gap-2">
               <span className="truncate max-w-[120px] sm:max-w-[200px] md:max-w-none">
-                {activeSong.title}
+                {isDoubleView && secondSong
+                  ? `${activeSong.title} & ${secondSong.title}`
+                  : activeSong.title}
               </span>
               <span className="px-1.5 py-0.5 rounded bg-violet-600/30 text-violet-300 text-[10px] md:text-xs font-black tracking-widest uppercase border border-violet-500/40 whitespace-nowrap">
-                PRACTICE MODE
+                {isDoubleView ? "DOUBLE VIEW" : "PRACTICE MODE"}
               </span>
-              {guitarMode && (
+              {!isDoubleView && guitarMode && (
                 <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] md:text-xs font-black tracking-widest uppercase border border-red-500/30 whitespace-nowrap">
                   {capoFret === 0 ? "Open" : `Capo ${capoFret}`}
                 </span>
@@ -602,7 +702,7 @@ export default function PracticeModeClient({
                 {setlistName}
               </span>
               <span>• {activeSong.bpm || "--"} BPM</span>
-              {activeSong.lead && (
+              {activeSong.lead && !isDoubleView && (
                 <span className="text-violet-300 truncate max-w-[150px]">
                   Lead: {activeSong.lead}
                 </span>
@@ -615,7 +715,7 @@ export default function PracticeModeClient({
                   {vocalRange.status === "HIGH" ? "⚠️ High Key" : "ℹ️ Low Key"}
                 </span>
               )}
-              {activeSong.arrangement && (
+              {activeSong.arrangement && !isDoubleView && (
                 <span
                   className="text-zinc-400 truncate max-w-[200px] hidden sm:inline"
                   title={activeSong.arrangement}
@@ -635,28 +735,48 @@ export default function PracticeModeClient({
             activeSongSlotId={activeSong.slotId}
             activeSongTitle={activeSong.title}
           />
-          {/* Transpose */}
-          <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-1">
-            <button
-              type="button"
-              onClick={() => changeKey(-1)}
-              className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white"
-              aria-label="Lower key by half step"
-            >
-              <Minus className="size-4" />
-            </button>
-            <span className="w-12 text-center font-bold text-lg text-violet-300">
-              {selectedKey}
-            </span>
-            <button
-              type="button"
-              onClick={() => changeKey(1)}
-              className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white"
-              aria-label="Raise key by half step"
-            >
-              <Plus className="size-4" />
-            </button>
-          </div>
+
+          {/* Double View Toggle */}
+          <button
+            type="button"
+            onClick={toggleDoubleView}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition border min-h-[44px]",
+              isDoubleView
+                ? "border-violet-500 bg-violet-950/80 text-violet-200 shadow-md ring-1 ring-violet-500/50"
+                : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10",
+            )}
+            title="Toggle Double View (Side-by-Side 2 Songs on Landscape)"
+            aria-label="Toggle Double View"
+          >
+            <Columns2 className="size-4 text-violet-400" />
+            <span className="hidden sm:inline">Double View</span>
+          </button>
+
+          {/* Single View Transpose */}
+          {!isDoubleView && (
+            <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-1">
+              <button
+                type="button"
+                onClick={() => changeKey(-1)}
+                className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white"
+                aria-label="Lower key by half step"
+              >
+                <Minus className="size-4" />
+              </button>
+              <span className="w-12 text-center font-bold text-lg text-violet-300">
+                {selectedKey}
+              </span>
+              <button
+                type="button"
+                onClick={() => changeKey(1)}
+                className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white"
+                aria-label="Raise key by half step"
+              >
+                <Plus className="size-4" />
+              </button>
+            </div>
+          )}
 
           {/* Chords vs Nashville Toggle */}
           <ChordNotationToggle
@@ -687,36 +807,38 @@ export default function PracticeModeClient({
             </button>
           </div>
 
-          {/* Guitar Mode (Capo) */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setGuitarMode(!guitarMode)}
-              className={cn(
-                "p-3 rounded-lg transition border min-h-[44px]",
-                guitarMode
-                  ? "bg-violet-600/20 border-violet-500/50 text-violet-400"
-                  : "bg-white/5 border-white/10 text-zinc-400 hover:text-white",
-              )}
-              title="Guitar Mode (Capo)"
-            >
-              <Guitar className="size-5" />
-            </button>
-            {guitarMode && (
-              <select
-                aria-label="Capo fret"
-                value={capoFret}
-                onChange={(e) => setCapoFret(Number(e.target.value))}
-                className="h-11 rounded-lg border border-violet-500/50 bg-zinc-900 px-3 text-sm font-bold text-violet-300 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-500/30"
+          {/* Single View Guitar Mode (Capo) */}
+          {!isDoubleView && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setGuitarMode(!guitarMode)}
+                className={cn(
+                  "p-3 rounded-lg transition border min-h-[44px]",
+                  guitarMode
+                    ? "bg-violet-600/20 border-violet-500/50 text-violet-400"
+                    : "bg-white/5 border-white/10 text-zinc-400 hover:text-white",
+                )}
+                title="Guitar Mode (Capo)"
               >
-                {CAPO_FRETS.map((fret) => (
-                  <option key={fret} value={fret}>
-                    {fret === 0 ? "Open" : `Capo ${fret}`}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+                <Guitar className="size-5" />
+              </button>
+              {guitarMode && (
+                <select
+                  aria-label="Capo fret"
+                  value={capoFret}
+                  onChange={(e) => setCapoFret(Number(e.target.value))}
+                  className="h-11 rounded-lg border border-violet-500/50 bg-zinc-900 px-3 text-sm font-bold text-violet-300 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-500/30"
+                >
+                  {CAPO_FRETS.map((fret) => (
+                    <option key={fret} value={fret}>
+                      {fret === 0 ? "Open" : `Capo ${fret}`}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           {/* Auto Scroll Speed */}
           <div
@@ -748,21 +870,23 @@ export default function PracticeModeClient({
 
           <div className="w-px h-8 bg-white/10 mx-1" />
 
-          {/* Split View Toggle */}
-          <button
-            type="button"
-            onClick={() => setIsSplitView(!isSplitView)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition border min-h-[44px]",
-              isSplitView
-                ? "border-emerald-500/60 bg-emerald-950/80 text-emerald-200 shadow-md"
-                : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10",
-            )}
-            title="Split-Screen Layout (Chords + Goals Checklist)"
-          >
-            <Columns className="size-4 text-emerald-400" />
-            <span className="hidden sm:inline">Split View</span>
-          </button>
+          {/* Split View Toggle (Goals checklist) */}
+          {!isDoubleView && (
+            <button
+              type="button"
+              onClick={toggleSplitView}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition border min-h-[44px]",
+                isSplitView
+                  ? "border-emerald-500/60 bg-emerald-950/80 text-emerald-200 shadow-md"
+                  : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10",
+              )}
+              title="Split-Screen Layout (Chords + Goals Checklist)"
+            >
+              <Columns className="size-4 text-emerald-400" />
+              <span className="hidden sm:inline">Split View</span>
+            </button>
+          )}
 
           {/* Voice Cues Toggle */}
           <button
@@ -839,8 +963,10 @@ export default function PracticeModeClient({
             >
               <ChevronLeft className="size-5 md:size-6" />
             </button>
-            <span className="text-xs md:text-sm font-bold text-zinc-400 w-8 md:w-12 text-center font-mono">
-              {currentSongIndex + 1} / {songs.length}
+            <span className="text-xs md:text-sm font-bold text-zinc-400 w-10 md:w-16 text-center font-mono">
+              {isDoubleView && secondSong
+                ? `${currentSongIndex + 1}-${currentSongIndex + 2}/${songs.length}`
+                : `${currentSongIndex + 1}/${songs.length}`}
             </span>
             <button
               type="button"
@@ -855,34 +981,36 @@ export default function PracticeModeClient({
         </div>
       </header>
 
-      {/* Arrangement Blocks (Desktop Header Bar) */}
-      <div className="hidden md:flex items-center gap-2 px-6 py-2.5 bg-zinc-900 border-b border-white/5 overflow-x-auto no-scrollbar shrink-0 z-20">
-        {displayedSections.map((section, idx) => {
-          if (!section.label || section.label === "unknown") return null;
-          const colorClass = getSectionLabelColor(section.label);
-          const isLooping = loopSectionIndex === idx;
-          return (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => {
-                setLoopSectionIndex(isLooping ? null : idx);
-                handleJumpToSection(idx);
-              }}
-              className={cn(
-                "px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider whitespace-nowrap border transition flex items-center gap-1.5",
-                isLooping
-                  ? "bg-amber-500/30 border-amber-400 text-amber-300 ring-2 ring-amber-400/50 shadow-lg"
-                  : colorClass,
-              )}
-              title={isLooping ? "Loop Active – Click to Stop" : "Click to Jump & Loop Section"}
-            >
-              <span>{section.label}</span>
-              {isLooping && <Repeat className="size-3 text-amber-300 animate-spin" />}
-            </button>
-          );
-        })}
-      </div>
+      {/* Arrangement Blocks (Desktop Single View Header Bar) */}
+      {!isDoubleView && (
+        <div className="hidden md:flex items-center gap-2 px-6 py-2.5 bg-zinc-900 border-b border-white/5 overflow-x-auto no-scrollbar shrink-0 z-20">
+          {displayedSections.map((section, idx) => {
+            if (!section.label || section.label === "unknown") return null;
+            const colorClass = getSectionColorClass(section.label);
+            const isLooping = loopSectionIndex === idx;
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setLoopSectionIndex(isLooping ? null : idx);
+                  handleJumpToSection(idx);
+                }}
+                className={cn(
+                  "px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider whitespace-nowrap border transition flex items-center gap-1.5",
+                  isLooping
+                    ? "bg-amber-500/30 border-amber-400 text-amber-300 ring-2 ring-amber-400/50 shadow-lg"
+                    : colorClass,
+                )}
+                title={isLooping ? "Loop Active – Click to Stop" : "Click to Jump & Loop Section"}
+              >
+                <span>{section.label}</span>
+                {isLooping && <Repeat className="size-3 text-amber-300 animate-spin" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Voice Cue Section Overlay Banner */}
       {showVoiceCues && displayedSections.length > 0 && (
@@ -898,149 +1026,220 @@ export default function PracticeModeClient({
         </div>
       )}
 
-      {/* Main Container: Chart View + Split View Goals Panel */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Full Scrollable Stage Chord Chart Area */}
-        <div
-          ref={scrollRef}
-          style={{ "--user-font-scale": fontScale } as FontScaleStyle}
-          className={cn(
-            "overflow-y-auto overflow-x-hidden px-4 md:px-8 py-8 pb-64 relative z-10 transition-all duration-300",
-            isSplitView ? "w-full md:w-3/5 border-r border-white/10" : "flex-1 w-full",
-          )}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-        >
-          {/* Unified Text Notes & Drawing Canvas Toolbar */}
-          <AnnotationCanvas
-            songId={activeSong.songId || activeSong.slotId}
-            setlistId={setlistId}
-            setlistSongId={activeSong.slotId}
+      {/* Main Container Area */}
+      {isDoubleView ? (
+        /* DOUBLE VIEW: Left Flank | Song 1 Column | Song 2 Column | Right Flank */
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Left Flank Sidebar: Song 1 Sections */}
+          <ArrangementFlankSidebar
+            side="left"
+            songNumberLabel="Song 1"
             songTitle={activeSong.title}
-            containerRef={scrollRef}
+            sections={displayedSections}
+            activeLoopIndex={loopSectionIndex}
+            onJumpToSection={(idx) => handleJumpToSection(idx, "song1")}
+            onToggleLoopSection={(idx) => setLoopSectionIndex(loopSectionIndex === idx ? null : idx)}
           />
 
-          <div className="max-w-4xl mx-auto space-y-8 relative z-10">
-            {/* Song Sections Display */}
-            {displayedSections.length > 0 ? (
-              displayedSections.map((section, idx) => (
-                <div key={idx} id={`section-${idx}`} className="space-y-3 scroll-mt-6">
-                  {section.label && section.label !== "unknown" && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoopSectionIndex(loopSectionIndex === idx ? null : idx);
-                        handleJumpToSection(idx);
-                      }}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded border px-3 py-1 text-xs font-bold uppercase tracking-wider transition hover:brightness-125",
-                        loopSectionIndex === idx
-                          ? "bg-amber-500/30 border-amber-400 text-amber-300 ring-2 ring-amber-400/50"
-                          : getSectionLabelColor(section.label),
-                      )}
-                      title="Click to loop this section"
-                    >
-                      <span>{section.label}</span>
-                      {loopSectionIndex === idx && (
-                        <Repeat className="size-3 text-amber-300 animate-spin" />
-                      )}
-                    </button>
-                  )}
-                  <div className="space-y-4">
-                    {section.lines.map((line, lIdx) => (
-                      <div
-                        key={lIdx}
-                        className="leading-relaxed max-w-full overflow-x-auto no-scrollbar"
-                      >
-                        {line.tokens ? (
-                          // Syllable-aligned ChordPro format with clickable chord diagrams
-                          <div className="flex flex-wrap items-end leading-none">
-                            {line.tokens.map((token, tIdx) => (
-                              <span key={tIdx} className="inline-flex flex-col items-start">
-                                {token.chord ? (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setActiveChordDiagram(token.chord || null);
-                                    }}
-                                    className="font-mono font-bold text-violet-400 hover:text-violet-200 hover:underline cursor-pointer leading-none pb-1 min-h-[1em] block whitespace-pre text-[calc(0.85rem*var(--user-font-scale))]"
-                                    title={`Click for ${token.chord} guitar chord diagram`}
-                                  >
-                                    {token.chord}
-                                  </button>
-                                ) : (
-                                  <span className="pb-1 min-h-[1em] block font-mono text-[calc(0.85rem*var(--user-font-scale))]" />
-                                )}
-                                <span className="font-semibold text-zinc-100 whitespace-pre text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
-                                  {token.lyric || (token.chord ? "\u00a0" : "")}
-                                </span>
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          // Space-aligned format fallback
-                          <>
-                            {line.chords && (
-                              <div className="font-mono font-bold text-violet-400 whitespace-pre leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]">
-                                {line.chords}
-                              </div>
-                            )}
-                            {line.lyric && (
-                              <div className="font-semibold text-zinc-100 whitespace-pre-wrap leading-tight mt-1 text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
-                                {line.lyric}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="p-12 text-center text-zinc-500 italic font-semibold">
-                No lyrics or chords found for this song.
-              </div>
+          {/* Center Left: Song 1 Chord Chart */}
+          <DoubleViewChordColumn
+            columnKey="song1"
+            songLabel="Song 1"
+            song={activeSong}
+            selectedKey={selectedKey}
+            onChangeKey={changeKey}
+            guitarMode={guitarMode}
+            onToggleGuitarMode={() => setGuitarMode(!guitarMode)}
+            capoFret={capoFret}
+            onChangeCapoFret={setCapoFret}
+            fontScale={fontScale}
+            displayedSections={displayedSections}
+            scrollRef={scrollRef}
+            setlistId={setlistId}
+            activeLoopIndex={loopSectionIndex}
+            onToggleLoopSection={(idx) => setLoopSectionIndex(loopSectionIndex === idx ? null : idx)}
+            onChordClick={(chord) => setActiveChordDiagram(chord)}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            className="border-r border-white/10"
+          />
+
+          {/* Center Right: Song 2 Chord Chart */}
+          <DoubleViewChordColumn
+            columnKey="song2"
+            songLabel="Song 2"
+            song={secondSong || null}
+            selectedKey={selectedKey2}
+            onChangeKey={changeKey2}
+            guitarMode={guitarMode2}
+            onToggleGuitarMode={() => setGuitarMode2(!guitarMode2)}
+            capoFret={capoFret2}
+            onChangeCapoFret={setCapoFret2}
+            fontScale={fontScale}
+            displayedSections={displayedSections2}
+            scrollRef={scrollRef2}
+            setlistId={setlistId}
+            activeLoopIndex={loopSectionIndex2}
+            onToggleLoopSection={(idx) => setLoopSectionIndex2(loopSectionIndex2 === idx ? null : idx)}
+            onChordClick={(chord) => setActiveChordDiagram(chord)}
+            emptyStateMessage="End of Setlist"
+          />
+
+          {/* Right Flank Sidebar: Song 2 Sections */}
+          <ArrangementFlankSidebar
+            side="right"
+            songNumberLabel="Song 2"
+            songTitle={secondSong?.title || "End"}
+            sections={displayedSections2}
+            activeLoopIndex={loopSectionIndex2}
+            onJumpToSection={(idx) => handleJumpToSection(idx, "song2")}
+            onToggleLoopSection={(idx) => setLoopSectionIndex2(loopSectionIndex2 === idx ? null : idx)}
+          />
+        </div>
+      ) : (
+        /* SINGLE VIEW: Original Chart View + Split View Goals Panel */
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Full Scrollable Stage Chord Chart Area */}
+          <div
+            ref={scrollRef}
+            style={{ "--user-font-scale": fontScale } as FontScaleStyle}
+            className={cn(
+              "overflow-y-auto overflow-x-hidden px-4 md:px-8 py-8 pb-64 relative z-10 transition-all duration-300",
+              isSplitView ? "w-full md:w-3/5 border-r border-white/10" : "flex-1 w-full",
             )}
-          </div>
-        </div>
-
-        {/* Split View Right Side Panel: Goals & Readiness Checklist */}
-        {isSplitView && (
-          <div className="hidden md:flex flex-col w-2/5 p-4 bg-zinc-950 border-l border-white/10 overflow-y-auto no-scrollbar z-20 animate-in fade-in slide-in-from-right-4 duration-300">
-            <PracticeChecklist
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
+            {/* Unified Text Notes & Drawing Canvas Toolbar */}
+            <AnnotationCanvas
+              songId={activeSong.songId || activeSong.slotId}
               setlistId={setlistId}
-              songSlotId={activeSong.slotId}
+              setlistSongId={activeSong.slotId}
               songTitle={activeSong.title}
-              onRatingChange={(newRating) => setReadinessRating(newRating)}
+              containerRef={scrollRef}
             />
-          </div>
-        )}
 
-        {/* Mobile Right Side Arrangement Jump Blocks */}
-        <div className="md:hidden flex flex-col items-center gap-3 py-4 w-16 bg-zinc-900 border-l border-white/5 overflow-y-auto shrink-0 z-20">
-          {displayedSections.map((section, idx) => {
-            if (!section.label || section.label === "unknown") return null;
-            const colorClass = getSectionLabelColor(section.label);
-            return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleJumpToSection(idx)}
-                className={cn(
-                  "w-12 py-3 rounded-lg text-xs font-black uppercase tracking-tighter border transition hover:brightness-125 shadow-md",
-                  colorClass,
-                )}
-                title={section.label}
-              >
-                {getAbbr(section.label)}
-              </button>
-            );
-          })}
+            <div className="max-w-4xl mx-auto space-y-8 relative z-10">
+              {/* Song Sections Display */}
+              {displayedSections.length > 0 ? (
+                displayedSections.map((section, idx) => (
+                  <div key={idx} id={`section-${idx}`} className="space-y-3 scroll-mt-6">
+                    {section.label && section.label !== "unknown" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLoopSectionIndex(loopSectionIndex === idx ? null : idx);
+                          handleJumpToSection(idx);
+                        }}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded border px-3 py-1 text-xs font-bold uppercase tracking-wider transition hover:brightness-125",
+                          loopSectionIndex === idx
+                            ? "bg-amber-500/30 border-amber-400 text-amber-300 ring-2 ring-amber-400/50"
+                            : getSectionColorClass(section.label),
+                        )}
+                        title="Click to loop this section"
+                      >
+                        <span>{section.label}</span>
+                        {loopSectionIndex === idx && (
+                          <Repeat className="size-3 text-amber-300 animate-spin" />
+                        )}
+                      </button>
+                    )}
+                    <div className="space-y-4">
+                      {section.lines.map((line, lIdx) => (
+                        <div
+                          key={lIdx}
+                          className="leading-relaxed max-w-full overflow-x-auto no-scrollbar"
+                        >
+                          {line.tokens ? (
+                            <div className="flex flex-wrap items-end leading-none">
+                              {line.tokens.map((token, tIdx) => (
+                                <span key={tIdx} className="inline-flex flex-col items-start">
+                                  {token.chord ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveChordDiagram(token.chord || null);
+                                      }}
+                                      className="font-mono font-bold text-violet-400 hover:text-violet-200 hover:underline cursor-pointer leading-none pb-1 min-h-[1em] block whitespace-pre text-[calc(0.85rem*var(--user-font-scale))]"
+                                      title={`Click for ${token.chord} guitar chord diagram`}
+                                    >
+                                      {token.chord}
+                                    </button>
+                                  ) : (
+                                    <span className="pb-1 min-h-[1em] block font-mono text-[calc(0.85rem*var(--user-font-scale))]" />
+                                  )}
+                                  <span className="font-semibold text-zinc-100 whitespace-pre text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
+                                    {token.lyric || (token.chord ? "\u00a0" : "")}
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <>
+                              {line.chords && (
+                                <div className="font-mono font-bold text-violet-400 whitespace-pre leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]">
+                                  {line.chords}
+                                </div>
+                              )}
+                              {line.lyric && (
+                                <div className="font-semibold text-zinc-100 whitespace-pre-wrap leading-tight mt-1 text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
+                                  {line.lyric}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-12 text-center text-zinc-500 italic font-semibold">
+                  No lyrics or chords found for this song.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Split View Right Side Panel: Goals & Readiness Checklist */}
+          {isSplitView && (
+            <div className="hidden md:flex flex-col w-2/5 p-4 bg-zinc-950 border-l border-white/10 overflow-y-auto no-scrollbar z-20 animate-in fade-in slide-in-from-right-4 duration-300">
+              <PracticeChecklist
+                setlistId={setlistId}
+                songSlotId={activeSong.slotId}
+                songTitle={activeSong.title}
+                onRatingChange={(newRating) => setReadinessRating(newRating)}
+              />
+            </div>
+          )}
+
+          {/* Mobile Right Side Arrangement Jump Blocks */}
+          <div className="md:hidden flex flex-col items-center gap-3 py-4 w-16 bg-zinc-900 border-l border-white/5 overflow-y-auto shrink-0 z-20">
+            {displayedSections.map((section, idx) => {
+              if (!section.label || section.label === "unknown") return null;
+              const colorClass = getSectionColorClass(section.label);
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleJumpToSection(idx)}
+                  className={cn(
+                    "w-12 py-3 rounded-lg text-xs font-black uppercase tracking-tighter border transition hover:brightness-125 shadow-md",
+                    colorClass,
+                  )}
+                  title={section.label}
+                >
+                  {getSectionAbbr(section.label)}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* FLOATING PRACTICE PANELS (Freely Draggable Windowed Panels) */}
 

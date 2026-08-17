@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import StageModeClient, { type StageSetlist } from "./stage-mode-client";
 
 vi.mock("@/app/actions", () => ({
-  updateSetlistSongKeyAction: vi.fn(),
+  updateSetlistSongKeyAction: vi.fn().mockResolvedValue({ success: true }),
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -20,7 +20,7 @@ const setlist: StageSetlist = {
       id: "slot-1",
       order: 1,
       assignedKey: "G",
-      lead: "",
+      lead: "Leader 1",
       youtubeUrl: null,
       arrangement: null,
       arrangementSections: null,
@@ -29,7 +29,23 @@ const setlist: StageSetlist = {
         title: "Stage Number Song",
         bpm: 72,
         originalKey: "G",
-        lyricsChords: "[Verse]\nG D Em C\nSing the progression",
+        lyricsChords: "[Verse 1]\nG D Em C\nSing the progression\n[Chorus]\nC G D Em\nChorus of song 1",
+      },
+    },
+    {
+      id: "slot-2",
+      order: 2,
+      assignedKey: "D",
+      lead: "Leader 2",
+      youtubeUrl: null,
+      arrangement: null,
+      arrangementSections: null,
+      song: {
+        id: "song-2",
+        title: "Second Worship Song",
+        bpm: 120,
+        originalKey: "D",
+        lyricsChords: "[Intro]\nD A Bm G\n[Verse 1]\nD A Bm G\nSecond song verses",
       },
     },
   ],
@@ -152,5 +168,50 @@ describe("StageModeClient notation and annotations", () => {
 
     await user.click(drawBtn);
     expect(screen.getByRole("button", { name: /drawing on/i })).toBeInTheDocument();
+  });
+
+  it("toggles Double View and renders side-by-side songs with left and right flank controls", async () => {
+    const user = userEvent.setup();
+    render(<StageModeClient setlist={setlist} />);
+
+    const doubleViewBtn = screen.getByRole("button", { name: /toggle double view/i });
+    expect(doubleViewBtn).toBeInTheDocument();
+
+    // Enable double view
+    await user.click(doubleViewBtn);
+
+    // Both songs should now be visible simultaneously
+    expect(screen.getByText("DOUBLE VIEW")).toBeInTheDocument();
+    expect(screen.getByText("Stage Number Song & Second Worship Song")).toBeInTheDocument();
+    expect(screen.getByText("Sing the progression")).toBeInTheDocument();
+    expect(screen.getByText("Second song verses")).toBeInTheDocument();
+
+    // Check Outer Left Flank Sidebar (Song 1)
+    const leftFlank = screen.getByRole("complementary", { name: /song 1 arrangement controls/i });
+    expect(leftFlank).toBeInTheDocument();
+    expect(within(leftFlank).getByRole("button", { name: /jump to verse 1 on song 1/i })).toBeInTheDocument();
+    expect(within(leftFlank).getByRole("button", { name: /jump to chorus on song 1/i })).toBeInTheDocument();
+
+    // Check Outer Right Flank Sidebar (Song 2)
+    const rightFlank = screen.getByRole("complementary", { name: /song 2 arrangement controls/i });
+    expect(rightFlank).toBeInTheDocument();
+    expect(within(rightFlank).getByRole("button", { name: /jump to intro on song 2/i })).toBeInTheDocument();
+    expect(within(rightFlank).getByRole("button", { name: /jump to verse 1 on song 2/i })).toBeInTheDocument();
+
+    // Test clicking a section on the flank sidebars
+    const scrollIntoViewMock = vi.fn();
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+
+    await user.click(within(leftFlank).getByRole("button", { name: /jump to chorus on song 1/i }));
+    expect(scrollIntoViewMock).toHaveBeenCalled();
+
+    // Test Transposing Song 1 and Song 2 independently
+    const raiseSong1KeyBtn = screen.getByRole("button", { name: /raise song 1 key/i });
+    await user.click(raiseSong1KeyBtn);
+    expect(screen.getByText("Ab")).toBeInTheDocument();
+
+    // Toggle back to Single View
+    await user.click(doubleViewBtn);
+    expect(screen.queryByText("DOUBLE VIEW")).not.toBeInTheDocument();
   });
 });

@@ -13,7 +13,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
-    exclude: ["node_modules/**", ".next/**", "e2e/**", "desktop/**"],
+    exclude: ["node_modules/**", "**/node_modules/**", ".next/**", "e2e/**", "desktop/**", "anointed-worship-mobile/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
