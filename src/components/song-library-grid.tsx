@@ -89,67 +89,71 @@ export function SongLibraryGrid({ songs }: { songs: Song[] }) {
                 </div>
               </div>
             )}
-            <div className="mt-5 sm:mt-8 grid gap-3.5 sm:gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-5 sm:mt-8 grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
               {sortedSongs.map((song) => (
-                <Card key={song.id} className="p-3.5 sm:p-5">
-                  <div className="flex items-start justify-between gap-2.5 sm:gap-3">
-                    <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
-                      {song.imageUrl ? (
-                        <Image unoptimized width={56} height={56} src={song.imageUrl} alt={song.title} className="size-11 sm:size-14 rounded-md object-cover shadow-sm shrink-0" />
-                      ) : (
-                        <div className="size-11 sm:size-14 rounded-md bg-white/10 flex items-center justify-center shrink-0">
-                          <Play className="size-4 sm:size-5 text-zinc-400" />
-                        </div>
-                      )}
-                      <div>
-                        <Link href={`/songs/${song.id}`} className="font-bold text-white hover:text-violet-100">
-                          {song.title}
-                        </Link>
-                        <p className="mt-1 text-sm font-semibold text-zinc-300">{song.artist}</p>
-                        {song.album && (
-                          <p className="mt-0.5 text-xs font-semibold text-zinc-400 italic">
-                            Album: {song.album}
-                          </p>
+                <Card key={song.id} className="p-3.5 sm:p-4.5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-start justify-between gap-2.5 sm:gap-3">
+                      <div className="flex items-start gap-2.5 sm:gap-3.5 flex-1 min-w-0">
+                        {song.imageUrl ? (
+                          <Image unoptimized width={48} height={48} src={song.imageUrl} alt={song.title} className="size-10 sm:size-12 rounded-xl object-cover shadow-sm shrink-0 aspect-square" />
+                        ) : (
+                          <div className="size-10 sm:size-12 rounded-xl bg-white/[0.06] flex items-center justify-center shrink-0 aspect-square">
+                            <Play className="size-4 text-violet-300 fill-violet-300 ml-0.5" />
+                          </div>
                         )}
+                        <div className="min-w-0 flex-1">
+                          <Link href={`/songs/${song.id}`} className="font-bold text-sm sm:text-base text-white hover:text-violet-300 transition block truncate">
+                            {song.title}
+                          </Link>
+                          <p className="mt-0.5 text-xs font-semibold text-zinc-300 truncate">{song.artist}</p>
+                          {song.album && (
+                            <p className="mt-0.5 text-[11px] font-medium text-zinc-400 italic truncate">
+                              Album: {song.album}
+                            </p>
+                          )}
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        aria-label={`${favoriteIds.has(song.id) ? "Remove" : "Add"} ${song.title} favorite`}
+                        className="rounded-md p-1 text-violet-200 hover:bg-white/[0.06] shrink-0"
+                        disabled={isPending}
+                        onClick={() => toggleFavorite(song)}
+                      >
+                        <Heart className={favoriteIds.has(song.id) ? "size-4.5 fill-violet-400 text-violet-400" : "size-4.5 text-zinc-400 hover:text-white"} />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      aria-label={`${favoriteIds.has(song.id) ? "Remove" : "Add"} ${song.title} favorite`}
-                      className="rounded-md p-1 text-violet-200 hover:bg-white/[0.06]"
-                      disabled={isPending}
-                      onClick={() => toggleFavorite(song)}
-                    >
-                      <Heart className={favoriteIds.has(song.id) ? "size-5 fill-violet-200 text-violet-200" : "size-5 text-violet-200"} />
-                    </button>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Badge>Key: {song.currentKey}</Badge>
-                    <Badge>{song.bpm} BPM</Badge>
-                    <Badge>{song.timeSignature}</Badge>
-                    {(song.playCount ?? 0) > 0 && (
-                      <Badge className="bg-violet-500/20 text-violet-300 border-violet-500/30">
-                        Played {song.playCount} {song.playCount === 1 ? "time" : "times"}
-                      </Badge>
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                      <Badge className="px-2 py-0.5 text-[10px]">Key: {song.currentKey}</Badge>
+                      <Badge className="px-2 py-0.5 text-[10px]">{song.bpm} BPM</Badge>
+                      <Badge className="px-2 py-0.5 text-[10px]">{song.timeSignature}</Badge>
+                      {(song.playCount ?? 0) > 0 && (
+                        <Badge className="bg-violet-500/20 text-violet-300 border-violet-500/30 px-2 py-0.5 text-[10px]">
+                          Played {song.playCount} {song.playCount === 1 ? "time" : "times"}
+                        </Badge>
+                      )}
+                    </div>
+                    {song.tags.length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {song.tags.map((tag) => (
+                          <Badge key={tag} className="text-zinc-300 bg-white/[0.03] text-[9px] px-1.5 py-0.5">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {song.tags.map((tag) => (
-                      <Badge key={tag} className="text-zinc-200">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                  <div className="mt-6 border-t border-white/10 pt-4 flex items-center gap-4">
-                    <Link href={`/songs/${song.id}`} className="text-sm font-bold text-violet-200 hover:text-violet-100">
+                  <div className="mt-3.5 border-t border-white/[0.06] pt-3 flex items-center gap-3">
+                    <Link href={`/songs/${song.id}`} className="text-xs font-bold text-violet-300 hover:text-white transition">
                       View Chords
                     </Link>
-                    <Link href={`/songs/${song.id}/edit`} className="text-sm font-bold text-violet-200 hover:text-violet-100">
+                    <Link href={`/songs/${song.id}/edit`} className="text-xs font-bold text-zinc-400 hover:text-zinc-200 transition">
                       Edit
                     </Link>
                     {song.youtubeUrl && (
-                      <Link href={`/songs/${song.id}`} className="ml-auto flex items-center gap-1.5 rounded-lg bg-red-600/20 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-600/30">
-                        <Play className="size-3.5 fill-red-300" />
+                      <Link href={`/songs/${song.id}`} className="ml-auto flex items-center gap-1 rounded-md bg-red-600/15 px-2.5 py-1 text-[11px] font-bold text-red-300 hover:bg-red-600/25 transition">
+                        <Play className="size-3 fill-red-300" />
                         Watch
                       </Link>
                     )}

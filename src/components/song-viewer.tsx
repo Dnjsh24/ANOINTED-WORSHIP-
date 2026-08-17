@@ -142,6 +142,7 @@ export function SongViewer({
   const [showNumbers, setShowNumbers] = useState(false);
   const [instrument, setInstrument] = useState<"piano" | "guitar" | "bass">("guitar");
   const [showChords] = useState(true);
+  const [showChordShapes, setShowChordShapes] = useState(true);
 
   // Metronome State
   const [metronomePlaying, setMetronomePlaying] = useState(false);
@@ -410,33 +411,50 @@ export function SongViewer({
 
       {/* Chord Shapes Card on Top */}
       {showChords && uniqueChords.length > 0 && (
-        <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-4 sm:p-5">
-          <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/[0.04]">
-            <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-500">Chord Shapes</h3>
+        <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-3 sm:p-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Instrument:</span>
-              <select
-                value={instrument}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  if (value === "piano" || value === "guitar" || value === "bass") {
-                    setInstrument(value);
-                  }
-                }}
-                className="bg-[#17161b] rounded-lg border border-white/10 px-2.5 py-1 text-xs font-bold text-violet-400 outline-none"
+              <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-zinc-400">
+                Chord Shapes ({uniqueChords.length})
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowChordShapes((prev) => !prev)}
+                className="text-[10px] font-bold text-violet-400 hover:text-violet-300 transition underline underline-offset-2 ml-1"
               >
-                <option value="guitar" className="bg-[#111014] text-white">Guitar</option>
-                <option value="piano" className="bg-[#111014] text-white">Piano</option>
-                <option value="bass" className="bg-[#111014] text-white">Bass</option>
-              </select>
+                {showChordShapes ? "Hide Shapes" : "Show Shapes"}
+              </button>
             </div>
+            {showChordShapes && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide hidden sm:inline">Instrument:</span>
+                <select
+                  value={instrument}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (value === "piano" || value === "guitar" || value === "bass") {
+                      setInstrument(value);
+                    }
+                  }}
+                  className="bg-[#17161b] rounded-lg border border-white/10 px-2 py-0.5 text-[11px] font-bold text-violet-400 outline-none"
+                >
+                  <option value="guitar" className="bg-[#111014] text-white">Guitar</option>
+                  <option value="piano" className="bg-[#111014] text-white">Piano</option>
+                  <option value="bass" className="bg-[#111014] text-white">Bass</option>
+                </select>
+              </div>
+            )}
           </div>
-          <ChordDiagrams
-            uniqueChords={uniqueChords}
-            instrument={instrument}
-            showNumbers={showNumbers}
-            selectedKey={selectedKey}
-          />
+          {showChordShapes && (
+            <div className="mt-2.5 pt-2 border-t border-white/[0.04]">
+              <ChordDiagrams
+                uniqueChords={uniqueChords}
+                instrument={instrument}
+                showNumbers={showNumbers}
+                selectedKey={selectedKey}
+              />
+            </div>
+          )}
         </div>
       )}
 

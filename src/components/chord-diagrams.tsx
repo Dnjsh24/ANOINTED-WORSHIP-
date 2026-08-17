@@ -25,13 +25,10 @@ export function ChordDiagrams({
   if (uniqueChords.length === 0) return null;
 
   return (
-    <div className="mt-6">
-      <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-4">
-        {instrument} Chord Diagrams ({uniqueChords.length})
-      </h3>
-      <div className="flex overflow-x-auto gap-4 pb-4 snap-x">
+    <div className="mt-3">
+      <div className="flex overflow-x-auto gap-2 sm:gap-3 pb-2 no-scrollbar snap-x">
         {uniqueChords.map((chord) => (
-          <div key={chord} className="shrink-0 w-[140px] snap-start">
+          <div key={chord} className="shrink-0 w-[82px] sm:w-[110px] snap-start">
             <ChordCard
               chord={chord}
               instrument={instrument}
@@ -63,31 +60,31 @@ function ChordCard({ chord, instrument, showNumbers, selectedKey }: ChordCardPro
   const currentShape = guitarShapes[variationIndex % guitarShapes.length];
 
   return (
-    <div className="flex flex-col items-center rounded-lg border border-white/10 bg-[#16151a] p-4 text-center hover:border-violet-400/40 transition relative group">
-      <p className="text-base font-bold text-violet-200 mb-3">{displayLabel}</p>
+    <div className="flex flex-col items-center rounded-xl border border-white/[0.08] bg-[#16151a] p-2 sm:p-3 text-center hover:border-violet-400/40 transition relative group">
+      <p className="text-xs sm:text-sm font-bold text-violet-200 mb-1 leading-tight">{displayLabel}</p>
       
-      <div className="w-full flex justify-center items-center h-28 relative">
+      <div className="w-full flex justify-center items-center h-20 sm:h-24 relative overflow-hidden">
         {instrument === "piano" && <PianoDiagram chord={chord} />}
         {instrument === "guitar" && currentShape && <GuitarDiagram shape={currentShape} />}
         {instrument === "bass" && <BassDiagram chord={chord} />}
       </div>
 
       {instrument === "guitar" && guitarShapes.length > 1 && (
-        <div className="absolute bottom-2 left-0 right-0 flex justify-center items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute bottom-1 left-0 right-0 flex justify-center items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
           <button 
             onClick={() => setVariationIndex((i) => (i - 1 + guitarShapes.length) % guitarShapes.length)}
-            className="w-5 h-5 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-violet-600 text-white text-xs"
+            className="w-4 h-4 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-violet-600 text-white text-[10px]"
           >
             ←
           </button>
-          <div className="flex gap-1">
+          <div className="flex gap-0.5">
             {guitarShapes.map((_, i) => (
-              <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === variationIndex ? 'bg-violet-400' : 'bg-zinc-600'}`} />
+              <div key={i} className={`w-1 h-1 rounded-full ${i === variationIndex ? 'bg-violet-400' : 'bg-zinc-600'}`} />
             ))}
           </div>
           <button 
             onClick={() => setVariationIndex((i) => (i + 1) % guitarShapes.length)}
-            className="w-5 h-5 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-violet-600 text-white text-xs"
+            className="w-4 h-4 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-violet-600 text-white text-[10px]"
           >
             →
           </button>
