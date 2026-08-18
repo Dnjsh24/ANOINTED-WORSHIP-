@@ -513,52 +513,52 @@ export default async function DashboardPage() {
                   {nextSetlistTypeLabel ? ` - ${nextSetlistTypeLabel}` : ""}
                 </p>
 
-                {/* Metadata badges — stack vertically on narrow phones, horizontal on sm+ */}
-                <div className="mt-3.5 sm:mt-5 grid grid-cols-1 gap-1.5 sm:flex sm:flex-wrap sm:gap-4 text-xs text-zinc-300">
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1.5 sm:py-1 border border-white/[0.06] sm:border-0 sm:bg-transparent sm:p-0 min-w-0">
+                {/* Metadata badges */}
+                <div className="mt-3.5 sm:mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-zinc-300">
+                  <span className="inline-flex items-center gap-1.5 min-w-0">
                     <MapPin className="size-3.5 text-violet-400 shrink-0" />
-                    <span className="font-mono text-[9px] uppercase text-zinc-400 shrink-0 mr-0.5">Loc:</span>
+                    <span className="font-mono text-[9px] uppercase text-zinc-400 shrink-0 mr-0.5">LOC:</span>
                     <span className="truncate min-w-0">{nextSetlist?.location ?? "Set a location"}</span>
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1.5 sm:py-1 border border-white/[0.06] sm:border-0 sm:bg-transparent sm:p-0 min-w-0">
+                  <span className="inline-flex items-center gap-1.5 shrink-0">
                     <Clock className="size-3.5 text-violet-400 shrink-0" />
-                    <span className="font-mono text-[9px] uppercase text-zinc-400 shrink-0 mr-0.5">Call:</span>
+                    <span className="font-mono text-[9px] uppercase text-zinc-400 shrink-0 mr-0.5">CALL:</span>
                     <span>{nextSetlist?.callTime ?? "--:--"}</span>
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.04] px-2 py-1.5 sm:py-1 border border-white/[0.06] sm:border-0 sm:bg-transparent sm:p-0 min-w-0">
+                  <span className="inline-flex items-center gap-1.5 min-w-0">
                     <User className="size-3.5 text-violet-400 shrink-0" />
-                    <span className="font-mono text-[9px] uppercase text-zinc-400 shrink-0 mr-0.5">Lead:</span>
+                    <span className="font-mono text-[9px] uppercase text-zinc-400 shrink-0 mr-0.5">LEAD:</span>
                     <span className="truncate min-w-0">{nextSetlist?.leader ?? "Unassigned"}</span>
                   </span>
                 </div>
               </div>
 
-              {/* Action buttons — full-width stacked on mobile, row on sm+ */}
-              <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3">
+              {/* Action buttons */}
+              <div className="mt-4 sm:mt-6 flex flex-wrap items-center gap-2 sm:gap-3">
                 {nextEvent ? (
                   <Link
                     href={`/events/${nextEvent.id}`}
-                    className="flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-3.5 py-2.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm w-full sm:w-auto"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm shrink-0"
                   >
                     <CheckCircle2 className="size-3.5 sm:size-4 shrink-0" /> Confirm Availability
                   </Link>
                 ) : (
                   <Link
                     href="/events/new"
-                    className="flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-3.5 py-2.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm w-full sm:w-auto"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm shrink-0"
                   >
                     <CalendarDays className="size-3.5 sm:size-4 shrink-0" /> Add Event
                   </Link>
                 )}
                 <Link
                   href={nextSetlist ? `/setlists/${nextSetlist.id}` : "/setlists/new"}
-                  className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3.5 py-2.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12] w-full sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12] shrink-0"
                 >
                   <Music className="size-3.5 sm:size-4 shrink-0" /> {nextSetlist ? "Open Setlist" : "Create Setlist"}
                 </Link>
                 <Link
                   href="/messages"
-                  className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.06] px-3.5 py-2.5 sm:px-4 sm:py-2.5 text-xs sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12] w-full sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12] shrink-0"
                 >
                   <MessageSquare className="size-3.5 sm:size-4 shrink-0" /> Message Team
                 </Link>
