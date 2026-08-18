@@ -533,34 +533,38 @@ export default async function DashboardPage() {
                 </div>
               </div>
 
-              {/* Action buttons */}
-              <div className="mt-4 sm:mt-6 flex flex-wrap items-center gap-2 sm:gap-3">
+              {/* Action buttons — strictly 1 row */}
+              <div className="mt-4 sm:mt-6 grid grid-cols-3 gap-1.5 sm:gap-3 sm:flex sm:flex-wrap sm:items-center">
                 {nextEvent ? (
                   <Link
                     href={`/events/${nextEvent.id}`}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm shrink-0"
+                    className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-violet-600 px-2 sm:px-4 py-2 sm:py-2.5 text-[11px] sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm min-w-0 sm:shrink-0"
                   >
-                    <CheckCircle2 className="size-3.5 sm:size-4 shrink-0" /> Confirm Availability
+                    <CheckCircle2 className="size-3.5 sm:size-4 shrink-0" />
+                    <span className="truncate">Confirm Availability</span>
                   </Link>
                 ) : (
                   <Link
                     href="/events/new"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm shrink-0"
+                    className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-violet-600 px-2 sm:px-4 py-2 sm:py-2.5 text-[11px] sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 shadow-sm min-w-0 sm:shrink-0"
                   >
-                    <CalendarDays className="size-3.5 sm:size-4 shrink-0" /> Add Event
+                    <CalendarDays className="size-3.5 sm:size-4 shrink-0" />
+                    <span className="truncate">Add Event</span>
                   </Link>
                 )}
                 <Link
                   href={nextSetlist ? `/setlists/${nextSetlist.id}` : "/setlists/new"}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12] shrink-0"
+                  className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-2 sm:px-4 py-2 sm:py-2.5 text-[11px] sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12] min-w-0 sm:shrink-0"
                 >
-                  <Music className="size-3.5 sm:size-4 shrink-0" /> {nextSetlist ? "Open Setlist" : "Create Setlist"}
+                  <Music className="size-3.5 sm:size-4 shrink-0" />
+                  <span className="truncate">{nextSetlist ? "Open Setlist" : "Create Setlist"}</span>
                 </Link>
                 <Link
                   href="/messages"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12] shrink-0"
+                  className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-2 sm:px-4 py-2 sm:py-2.5 text-[11px] sm:text-sm font-bold text-zinc-200 transition-all duration-200 hover:bg-white/[0.12] min-w-0 sm:shrink-0"
                 >
-                  <MessageSquare className="size-3.5 sm:size-4 shrink-0" /> Message Team
+                  <MessageSquare className="size-3.5 sm:size-4 shrink-0" />
+                  <span className="truncate">Message Team</span>
                 </Link>
               </div>
             </div>
