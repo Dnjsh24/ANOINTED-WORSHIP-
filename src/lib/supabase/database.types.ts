@@ -34,6 +34,18 @@ export type Database = {
   }
   public: {
     Tables: {
+      member_usage_state: {
+        Row: { member_id: string; team_id: string; last_seen_at: string; last_credited_minute: string }
+        Insert: { member_id: string; team_id: string; last_seen_at: string; last_credited_minute: string }
+        Update: { member_id?: string; team_id?: string; last_seen_at?: string; last_credited_minute?: string }
+        Relationships: [{ foreignKeyName: "member_usage_state_team_id_member_id_fkey"; columns: ["team_id", "member_id"]; isOneToOne: true; referencedRelation: "team_members"; referencedColumns: ["team_id", "id"] }]
+      }
+      member_usage_daily: {
+        Row: { member_id: string; team_id: string; usage_date: string; active_minutes: number; sessions: number }
+        Insert: { member_id: string; team_id: string; usage_date: string; active_minutes?: number; sessions?: number }
+        Update: { member_id?: string; team_id?: string; usage_date?: string; active_minutes?: number; sessions?: number }
+        Relationships: [{ foreignKeyName: "member_usage_daily_team_id_member_id_fkey"; columns: ["team_id", "member_id"]; isOneToOne: false; referencedRelation: "team_members"; referencedColumns: ["team_id", "id"] }]
+      }
       activity_logs: {
         Row: {
           action: string
@@ -2190,6 +2202,10 @@ export type Database = {
       add_setlist_songs: {
         Args: { p_setlist_id: string; p_songs: Json }
         Returns: number
+      }
+      record_member_usage: {
+        Args: { p_team_id: string }
+        Returns: undefined
       }
       apply_worship_mutation: {
         Args: {

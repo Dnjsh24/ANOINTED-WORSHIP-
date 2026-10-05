@@ -2,6 +2,7 @@ import { AppShell } from "@/components/app-shell";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { createClient } from "@/lib/supabase/server";
 import { AnalyticsDashboard } from "@/components/analytics-dashboard";
+import { MemberUsageAnalytics } from "@/components/member-usage-analytics";
 import { Activity, Radio } from "lucide-react";
 import { redirect } from "next/navigation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -138,6 +139,15 @@ export default async function AnalyticsPage() {
   const analytics = hasSupabaseEnv()
     ? await loadAnalytics(teamContext.teamId)
     : demoAnalytics;
+  const memberNames: Record<string, string> = {};
+  if (hasSupabaseEnv()) {
+    const client = await createClient();
+    const { data } = await client.from("team_members").select("id, profiles(full_name)").eq("team_id", teamContext.teamId);
+    for (const member of data ?? []) {
+      const profile = Array.isArray(member.profiles) ? member.profiles[0] : member.profiles;
+      memberNames[member.id] = profile?.full_name ?? "Team member";
+    }
+  }
 
   return (
     <AppShell active="Analytics" teamContext={teamContext}>
@@ -170,6 +180,7 @@ export default async function AnalyticsPage() {
           attendanceStats={analytics.attendanceStats}
           mostActiveChannels={analytics.mostActiveChannels}
         />
+        <MemberUsageAnalytics teamId={hasSupabaseEnv() ? teamContext.teamId : null} memberNames={memberNames} />
       </div>
     </AppShell>
   );

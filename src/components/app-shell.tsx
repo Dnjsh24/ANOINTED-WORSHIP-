@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AppShellActions } from "@/components/app-shell-actions";
+import { MemberUsageTracker } from "@/components/member-usage-tracker";
 import { QuickReportButton } from "@/components/quick-report-button";
 import { MobileIconRail, type MobileNavigationItem } from "@/components/mobile-icon-rail";
 import { visibleNavigation } from "@/lib/domain/rbac";
@@ -64,6 +65,7 @@ export async function AppShell({
 
   return (
     <div className="min-h-screen bg-[#0d0d10] text-white">
+      {context.userId && context.teamId && !isDesktopRuntime() && <MemberUsageTracker teamId={context.teamId} />}
       <header className="sticky top-0 z-30 hidden border-b border-white/10 bg-[#111014]/95 backdrop-blur md:block animate-fade-down">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/dashboard" className="text-lg font-bold text-white transition-colors duration-200 hover:text-violet-200">

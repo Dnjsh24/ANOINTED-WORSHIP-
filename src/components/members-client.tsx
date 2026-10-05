@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, useEffect } from "react";
 import { bulkApproveJoinRequestsAction, regenerateTeamCodeAction, removeTeamMemberAction, reviewJoinRequestAction, transferTeamOwnershipAction, updateMemberRoleAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
+import { useMemberLastSeen } from "@/components/member-last-seen";
+import { MemberUsageAnalytics } from "@/components/member-usage-analytics";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
@@ -36,6 +38,7 @@ export function MembersClient({
   customRoles?: CustomRole[];
 }) {
   const router = useRouter();
+  const lastSeen = useMemberLastSeen(teamId);
   const [requests, setRequests] = useState(pendingRequests);
   const [previousPendingRequests, setPreviousPendingRequests] = useState(pendingRequests);
   const [query, setQuery] = useState("");
@@ -130,7 +133,8 @@ export function MembersClient({
 
   useEffect(() => {
     const handleOnlineUsersChanged = (e: Event) => {
-      const onlineIds = (e as CustomEvent).detail || [];
+      const detail: unknown = e instanceof CustomEvent ? e.detail : [];
+      const onlineIds = Array.isArray(detail) ? detail.filter((id): id is string => typeof id === "string") : [];
       setOnlineMemberUserIds(onlineIds);
     };
 
@@ -387,9 +391,7 @@ export function MembersClient({
               </div>
               <div className="divide-y divide-white/[0.06]">
                 {filteredMembers.map((member) => {
-                  const isOnline = onlineMemberUserIds.length > 0 
-                    ? onlineMemberUserIds.includes(member.profile.id)
-                    : (member.status === "active");
+                  const isOnline = member.status === "active" && onlineMemberUserIds.includes(member.profile.id);
 
                   return (
                     <div key={member.id} className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_32px] items-center px-4 py-3 text-xs font-semibold group">
@@ -437,7 +439,7 @@ export function MembersClient({
                       <div className="flex items-center gap-2">
                         <span className={cn("size-2 rounded-full", isOnline ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-zinc-500")} />
                         <span className={cn("text-[10px] font-bold capitalize", isOnline ? "text-emerald-400" : "text-zinc-500")}>
-                          {isOnline ? "Online" : "Offline"}
+                          {isOnline ? "Online" : lastSeen(member.id)}
                         </span>
                       </div>
                       <span className="font-bold text-zinc-200 pl-4">{member.attendanceRate}%</span>
@@ -500,6 +502,11 @@ export function MembersClient({
         </div>
 
       </section>
+
+      {(currentUserRole === "owner" || currentUserRole === "admin") && <MemberUsageAnalytics
+        teamId={teamId}
+        memberNames={Object.fromEntries(memberList.map((member) => [member.id, member.profile.fullName]))}
+      />}
 
       {/* Member Profile Drawer */}
       {selectedMember && (
