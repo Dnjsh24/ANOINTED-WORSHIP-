@@ -446,6 +446,9 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           <ButtonLink href={`/setlists/${setlist.id}/stage`} className="bg-violet-600 hover:bg-violet-500 text-white border-transparent">
             Stage
           </ButtonLink>
+          <ButtonLink href={`/setlists/${setlist.id}/practice`} variant="secondary">
+            Practice
+          </ButtonLink>
           <ButtonLink href={`/setlists/${setlist.id}/edit`} variant="secondary">
             Edit Details
           </ButtonLink>

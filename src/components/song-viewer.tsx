@@ -40,6 +40,20 @@ function getSpotifyTrackUrls(url?: string): { embed: string; external: string } 
   }
 }
 
+function getPracticeMeter(timeSignature: string): { beatsPerMeasure: number; label: string } {
+  const [numeratorText, denominatorText] = timeSignature.split("/");
+  const numerator = Number(numeratorText);
+  const denominator = Number(denominatorText);
+  const beatsPerMeasure = Number.isInteger(numerator) && numerator >= 1 && numerator <= 12 ? numerator : 4;
+  const beatUnit = Number.isInteger(denominator) && denominator >= 1 && denominator <= 16 ? denominator : 4;
+
+  return { beatsPerMeasure, label: `${beatsPerMeasure}/${beatUnit}` };
+}
+
+function getInitialPracticeTempo(bpm: number | null): number {
+  return typeof bpm === "number" && Number.isFinite(bpm) && bpm > 0 ? bpm : 80;
+}
+
 // Renders ChordPro tokens: each chord floats perfectly above its syllable
 function InlineChordLine({
   tokens,
@@ -144,10 +158,12 @@ export function SongViewer({
 
   // Metronome State
   const [metronomePlaying, setMetronomePlaying] = useState(false);
-  const [bpm, setBpm] = useState(song.bpm);
+  const [bpm, setBpm] = useState(() => getInitialPracticeTempo(song.bpm));
   const [metronomeVolume, setMetronomeVolume] = useState(0.5);
   const [tapTimes, setTapTimes] = useState<number[]>([]);
-  const [, setCurrentBeat] = useState(1);
+  const [currentBeat, setCurrentBeat] = useState(1);
+  const meter = getPracticeMeter(song.timeSignature);
+  const hasRecordedBpm = typeof song.bpm === "number" && Number.isFinite(song.bpm) && song.bpm > 0;
 
   // Auto-Scroll State
   const [scrollPlaying, setScrollPlaying] = useState(false);
@@ -155,14 +171,15 @@ export function SongViewer({
 
   // Tab State: "chords" | "lyrics"
   const [activeTab, setActiveTab] = useState<"chords" | "lyrics">("chords");
-  const songStateKey = `${song.id}:${song.bpm ?? ""}:${song.currentKey}`;
+  const songStateKey = `${song.id}:${song.bpm ?? ""}:${song.currentKey}:${song.timeSignature}`;
   const [previousSongStateKey, setPreviousSongStateKey] = useState(songStateKey);
 
   if (songStateKey !== previousSongStateKey) {
     setPreviousSongStateKey(songStateKey);
     setMetronomePlaying(false);
     setScrollPlaying(false);
-    setBpm(song.bpm);
+    setBpm(getInitialPracticeTempo(song.bpm));
+    setCurrentBeat(1);
     setSelectedKey(song.currentKey);
   }
 
@@ -180,7 +197,7 @@ export function SongViewer({
 
     const intervalMs = (60 / bpm) * 1000;
     const timer = setInterval(() => {
-      beat = beat === 4 ? 1 : beat + 1;
+      beat = beat === meter.beatsPerMeasure ? 1 : beat + 1;
       setCurrentBeat(beat);
       playClick(beat, metronomeVolume);
     }, intervalMs);
@@ -189,7 +206,7 @@ export function SongViewer({
       window.clearTimeout(initialTick);
       clearInterval(timer);
     };
-  }, [metronomePlaying, bpm, metronomeVolume]);
+  }, [metronomePlaying, bpm, metronomeVolume, meter.beatsPerMeasure]);
 
   // Auto-Scroll Loop
   useEffect(() => {
@@ -560,6 +577,7 @@ export function SongViewer({
                   className="w-full h-full"
                   src={`https://www.youtube.com/embed/${embedId}?autoplay=0`}
                   title={`YouTube player for ${song.title}`}
+                  loading="lazy"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   referrerPolicy="strict-origin-when-cross-origin"
                   allowFullScreen
@@ -589,10 +607,16 @@ export function SongViewer({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[11px] font-bold text-white">Metronome</p>
-                      <p className="text-[9px] text-zinc-500 font-semibold">{bpm} BPM</p>
+                      <p className="text-[9px] text-zinc-500 font-semibold">
+                        {hasRecordedBpm ? `${bpm} BPM` : `Practice tempo · ${bpm} BPM`}
+                      </p>
+                      <p className="text-[9px] text-zinc-500 font-semibold">
+                        {meter.label} meter · beat {currentBeat} of {meter.beatsPerMeasure}
+                      </p>
                     </div>
                     <button
                       type="button"
+                      aria-label={metronomePlaying ? "Stop metronome" : "Start metronome"}
                       onClick={() => setMetronomePlaying((val) => !val)}
                       className={cn(
                         "flex size-8 items-center justify-center rounded-lg transition",
@@ -640,7 +664,6 @@ export function SongViewer({
                   </div>
                 </>
               )}
-
               {/* Tap Tempo Button */}
               <button
                 type="button"
@@ -660,6 +683,7 @@ export function SongViewer({
                 </div>
                 <button
                   type="button"
+                  aria-label={scrollPlaying ? "Stop auto-scroll" : "Start auto-scroll"}
                   onClick={() => setScrollPlaying((val) => !val)}
                   className={cn(
                     "flex size-8 items-center justify-center rounded-lg transition",
