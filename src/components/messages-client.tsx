@@ -3,7 +3,7 @@
 import { ArrowLeft, Download, FileText, Image as ImageIcon, Menu, MoreHorizontal, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X, Info, CalendarClock } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition, type ComponentProps } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type ComponentProps, type Dispatch, type SetStateAction } from "react";
 import { addChannelMemberAction, createChannelAction, getOrCreateDirectChannelAction, leaveChannelAction, removeChannelMemberAction, sendMessageAction, markMessagesReadAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -54,10 +54,147 @@ function attachmentHref(attachment: AttachmentDetails) {
   return attachment.url || `/practice-files/${attachment.name}`;
 }
 
-export function MessagesClient(props: Omit<ComponentProps<typeof MessagesView>, "activeChannelId">) {
+type MessagesProps = Omit<ComponentProps<typeof MessagesView>, "activeChannelId" | "channelList" | "setChannelList" | "memberships" | "setMemberships" | "liveStatus">;
+
+export function MessagesClient(props: MessagesProps) {
+  return <MessagesSession key={`${props.teamId}:${props.currentProfileId}`} {...props} />;
+}
+
+function MessagesSession(props: MessagesProps) {
   const searchParams = useSearchParams();
   const activeChannelId = searchParams.get("channel") ?? "";
-  return <MessagesView key={activeChannelId} {...props} activeChannelId={activeChannelId} />;
+  const [channelList, setChannelList] = useState(props.channels);
+  const [memberships, setMemberships] = useState(props.allChannelMemberships ?? []);
+  const [previousChannels, setPreviousChannels] = useState(props.channels);
+  if (props.channels !== previousChannels) {
+    setPreviousChannels(props.channels);
+    setChannelList(props.channels);
+    setMemberships(props.allChannelMemberships ?? []);
+  }
+  const router = useRouter();
+  const currentMemberId = props.currentMemberId;
+  const [liveStatus, setLiveStatus] = useState("");
+  // Keep a ref to teamMembers so the realtime callback always sees the latest value
+  // without needing to re-subscribe every time state changes
+  const teamMembersRef = useRef(props.teamMembers ?? []);
+  useEffect(() => { teamMembersRef.current = props.teamMembers ?? []; }, [props.teamMembers]);
+
+  const channelListRef = useRef(channelList);
+  useEffect(() => { channelListRef.current = channelList; }, [channelList]);
+
+  const currentMemberIdRef = useRef(currentMemberId);
+  useEffect(() => { currentMemberIdRef.current = currentMemberId; }, [currentMemberId]);
+
+  // Subscribe to real-time message inserts — runs once only (no channelList dep)
+  useEffect(() => {
+    const supabase = createOptionalClient();
+    if (!supabase) return;
+
+    let stopped = false;
+    const realtimeChannel = supabase
+      .channel("messages-realtime", { config: { broadcast: { self: false } } })
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        async (payload) => {
+          if (stopped) return;
+          const newMessage = payload.new as {
+            id: string;
+            channel_id: string;
+            sender_member_id: string;
+            body: string;
+            attachment_file_id: string | null;
+            created_at: string;
+          };
+
+          const sender = teamMembersRef.current.find(
+            (m) => m.memberId === newMessage.sender_member_id
+          );
+          const mine = newMessage.sender_member_id === currentMemberIdRef.current;
+          const authorName = mine ? "You" : sender ? sender.fullName : "Unknown Member";
+          let attachment: AttachmentDetails | undefined;
+
+          if (newMessage.attachment_file_id) {
+            try {
+            const { data: fileRecord } = await supabase
+              .from("practice_files")
+              .select("id, file_name, mime_type, size_bytes, storage_path")
+              .eq("id", newMessage.attachment_file_id)
+              .maybeSingle();
+
+            if (fileRecord) {
+              const { data: signedUrl } = await supabase.storage
+                .from("practice-files")
+                .createSignedUrl(fileRecord.storage_path, 60 * 60);
+
+              attachment = {
+                id: fileRecord.id,
+                name: fileRecord.file_name,
+                size: formatFileSize(Number(fileRecord.size_bytes)),
+                type: fileKindLabel(fileRecord.mime_type, fileRecord.file_name),
+                mimeType: fileRecord.mime_type,
+                url: signedUrl?.signedUrl ?? "",
+              };
+            }
+            } catch {
+              if (!stopped) setLiveStatus("Message received, but its attachment could not load. Reload to retry.");
+            }
+          }
+
+          if (stopped) return;
+          const formattedMessage: Message = {
+            id: newMessage.id,
+            author: authorName,
+            body: newMessage.body,
+            avatarUrl: sender?.avatarUrl ?? null,
+            createdAt: new Date(newMessage.created_at || Date.now()).toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+            }),
+            mine,
+            attachment,
+          };
+
+          const matchedChannel = channelListRef.current.some(
+            (chan) => chan.id === newMessage.channel_id
+          );
+          setChannelList((current) =>
+            current.map((chan) => {
+              if (chan.id !== newMessage.channel_id) {
+                return chan;
+              }
+
+              return {
+                ...chan,
+                preview: `${authorName}: ${newMessage.body}`,
+                messages: chan.messages.some((m) => m.id === formattedMessage.id)
+                  ? chan.messages
+                  : [...chan.messages, formattedMessage],
+              };
+            })
+          );
+
+          if (!matchedChannel) {
+            router.refresh();
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          setLiveStatus("");
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setLiveStatus("Live messages disconnected. Reconnecting when the network is ready.");
+        }
+      });
+
+    return () => {
+      stopped = true;
+      supabase.removeChannel(realtimeChannel);
+    };
+  }, [router, setChannelList]);
+
+  return <MessagesView key={activeChannelId} {...props} activeChannelId={activeChannelId}
+    channelList={channelList} setChannelList={setChannelList} memberships={memberships} setMemberships={setMemberships} liveStatus={liveStatus} />;
 }
 
 function MessagesView({
@@ -67,7 +204,11 @@ function MessagesView({
   currentProfileId,
   teamId,
   role,
-  allChannelMemberships = [],
+  channelList,
+  setChannelList,
+  memberships,
+  setMemberships,
+  liveStatus,
   activeChannelId,
 }: {
   channels: MessagesChannel[];
@@ -77,7 +218,12 @@ function MessagesView({
   teamId: string;
   role: string;
   allChannelMemberships?: MessagesChannelMembership[];
+  liveStatus: string;
   activeChannelId: string;
+  channelList: MessagesChannel[];
+  setChannelList: Dispatch<SetStateAction<MessagesChannel[]>>;
+  memberships: MessagesChannelMembership[];
+  setMemberships: Dispatch<SetStateAction<MessagesChannelMembership[]>>;
 }) {
   const router = useRouter();
   function setActiveChannelId(channelId: string) {
@@ -88,15 +234,17 @@ function MessagesView({
     setInfoPanelOpen(false);
     setManagePanelOpen(false);
     if (!channelId) {
-      router.replace("/messages");
+      window.history.replaceState(null, "", "/messages");
       return;
     }
-    router.push(`/messages?channel=${encodeURIComponent(channelId)}`);
+    const href = `/messages?channel=${encodeURIComponent(channelId)}`;
+    if (channelList.some(channel => channel.id === channelId)) {
+      window.history.pushState(null, "", href);
+    } else {
+      router.push(href);
+    }
   }
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [channelList, setChannelList] = useState(channels);
-  const [previousChannels, setPreviousChannels] = useState(channels);
-  const [memberships, setMemberships] = useState<MessagesChannelMembership[]>(allChannelMemberships);
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
@@ -186,128 +334,6 @@ function MessagesView({
       supabase.removeChannel(presenceChannel);
     };
   }, [activeChannelId, currentMemberId, channels]);
-  // Keep a ref to teamMembers so the realtime callback always sees the latest value
-  // without needing to re-subscribe every time state changes
-  const teamMembersRef = useRef(teamMembers);
-  useEffect(() => { teamMembersRef.current = teamMembers; }, [teamMembers]);
-
-  const channelListRef = useRef(channelList);
-  useEffect(() => { channelListRef.current = channelList; }, [channelList]);
-
-  const currentMemberIdRef = useRef(currentMemberId);
-  useEffect(() => { currentMemberIdRef.current = currentMemberId; }, [currentMemberId]);
-
-  // Subscribe to real-time message inserts — runs once only (no channelList dep)
-  useEffect(() => {
-    const supabase = createOptionalClient();
-    if (!supabase) return;
-
-    const realtimeChannel = supabase
-      .channel("messages-realtime", { config: { broadcast: { self: false } } })
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        async (payload) => {
-          const newMessage = payload.new as {
-            id: string;
-            channel_id: string;
-            sender_member_id: string;
-            body: string;
-            attachment_file_id: string | null;
-            created_at: string;
-          };
-
-          const sender = teamMembersRef.current.find(
-            (m) => m.memberId === newMessage.sender_member_id
-          );
-          const mine = newMessage.sender_member_id === currentMemberIdRef.current;
-          const authorName = mine ? "You" : sender ? sender.fullName : "Unknown Member";
-          let attachment: AttachmentDetails | undefined;
-
-          if (newMessage.attachment_file_id) {
-            const { data: fileRecord } = await supabase
-              .from("practice_files")
-              .select("id, file_name, mime_type, size_bytes, storage_path")
-              .eq("id", newMessage.attachment_file_id)
-              .maybeSingle();
-
-            if (fileRecord) {
-              const { data: signedUrl } = await supabase.storage
-                .from("practice-files")
-                .createSignedUrl(fileRecord.storage_path, 60 * 60);
-
-              attachment = {
-                id: fileRecord.id,
-                name: fileRecord.file_name,
-                size: formatFileSize(Number(fileRecord.size_bytes)),
-                type: fileKindLabel(fileRecord.mime_type, fileRecord.file_name),
-                mimeType: fileRecord.mime_type,
-                url: signedUrl?.signedUrl ?? "",
-              };
-            }
-          }
-
-          const formattedMessage: Message = {
-            id: newMessage.id,
-            author: authorName,
-            body: newMessage.body,
-            avatarUrl: sender?.avatarUrl ?? null,
-            createdAt: new Date(newMessage.created_at || Date.now()).toLocaleTimeString("en-US", {
-              hour: "numeric",
-              minute: "2-digit",
-            }),
-            mine,
-            attachment,
-          };
-
-          const matchedChannel = channelListRef.current.some(
-            (chan) => chan.id === newMessage.channel_id
-          );
-          setChannelList((current) =>
-            current.map((chan) => {
-              if (chan.id !== newMessage.channel_id) {
-                return chan;
-              }
-
-              return {
-                ...chan,
-                preview: `${authorName}: ${newMessage.body}`,
-                messages: chan.messages.some((m) => m.id === formattedMessage.id)
-                  ? chan.messages
-                  : [...chan.messages, formattedMessage],
-              };
-            })
-          );
-
-          if (!matchedChannel) {
-            router.refresh();
-          }
-
-          // Scroll to bottom after state update
-          setTimeout(() => {
-            bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-          }, 50);
-        }
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          console.log("[Realtime] Connected to messages channel");
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          setStatus("Live messages disconnected. Reconnecting when the network is ready.");
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(realtimeChannel);
-    };
-  }, [router]);
-
-  // Adjust local state before children render when the server sends a new list.
-  if (channels !== previousChannels) {
-    setPreviousChannels(channels);
-    setChannelList(channels);
-  }
-
   const selectedChannel = channelList.find((channel) => channel.id === activeChannelId);
   const activeChannel = selectedChannel ?? { id: "", name: "No Channel", membersOnline: 0, preview: "", messages: [] };
   const showingList = !selectedChannel;
@@ -352,7 +378,7 @@ function MessagesView({
         markMessagesReadAction(activeChannelId, []);
       });
     }
-  }, [activeChannel.id, activeChannel.messages, activeChannelId, activeMessageCount, currentProfileId]);
+  }, [activeChannel.id, activeChannel.messages, activeChannelId, activeMessageCount, currentProfileId, setChannelList]);
 
   const activeChannelFiles = useMemo(() => {
     const seen = new Set<string>();
@@ -732,7 +758,7 @@ function MessagesView({
         )}
 
         <div className="mt-2 space-y-1">
-          {showingList && status && <p role="status" className="rounded-lg bg-white/5 p-3 text-sm text-zinc-300">{status}</p>}
+          {showingList && (status || liveStatus) && <p role="status" className="rounded-lg bg-white/5 p-3 text-sm text-zinc-300">{status || liveStatus}</p>}
           {showingList && activeChannelId && <p role="status" className="p-3 text-sm text-zinc-400">This conversation is unavailable. Choose another chat.</p>}
           {channelList.length === 0 && <p className="p-3 text-sm text-zinc-400">No chats yet. Search for a teammate to start a conversation.</p>}
           {visibleChannels.map((channel) => (
@@ -1050,9 +1076,9 @@ function MessagesView({
               {/* Scroll anchor — realtime messages scroll here */}
               <div ref={bottomRef} />
             </div>
-            {status && (
+            {(status || liveStatus) && (
               <p role="status" aria-live="polite" className="px-4 pb-2 text-sm font-bold text-emerald-300">
-                {status}
+                {status || liveStatus}
               </p>
             )}
             <div className="border-t border-white/10 bg-[#111014] p-4">

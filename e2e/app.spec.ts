@@ -241,7 +241,7 @@ test("messages controls switch channel and report send persistence", async ({ pa
   await page.getByRole("button", { name: /Insert/i }).first().click();
   await page.getByPlaceholder(/Message Worship Team/i).fill("See you at rehearsal");
   await page.getByRole("button", { name: "Send message" }).click();
-  await expect(page.getByRole("status")).toContainText(/Sent!|Sign in with Supabase to send messages/i);
+  await expect(page.getByRole("region", { name: "Worship Team conversation" }).getByRole("status")).toContainText(/Sent!|Sign in with Supabase to send messages/i);
 });
 
 test("team/profile/song/settings controls are interactive", async ({ page }) => {

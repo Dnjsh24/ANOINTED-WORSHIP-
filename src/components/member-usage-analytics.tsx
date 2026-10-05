@@ -15,6 +15,17 @@ export function MemberUsageAnalytics({ teamId, memberNames }: { teamId: string |
   const [validation, setValidation] = useState("");
   const [state, setState] = useState<UsageLoadState>({ kind: "loading" });
 
+  function changeDates(nextStart: string, nextEnd: string) {
+    setStart(nextStart);
+    setEnd(nextEnd);
+    if (!usageDateRangeIsValid(nextStart, nextEnd)) {
+      setValidation("Choose valid UTC dates in order, covering at most 366 days. Showing the last valid range.");
+      return;
+    }
+    setValidation("");
+    setRange(current => current.start === nextStart && current.end === nextEnd ? current : { start: nextStart, end: nextEnd });
+  }
+
   useEffect(() => {
     let stopped = false;
     async function load() {
@@ -42,30 +53,23 @@ export function MemberUsageAnalytics({ teamId, memberNames }: { teamId: string |
       <h2 className="text-lg font-bold">Member app usage</h2>
       <p className="mt-2 text-sm text-zinc-300">Approximate active time counts UTC minutes with recent input in a visible app window. Hidden and idle time is excluded.</p>
       <p className="mt-1 text-xs text-zinc-400">Tracking starts after deployment. Past usage cannot be recovered. A session starts after at least 5 minutes without recorded activity.</p>
-      <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={(event) => {
-        event.preventDefault();
-        if (!usageDateRangeIsValid(start, end)) {
-          setValidation("Choose valid UTC dates in order, covering at most 366 days.");
-          return;
-        }
-        setValidation("");
-        setRange({ start, end });
-      }}>
+      <div className="mt-4 flex flex-wrap items-end gap-3">
         <label className="grid gap-1 text-xs text-zinc-300">From (UTC)
-          <input type="date" value={start} onChange={(event) => setStart(event.target.value)} className="rounded-lg border border-white/20 bg-zinc-900 px-3 py-2 text-white" />
+          <input type="date" value={start} onChange={(event) => changeDates(event.target.value, end)} className="rounded-lg border border-white/20 bg-zinc-900 px-3 py-2 text-white" />
         </label>
         <label className="grid gap-1 text-xs text-zinc-300">Through (UTC)
-          <input type="date" value={end} onChange={(event) => setEnd(event.target.value)} className="rounded-lg border border-white/20 bg-zinc-900 px-3 py-2 text-white" />
+          <input type="date" value={end} onChange={(event) => changeDates(start, event.target.value)} className="rounded-lg border border-white/20 bg-zinc-900 px-3 py-2 text-white" />
         </label>
-        <button type="submit" className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold hover:bg-violet-500">Load usage</button>
-      </form>
+        <p className="text-xs text-zinc-400">Updates automatically when you change dates.</p>
+      </div>
       {validation && <p role="alert" className="mt-3 text-sm text-amber-300">{validation}</p>}
       <div aria-live="polite" aria-busy={state.kind === "loading"}>
         {state.kind === "loading" && <p className="mt-4 text-sm text-zinc-400">Loading usage…</p>}
         {state.kind === "unavailable" && <p className="mt-4 text-sm text-amber-200">{state.message}</p>}
+        {state.kind === "unavailable" && teamId && !validation && <button type="button" onClick={() => setRange({ ...range })} className="mt-3 min-h-11 rounded-lg border border-white/20 px-4 text-sm text-violet-300 hover:bg-white/5">Retry</button>}
         {state.kind === "ready" && summaries.length === 0 && <p className="mt-4 text-sm text-zinc-400">No recorded app usage in this date range.</p>}
       </div>
-      {state.kind === "ready" && summaries.length > 0 && <MemberUsageCharts
+      {state.kind === "ready" && <MemberUsageCharts
         rows={state.rows}
         summaries={summaries}
         memberNames={memberNames}

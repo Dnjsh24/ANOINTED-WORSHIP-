@@ -2,7 +2,8 @@ import { Music2 } from "lucide-react";
 
 export default function EventsLoading() {
   return (
-    <main className="min-h-screen bg-[#0d0d10] text-white">
+    <main aria-busy="true" className="min-h-screen bg-[#0d0d10] text-white">
+      <p role="status" className="sr-only">Loading events</p>
       {/* Mock Header */}
       <header className="hidden border-b border-white/10 bg-[#111014]/95 md:block">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">

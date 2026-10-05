@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemberUsageAnalytics } from "@/components/member-usage-analytics";
 
@@ -29,15 +29,46 @@ describe("member app usage analytics", () => {
     loadDays.mockResolvedValue({ kind: "ready", rows: [] });
     render(<MemberUsageAnalytics teamId="team" memberNames={{}} />);
     await screen.findByText("No recorded app usage in this date range.");
-    expect(screen.queryByRole("img")).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("From (UTC)"), { target: { value: "2026-10-01" } });
-    fireEvent.change(screen.getByLabelText("Through (UTC)"), { target: { value: "2026-10-05" } });
-    fireEvent.click(screen.getByRole("button", { name: "Load usage" }));
-    await waitFor(() => expect(loadDays).toHaveBeenLastCalledWith({}, "team", "2026-10-01", "2026-10-05"));
-    fireEvent.change(screen.getByLabelText("From (UTC)"), { target: { value: "2026-10-06" } });
-    fireEvent.click(screen.getByRole("button", { name: "Load usage" }));
+    expect(screen.getByRole("img", { name: /Daily active hours/ })).toBeInTheDocument();
+    const originalEnd = (screen.getByLabelText("Through (UTC)") as HTMLInputElement).value;
+    const selectedStart = new Date(Date.parse(originalEnd) - 2 * 86_400_000).toISOString().slice(0, 10);
+    const selectedEnd = new Date(Date.parse(originalEnd) - 86_400_000).toISOString().slice(0, 10);
+    fireEvent.change(screen.getByLabelText("From (UTC)"), { target: { value: selectedStart } });
+    fireEvent.change(screen.getByLabelText("Through (UTC)"), { target: { value: selectedEnd } });
+    await waitFor(() => expect(loadDays).toHaveBeenLastCalledWith({}, "team", selectedStart, selectedEnd));
+    fireEvent.change(screen.getByLabelText("From (UTC)"), { target: { value: originalEnd } });
     expect(screen.getByRole("alert")).toHaveTextContent("Choose valid UTC dates in order");
-    expect(loadDays).toHaveBeenCalledTimes(2);
+    expect(loadDays).toHaveBeenCalledTimes(3);
+    expect(screen.queryByRole("button", { name: "Load usage" })).not.toBeInTheDocument();
+  });
+
+  it("does not query empty or overlong ranges, and resumes when dates become valid", async () => {
+    loadDays.mockResolvedValue({ kind: "ready", rows: [] });
+    render(<MemberUsageAnalytics teamId="team" memberNames={{}} />);
+    await screen.findByText("No recorded app usage in this date range.");
+    const end = (screen.getByLabelText("Through (UTC)") as HTMLInputElement).value;
+    fireEvent.change(screen.getByLabelText("From (UTC)"), { target: { value: "" } });
+    expect(screen.getByRole("alert")).toHaveTextContent("Showing the last valid range");
+    fireEvent.change(screen.getByLabelText("From (UTC)"), { target: { value: "2000-01-01" } });
+    expect(loadDays).toHaveBeenCalledTimes(1);
+    fireEvent.change(screen.getByLabelText("From (UTC)"), { target: { value: end } });
+    await waitFor(() => expect(loadDays).toHaveBeenLastCalledWith({}, "team", end, end));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("ignores an older response after changing dates", async () => {
+    let resolveOld: ((value: { kind: "ready"; rows: [] }) => void) | undefined;
+    loadDays.mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve; }));
+    loadDays.mockResolvedValue({ kind: "ready", rows: [
+      { member_id: "latest", team_id: "team", usage_date: "2026-10-05", active_minutes: 60, sessions: 1 },
+    ] });
+    render(<MemberUsageAnalytics teamId="team" memberNames={{ latest: "Latest member" }} />);
+    const end = (screen.getByLabelText("Through (UTC)") as HTMLInputElement).value;
+    fireEvent.change(screen.getByLabelText("From (UTC)"), { target: { value: end } });
+    await screen.findByRole("table", { name: /Usage ranked/ });
+    await act(async () => { resolveOld?.({ kind: "ready", rows: [] }); });
+    await waitFor(() => expect(screen.getByRole("table", { name: /Usage ranked/ })).toHaveTextContent("Latest member"));
+    expect(screen.queryByText("No recorded app usage in this date range.")).not.toBeInTheDocument();
   });
   it("distinguishes missing deployment and errors from empty usage", async () => {
     loadDays.mockResolvedValue({ kind: "unavailable", message: "Usage tracking is unavailable until the member usage migration is deployed." });
@@ -47,8 +78,11 @@ describe("member app usage analytics", () => {
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(screen.queryByText("No recorded app usage in this date range.")).not.toBeInTheDocument();
     loadDays.mockRejectedValue(new Error("offline"));
-    fireEvent.click(screen.getByRole("button", { name: "Load usage" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText("Usage data could not load. Please retry.")).toBeInTheDocument();
+    loadDays.mockResolvedValue({ kind: "ready", rows: [] });
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("No recorded app usage in this date range.")).toBeInTheDocument();
   });
   it("does not invent demo statistics", async () => {
     render(<MemberUsageAnalytics teamId={null} memberNames={{}} />);

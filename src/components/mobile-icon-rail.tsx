@@ -12,8 +12,9 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { NavigationPending } from "@/components/navigation-pending";
 
 export interface MobileNavigationItem {
   id: string;
@@ -34,10 +35,12 @@ export function MobileIconRail({
   active,
   items,
   canManageTeam = false,
+  messageBadge,
 }: {
   active: string;
   items: MobileNavigationItem[];
   canManageTeam?: boolean;
+  messageBadge?: ReactNode;
 }) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
@@ -113,6 +116,7 @@ export function MobileIconRail({
             <Link
               key={tab.id}
               href={tab.href}
+              aria-current={isActive ? "page" : undefined}
               onClick={() => setShowMoreMenu(false)}
               className={cn(
                 "relative flex flex-1 flex-col items-center justify-center gap-1 py-1",
@@ -121,6 +125,7 @@ export function MobileIconRail({
             >
               <div className="relative">
                 <tab.icon className={cn("size-5 transition-transform", isActive && "scale-110")} />
+                {tab.id === "messages" && messageBadge}
                 {tab.badgeCount !== undefined && tab.badgeCount > 0 && (
                   <span className="absolute -top-1 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0f0e14]">
                     {tab.badgeCount > 9 ? "9+" : tab.badgeCount}
@@ -128,6 +133,7 @@ export function MobileIconRail({
                 )}
               </div>
               <span className={cn("text-[10px] font-semibold", isActive && "font-bold")}>{tab.label}</span>
+              <NavigationPending />
             </Link>
           );
         })}
@@ -138,9 +144,10 @@ export function MobileIconRail({
           return (
             <Link
               href={fourthTab.href}
+              aria-current={isActive ? "page" : undefined}
               onClick={() => setShowMoreMenu(false)}
               className={cn(
-                "flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors",
+                "relative flex flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors",
                 isActive ? "text-violet-400" : "text-zinc-500 hover:text-zinc-300"
               )}
             >
@@ -148,6 +155,7 @@ export function MobileIconRail({
               <span className={cn("text-[10px] font-semibold", isActive && "font-bold")}>
                 {fourthTab.label}
               </span>
+              <NavigationPending />
             </Link>
           );
         })()}

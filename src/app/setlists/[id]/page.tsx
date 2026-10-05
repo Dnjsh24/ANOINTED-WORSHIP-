@@ -1,5 +1,6 @@
 import { AlertTriangle, CalendarDays, CheckCircle2, Clock, History, MapPin, UserX, Users } from "lucide-react";
 import { notFound } from "next/navigation";
+import { getYouTubeVideoId } from "@/lib/domain/media";
 import { AttendanceToggle } from "@/components/attendance-toggle";
 import { AppShell } from "@/components/app-shell";
 import { ShareButton } from "@/components/share-button";
@@ -90,7 +91,7 @@ type ConflictAssignmentRow = {
 function hasYoutubeUrl(
   song: DetailSetlistSong,
 ): song is DetailSetlistSong & { youtubeUrl: string } {
-  return typeof song.youtubeUrl === "string" && song.youtubeUrl.length > 0;
+  return typeof song.youtubeUrl === "string" && getYouTubeVideoId(song.youtubeUrl) !== null;
 }
 
 export default async function SetlistDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -543,7 +544,9 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
                     <p className="mb-2 text-sm font-bold text-zinc-300">{item.order}. {item.song.title}</p>
                     <div className="relative aspect-video overflow-hidden rounded-lg">
                       <iframe
-                        src={`https://www.youtube.com/embed/${extractYoutubeId(item.youtubeUrl)}`}
+                        src={`https://www.youtube.com/embed/${getYouTubeVideoId(item.youtubeUrl)}`}
+                        title={`${item.song.title} practice reference`}
+                        loading="lazy"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
                         className="absolute inset-0 size-full"
@@ -618,9 +621,4 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
       </section>
     </AppShell>
   );
-}
-
-function extractYoutubeId(url: string): string {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
-  return match ? match[1] : "";
 }

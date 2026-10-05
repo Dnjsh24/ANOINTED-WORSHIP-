@@ -39,6 +39,7 @@ const websiteRoutes = [
   "/setlists/sunday-service/add-song",
   "/setlists/sunday-service/confidence",
   "/setlists/sunday-service/stage",
+  "/setlists/sunday-service/practice",
   "/setlists/sunday-service/presenter",
   "/setlists/sunday-service/projector",
 ] as const;

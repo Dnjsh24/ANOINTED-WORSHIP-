@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import { AppShellActions } from "@/components/app-shell-actions";
+import { NavigationPending } from "@/components/navigation-pending";
 import { MemberUsageTracker } from "@/components/member-usage-tracker";
 import { QuickReportButton } from "@/components/quick-report-button";
 import { MobileIconRail, type MobileNavigationItem } from "@/components/mobile-icon-rail";
@@ -73,6 +74,7 @@ export async function AppShell({
                 className={cn("nav-link text-sm font-semibold text-zinc-300 hover:text-white transition-colors duration-200 relative", active === item.label && "text-violet-200 active")}
               >
                 {item.label}
+                <NavigationPending />
                 {item.id === "messages" && <Suspense fallback={null}>
                   <UnreadMessageBadge count={unreadMessageCount} />
                 </Suspense>}

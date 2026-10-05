@@ -20,7 +20,7 @@ export default function Loading() {
             <Music2 className="size-5 animate-pulse" />
           </span>
           <div>
-            <p className="text-sm font-bold text-white">Loading workspace</p>
+            <p role="status" className="text-sm font-bold text-white">Loading workspace</p>
             <p className="text-xs font-semibold text-zinc-500">Getting the latest team data...</p>
           </div>
         </div>

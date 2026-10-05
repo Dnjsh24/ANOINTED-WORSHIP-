@@ -85,6 +85,14 @@ describe("SongViewer", () => {
     expect(screen.queryByRole("link", { name: "Open on Spotify" })).not.toBeInTheDocument();
   });
 
+  it("does not embed or link executable and unrelated YouTube-looking URLs", () => {
+    const view = render(<SongViewer song={{ ...songWithRepeatedSections, youtubeUrl: "javascript:alert(1);//watch?v=dQw4w9WgXcQ" }} />);
+    expect(screen.queryByRole("link", { name: "Open on YouTube" })).not.toBeInTheDocument();
+    expect(view.container.querySelector("iframe")).toBeNull();
+    view.rerender(<SongViewer song={{ ...songWithRepeatedSections, youtubeUrl: "https://evil.example/watch?v=dQw4w9WgXcQ" }} />);
+    expect(screen.queryByRole("link", { name: "Open on YouTube" })).not.toBeInTheDocument();
+  });
+
   it("uses a labeled practice tempo when BPM is missing and follows the song meter", () => {
     render(<SongViewer song={{ ...songWithRepeatedSections, bpm: null, timeSignature: "3/4" }} />);
 
@@ -92,6 +100,12 @@ describe("SongViewer", () => {
     expect(screen.getByText("3/4 meter · beat 1 of 3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Start metronome" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Start auto-scroll" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Practice time signature")).toHaveValue("3/4");
+    fireEvent.change(screen.getByLabelText("Practice time signature"), { target: { value: "6/8" } });
+    expect(screen.getByText("6/8 meter · beat 1 of 6")).toBeInTheDocument();
+    expect(screen.getByLabelText("Auto-scroll speed")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Raise song key" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Transpose down" })).toBeInTheDocument();
   });
 
   it("cycles the metronome beat count and clears both practice timers on unmount", () => {
@@ -104,12 +118,17 @@ describe("SongViewer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Start metronome" }));
     fireEvent.click(screen.getByRole("button", { name: "Start auto-scroll" }));
     expect(intervalSpy).toHaveBeenCalledTimes(2);
-    const practiceIntervals = intervalSpy.mock.results.map((result) => result.value);
 
     act(() => {
       vi.advanceTimersByTime(2501);
     });
     expect(screen.getByText("3/4 meter · beat 1 of 3")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Practice time signature"), { target: { value: "6/8" } });
+    act(() => { vi.advanceTimersByTime(4167); });
+    expect(screen.getByText("6/8 meter · beat 6 of 6")).toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(834); });
+    expect(screen.getByText("6/8 meter · beat 1 of 6")).toBeInTheDocument();
+    const practiceIntervals = intervalSpy.mock.results.map((result) => result.value);
 
     unmount();
     for (const interval of practiceIntervals) {

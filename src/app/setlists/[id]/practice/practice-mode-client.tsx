@@ -5,6 +5,7 @@ import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { SongViewer } from "@/components/song-viewer";
+import { ServicePreparation } from "@/components/service-preparation";
 import type { PracticeSetlist } from "./practice-mode.types";
 
 export default function PracticeModeClient({ setlist }: { setlist: PracticeSetlist }) {
@@ -44,6 +45,11 @@ export default function PracticeModeClient({ setlist }: { setlist: PracticeSetli
           </ButtonLink>
         </div>
       </header>
+
+      <ServicePreparation key={setlist.id} name={setlist.name} songs={setlist.songs.map(slot => ({
+        id: slot.slotId, title: slot.song.title, assignedKey: slot.assignedKey ?? slot.song.originalKey,
+        bpm: slot.song.bpm, lead: slot.lead, arrangement: slot.arrangement,
+      }))} />
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="order-last min-w-0 space-y-5 lg:order-first" aria-label="Current song practice">

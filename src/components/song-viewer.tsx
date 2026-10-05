@@ -8,16 +8,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { Play, Square, Music, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getYouTubeVideoId } from "@/lib/domain/media";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MINOR_KEYS = ["Cm", "C#m", "Dm", "D#m", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
-
-function getYouTubeEmbedId(url?: string): string | null {
-  if (!url) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : null;
-}
 
 function getSpotifyTrackUrls(url?: string): { embed: string; external: string } | null {
   if (!url) return null;
@@ -162,7 +156,8 @@ export function SongViewer({
   const [metronomeVolume, setMetronomeVolume] = useState(0.5);
   const [tapTimes, setTapTimes] = useState<number[]>([]);
   const [currentBeat, setCurrentBeat] = useState(1);
-  const meter = getPracticeMeter(song.timeSignature);
+  const [practiceTimeSignature, setPracticeTimeSignature] = useState(() => getPracticeMeter(song.timeSignature).label);
+  const meter = getPracticeMeter(practiceTimeSignature);
   const hasRecordedBpm = typeof song.bpm === "number" && Number.isFinite(song.bpm) && song.bpm > 0;
 
   // Auto-Scroll State
@@ -180,7 +175,8 @@ export function SongViewer({
     setScrollPlaying(false);
     setBpm(getInitialPracticeTempo(song.bpm));
     setCurrentBeat(1);
-    setSelectedKey(song.currentKey);
+    setSelectedKey(assignedKey ?? song.currentKey);
+    setPracticeTimeSignature(getPracticeMeter(song.timeSignature).label);
   }
 
   // Metronome Sound Loop
@@ -237,7 +233,7 @@ export function SongViewer({
     };
   }, [scrollPlaying, scrollSpeed]);
 
-  const embedId = useMemo(() => getYouTubeEmbedId(song.youtubeUrl), [song.youtubeUrl]);
+  const embedId = useMemo(() => getYouTubeVideoId(song.youtubeUrl), [song.youtubeUrl]);
   const spotifyTrackUrls = useMemo(() => getSpotifyTrackUrls(song.spotifyUrl), [song.spotifyUrl]);
   // Extract unique chords (handles both legacy and ChordPro token formats)
   const uniqueChords = useMemo(() => {
@@ -352,12 +348,12 @@ export function SongViewer({
           <div className="flex items-center justify-between w-full">
             <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Key</span>
             <div className="flex items-center gap-2">
-              <button onClick={() => changeKey(-1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">-</button>
+              <button aria-label="Lower song key" onClick={() => changeKey(-1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">-</button>
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-base font-extrabold text-white min-w-6 text-center">{selectedKey}</span>
                 <span className="text-[9px] font-bold text-zinc-600 whitespace-nowrap">(orig: {song.originalKey})</span>
               </div>
-              <button onClick={() => changeKey(1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">+</button>
+              <button aria-label="Raise song key" onClick={() => changeKey(1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">+</button>
             </div>
           </div>
           {setlistId && slotId && selectedKey !== assignedKey && (
@@ -375,9 +371,9 @@ export function SongViewer({
         <div className="flex items-center justify-between border-r border-white/[0.06] px-4 md:px-6">
           <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Transpose</span>
           <div className="flex items-center gap-2">
-            <button onClick={() => changeTranspose(-1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">-</button>
+            <button aria-label="Transpose down" onClick={() => changeTranspose(-1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">-</button>
             <span className="font-mono text-base font-extrabold text-white min-w-6 text-center">{transposeOffset > 0 ? `+${transposeOffset}` : transposeOffset}</span>
-            <button onClick={() => changeTranspose(1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">+</button>
+            <button aria-label="Transpose up" onClick={() => changeTranspose(1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">+</button>
           </div>
         </div>
 
@@ -390,7 +386,8 @@ export function SongViewer({
         {/* Time Signature */}
         <div className="flex items-center justify-between pl-4 md:pl-6">
           <span className="text-xs font-bold text-zinc-500 tracking-wide uppercase">Time Sig</span>
-          <select defaultValue="4/4" className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-xs font-bold text-white outline-none focus:border-violet-400">
+          <select aria-label="Practice time signature" value={meter.label} onChange={event => { setPracticeTimeSignature(event.target.value); setCurrentBeat(1); }} className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-xs font-bold text-white outline-none focus:border-violet-400">
+            {!["4/4", "3/4", "6/8"].includes(meter.label) && <option value={meter.label}>{meter.label}</option>}
             <option value="4/4" className="bg-[#111014]">4/4</option>
             <option value="3/4" className="bg-[#111014]">3/4</option>
             <option value="6/8" className="bg-[#111014]">6/8</option>
@@ -432,6 +429,7 @@ export function SongViewer({
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Instrument:</span>
               <select
+                aria-label="Chord diagram instrument"
                 value={instrument}
                 onChange={(event) => {
                   const value = event.target.value;
@@ -710,7 +708,8 @@ export function SongViewer({
                   min="1" 
                   max="5" 
                   step="1" 
-                  value={scrollSpeed}
+                  aria-label="Auto-scroll speed"
+                value={scrollSpeed}
                   onChange={(e) => setScrollSpeed(parseInt(e.target.value))}
                   className="w-full accent-violet-500 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
                 />

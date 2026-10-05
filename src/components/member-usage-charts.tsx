@@ -90,6 +90,7 @@ export function MemberUsageCharts({ rows, summaries, memberNames, start, end }: 
             </div>
           </li>)}
         </ul>
+        {summaries.length === 0 && <p className="mt-4 text-sm text-zinc-400">No recorded member usage yet.</p>}
       </figure>
     </div>
   );

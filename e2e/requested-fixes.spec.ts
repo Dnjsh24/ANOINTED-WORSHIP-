@@ -3,6 +3,97 @@ import { blockRemoteSupabase } from "./demo-network";
 
 test.beforeEach(async ({ page }) => { await blockRemoteSupabase(page); });
 
+test("demo sign-in explains missing configuration without a document reload", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.getByRole("button", { name: /Google/ })).toBeVisible();
+  const documentRequests: string[] = [];
+  page.on("request", request => { if (request.isNavigationRequest() && request.resourceType() === "document") documentRequests.push(request.url()); });
+  await page.getByRole("button", { name: /Google/ }).click();
+  await expect(page).toHaveURL(/\/login\?error=config$/);
+  await expect(page.getByText(/Sign-in is not configured yet/)).toBeVisible();
+  expect(documentRequests).toHaveLength(0);
+});
+
+test("Practice beside Stage supports rehearsal controls, progress and a team plan download", async ({ page }) => {
+  await page.route("https://www.youtube.com/embed/**", route => route.fulfill({ status: 200, contentType: "text/html", body: "Reference player" }));
+  await page.goto("/setlists/sunday-service");
+  await expect(page.getByRole("link", { name: "Stage", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Practice", exact: true }).click();
+  await expect(page).toHaveURL(/\/setlists\/sunday-service\/practice$/);
+  await expect(page.getByText("Song 1 of", { exact: false })).toBeVisible();
+  const first = await page.getByLabel("Song", { exact: true }).inputValue();
+  await expect(page.getByRole("button", { name: "Previous song" })).toBeDisabled();
+  await page.getByRole("button", { name: "Mark as practiced" }).click();
+  await expect(page.getByRole("progressbar", { name: "Setlist practice progress" })).toHaveAttribute("value", "1");
+  await page.getByLabel("Practice time signature").selectOption("6/8");
+  await expect(page.getByText("6/8 meter · beat 1 of 6")).toBeVisible();
+  await page.getByRole("button", { name: "Lyrics", exact: true }).click();
+  await page.getByRole("button", { name: "Chords", exact: true }).click();
+  await page.getByRole("button", { name: "Start metronome" }).click();
+  await expect(page.getByRole("button", { name: "Stop metronome" })).toBeVisible();
+  await page.getByRole("button", { name: "Start auto-scroll" }).click();
+  await page.getByRole("button", { name: "Next song" }).click();
+  await expect(page.getByLabel("Song", { exact: true })).not.toHaveValue(first);
+  await expect(page.getByRole("button", { name: "Start metronome" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start auto-scroll" })).toBeVisible();
+  await page.getByLabel("Song", { exact: true }).selectOption(first);
+  await expect(page.getByRole("button", { name: "Practiced", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByText("Open preparation tools", { exact: true }).click();
+  const prep = page.getByRole("region", { name: "Rehearsal and service preparation" });
+  const minutes = prep.getByRole("spinbutton").first();
+  await minutes.fill("12");
+  await prep.getByRole("textbox").first().fill("Work on opening transitions");
+  await prep.getByLabel("Tune instruments and check cables").check();
+  await expect(prep.getByRole("status")).toContainText("1 of 10 preparation checks");
+  const downloadPromise = page.waitForEvent("download");
+  await prep.getByRole("button", { name: "Download rehearsal plan" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("rehearsal-plan.txt");
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+  const plan = Buffer.concat(chunks).toString("utf8");
+  expect(plan).toContain("Work on opening transitions");
+  expect(plan).toContain("12 rehearsal min");
+  expect(plan).toContain("[x] Tune instruments and check cables");
+  await page.setViewportSize({ width: 320, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.goto("/setlists/midweek-prayer/practice");
+  await page.getByText("Open preparation tools", { exact: true }).click();
+  await expect(page.getByLabel("Tune instruments and check cables")).not.toBeChecked();
+  await expect(page.getByRole("progressbar", { name: "Setlist practice progress" })).toHaveAttribute("value", "0");
+});
+
+test("regular workspace pages skip presentation fonts, presenter retains them", async ({ page }) => {
+  const fontRequests: string[] = [];
+  await page.route("https://fonts.googleapis.com/**", async route => {
+    fontRequests.push(route.request().url());
+    await route.fulfill({ status: 200, contentType: "text/css", body: "" });
+  });
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { name: "Quick Access" })).toBeVisible();
+  expect(fontRequests).toHaveLength(0);
+  await page.goto("/presenter");
+  await expect.poll(() => fontRequests.length).toBe(1);
+  expect(fontRequests[0]).toContain("family=Inter");
+});
+
+test("loaded chat opens without another server render", async ({ page }) => {
+  await page.goto("/messages");
+  await expect(page.getByRole("button", { name: /Worship Team/ })).toBeVisible();
+  const renders: string[] = [];
+  await page.route(url => url.pathname === "/messages" && url.searchParams.has("channel") && url.searchParams.has("_rsc"), async route => {
+    renders.push(route.request().url());
+    await new Promise(resolve => setTimeout(resolve, 800));
+    await route.continue();
+  });
+  const started = Date.now();
+  await page.getByRole("button", { name: /Worship Team/ }).click();
+  await expect(page.getByRole("button", { name: "Send message" })).toBeVisible();
+  console.log(`Loaded chat opened in ${Date.now() - started} ms; channel server renders: ${renders.length}`);
+  expect(renders).toHaveLength(0);
+});
+
 test("messages opens chats first and browser history restores selection", async ({ page }) => {
   await page.goto("/messages");
   await expect(page.getByRole("heading", { name: "Messages", exact: true })).toBeVisible();
@@ -46,7 +137,7 @@ test("team usage shows honest unavailable data and validates UTC dates", async (
     await expect(usage.getByText(/Demo usage is not recorded/)).toBeVisible();
     await usage.getByLabel("From (UTC)").fill("2026-10-05");
     await usage.getByLabel("Through (UTC)").fill("2026-10-01");
-    await usage.getByRole("button", { name: "Load usage" }).click();
+    await expect(usage.getByRole("button", { name: "Load usage" })).toHaveCount(0);
     await expect(usage.getByRole("alert")).toContainText("Choose valid UTC dates in order");
     if (route === "/members") {
       await expect(page.getByText("Online", { exact: true })).toHaveCount(0);

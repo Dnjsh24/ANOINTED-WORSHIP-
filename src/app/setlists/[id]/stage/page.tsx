@@ -5,6 +5,8 @@ import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import StageModeClient from "./stage-mode-client";
 import type { Viewport } from "next";
 import type { Database } from "@/lib/supabase/database.types";
+import { setlists as sampleSetlists } from "@/lib/sample-data";
+import { formatSongToText } from "@/lib/domain/chords";
 
 type StageSetlistSongRow = Pick<
   Database["public"]["Tables"]["setlist_songs"]["Row"],
@@ -30,10 +32,29 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
 
+  if (!hasSupabaseEnv()) {
+    const sample = sampleSetlists.find(setlist => setlist.id === id);
+    if (!sample) notFound();
+    return <StageModeClient setlist={{
+      id: sample.id,
+      date: sample.date,
+      type: sample.eventType ?? "service",
+      songs: [...sample.songs].sort((a, b) => a.order - b.order).map(slot => ({
+        id: slot.id,
+        order: slot.order,
+        assignedKey: slot.assignedKey,
+        lead: slot.lead ?? "",
+        youtubeUrl: slot.song.youtubeUrl ?? null,
+        arrangement: slot.arrangement ?? null,
+        song: { id: slot.song.id, title: slot.song.title, bpm: slot.song.bpm ?? 70, originalKey: slot.song.originalKey, lyricsChords: formatSongToText(slot.song) },
+      })),
+    }} />;
+  }
+
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("setlists")
       .select(`
         *,
@@ -59,6 +80,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
       .maybeSingle();
+    if (error) throw new Error("Stage mode could not load. Please retry.");
     const dbSetlist = data as unknown as StageSetlistRow | null;
 
     if (dbSetlist) {

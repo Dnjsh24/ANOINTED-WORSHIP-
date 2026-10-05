@@ -2,12 +2,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MessagesClient } from "./messages-client";
 
-const mocks = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), read: vi.fn(), direct: vi.fn(), query: "" }));
+const mocks = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), read: vi.fn(), direct: vi.fn(), send: vi.fn(), query: "" }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: mocks.push, replace: mocks.replace }), useSearchParams: () => new URLSearchParams(mocks.query) }));
 vi.mock("@/lib/supabase/client", () => ({ createOptionalClient: () => null }));
 vi.mock("@/app/actions", () => ({
   addChannelMemberAction: vi.fn(), createChannelAction: vi.fn(), getOrCreateDirectChannelAction: mocks.direct,
-  leaveChannelAction: vi.fn(), removeChannelMemberAction: vi.fn(), sendMessageAction: vi.fn(), markMessagesReadAction: mocks.read,
+  leaveChannelAction: vi.fn(), removeChannelMemberAction: vi.fn(), sendMessageAction: mocks.send, markMessagesReadAction: mocks.read,
 }));
 
 const channels = [{ id: "channel-1", name: "Worship Team", membersOnline: 0, preview: "New message", messages: [{ id: "message-1", author: "Alex", body: "Hello team", createdAt: "Now", mine: false }] }];
@@ -15,11 +15,15 @@ const props = { channels, currentMemberId: "member-1", currentProfileId: "profil
 
 describe("Messages chat selection", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(window.history, "pushState");
+    vi.spyOn(window.history, "replaceState");
     mocks.query = "";
     mocks.push.mockReset();
     mocks.replace.mockReset();
     mocks.read.mockReset();
     mocks.direct.mockReset();
+    mocks.send.mockReset();
     Element.prototype.scrollIntoView = vi.fn();
   });
 
@@ -30,7 +34,8 @@ describe("Messages chat selection", () => {
     expect(screen.queryByPlaceholderText("Message Worship Team...")).not.toBeInTheDocument();
     expect(mocks.read).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: /Worship Team/ }));
-    expect(mocks.push).toHaveBeenCalledWith("/messages?channel=channel-1");
+    expect(window.history.pushState).toHaveBeenCalledWith(null, "", "/messages?channel=channel-1");
+    expect(mocks.push).not.toHaveBeenCalled();
   });
 
   it("opens only an explicitly selected channel and lets users return to chats", () => {
@@ -40,7 +45,7 @@ describe("Messages chat selection", () => {
     expect(screen.getByText("Hello team")).toBeInTheDocument();
     expect(mocks.read).toHaveBeenCalledWith("channel-1", ["message-1"]);
     fireEvent.click(screen.getByRole("button", { name: "Back to chats" }));
-    expect(mocks.replace).toHaveBeenCalledWith("/messages");
+    expect(window.history.replaceState).toHaveBeenCalledWith(null, "", "/messages");
   });
 
   it("does not fall back to another conversation after removal or an invalid URL", () => {
@@ -72,6 +77,31 @@ describe("Messages chat selection", () => {
     fireEvent.click(screen.getByRole("button", { name: /Jamie/ }));
     expect(await screen.findByRole("status")).toHaveTextContent("Conversation could not be opened.");
     expect(mocks.push).not.toHaveBeenCalled();
+  });
+
+  it("retains sent messages across chat switches but clears them when identity changes", async () => {
+    mocks.query = "channel=channel-1";
+    mocks.send.mockResolvedValue({ ok: true, data: { messageId: "sent-1" } });
+    const view = render(<MessagesClient {...props} />);
+    fireEvent.change(screen.getByPlaceholderText("Message Worship Team..."), { target: { value: "New private message" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText("New private message");
+    mocks.query = "";
+    view.rerender(<MessagesClient {...props} />);
+    mocks.query = "channel=channel-1";
+    view.rerender(<MessagesClient {...props} />);
+    expect(screen.getByText("New private message")).toBeInTheDocument();
+    view.rerender(<MessagesClient {...props} currentProfileId="another-profile" />);
+    expect(screen.queryByText("New private message")).not.toBeInTheDocument();
+  });
+
+  it("requests server data for a direct chat that is not yet loaded", async () => {
+    mocks.direct.mockResolvedValue({ ok: true, data: { channelId: "new-direct" } });
+    render(<MessagesClient {...props} teamMembers={[{ memberId: "other", profileId: "other-profile", fullName: "Jamie", email: "", role: "member" }]} />);
+    fireEvent.change(screen.getByPlaceholderText("Search messages..."), { target: { value: "Jamie" } });
+    fireEvent.click(screen.getByRole("button", { name: /Jamie/ }));
+    await vi.waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/messages?channel=new-direct"));
+    expect(window.history.pushState).not.toHaveBeenCalled();
   });
 
   it("revokes an attachment preview when navigation closes its conversation", () => {
