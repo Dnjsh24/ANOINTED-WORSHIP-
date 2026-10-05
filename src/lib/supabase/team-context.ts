@@ -80,7 +80,8 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
     return unauthenticatedTeamContext;
   }
 
-  const { data: member } = await supabase
+  const [memberResult, pendingRequestResult] = await Promise.all([
+    supabase
     .from("team_members")
     .select(`
       id,
@@ -97,15 +98,17 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(1)
-    .maybeSingle();
-
-  const { data: pendingRequest } = await supabase
+    .maybeSingle(),
+    supabase
     .from("join_requests")
     .select("id")
     .eq("profile_id", user.id)
     .eq("status", "pending")
     .limit(1)
-    .maybeSingle();
+    .maybeSingle(),
+  ]);
+  const member = memberResult.data;
+  const pendingRequest = pendingRequestResult.data;
 
   if (!member) {
     return {

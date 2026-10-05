@@ -8,7 +8,7 @@ import {
   Activity,
 } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { AppShellActions } from "@/components/app-shell-actions";
 import { MemberUsageTracker } from "@/components/member-usage-tracker";
 import { QuickReportButton } from "@/components/quick-report-button";
@@ -45,22 +45,15 @@ export async function AppShell({
   const context = teamContext ?? (await getCurrentTeamContext());
   const navigation = getVisibleNavigationItems(context.role);
   
-  let unreadMessageCount = 0;
-  if (hasSupabaseEnv() && context.userId && !isDesktopRuntime()) {
-    const supabase = await createClient();
-    const { data } = await supabase.rpc("get_unread_message_count", {
-      p_profile_id: context.userId
-    });
-    if (typeof data === "number") {
-      unreadMessageCount = data;
-    }
-  }
+  // Share one request-local lookup. Optional badges must not delay page content.
+  const unreadMessageCount = hasSupabaseEnv() && context.userId && !isDesktopRuntime()
+    ? loadUnreadMessageCount(context.userId)
+    : Promise.resolve(null);
 
   const mobileNavigation: MobileNavigationItem[] = navigation.map(({ id, href, label }) => ({ 
     id, 
     href, 
     label,
-    badgeCount: id === "messages" ? unreadMessageCount : undefined,
   }));
 
   return (
@@ -76,14 +69,13 @@ export async function AppShell({
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={active === item.label ? "page" : undefined}
                 className={cn("nav-link text-sm font-semibold text-zinc-300 hover:text-white transition-colors duration-200 relative", active === item.label && "text-violet-200 active")}
               >
                 {item.label}
-                {item.id === "messages" && unreadMessageCount > 0 && (
-                  <span className="absolute -top-1 -right-3 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#111014]">
-                    {unreadMessageCount > 9 ? "9+" : unreadMessageCount}
-                  </span>
-                )}
+                {item.id === "messages" && <Suspense fallback={null}>
+                  <UnreadMessageBadge count={unreadMessageCount} />
+                </Suspense>}
               </Link>
             ))}
           </nav>
@@ -97,11 +89,37 @@ export async function AppShell({
           </div>
         </div>
       </header>
-      <MobileIconRail active={active} items={mobileNavigation} canManageTeam={context.canManageMembers} />
+      <MobileIconRail active={active} items={mobileNavigation} canManageTeam={context.canManageMembers} messageBadge={
+        <Suspense fallback={null}>
+          <UnreadMessageBadge count={unreadMessageCount} className="absolute -top-1 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0f0e14]" />
+        </Suspense>
+      } />
       <main className="mx-auto max-w-7xl px-4 py-6 pb-[calc(96px+env(safe-area-inset-bottom))] md:px-6 md:pb-8">{children}</main>
       <QuickReportButton />
     </div>
   );
+}
+
+async function loadUnreadMessageCount(userId: string): Promise<number | null> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("get_unread_message_count", { p_profile_id: userId });
+    return !error && typeof data === "number" && Number.isInteger(data) && data >= 0 ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function UnreadMessageBadge({
+  count,
+  className = "absolute -top-1 -right-3 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#111014]",
+}: { count: Promise<number | null>; className?: string }) {
+  const unread = await count;
+  return unread !== null && unread > 0 ? (
+    <span className={className}>
+      {unread > 9 ? "9+" : unread}
+    </span>
+  ) : null;
 }
 
 function getVisibleNavigationItems(role: TeamRole | string) {

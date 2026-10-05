@@ -139,14 +139,22 @@ export default async function MessagesPage() {
         });
 
         const msgIds = dbMsgs.map((message) => message.id);
-        let dbMsgReads: MessageReadRow[] = [];
-        if (msgIds.length > 0) {
-          const readsResult = await supabase
+        const attachmentFileIds = Array.from(new Set(
+          dbMsgs.map((message) => message.attachment_file_id)
+            .filter((id): id is string => typeof id === "string" && id.length > 0)
+        ));
+        const [readsResult, filesResult] = await Promise.all([
+          msgIds.length > 0 ? supabase
               .from("message_reads")
               .select("message_id, profile_id, profiles(avatar_url, full_name)")
-              .in("message_id", msgIds);
-          dbMsgReads = (readsResult.data as unknown as MessageReadRow[] | null) ?? [];
-        }
+              .in("message_id", msgIds) : Promise.resolve({ data: [] }),
+          attachmentFileIds.length > 0 ? supabase
+              .from("practice_files")
+              .select("id, storage_path, file_name, mime_type, size_bytes")
+              .in("id", attachmentFileIds) : Promise.resolve({ data: [] }),
+        ]);
+        const dbMsgReads = (readsResult.data as unknown as MessageReadRow[] | null) ?? [];
+        const dbFiles: PracticeFileRow[] = filesResult.data ?? [];
 
         const messageReadsByMsgId = new Map<string, MessageReadReceipt[]>();
         dbMsgReads.forEach((read) => {
@@ -159,38 +167,29 @@ export default async function MessagesPage() {
           messageReadsByMsgId.set(read.message_id, reads);
         });
 
-        const attachmentFileIds = Array.from(
-          new Set<string>(
-            dbMsgs
-              .map((message) => message.attachment_file_id)
-              .filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
-          )
-        );
         const attachmentMap = new Map<string, MessageAttachment>();
 
-        if (attachmentFileIds.length > 0) {
-          const { data } = await supabase
-            .from("practice_files")
-            .select("id, storage_path, file_name, mime_type, size_bytes")
-            .in("id", attachmentFileIds);
-          const dbFiles = data as PracticeFileRow[] | null;
-
-          await Promise.all(
-            (dbFiles || []).map(async (file) => {
-              const { data: signedUrl } = await supabase.storage
-                .from("practice-files")
-                .createSignedUrl(file.storage_path, 60 * 60);
-
-              attachmentMap.set(file.id, {
-                id: file.id,
-                name: file.file_name,
-                size: formatFileSize(Number(file.size_bytes)),
-                type: fileKindLabel(file.mime_type, file.file_name),
-                mimeType: file.mime_type,
-                url: signedUrl?.signedUrl ?? "",
-              });
-            })
-          );
+        if (dbFiles.length > 0) {
+          const signedUrls = new Map<string, string>();
+          try {
+            const { data } = await supabase.storage.from("practice-files")
+              .createSignedUrls([...new Set(dbFiles.map((file) => file.storage_path))], 60 * 60);
+            for (const signedUrl of data ?? []) {
+              if (signedUrl.path && signedUrl.signedUrl && !signedUrl.error) signedUrls.set(signedUrl.path, signedUrl.signedUrl);
+            }
+          } catch {
+            // Message history and attachment metadata stay available when signing fails.
+          }
+          for (const file of dbFiles) {
+            attachmentMap.set(file.id, {
+              id: file.id,
+              name: file.file_name,
+              size: formatFileSize(Number(file.size_bytes)),
+              type: fileKindLabel(file.mime_type, file.file_name),
+              mimeType: file.mime_type,
+              url: signedUrls.get(file.storage_path) ?? "",
+            });
+          }
         }
 
         for (const chan of visibleDbChannels) {
