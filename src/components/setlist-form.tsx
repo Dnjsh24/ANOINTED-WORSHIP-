@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { createPortal } from "react-dom";
 import { createSetlistAction, updateSetlistAction, deleteSetlistAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -260,14 +261,14 @@ export function SetlistForm({
           </div>
         )}
       </div>
-      <DragOverlay dropAnimation={null}>
+      {typeof document !== "undefined" ? createPortal(<DragOverlay dropAnimation={null}>
         {activeSong ? (
           <div className="p-3 border border-violet-500/50 rounded-xl bg-[#1f1e24] shadow-2xl shadow-black/50 cursor-grabbing w-[310px] m-0">
             <div className="text-sm font-bold text-white truncate">{activeSong.title}</div>
             <div className="text-xs text-zinc-400 mt-1">{activeSong.original_key} • {activeSong.bpm} BPM</div>
           </div>
         ) : null}
-      </DragOverlay>
+      </DragOverlay>, document.body) : null}
     </DndContext>
   );
 }

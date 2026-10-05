@@ -70,6 +70,8 @@ for (const route of ["/setlists/new", "/setlists/sunday-service/edit"]) {
       if (await page.getByRole("button", { name: `Add ${title}`, exact: true }).isEnabled()) { chosen = candidate; break; }
     }
     await chosen.evaluate(element => element.scrollIntoView({ block: "center" }));
+    const sourceCardBox = await chosen.locator("..").boundingBox();
+    const preview = page.locator("div.cursor-grabbing");
     // use the dashed drop area itself, independent of selected rows
     const target = page.locator('[class*="border-dashed"]').first();
     const sourceBox = await chosen.boundingBox();
@@ -83,6 +85,11 @@ for (const route of ["/setlists/new", "/setlists/sunday-service/edit"]) {
       await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [start] });
       await page.waitForTimeout(250);
       await expect(chosen).toHaveAttribute("aria-pressed", "true");
+      // Holding must show the preview on its source row, not above the finger.
+      await expect(preview).toBeVisible();
+      const previewBox = await preview.boundingBox();
+      expect(Math.abs(previewBox!.y - sourceCardBox!.y)).toBeLessThan(3);
+      expect(Math.abs(previewBox!.x - sourceCardBox!.x)).toBeLessThan(3);
       // Drag toward the upper edge until the stacked drop zone scrolls into view.
       let visibleTarget = await target.boundingBox();
       if (visibleTarget && visibleTarget.y + visibleTarget.height < 100) {
@@ -104,7 +111,13 @@ for (const route of ["/setlists/new", "/setlists/sunday-service/edit"]) {
         await page.waitForTimeout(25);
       }
       const settledTarget = await target.boundingBox();
-      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: settledTarget!.x + settledTarget!.width / 2, y: Math.min(page.viewportSize()!.height - 150, Math.max(150, settledTarget!.y + settledTarget!.height / 2)) }] });
+      const dropPoint = { x: settledTarget!.x + settledTarget!.width / 2, y: Math.min(page.viewportSize()!.height - 150, Math.max(150, settledTarget!.y + settledTarget!.height / 2)) };
+      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [dropPoint] });
+      // Page auto-scroll must not change the preview's offset from the finger.
+      await expect.poll(async () => {
+        const movedPreview = await preview.boundingBox();
+        return Math.abs(movedPreview!.y + start.y - sourceCardBox!.y - dropPoint.y);
+      }).toBeLessThan(3);
       await expect(target).toHaveClass(/border-violet-500/);
       await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
       await session.detach();
@@ -114,6 +127,7 @@ for (const route of ["/setlists/new", "/setlists/sunday-service/edit"]) {
       await page.mouse.move(end.x, end.y, { steps: 12 });
       await page.mouse.up();
     }
+    await expect(preview).toHaveCount(0);
     await expect(page.locator('input[name="songIds"]')).toHaveCount(originalIds.length + 1);
     const currentIds = await page.locator('input[name="songIds"]').evaluateAll(inputs => inputs.map(input => (input as HTMLInputElement).value));
     expect(new Set(currentIds).size).toBe(currentIds.length);
