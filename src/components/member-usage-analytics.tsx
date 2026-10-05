@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { summarizeMemberUsage, usageDateRangeIsValid, type MemberUsageDay } from "@/lib/domain/member-usage";
 import { createOptionalClient } from "@/lib/supabase/client";
 import { loadMemberUsageDays } from "@/lib/supabase/member-usage";
+import { MemberUsageCharts } from "@/components/member-usage-charts";
 
 type UsageLoadState = { kind: "loading" } | { kind: "ready"; rows: MemberUsageDay[] } | { kind: "unavailable"; message: string };
 
@@ -64,6 +65,13 @@ export function MemberUsageAnalytics({ teamId, memberNames }: { teamId: string |
         {state.kind === "unavailable" && <p className="mt-4 text-sm text-amber-200">{state.message}</p>}
         {state.kind === "ready" && summaries.length === 0 && <p className="mt-4 text-sm text-zinc-400">No recorded app usage in this date range.</p>}
       </div>
+      {state.kind === "ready" && summaries.length > 0 && <MemberUsageCharts
+        rows={state.rows}
+        summaries={summaries}
+        memberNames={memberNames}
+        start={range.start}
+        end={range.end}
+      />}
       {summaries.length > 0 && <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[560px] text-left text-sm">
           <caption className="sr-only">Usage ranked by approximate active hours, {range.start} through {range.end}, UTC</caption>

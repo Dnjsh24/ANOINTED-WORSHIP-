@@ -14,7 +14,7 @@ describe("member app usage analytics", () => {
       { member_id: "b", team_id: "team", usage_date: "2026-10-04", active_minutes: 120, sessions: 2 },
     ] });
     render(<MemberUsageAnalytics teamId="team" memberNames={{ a: "Anna", b: "Ben" }} />);
-    const table = await screen.findByRole("table");
+    const table = await screen.findByRole("table", { name: /Usage ranked by approximate active hours/ });
     const rows = table.querySelectorAll("tbody tr");
     expect(rows[0]).toHaveTextContent("Ben");
     expect(rows[0]).toHaveTextContent("2.00");
@@ -22,11 +22,14 @@ describe("member app usage analytics", () => {
     expect(screen.getByText("2026-10-05: 30 min, 3 sessions")).toBeInTheDocument();
     expect(screen.getByText(/Hidden and idle time is excluded/)).toBeInTheDocument();
     expect(screen.getByText(/Past usage cannot be recovered/)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Daily active hours/ })).toBeInTheDocument();
+    expect(screen.getByText("Active hours by member")).toBeInTheDocument();
   });
   it("applies valid UTC dates and rejects reversed dates without a query", async () => {
     loadDays.mockResolvedValue({ kind: "ready", rows: [] });
     render(<MemberUsageAnalytics teamId="team" memberNames={{}} />);
     await screen.findByText("No recorded app usage in this date range.");
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("From (UTC)"), { target: { value: "2026-10-01" } });
     fireEvent.change(screen.getByLabelText("Through (UTC)"), { target: { value: "2026-10-05" } });
     fireEvent.click(screen.getByRole("button", { name: "Load usage" }));
@@ -41,6 +44,7 @@ describe("member app usage analytics", () => {
     render(<MemberUsageAnalytics teamId="team" memberNames={{}} />);
     expect(await screen.findByText(/until the member usage migration is deployed/)).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(screen.queryByText("No recorded app usage in this date range.")).not.toBeInTheDocument();
     loadDays.mockRejectedValue(new Error("offline"));
     fireEvent.click(screen.getByRole("button", { name: "Load usage" }));
@@ -50,5 +54,6 @@ describe("member app usage analytics", () => {
     render(<MemberUsageAnalytics teamId={null} memberNames={{}} />);
     expect(await screen.findByText(/Demo usage is not recorded/)).toBeInTheDocument();
     expect(loadDays).not.toHaveBeenCalled();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 });
