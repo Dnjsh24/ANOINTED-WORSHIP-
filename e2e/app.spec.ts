@@ -223,6 +223,7 @@ test("events filters and detail actions work", async ({ page }) => {
 
 test("messages controls switch channel and report send persistence", async ({ page, isMobile }) => {
   await page.goto("/messages");
+  await page.getByRole("button", { name: /Worship Team/ }).click();
   await page.getByRole("button", { name: "Open attachment menu" }).click();
   await expect(page.getByRole("menu", { name: "Attachment options" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Attach file" })).toBeVisible();

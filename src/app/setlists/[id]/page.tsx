@@ -454,7 +454,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_340px] animate-fade-up" style={{ animationDelay: "100ms" }}>
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <div className="grid gap-5 md:grid-cols-2">
             <Panel className="card-hover">
               <MapPin className="size-6 text-violet-200" />

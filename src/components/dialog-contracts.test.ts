@@ -21,7 +21,7 @@ describe("confirmed dialog accessibility contracts", () => {
   });
 
   it("uses native buttons for setlist template choices", () => {
-    const source = readFileSync("src/components/setlist-template-picker.tsx", "utf8");
+    const source = readFileSync("src/components/setlist-template-picker.tsx", "utf8").replaceAll("\r\n", "\n");
     expect(source).toContain('<button\n                  type="button"');
     expect(source).not.toContain('<div \n                  key={t.id}');
   });

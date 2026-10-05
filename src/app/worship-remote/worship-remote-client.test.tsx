@@ -67,11 +67,13 @@ describe("Worship Remote pairing screen", () => {
     const token = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     const pair = `${sessionId}.${token}`;
     mocks.claimToken.mockResolvedValue({ ok: false, code: "auth_required", message: "Sign in required." });
-    window.history.replaceState(null, "", `/worship-remote#pair=${pair}`);
+    const frameworkState = { __NA: true, tree: ["existing-route"] };
+    window.history.replaceState(frameworkState, "", `/worship-remote#pair=${pair}`);
 
     render(<WorshipRemoteClient />);
 
     await waitFor(() => expect(mocks.claimToken).toHaveBeenCalledWith(pair));
+    expect(window.history.state).toEqual(frameworkState);
     expect(window.sessionStorage.getItem("anointed-worship-pending-remote-pairing")).toBe(pair);
     expect(mocks.push).toHaveBeenCalledWith("/login?next=%2Fworship-remote");
   });

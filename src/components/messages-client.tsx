@@ -1,9 +1,9 @@
 "use client";
 
-import { Download, FileText, Image as ImageIcon, Menu, MoreHorizontal, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X, Info, CalendarClock } from "lucide-react";
+import { ArrowLeft, Download, FileText, Image as ImageIcon, Menu, MoreHorizontal, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X, Info, CalendarClock } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useTransition, type ComponentProps } from "react";
 import { addChannelMemberAction, createChannelAction, getOrCreateDirectChannelAction, leaveChannelAction, removeChannelMemberAction, sendMessageAction, markMessagesReadAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +54,13 @@ function attachmentHref(attachment: AttachmentDetails) {
   return attachment.url || `/practice-files/${attachment.name}`;
 }
 
-export function MessagesClient({
+export function MessagesClient(props: Omit<ComponentProps<typeof MessagesView>, "activeChannelId">) {
+  const searchParams = useSearchParams();
+  const activeChannelId = searchParams.get("channel") ?? "";
+  return <MessagesView key={activeChannelId} {...props} activeChannelId={activeChannelId} />;
+}
+
+function MessagesView({
   channels,
   teamMembers = [],
   currentMemberId,
@@ -62,6 +68,7 @@ export function MessagesClient({
   teamId,
   role,
   allChannelMemberships = [],
+  activeChannelId,
 }: {
   channels: MessagesChannel[];
   teamMembers?: MessagesTeamMember[];
@@ -70,9 +77,22 @@ export function MessagesClient({
   teamId: string;
   role: string;
   allChannelMemberships?: MessagesChannelMembership[];
+  activeChannelId: string;
 }) {
   const router = useRouter();
-  const [activeChannelId, setActiveChannelId] = useState(channels[0]?.id || "");
+  function setActiveChannelId(channelId: string) {
+    setDraft("");
+    setReplyingTo(null);
+    setScheduledFor("");
+    clearSelectedAttachment();
+    setInfoPanelOpen(false);
+    setManagePanelOpen(false);
+    if (!channelId) {
+      router.replace("/messages");
+      return;
+    }
+    router.push(`/messages?channel=${encodeURIComponent(channelId)}`);
+  }
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [channelList, setChannelList] = useState(channels);
   const [previousChannels, setPreviousChannels] = useState(channels);
@@ -117,6 +137,7 @@ export function MessagesClient({
   }, [selectedAttachment]);
 
   useEffect(() => {
+    if (!activeChannelId || !channels.some(channel => channel.id === activeChannelId)) return;
     const supabase = createOptionalClient();
     if (!supabase) return;
     const presenceChannel = supabase.channel(`online-presence-${activeChannelId}`, {
@@ -164,7 +185,7 @@ export function MessagesClient({
     return () => {
       supabase.removeChannel(presenceChannel);
     };
-  }, [activeChannelId, currentMemberId]);
+  }, [activeChannelId, currentMemberId, channels]);
   // Keep a ref to teamMembers so the realtime callback always sees the latest value
   // without needing to re-subscribe every time state changes
   const teamMembersRef = useRef(teamMembers);
@@ -285,12 +306,12 @@ export function MessagesClient({
   if (channels !== previousChannels) {
     setPreviousChannels(channels);
     setChannelList(channels);
-    if (channels.length > 0 && !activeChannelId) {
-      setActiveChannelId(channels[0].id);
-    }
   }
 
-  const activeChannel = channelList.find((channel) => channel.id === activeChannelId) ?? channelList[0] ?? { id: "", name: "No Channel", membersOnline: 0, preview: "", messages: [] };
+  const selectedChannel = channelList.find((channel) => channel.id === activeChannelId);
+  const activeChannel = selectedChannel ?? { id: "", name: "No Channel", membersOnline: 0, preview: "", messages: [] };
+  const showingList = !selectedChannel;
+  const listExpanded = sidebarExpanded || showingList;
   const activeMessageCount = activeChannel.messages.length;
 
   // Auto-scroll to bottom when active channel or its messages change
@@ -300,7 +321,7 @@ export function MessagesClient({
 
   // Mark messages as read
   useEffect(() => {
-    if (!activeChannelId || activeChannel.messages.length === 0) return;
+    if (!activeChannel.id || activeChannel.messages.length === 0) return;
     const unreadMessageIds = activeChannel.messages
       .filter((msg) => !msg.mine && !msg.reads?.some((r) => r.profileId === currentProfileId))
       .map((msg) => msg.id);
@@ -331,7 +352,7 @@ export function MessagesClient({
         markMessagesReadAction(activeChannelId, []);
       });
     }
-  }, [activeChannel.messages, activeChannelId, activeMessageCount, currentProfileId]);
+  }, [activeChannel.id, activeChannel.messages, activeChannelId, activeMessageCount, currentProfileId]);
 
   const activeChannelFiles = useMemo(() => {
     const seen = new Set<string>();
@@ -437,7 +458,7 @@ export function MessagesClient({
     if (!supabase) {
       throw new Error("Sign in with Supabase to attach files.");
     }
-    const objectId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`;
+    const objectId = globalThis.crypto.randomUUID();
     const mimeType = inferPracticeFileMimeType(attachment.file);
     const path = storagePath(teamId, "messages", objectId, attachment.file.name);
     const { error: uploadError } = await supabase.storage
@@ -653,12 +674,13 @@ export function MessagesClient({
     <div className="relative flex w-full max-w-full h-[calc(100dvh-120px-env(safe-area-inset-bottom))] md:h-[calc(100dvh-8rem)] min-h-[400px] md:min-h-[600px] overflow-hidden rounded-lg border border-white/10 bg-[#111014]">
       <aside
         className={cn(
-          "transition-all duration-300 bg-[#201f24] flex flex-col border-r border-white/10 shrink-0 h-full overflow-y-auto absolute z-20 md:static md:translate-x-0",
-          sidebarExpanded ? "w-72 p-4 translate-x-0 shadow-2xl" : "-translate-x-full w-72 md:w-20 md:p-3 lg:w-72 lg:p-4"
+          "transition-all duration-300 bg-[#201f24] flex flex-col border-r border-white/10 shrink-0 h-full overflow-y-auto z-20 md:static md:translate-x-0",
+          showingList ? "relative w-full p-4 md:w-80" : "absolute",
+          !showingList && (sidebarExpanded ? "w-72 p-4 translate-x-0 shadow-2xl" : "-translate-x-full w-72 md:w-20 md:p-3 lg:w-72 lg:p-4")
         )}
       >
         <div className="flex items-center justify-between">
-          <h1 className={cn("text-xl font-bold transition-all", sidebarExpanded ? "block" : "hidden lg:block")}>
+          <h1 className={cn("text-xl font-bold transition-all", listExpanded ? "block" : "hidden lg:block")}>
             Messages
           </h1>
           {role !== "member" && (
@@ -667,7 +689,7 @@ export function MessagesClient({
               aria-label="Compose new message"
               className={cn(
                 "rounded-md p-2 text-violet-200 hover:bg-white/[0.06]",
-                !sidebarExpanded && "mx-auto lg:mx-0"
+                !listExpanded && "mx-auto lg:mx-0"
               )}
               onClick={() => {
                 setComposeOpen((prev) => {
@@ -693,23 +715,26 @@ export function MessagesClient({
         )}
 
         {/* Search — shows when expanded on mobile, always on desktop */}
-        <div className={cn("relative mt-4", sidebarExpanded ? "block" : "hidden lg:block")}>
+        <div className={cn("relative mt-4", listExpanded ? "block" : "hidden lg:block")}>
           <Search className="absolute left-3 top-2.5 size-4 text-zinc-400" />
           <Input ref={searchInputRef} className="pl-10" placeholder="Search messages..." value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
 
         {/* CHANNELS SECTION */}
-        {sidebarExpanded ? (
+        {listExpanded ? (
           <p className="mt-6 font-mono text-[10px] font-bold uppercase text-zinc-400">Channels</p>
         ) : (
           <p className="mt-4 hidden lg:block font-mono text-[10px] font-bold uppercase text-zinc-400">Channels</p>
         )}
         {/* Thin divider in collapsed mobile view */}
-        {!sidebarExpanded && (
+        {!listExpanded && (
           <div className="mt-3 mb-1 mx-auto w-8 h-px bg-white/10 lg:hidden" />
         )}
 
         <div className="mt-2 space-y-1">
+          {showingList && status && <p role="status" className="rounded-lg bg-white/5 p-3 text-sm text-zinc-300">{status}</p>}
+          {showingList && activeChannelId && <p role="status" className="p-3 text-sm text-zinc-400">This conversation is unavailable. Choose another chat.</p>}
+          {channelList.length === 0 && <p className="p-3 text-sm text-zinc-400">No chats yet. Search for a teammate to start a conversation.</p>}
           {visibleChannels.map((channel) => (
             <button
               key={channel.id}
@@ -717,7 +742,7 @@ export function MessagesClient({
               className={cn(
                 "flex items-center gap-3 rounded-md p-2 text-left w-full transition hover:bg-white/[0.04]",
                 channel.id === activeChannel.id && "bg-violet-500/20",
-                sidebarExpanded ? "justify-start px-3" : "justify-center lg:justify-start lg:px-3"
+                listExpanded ? "justify-start px-3" : "justify-center lg:justify-start lg:px-3"
               )}
               onClick={() => {
                 setActiveChannelId(channel.id);
@@ -728,7 +753,7 @@ export function MessagesClient({
               title={channel.name}
             >
               <Avatar name={channel.name} src={channel.avatarUrl} className="shrink-0" />
-              <span className={cn(sidebarExpanded ? "block" : "hidden lg:block")}>
+              <span className={cn(listExpanded ? "block" : "hidden lg:block")}>
                 <span className="block text-sm font-bold truncate max-w-36">{channel.name}</span>
                 <span className="block max-w-44 truncate text-xs text-zinc-400">{channel.preview}</span>
               </span>
@@ -739,13 +764,13 @@ export function MessagesClient({
         {/* DIRECT MESSAGES SECTION (Only shown when searching) */}
         {visibleMembers.length > 0 && (
           <>
-            {sidebarExpanded ? (
+            {listExpanded ? (
               <p className="mt-6 font-mono text-[10px] font-bold uppercase text-zinc-400">Direct Messages</p>
             ) : (
               <p className="mt-4 hidden lg:block font-mono text-[10px] font-bold uppercase text-zinc-400">Direct Messages</p>
             )}
             {/* Thin divider in collapsed mobile view */}
-            {!sidebarExpanded && (
+            {!listExpanded && (
               <div className="mt-3 mb-1 mx-auto w-8 h-px bg-white/10 lg:hidden" />
             )}
 
@@ -756,7 +781,7 @@ export function MessagesClient({
                   type="button"
                   className={cn(
                     "flex items-center gap-3 rounded-md p-2 text-left hover:bg-white/[0.04] transition w-full",
-                    sidebarExpanded ? "justify-start px-3" : "justify-center lg:justify-start lg:px-3"
+                    listExpanded ? "justify-start px-3" : "justify-center lg:justify-start lg:px-3"
                   )}
                   onClick={() => {
                     handleStartDirectMessage(member.memberId);
@@ -768,7 +793,7 @@ export function MessagesClient({
                   title={member.fullName}
                 >
                   <Avatar name={member.fullName} src={member.avatarUrl} className="shrink-0" />
-                  <span className={cn(sidebarExpanded ? "block" : "hidden lg:block")}>
+                  <span className={cn(listExpanded ? "block" : "hidden lg:block")}>
                     <span className="block text-sm font-bold truncate max-w-36">{member.fullName}</span>
                     <span className="block text-[10px] text-zinc-400 font-semibold capitalize">{member.role}</span>
                   </span>
@@ -780,7 +805,7 @@ export function MessagesClient({
       </aside>
 
       {/* Mobile overlay to close sidebar when clicking outside */}
-      {sidebarExpanded && (
+      {sidebarExpanded && !showingList && (
         <div 
           className="absolute inset-0 z-10 bg-black/20 md:hidden backdrop-blur-sm" 
           onClick={() => setSidebarExpanded(false)} 
@@ -788,9 +813,17 @@ export function MessagesClient({
         />
       )}
 
+      {showingList ? (
+        <section aria-label="Choose a conversation" className="hidden md:flex flex-1 items-center justify-center p-8 text-center text-zinc-400">
+          <p>{activeChannelId ? "This conversation is unavailable. Choose another chat." : channelList.length ? "Choose a chat to start messaging." : "No chats yet. Search for a teammate to start a conversation."}</p>
+        </section>
+      ) : (
       <section aria-label={`${activeChannel.name} conversation`} className="relative z-0 flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-[#111014]">
         <header className="flex h-16 items-center justify-between border-b border-white/10 bg-[#1d1b20] px-4 sm:px-6">
           <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setActiveChannelId("")} aria-label="Back to chats" className="rounded-md p-2 text-zinc-300 hover:bg-white/10">
+              <ArrowLeft className="size-5" />
+            </button>
             <button
               type="button"
               className="lg:hidden rounded-md p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white transition"
@@ -879,9 +912,9 @@ export function MessagesClient({
           </div>
         )}
 
-        <Link href="/setlists/sunday-service" className="border-b border-white/10 bg-white/[0.04] px-6 py-4 transition hover:bg-white/[0.07]">
-          <Badge>Pinned by Admin</Badge>
-          <p className="mt-2 text-sm font-semibold text-zinc-300">Current Setlist: Sunday Worship - Dec 10</p>
+        <Link href="/setlists" className="border-b border-white/10 bg-white/[0.04] px-6 py-4 transition hover:bg-white/[0.07]">
+          <Badge>Setlists</Badge>
+          <p className="mt-2 text-sm font-semibold text-zinc-300">Browse team setlists</p>
         </Link>
 
         {activeChannel.adminOnly ? (
@@ -1156,9 +1189,10 @@ export function MessagesClient({
           </>
         )}
       </section>
+      )}
 
       {/* ── Details Sidebar on the right ── */}
-      <aside className={cn("w-72 flex-col bg-[#16151a]/95 backdrop-blur-md p-5 border-l border-white/10 overflow-y-auto shrink-0 animate-fade-in text-left z-20 absolute right-0 h-full md:relative md:bg-[#16151a]/85 transition-transform", infoPanelOpen ? "flex" : "hidden")}>
+      <aside className={cn("w-72 flex-col bg-[#16151a]/95 backdrop-blur-md p-5 border-l border-white/10 overflow-y-auto shrink-0 animate-fade-in text-left z-20 absolute right-0 h-full md:relative md:bg-[#16151a]/85 transition-transform", infoPanelOpen && !showingList ? "flex" : "hidden")}>
         <div className="flex flex-col items-center text-center mt-4">
           <Avatar name={activeChannel.name} src={activeChannel.avatarUrl} className="size-16 rounded-2xl text-xl shrink-0" />
           <h3 className="mt-4 text-base font-extrabold text-white">{activeChannel.name}</h3>

@@ -57,13 +57,15 @@ function SortableSongItem({ item, setlistId, canManageSetlist }: { item: Ordered
 
   return (
     <div ref={setNodeRef} style={style} className="block w-full">
-      <Card className={`grid grid-cols-[auto_1fr_auto] items-center gap-4 p-4 transition-all duration-200 ${isDragging ? "shadow-2xl border-violet-500 bg-[#18171c]/90" : "hover:border-violet-400/30"}`}>
+      <Card className={`grid grid-cols-[auto_minmax(0,1fr)] sm:grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 p-4 transition-all duration-200 ${isDragging ? "shadow-2xl border-violet-500 bg-[#18171c]/90" : "hover:border-violet-400/30"}`}>
         <div className="flex items-center gap-3">
           {canManageSetlist ? (
             <button
               {...attributes}
               {...listeners}
-              className="cursor-grab hover:text-violet-300 text-zinc-500 transition-colors"
+              type="button"
+              aria-label={`Reorder ${item.song.title}`}
+              className="touch-none cursor-grab hover:text-violet-300 text-zinc-500 transition-colors"
             >
               <GripVertical className="size-5" />
             </button>
@@ -98,7 +100,7 @@ function SortableSongItem({ item, setlistId, canManageSetlist }: { item: Ordered
             </p>
           )}
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="col-span-2 sm:col-span-1 flex flex-wrap items-center gap-3">
           <div className="flex gap-2">
             {canManageSetlist ? (
               <ChangeKeyButton

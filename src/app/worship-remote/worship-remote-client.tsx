@@ -75,7 +75,7 @@ export default function WorshipRemoteClient({ initialError }: { initialError?: s
     const pairFromUrl = parseWorshipRemoteQrPayload(window.location.href, window.location.origin);
     const storedPair = window.sessionStorage.getItem(PENDING_PAIRING_KEY);
     const storedPin = window.sessionStorage.getItem(PENDING_PIN_KEY);
-    if (window.location.hash) window.history.replaceState(null, "", "/worship-remote");
+    if (window.location.hash) window.history.replaceState(window.history.state, "", "/worship-remote");
 
     const restoreTimer = window.setTimeout(() => {
       if (pairFromUrl || storedPair) {

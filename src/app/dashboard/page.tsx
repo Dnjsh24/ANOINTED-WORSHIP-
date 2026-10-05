@@ -747,7 +747,7 @@ export default async function DashboardPage() {
               className="group flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-[#111014]/80 p-4 text-center transition-all duration-200 hover:border-violet-400/40 hover:bg-white/[0.07]"
               style={{ animationDelay: `${260 + i * 30}ms` }}
             >
-              <span className="flex size-9 items-center justify-center rounded-lg bg-violet-500/10 transition-all duration-200 group-hover:bg-violet-500/20">
+              <span className="flex size-9 items-center justify-center transition-all duration-200">
                 <item.icon className="size-4 text-violet-400 transition-transform duration-200 group-hover:scale-110" />
               </span>
               <span>

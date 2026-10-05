@@ -6,13 +6,14 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { EventType } from "@/lib/types";
+import { songs as sampleSongs } from "@/lib/sample-data";
 
 export default async function NewSetlistPage({ searchParams }: { searchParams: Promise<{ eventId?: string; templateId?: string }> }) {
   const { eventId, templateId } = await searchParams;
   const teamContext = await getRequiredTeamContext();
   let setlistTemplates: SetlistTemplateSummary[] = [];
   let initialEventType: EventType | undefined;
-  let songs: SetlistFormSong[] = [];
+  let songs: SetlistFormSong[] = hasSupabaseEnv() ? [] : sampleSongs.map(song => ({ id: song.id, title: song.title, original_key: song.originalKey, bpm: song.bpm ?? null }));
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
