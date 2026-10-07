@@ -1,5 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MessagesClient } from "./messages-client";
 import type { MessageHistoryPage } from "@/lib/supabase/message-data";
 
@@ -31,10 +31,12 @@ const insert = (id: string, body: string, attachment: string | null = null) => (
 describe("stable message subscription", () => {
   beforeEach(() => {
     mocks.query = "";
+    mocks.router.refresh.mockReset();
     mocks.client.mockReset();
     mocks.load.mockReset().mockResolvedValue({ ok: true, data: { messages: [], hasMore: false, nextCursor: null } });
     Element.prototype.scrollIntoView = vi.fn();
   });
+  afterEach(() => vi.useRealTimers());
   it("merges realtime inserts received during the first page load without losing or duplicating messages", async () => {
     const firstLoad = Promise.withResolvers<{ ok: true; data: MessageHistoryPage }>();
     mocks.load.mockReturnValueOnce(firstLoad.promise);
@@ -85,6 +87,40 @@ describe("stable message subscription", () => {
     expect(subscriptions.filter(channel => channel.name === "messages-realtime")).toHaveLength(2);
     view.unmount();
     expect(remove).toHaveBeenCalledWith(subscriptions.filter(channel => channel.name === "messages-realtime")[1]);
+  });
+  it("coalesces refreshes for bursts of messages from unloaded channels", async () => {
+    vi.useFakeTimers();
+    const global = new FakeChannel("messages-realtime");
+    mocks.client.mockReturnValue({ channel: (name: string) => name === "messages-realtime" ? global : new FakeChannel(name), removeChannel: vi.fn() });
+    const view = render(<MessagesClient {...props} />);
+    const firstUnloadedMessage = insert("unloaded-1", "First update");
+    const secondUnloadedMessage = insert("unloaded-2", "Second update");
+    firstUnloadedMessage.new.channel_id = "unloaded-channel";
+    secondUnloadedMessage.new.channel_id = "unloaded-channel";
+
+    await act(async () => {
+      await global.insert?.(firstUnloadedMessage);
+      await global.insert?.(secondUnloadedMessage);
+    });
+    expect(mocks.router.refresh).not.toHaveBeenCalled();
+
+    act(() => { vi.advanceTimersByTime(200); });
+
+    expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
+    view.unmount();
+    vi.useRealTimers();
+  });
+  it("keeps the current presence channel when refreshed props still include the conversation", () => {
+    const subscriptions: FakeChannel[] = [];
+    mocks.client.mockReturnValue({ channel: (name: string) => { const channel = new FakeChannel(name); subscriptions.push(channel); return channel; }, removeChannel: vi.fn() });
+    mocks.query = "channel=a";
+    const view = render(<MessagesClient {...props} />);
+
+    expect(subscriptions.filter(channel => channel.name === "online-presence-a")).toHaveLength(1);
+
+    view.rerender(<MessagesClient {...props} channels={channels.map((channel) => ({ ...channel }))} />);
+
+    expect(subscriptions.filter(channel => channel.name === "online-presence-a")).toHaveLength(1);
   });
   it("keeps a received message when its attachment lookup fails", async () => {
     const global = new FakeChannel("messages-realtime");

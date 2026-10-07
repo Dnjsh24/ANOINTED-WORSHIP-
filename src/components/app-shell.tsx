@@ -62,16 +62,16 @@ export async function AppShell({
       {context.userId && context.teamId && !isDesktopRuntime() && <MemberUsageTracker teamId={context.teamId} />}
       <header className="sticky top-0 z-30 hidden border-b border-white/10 bg-[#111014]/95 backdrop-blur md:block animate-fade-down">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/dashboard" className="text-lg font-bold text-white transition-colors duration-200 hover:text-violet-200">
+          <Link href="/dashboard" className="min-w-0 truncate text-lg font-bold text-white transition-colors duration-200 hover:text-violet-200 lg:max-w-40 xl:max-w-none">
             {context.teamName || appName}
           </Link>
-          <nav aria-label="Primary" className="flex items-center gap-6">
+          <nav aria-label="Primary" className="hidden items-center gap-4 lg:flex xl:gap-6">
             {navigation.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 aria-current={active === item.label ? "page" : undefined}
-                className={cn("nav-link text-sm font-semibold text-zinc-300 hover:text-white transition-colors duration-200 relative", active === item.label && "text-violet-200 active")}
+                className={cn("nav-link relative whitespace-nowrap text-sm font-semibold text-zinc-300 transition-colors duration-200 hover:text-white", active === item.label && "text-violet-200 active")}
               >
                 {item.label}
                 <NavigationPending />
@@ -96,7 +96,7 @@ export async function AppShell({
           <UnreadMessageBadge count={unreadMessageCount} className="absolute -top-1 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0f0e14]" />
         </Suspense>
       } />
-      <main className="mx-auto max-w-7xl px-4 py-6 pb-[calc(96px+env(safe-area-inset-bottom))] md:px-6 md:pb-8">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-6 pb-[calc(80px+env(safe-area-inset-bottom))] md:px-6 md:pb-[calc(80px+env(safe-area-inset-bottom))] lg:pb-8">{children}</main>
       <QuickReportButton />
     </div>
   );

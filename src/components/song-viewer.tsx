@@ -328,13 +328,13 @@ export function SongViewer({
         <div className="flex flex-wrap gap-2 w-full md:w-auto md:justify-end">
           <Link
             href={`/songs/${song.id}/edit`}
-            className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]"
+            className="min-h-11 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]"
           >
             Edit Song
           </Link>
           <Link
             href="/setlists"
-            className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white hover:bg-violet-500"
+            className="min-h-11 rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white hover:bg-violet-500"
           >
             Add to Setlist
           </Link>
@@ -348,19 +348,19 @@ export function SongViewer({
           <div className="flex items-center justify-between w-full">
             <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Key</span>
             <div className="flex items-center gap-2">
-              <button aria-label="Lower song key" onClick={() => changeKey(-1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">-</button>
+              <button aria-label="Lower song key" onClick={() => changeKey(-1)} className="flex size-11 items-center justify-center rounded-lg bg-white/[0.04] text-sm font-bold hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">-</button>
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-base font-extrabold text-white min-w-6 text-center">{selectedKey}</span>
                 <span className="text-[9px] font-bold text-zinc-600 whitespace-nowrap">(orig: {song.originalKey})</span>
               </div>
-              <button aria-label="Raise song key" onClick={() => changeKey(1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">+</button>
+              <button aria-label="Raise song key" onClick={() => changeKey(1)} className="flex size-11 items-center justify-center rounded-lg bg-white/[0.04] text-sm font-bold hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">+</button>
             </div>
           </div>
           {setlistId && slotId && selectedKey !== assignedKey && (
             <button 
               onClick={handleSaveKey} 
               disabled={isPending} 
-              className="w-full rounded-md bg-amber-500/20 px-2 py-1 text-[10px] font-bold uppercase text-amber-300 hover:bg-amber-500/30 transition disabled:opacity-50 flex items-center justify-center gap-1"
+              className="flex min-h-11 w-full items-center justify-center gap-1 rounded-md bg-amber-500/20 px-2 py-1 text-[10px] font-bold uppercase text-amber-300 transition hover:bg-amber-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 disabled:opacity-50"
             >
               <Save className="size-3" /> Save to Setlist
             </button>
@@ -371,9 +371,9 @@ export function SongViewer({
         <div className="flex items-center justify-between border-r border-white/[0.06] px-4 md:px-6">
           <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Transpose</span>
           <div className="flex items-center gap-2">
-            <button aria-label="Transpose down" onClick={() => changeTranspose(-1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">-</button>
+            <button aria-label="Transpose down" onClick={() => changeTranspose(-1)} className="flex size-11 items-center justify-center rounded-lg bg-white/[0.04] text-sm font-bold hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">-</button>
             <span className="font-mono text-base font-extrabold text-white min-w-6 text-center">{transposeOffset > 0 ? `+${transposeOffset}` : transposeOffset}</span>
-            <button aria-label="Transpose up" onClick={() => changeTranspose(1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">+</button>
+            <button aria-label="Transpose up" onClick={() => changeTranspose(1)} className="flex size-11 items-center justify-center rounded-lg bg-white/[0.04] text-sm font-bold hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">+</button>
           </div>
         </div>
 
@@ -386,7 +386,7 @@ export function SongViewer({
         {/* Time Signature */}
         <div className="flex items-center justify-between pl-4 md:pl-6">
           <span className="text-xs font-bold text-zinc-500 tracking-wide uppercase">Time Sig</span>
-          <select aria-label="Practice time signature" value={meter.label} onChange={event => { setPracticeTimeSignature(event.target.value); setCurrentBeat(1); }} className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-xs font-bold text-white outline-none focus:border-violet-400">
+          <select aria-label="Practice time signature" value={meter.label} onChange={event => { setPracticeTimeSignature(event.target.value); setCurrentBeat(1); }} className="h-11 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-xs font-bold text-white outline-none focus:border-violet-400">
             {!["4/4", "3/4", "6/8"].includes(meter.label) && <option value={meter.label}>{meter.label}</option>}
             <option value="4/4" className="bg-[#111014]">4/4</option>
             <option value="3/4" className="bg-[#111014]">3/4</option>
@@ -437,7 +437,7 @@ export function SongViewer({
                     setInstrument(value);
                   }
                 }}
-                className="bg-[#17161b] rounded-lg border border-white/10 px-2.5 py-1 text-xs font-bold text-violet-400 outline-none"
+                className="min-h-11 rounded-lg border border-white/10 bg-[#17161b] px-2.5 text-xs font-bold text-violet-400 outline-none"
               >
                 <option value="guitar" className="bg-[#111014] text-white">Guitar</option>
                 <option value="piano" className="bg-[#111014] text-white">Piano</option>
@@ -464,7 +464,7 @@ export function SongViewer({
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "px-5 py-3 font-semibold transition-all border-b-2 -mb-px",
+              "min-h-11 px-5 py-3 font-semibold transition-all border-b-2 -mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400",
               activeTab === tab.id
                 ? "border-violet-500 text-violet-300 font-bold"
                 : "border-transparent text-zinc-500 hover:text-white"
@@ -617,7 +617,7 @@ export function SongViewer({
                       aria-label={metronomePlaying ? "Stop metronome" : "Start metronome"}
                       onClick={() => setMetronomePlaying((val) => !val)}
                       className={cn(
-                        "flex size-8 items-center justify-center rounded-lg transition",
+                        "flex size-11 items-center justify-center rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400",
                         metronomePlaying ? "bg-red-500 text-white" : "bg-violet-600 text-white hover:bg-violet-500"
                       )}
                     >
@@ -639,7 +639,7 @@ export function SongViewer({
                       step="1"
                       value={bpm}
                       onChange={(e) => setBpm(parseInt(e.target.value))}
-                      className="h-1.5 w-full appearance-none rounded-lg bg-white/[0.08] outline-none accent-violet-500"
+                      className="h-11 w-full touch-none appearance-none rounded-lg bg-white/[0.08] outline-none accent-violet-500"
                     />
                   </div>
 
@@ -657,7 +657,7 @@ export function SongViewer({
                       step="0.05"
                       value={metronomeVolume}
                       onChange={(e) => setMetronomeVolume(parseFloat(e.target.value))}
-                      className="h-1.5 w-full appearance-none rounded-lg bg-white/[0.08] outline-none accent-violet-500"
+                      className="h-11 w-full touch-none appearance-none rounded-lg bg-white/[0.08] outline-none accent-violet-500"
                     />
                   </div>
                 </>
@@ -666,7 +666,7 @@ export function SongViewer({
               <button
                 type="button"
                 onClick={handleTapTempo}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-1.5 text-[10px] font-extrabold text-violet-300 transition hover:bg-white/[0.08] hover:text-white"
+                className="min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] py-1.5 text-[10px] font-extrabold text-violet-300 transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
               >
                 🥁 Tap Tempo
               </button>
@@ -684,7 +684,7 @@ export function SongViewer({
                   aria-label={scrollPlaying ? "Stop auto-scroll" : "Start auto-scroll"}
                   onClick={() => setScrollPlaying((val) => !val)}
                   className={cn(
-                    "flex size-8 items-center justify-center rounded-lg transition",
+                    "flex size-11 items-center justify-center rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400",
                     scrollPlaying ? "bg-red-500 text-white" : "bg-violet-600 text-white hover:bg-violet-500"
                   )}
                 >
@@ -711,7 +711,7 @@ export function SongViewer({
                   aria-label="Auto-scroll speed"
                 value={scrollSpeed}
                   onChange={(e) => setScrollSpeed(parseInt(e.target.value))}
-                  className="w-full accent-violet-500 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                  className="h-11 w-full touch-none cursor-pointer appearance-none rounded-lg bg-white/10 accent-violet-500"
                 />
                 <div className="flex justify-between px-1">
                   <span className="text-[8px] text-zinc-600 font-bold">1</span>

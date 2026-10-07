@@ -98,6 +98,14 @@ function MessagesSession(props: MessagesProps) {
     if (!supabase) return;
 
     let stopped = false;
+    let refreshTimer: number | null = null;
+    const requestRefresh = () => {
+      if (refreshTimer !== null) return;
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null;
+        if (!stopped) router.refresh();
+      }, 200);
+    };
     const realtimeChannel = supabase
       .channel("messages-realtime", { config: { broadcast: { self: false } } })
       .on(
@@ -184,23 +192,23 @@ function MessagesSession(props: MessagesProps) {
           );
 
           if (!matchedChannel) {
-            router.refresh();
+            requestRefresh();
           }
         }
       )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           setLiveStatus("");
-          if (wasConnectedRef.current) router.refresh();
+          if (wasConnectedRef.current) requestRefresh();
           wasConnectedRef.current = true;
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           setLiveStatus("Live messages disconnected. Reconnecting when the network is ready.");
         }
       });
 
-    const refreshWhenOnline = () => router.refresh();
+    const refreshWhenOnline = requestRefresh;
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") router.refresh();
+      if (document.visibilityState === "visible") requestRefresh();
     };
     window.addEventListener("online", refreshWhenOnline);
     document.addEventListener("visibilitychange", refreshWhenVisible);
@@ -209,6 +217,7 @@ function MessagesSession(props: MessagesProps) {
       stopped = true;
       window.removeEventListener("online", refreshWhenOnline);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
       supabase.removeChannel(realtimeChannel);
     };
   }, [router, setChannelList]);
@@ -335,8 +344,9 @@ function MessagesView({
     };
   }, [selectedAttachment]);
 
+  const isActiveChannelVisible = channels.some((channel) => channel.id === activeChannelId);
   useEffect(() => {
-    if (!activeChannelId || !channels.some(channel => channel.id === activeChannelId)) return;
+    if (!activeChannelId || !isActiveChannelVisible) return;
     const supabase = createOptionalClient();
     if (!supabase) return;
     const presenceChannel = supabase.channel(`online-presence-${activeChannelId}`, {
@@ -384,7 +394,7 @@ function MessagesView({
     return () => {
       supabase.removeChannel(presenceChannel);
     };
-  }, [activeChannelId, currentMemberId, channels]);
+  }, [activeChannelId, currentMemberId, isActiveChannelVisible]);
   const selectedChannel = channelList.find((channel) => channel.id === activeChannelId);
   const activeChannel = selectedChannel ?? { id: "", name: "No Channel", membersOnline: 0, preview: "", messages: [], messagesLoaded: true };
   const showingList = !selectedChannel;
@@ -862,7 +872,7 @@ function MessagesView({
   }
 
   return (
-    <div className="relative flex w-full max-w-full h-[calc(100dvh-120px-env(safe-area-inset-bottom))] md:h-[calc(100dvh-8rem)] min-h-[400px] md:min-h-[600px] overflow-hidden rounded-lg border border-white/10 bg-[#111014]">
+    <div className="relative flex h-[calc(100dvh-120px-env(safe-area-inset-bottom))] min-h-0 w-full max-w-full overflow-hidden rounded-lg border border-white/10 bg-[#111014] md:h-[calc(100dvh-10.5rem-env(safe-area-inset-bottom))] lg:h-[calc(100dvh-8rem)]">
       <aside
         className={cn(
           "transition-all duration-300 bg-[#201f24] flex flex-col border-r border-white/10 shrink-0 h-full overflow-y-auto z-20 md:static md:translate-x-0",
@@ -1021,15 +1031,15 @@ function MessagesView({
           <p>{activeChannelId ? "This conversation is unavailable. Choose another chat." : channelList.length ? "Choose a chat to start messaging." : "No chats yet. Search for a teammate to start a conversation."}</p>
         </section>
       ) : (
-      <section aria-label={`${activeChannel.name} conversation`} className="relative z-0 flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-[#111014]">
-        <header className="flex h-16 items-center justify-between border-b border-white/10 bg-[#1d1b20] px-4 sm:px-6">
+      <section aria-label={`${activeChannel.name} conversation`} className="relative z-0 flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#111014]">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 bg-[#1d1b20] px-3 sm:px-6">
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => setActiveChannelId("")} aria-label="Back to chats" className="rounded-md p-2 text-zinc-300 hover:bg-white/10">
+            <button type="button" onClick={() => setActiveChannelId("")} aria-label="Back to chats" className="flex size-11 shrink-0 items-center justify-center rounded-md text-zinc-300 hover:bg-white/10">
               <ArrowLeft className="size-5" />
             </button>
             <button
               type="button"
-              className="lg:hidden rounded-md p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white transition"
+              className="flex size-11 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-white/[0.06] hover:text-white lg:hidden"
               onClick={() => setSidebarExpanded((prev) => !prev)}
               aria-label="Toggle message sidebar"
             >
@@ -1047,7 +1057,7 @@ function MessagesView({
             <button
               type="button"
               aria-label="Focus message search"
-              className="rounded-md p-2 hover:bg-white/[0.06]"
+              className="flex size-11 items-center justify-center rounded-md hover:bg-white/[0.06]"
               onClick={() => {
                 setSidebarExpanded(true);
                 setTimeout(() => searchInputRef.current?.focus(), 0);
@@ -1058,7 +1068,7 @@ function MessagesView({
             <button
               type="button"
               aria-label="Channel info"
-              className={cn("rounded-md p-2 hover:bg-white/[0.06] transition", infoPanelOpen ? "text-violet-400" : "")}
+              className={cn("flex size-11 items-center justify-center rounded-md transition hover:bg-white/[0.06]", infoPanelOpen ? "text-violet-400" : "")}
               onClick={() => setInfoPanelOpen((value) => !value)}
             >
               <Info className="size-5" />
@@ -1130,7 +1140,7 @@ function MessagesView({
           </div>
         ) : (
           <>
-            <div ref={messageListRef} className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden p-6">
+            <div ref={messageListRef} className="min-h-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden p-3 sm:p-6">
               {activeChannel.hasMoreMessages && !normalizedSearch && (
                 <div className="text-center">
                   <Button type="button" variant="secondary" disabled={olderMessagesLoading} onClick={() => void loadOlderMessages()}>
@@ -1268,7 +1278,7 @@ function MessagesView({
                 {status || liveStatus}
               </p>
             )}
-            <div className="border-t border-white/10 bg-[#111014] p-4">
+            <div className="shrink-0 border-t border-white/10 bg-[#111014] p-3 sm:p-4">
               {replyingTo && (
                 <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2">
                   <div className="flex min-w-0 flex-col">
@@ -1312,9 +1322,9 @@ function MessagesView({
                   </button>
                 </div>
               )}
-              <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3">
                 <div className="relative">
-                  <button type="button" aria-label="Open emoji menu" className="rounded-md p-2 text-zinc-400 hover:bg-white/[0.06]" onClick={() => setEmojiOpen((value) => !value)}>
+                  <button type="button" aria-label="Open emoji menu" className="flex size-11 items-center justify-center rounded-md text-zinc-400 hover:bg-white/[0.06]" onClick={() => setEmojiOpen((value) => !value)}>
                     <Smile className="size-5" />
                   </button>
                   {emojiOpen && (
@@ -1328,7 +1338,7 @@ function MessagesView({
                   )}
                 </div>
                 <div className="relative">
-                  <button type="button" aria-label="Open attachment menu" className="rounded-md p-2 text-zinc-400 hover:bg-white/[0.06]" onClick={() => setAttachmentOpen((value) => !value)}>
+                  <button type="button" aria-label="Open attachment menu" className="flex size-11 items-center justify-center rounded-md text-zinc-400 hover:bg-white/[0.06]" onClick={() => setAttachmentOpen((value) => !value)}>
                     <Paperclip className="size-5" />
                   </button>
                   {attachmentOpen && (
@@ -1369,13 +1379,13 @@ function MessagesView({
                   />
                 </div>
                 {(role === "owner" || role === "admin") && (
-                  <div className="relative flex items-center gap-2">
+                  <div className="relative order-last flex basis-full items-center gap-2 sm:order-none sm:basis-auto">
                     <CalendarClock className="size-5 text-zinc-400 cursor-pointer" />
                     <input
                       type="datetime-local"
                       value={scheduledFor}
                       onChange={(e) => setScheduledFor(e.target.value)}
-                      className="h-8 rounded-md bg-[#18171c] border border-white/10 px-2 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      className="h-11 max-w-full rounded-md border border-white/10 bg-[#18171c] px-2 text-sm font-semibold text-white focus:outline-none focus:ring-1 focus:ring-violet-500 sm:h-8 sm:text-xs"
                       title="Schedule Message"
                     />
                   </div>
@@ -1383,7 +1393,7 @@ function MessagesView({
                 <Input
                   ref={inputRef}
                   name="body"
-                  className="flex-1 min-w-0"
+                  className="min-w-0 flex-1 basis-24 text-base sm:basis-auto sm:text-sm"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={(event) => {
@@ -1394,7 +1404,7 @@ function MessagesView({
                   }}
                   placeholder={`Message ${activeChannel.name}...`}
                 />
-                <Button type="button" aria-label="Send message" disabled={isPending} onClick={sendCurrentMessage}>
+                <Button type="button" aria-label="Send message" className="size-11 shrink-0" disabled={isPending} onClick={sendCurrentMessage}>
                   <Send className="size-4" />
                 </Button>
               </div>
