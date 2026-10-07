@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { NavigationPending } from "@/components/navigation-pending";
 import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
@@ -34,6 +34,8 @@ type MobileTab = {
   badgeCount?: number;
 };
 
+const DESKTOP_NAVIGATION_QUERY = "(min-width: 1024px)";
+
 export function MobileIconRail({
   active,
   items,
@@ -47,10 +49,37 @@ export function MobileIconRail({
 }) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const focusDesktopNavigationRef = useRef(false);
   const moreDialogRef = useAccessibleDialog({
     open: showMoreMenu,
     onClose: () => setShowMoreMenu(false),
   });
+
+  useEffect(() => {
+    if (!showMoreMenu || typeof window.matchMedia !== "function") return;
+
+    const desktopNavigation = window.matchMedia(DESKTOP_NAVIGATION_QUERY);
+    const closeOnDesktop = (event: MediaQueryListEvent) => {
+      if (!event.matches) return;
+      focusDesktopNavigationRef.current = true;
+      setShowMoreMenu(false);
+    };
+
+    desktopNavigation.addEventListener("change", closeOnDesktop);
+    if (desktopNavigation.matches) {
+      closeOnDesktop({ matches: true } as MediaQueryListEvent);
+    }
+
+    return () => desktopNavigation.removeEventListener("change", closeOnDesktop);
+  }, [showMoreMenu]);
+
+  useEffect(() => {
+    if (showMoreMenu || !focusDesktopNavigationRef.current) return;
+
+    focusDesktopNavigationRef.current = false;
+    if (!window.matchMedia(DESKTOP_NAVIGATION_QUERY).matches) return;
+    document.querySelector<HTMLElement>('nav[aria-label="Primary"] a[href]')?.focus();
+  }, [showMoreMenu]);
 
   // Determine active tab name
   const activeLabel = active.toLowerCase();
