@@ -149,6 +149,57 @@ export default async function DashboardPage() {
   if (hasSupabaseEnv() && teamContext.userId) {
     const supabase = await createClient();
 
+    const isAdminOrOwner = teamContext.role === "owner" || teamContext.role === "admin";
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+    const statsPromise = Promise.all([
+      isAdminOrOwner
+        ? supabase.from("join_requests").select("id", { count: "exact", head: true }).eq("team_id", teamContext.teamId).eq("status", "pending")
+        : Promise.resolve({ count: null }),
+      isAdminOrOwner
+        ? supabase.from("attendance").select("id,events!inner(team_id,event_date)", { count: "exact", head: true })
+          .eq("events.team_id", teamContext.teamId).gte("events.event_date", firstDay).lte("events.event_date", lastDay).eq("status", "available")
+        : supabase.from("attendance").select("id", { count: "exact", head: true }).eq("team_member_id", teamContext.memberId).eq("status", "available"),
+      !isAdminOrOwner
+        ? supabase.from("setlists").select("id", { count: "exact", head: true }).eq("team_id", teamContext.teamId)
+        : Promise.resolve({ count: null }),
+    ]);
+    const summaryPromise = Promise.all([
+      supabase
+        .from("announcements")
+        .select("id, category, title, body, priority, created_at")
+        .eq("team_id", teamContext.teamId)
+        .order("created_at", { ascending: false })
+        .limit(3),
+      supabase
+        .from("notifications")
+        .select("id, title, body, read_at, acknowledged_at, priority, scheduled_for, created_at, target_path")
+        .eq("team_id", teamContext.teamId)
+        .eq("profile_id", teamContext.userId)
+        .lte("scheduled_for", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(3),
+      supabase
+        .from("activity_logs")
+        .select(`
+          id, action, target_type, details, created_at,
+          profile:profiles(full_name)
+        `)
+        .eq("team_id", teamContext.teamId)
+        .order("created_at", { ascending: false })
+        .limit(5),
+      supabase
+        .from("team_members")
+        .select(`
+          team_anniversary,
+          profile:profiles(full_name, birthday)
+        `)
+        .eq("team_id", teamContext.teamId),
+      supabase.rpc("get_personal_preparation", { p_team_id: teamContext.teamId }, { count: "exact" })
+        .order("setlist_date", { ascending: true }).order("setlist_id").order("task_key").range(0, 2)
+    ]);
+
     const todayStr = new Date().toISOString().split("T")[0];
     const [profileResult, upcomingCountResult, dbEventResult, dbSetlistResult] = await Promise.all([
       supabase
@@ -166,7 +217,7 @@ export default async function DashboardPage() {
       teamContext.teamId
         ? supabase
             .from("events")
-            .select("*,event_assignments!inner(assignment,team_member_id)")
+            .select("id,name,event_date,starts_at,ends_at,location,event_assignments!inner(assignment,team_member_id)")
             .eq("team_id", teamContext.teamId)
             .eq("event_assignments.team_member_id", teamContext.memberId)
             .eq("approval_status", "approved")
@@ -181,7 +232,7 @@ export default async function DashboardPage() {
         ? supabase
             .from("setlists")
             .select(`
-              *,
+              id,name,setlist_date,location,call_time,rehearsal_time,service_times,
               events (
                 type
               ),
@@ -225,21 +276,10 @@ export default async function DashboardPage() {
           location: dbEvent.location ?? "Main Sanctuary",
         };
         if (teamContext.memberId) {
-          const [assignmentResult, attendanceResult] = await Promise.all([
-            supabase
-              .from("event_assignments")
-              .select("assignment")
-              .eq("event_id", dbEvent.id)
-              .eq("team_member_id", teamContext.memberId)
-              .order("assignment"),
-            supabase
-              .from("attendance")
-              .select("status")
-              .eq("event_id", dbEvent.id)
-              .eq("team_member_id", teamContext.memberId)
-              .maybeSingle(),
-          ]);
-          nextEventAssignment = assignmentResult.data?.map(row => row.assignment).join(", ") || null;
+          // The assigned-event query already returned this member's roles.
+          nextEventAssignment = dbEvent.event_assignments.map(row => row.assignment).sort().join(", ") || null;
+          const attendanceResult = await supabase.from("attendance").select("status")
+            .eq("event_id", dbEvent.id).eq("team_member_id", teamContext.memberId).maybeSingle();
           nextEventRsvp = attendanceResult.data?.status ?? "no_response";
         }
       } else {
@@ -279,76 +319,16 @@ export default async function DashboardPage() {
         setlistSongsList = [];
       }
 
-      const isAdminOrOwner = teamContext.role === "owner" || teamContext.role === "admin";
+      const [pendingRequestsResult, confirmedCountResult, setlistsCountResult] = await statsPromise;
       if (isAdminOrOwner) {
-        const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
-        const [pendingRequestsResult, monthEventsResult] = await Promise.all([
-          supabase.from("join_requests").select("id", { count: "exact", head: true }).eq("team_id", teamContext.teamId).eq("status", "pending"),
-          supabase.from("events").select("id").eq("team_id", teamContext.teamId).gte("event_date", firstDay).lte("event_date", lastDay),
-        ]);
-
-        const pr = pendingRequestsResult.count;
-        if (pr !== null) pendingRequestsCount = pr;
-
-        const monthEvents = monthEventsResult.data;
-        const eventIds = monthEvents?.map((e) => e.id) || [];
-        if (eventIds.length > 0) {
-          const { count: cc } = await supabase.from("attendance").select("id", { count: "exact", head: true }).in("event_id", eventIds).eq("status", "available");
-          if (cc !== null) confirmedThisMonthCount = cc;
-        } else {
-          confirmedThisMonthCount = 0;
-        }
+        pendingRequestsCount = pendingRequestsResult.count ?? pendingRequestsCount;
+        confirmedThisMonthCount = confirmedCountResult.count ?? confirmedThisMonthCount;
       } else {
-        const [memberResult, setlistsCountResult] = await Promise.all([
-          supabase.from("team_members").select("id").eq("team_id", teamContext.teamId).eq("profile_id", teamContext.userId).maybeSingle(),
-          supabase.from("setlists").select("id", { count: "exact", head: true }).eq("team_id", teamContext.teamId),
-        ]);
-
-        const mr = memberResult.data;
-        if (mr) {
-          const { count: cc } = await supabase.from("attendance").select("id", { count: "exact", head: true }).eq("team_member_id", mr.id).eq("status", "available");
-          if (cc !== null) myConfirmedCount = cc;
-        } else { myConfirmedCount = 0; }
-        const sc = setlistsCountResult.count;
-        if (sc !== null) totalSetlistsCount = sc;
+        myConfirmedCount = confirmedCountResult.count ?? myConfirmedCount;
+        totalSetlistsCount = setlistsCountResult.count ?? totalSetlistsCount;
       }
 
-      const [announcementsResult, remindersResult, activityLogsResult, membersResult, preparationResult] = await Promise.all([
-        supabase
-          .from("announcements")
-          .select("id, category, title, body, priority, created_at")
-          .eq("team_id", teamContext.teamId)
-          .order("created_at", { ascending: false })
-          .limit(3),
-        supabase
-          .from("notifications")
-          .select("id, title, body, read_at, acknowledged_at, priority, scheduled_for, created_at, target_path")
-          .eq("team_id", teamContext.teamId)
-          .eq("profile_id", teamContext.userId)
-          .lte("scheduled_for", new Date().toISOString())
-          .order("created_at", { ascending: false })
-          .limit(3),
-        supabase
-          .from("activity_logs")
-          .select(`
-            id, action, target_type, details, created_at,
-            profile:profiles(full_name)
-          `)
-          .eq("team_id", teamContext.teamId)
-          .order("created_at", { ascending: false })
-          .limit(5),
-        supabase
-          .from("team_members")
-          .select(`
-            team_anniversary,
-            profile:profiles(full_name, birthday)
-          `)
-          .eq("team_id", teamContext.teamId),
-        supabase.rpc("get_personal_preparation", { p_team_id: teamContext.teamId }, { count: "exact" })
-          .order("setlist_date", { ascending: true }).order("setlist_id").order("task_key").range(0, 2)
-      ]);
+      const [announcementsResult, remindersResult, activityLogsResult, membersResult, preparationResult] = await summaryPromise;
 
       outstandingPrepCount = preparationResult.count ?? 0;
       preparationItems = (preparationResult.data ?? []).map((item) => ({

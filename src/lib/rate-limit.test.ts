@@ -135,4 +135,16 @@ describe("rateLimit local fallback", () => {
       strategy: "fail-closed",
     });
   });
+
+  it("fails closed on Upstash's successful timeout fallback and thrown errors", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    process.env.UPSTASH_REDIS_REST_URL = "https://redis.example";
+    process.env.UPSTASH_REDIS_REST_TOKEN = "test-token";
+    upstashMocks.limit.mockResolvedValueOnce({ success: true, remaining: 5, reset: 12345, reason: "timeout" });
+    expect(await rateLimit("production-timeout", 5, 10_000)).toMatchObject({ allowed: false, strategy: "fail-closed" });
+    upstashMocks.limit.mockRejectedValueOnce(new Error("Unavailable"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(await rateLimit("production-error", 5, 10_000)).toMatchObject({ allowed: false, strategy: "fail-closed" });
+    consoleSpy.mockRestore();
+  });
 });

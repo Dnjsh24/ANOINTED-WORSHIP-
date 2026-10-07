@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { can, type Permission } from "@/lib/domain/rbac";
+import { cache } from "react";
+import { can, PERMISSION_LABELS, type Permission } from "@/lib/domain/rbac";
 import { resolvePostLoginPath, type PostLoginPath } from "@/lib/domain/post-login";
 import { appName, teamCode } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -43,7 +44,8 @@ export const unauthenticatedTeamContext: TeamContext = {
   hasPendingJoinRequest: false,
 };
 
-export async function getCurrentTeamContext(): Promise<TeamContext> {
+// React cache deduplicates a server render only; identity is never cached across requests.
+export const getCurrentTeamContext = cache(async (): Promise<TeamContext> => {
   if (!hasSupabaseEnv()) {
     return demoTeamContext;
   }
@@ -72,7 +74,7 @@ export async function getCurrentTeamContext(): Promise<TeamContext> {
 
   const supabase = await createClient();
   return getCurrentTeamContextForClient(supabase);
-}
+});
 
 export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Database>): Promise<TeamContext> {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -89,6 +91,10 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
       role,
       status,
       custom_role_id,
+      custom_roles (
+        team_id,
+        permissions
+      ),
       teams (
         name,
         code
@@ -118,17 +124,10 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
     };
   }
 
-  let customPermissions: Permission[] = [];
-  if (member.custom_role_id) {
-    const { data: customRole } = await supabase
-      .from("custom_roles")
-      .select("permissions")
-      .eq("id", member.custom_role_id)
-      .single();
-    if (customRole) {
-      customPermissions = (customRole.permissions as Permission[]) || [];
-    }
-  }
+  const customRole = member.custom_roles;
+  const customPermissions = customRole?.team_id === member.team_id
+    ? (customRole.permissions ?? []).filter((permission): permission is Permission => Object.hasOwn(PERMISSION_LABELS, permission))
+    : [];
 
   const team = Array.isArray(member.teams) ? member.teams[0] : member.teams;
 

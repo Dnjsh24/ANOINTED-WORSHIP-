@@ -2271,6 +2271,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_team_analytics: {
+        Args: { p_team_id: string }
+        Returns: Json
+      }
       submit_shared_edit_request: { Args: { p_target_type: string; p_target_id: string; p_revision: number; p_changes: Json; p_reason: string; p_request_nonce: string }; Returns: string }
       get_shared_edit_target: { Args: { p_target_type: string; p_target_id: string }; Returns: Json }
       search_events: { Args: { p_team_id: string; p_query: string }; Returns: Database["public"]["Tables"]["events"]["Row"][] }

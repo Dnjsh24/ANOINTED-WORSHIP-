@@ -7,24 +7,16 @@ import { rateLimit } from "@/lib/rate-limit";
 import { safeErrorDetails } from "@/lib/server/safe-error";
 import { hasValidCronAuthorization } from "@/lib/server/cron-auth";
 
-// ---------------------------------------------------------------------------
-// Rate limit configuration per route tier
-//
-// ⚠️  These limits are shared per IP address. When your whole team connects
-//     through a single phone hotspot, everyone shares one IP — so limits
-//     must be generous enough for the full team size (10–20 users).
-//
-//     Sizing guide (hotspot scenario):
-//       ~15 users × ~8 Next.js requests per page = ~120 req per navigation burst
-//       General window: 600 req / 60s → comfortable headroom for 15 active users
-// ---------------------------------------------------------------------------
-const RATE_LIMITS = {
-  /** OAuth callback — stays tight, this route is unauthenticated */
+// Verified users have independent budgets. The wider IP gate still bounds
+// pre-authentication work when many legitimate users share a venue network.
+export const RATE_LIMITS = {
   auth: { max: 10, windowMs: 60_000 },
-  /** API routes — raised to handle the full team hitting endpoints together */
-  api: { max: 150, windowMs: 60_000 },
-  /** General page navigation — raised for shared-hotspot team usage */
-  general: { max: 600, windowMs: 60_000 },
+  aggregateApi: { max: 3_000, windowMs: 60_000 },
+  aggregateGeneral: { max: 12_000, windowMs: 60_000 },
+  userApi: { max: 150, windowMs: 60_000 },
+  userGeneral: { max: 600, windowMs: 60_000 },
+  anonymousApi: { max: 30, windowMs: 60_000 },
+  anonymousGeneral: { max: 120, windowMs: 60_000 },
 } as const;
 
 const MACHINE_ROUTES = new Set([
@@ -91,7 +83,10 @@ export async function updateSession(request: NextRequest) {
   // ---------------------------------------------------------------------------
   // Rate limiting — runs before any Supabase or route logic
   // ---------------------------------------------------------------------------
-  const pathname = request.nextUrl.pathname;
+  const originalPathname = request.nextUrl.pathname;
+  const prefix = "/services/anointed-worship-app";
+  const hasPrefix = originalPathname === prefix || originalPathname.startsWith(`${prefix}/`);
+  const pathname = hasPrefix ? originalPathname.slice(prefix.length) || "/" : originalPathname;
   const ip = getClientIp(request);
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const contentSecurityPolicy = buildContentSecurityPolicy(
@@ -102,40 +97,31 @@ export async function updateSession(request: NextRequest) {
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", contentSecurityPolicy);
 
-  const isAuthRoute = pathname.startsWith("/auth");
-  const isApiRoute = pathname.startsWith("/api");
+  const isAuthRoute = pathname === "/auth" || pathname.startsWith("/auth/");
+  const isApiRoute = pathname === "/api" || pathname.startsWith("/api/");
+  const tier = isAuthRoute ? "auth" : isApiRoute ? "api" : "general";
+  const aggregateConfig = isAuthRoute ? RATE_LIMITS.auth
+    : isApiRoute ? RATE_LIMITS.aggregateApi : RATE_LIMITS.aggregateGeneral;
 
-  const limitConfig = isAuthRoute
-    ? RATE_LIMITS.auth
-    : isApiRoute
-    ? RATE_LIMITS.api
-    : RATE_LIMITS.general;
-
-  const limitKey = `${isAuthRoute ? "auth" : isApiRoute ? "api" : "gen"}:${ip}`;
-  const { allowed, resetAt } =
-    process.env.E2E_FORCE_DEMO === "1"
-      ? { allowed: true, resetAt: Date.now() + limitConfig.windowMs }
-      : await rateLimit(limitKey, limitConfig.max, limitConfig.windowMs);
-
-  if (!allowed) {
+  async function enforceLimit(key: string, config: { max: number; windowMs: number }, cookies?: NextResponse) {
+    if (process.env.E2E_FORCE_DEMO === "1") return null;
+    const { allowed, resetAt } = await rateLimit(key, config.max, config.windowMs);
+    if (allowed) return null;
     const retryAfterSeconds = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
-    return withContentSecurityPolicy(new NextResponse(
-      JSON.stringify({
-        error: "Too Many Requests",
-        message: `Rate limit exceeded. Try again in ${retryAfterSeconds} second${retryAfterSeconds === 1 ? "" : "s"}.`,
-      }),
-      {
-        status: 429,
-        headers: {
-          "Content-Type": "application/json",
-          "Retry-After": String(retryAfterSeconds),
-          "X-RateLimit-Limit": String(limitConfig.max),
-          "X-RateLimit-Remaining": "0",
-          "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)),
-        },
-      }
-    ), contentSecurityPolicy);
+    const response = withContentSecurityPolicy(NextResponse.json({
+      error: "Too Many Requests",
+      message: `Rate limit exceeded. Try again in ${retryAfterSeconds} second${retryAfterSeconds === 1 ? "" : "s"}.`,
+    }, { status: 429, headers: {
+      "Retry-After": String(retryAfterSeconds),
+      "X-RateLimit-Limit": String(config.max),
+      "X-RateLimit-Remaining": "0",
+      "X-RateLimit-Reset": String(Math.ceil(resetAt / 1000)),
+    } }), contentSecurityPolicy);
+    if (cookies) cookies.cookies.getAll().forEach(cookie => response.cookies.set(cookie));
+    return response;
   }
+  const aggregateDenial = await enforceLimit(`ip:${tier}:${ip}`, aggregateConfig);
+  if (aggregateDenial) return aggregateDenial;
 
   if (!hasSupabaseEnv()) {
     return withContentSecurityPolicy(
@@ -161,13 +147,10 @@ export async function updateSession(request: NextRequest) {
     );
   }
 
-  const prefix = "/services/anointed-worship-app";
-  const hasPrefix = pathname.startsWith(prefix);
-
   const targetUrl = request.nextUrl.clone();
 
   if (hasPrefix) {
-    targetUrl.pathname = pathname.slice(prefix.length) || "/";
+    targetUrl.pathname = pathname;
     
     // Clean up Vercel-specific routing headers to prevent Next.js from routing to prefix
     const headersToClean = ["x-matched-path", "x-vercel-forwarded-path", "x-now-route-matches"];
@@ -192,9 +175,12 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        const previousCookies = supabaseResponse.cookies.getAll();
+        requestHeaders.set("cookie", request.cookies.toString());
         supabaseResponse = hasPrefix
           ? NextResponse.rewrite(targetUrl, { request: { headers: requestHeaders } })
           : NextResponse.next({ request: { headers: requestHeaders } });
+        previousCookies.forEach(cookie => supabaseResponse.cookies.set(cookie));
         cookiesToSet.forEach(({ name, value, options }) => {
           supabaseResponse.cookies.set(name, value, options);
         });
@@ -204,10 +190,26 @@ export async function updateSession(request: NextRequest) {
 
   let user = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
+    const { data, error } = await supabase.auth.getUser();
+    user = error ? null : data.user;
   } catch (error) {
     console.warn("Supabase session update failed:", safeErrorDetails(error));
+  }
+
+  // A cookie or caller-provided user header never selects this budget.
+  if (!isAuthRoute) {
+    const config = user
+      ? isApiRoute ? RATE_LIMITS.userApi : RATE_LIMITS.userGeneral
+      : isApiRoute ? RATE_LIMITS.anonymousApi : RATE_LIMITS.anonymousGeneral;
+    const identity = user ? `user:${user.id}` : `anonymous:${ip}`;
+    const denial = await enforceLimit(`${identity}:${tier}`, config, supabaseResponse);
+    if (denial) return denial;
+  }
+
+  function redirectWithCookies(url: URL) {
+    const response = withContentSecurityPolicy(NextResponse.redirect(url), contentSecurityPolicy);
+    supabaseResponse.cookies.getAll().forEach(cookie => response.cookies.set(cookie));
+    return response;
   }
 
   const isPublicRoute = isPublicWebsiteRoute(pathname);
@@ -220,19 +222,13 @@ export async function updateSession(request: NextRequest) {
   if (!user && !isPublicRoute) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
-    return withContentSecurityPolicy(
-      NextResponse.redirect(loginUrl),
-      contentSecurityPolicy,
-    );
+    return redirectWithCookies(loginUrl);
   }
 
   if (user && pathname === "/") {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
-    return withContentSecurityPolicy(
-      NextResponse.redirect(dashboardUrl),
-      contentSecurityPolicy,
-    );
+    return redirectWithCookies(dashboardUrl);
   }
 
   return withContentSecurityPolicy(supabaseResponse, contentSecurityPolicy);

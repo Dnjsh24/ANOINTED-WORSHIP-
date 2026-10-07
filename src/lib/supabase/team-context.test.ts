@@ -171,6 +171,7 @@ describe("getCurrentTeamContextForClient", () => {
           role: "member",
           status: "active",
           custom_role_id: "custom-1",
+          custom_roles: { team_id: "team-2", permissions: ["members.manage", "unknown-permission"] },
           teams: null,
         },
       },
@@ -185,10 +186,16 @@ describe("getCurrentTeamContextForClient", () => {
       canManageMembers: true,
       customPermissions: ["members.manage"],
     });
-    expect(builders.find((builder) => builder.table === "custom_roles")?.operations).toContainEqual({
-      name: "eq",
-      args: ["id", "custom-1"],
-    });
+    expect(builders).toHaveLength(2);
+    expect(builders[0].operations).toContainEqual({ name: "select", args: [expect.stringContaining("custom_roles")] });
     await expect(getPostLoginRedirectPath(client)).resolves.toBe("/dashboard");
+  });
+
+  it("never accepts embedded custom grants from a foreign team", async () => {
+    const { client } = fakeSupabase({ membershipResult: { data: {
+      id: "member-1", team_id: "team-1", role: "member", custom_role_id: "foreign-role",
+      custom_roles: { team_id: "foreign-team", permissions: ["members.manage"] }, teams: null,
+    } }, pendingRequestResult: { data: null } });
+    expect(await getCurrentTeamContextForClient(client)).toMatchObject({ canManageMembers: false, customPermissions: [] });
   });
 });
