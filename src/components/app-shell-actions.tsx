@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Settings } from "lucide-react";
+import { Bell, ClipboardList, Settings } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -170,6 +170,7 @@ export function AppShellActions({
   return (
     <div className="relative flex items-center gap-2 text-zinc-300">
       {desktopSync}
+      <Link href="/requests" aria-label="Edit requests" className="rounded-lg p-2 hover:bg-white/5"><ClipboardList className="size-5" /></Link>
       <button
         type="button"
         aria-label="Open notifications"

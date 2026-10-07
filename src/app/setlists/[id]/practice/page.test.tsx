@@ -18,6 +18,7 @@ vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
 vi.mock("@/lib/supabase/team-guard", () => ({ getRequiredTeamContext: mocks.getRequiredTeamContext }));
 vi.mock("@/lib/supabase/env", () => ({ hasSupabaseEnv: mocks.hasSupabaseEnv }));
+vi.mock("@/lib/supabase/workflow-data", () => ({ loadPreparationWorkspace: async () => ({ ok: false, message: "Shared planning unavailable" }) }));
 vi.mock("@/components/app-shell", () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <main>{children}</main>,
 }));

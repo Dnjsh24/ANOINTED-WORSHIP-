@@ -24,6 +24,7 @@ import {
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
 import { OfflinePreloader } from "@/components/offline-preloader";
+import { DashboardPersonalSummary, type PersonalPrepItem } from "@/components/dashboard-personal-summary";
 import { AppShell } from "@/components/app-shell";
 import { getSetlistTypeLabel } from "@/lib/domain/event-types";
 import { currentUser as sampleUser, events, setlists } from "@/lib/sample-data";
@@ -120,6 +121,10 @@ export default async function DashboardPage() {
     serviceTimes: ["9:00 AM", "11:00 AM"],
   };
   let nextEvent: DashboardNextEvent | null = events[0];
+  let nextEventAssignment: string | null = null;
+  let nextEventRsvp: "available" | "maybe" | "unavailable" | "pending" | "no_response" | null = null;
+  let preparationItems: PersonalPrepItem[] = [];
+  let outstandingPrepCount = 0;
   let setlistSongsList: DashboardSetlistSong[] = setlists[0].songs;
 
   let userFullName = sampleUser.fullName;
@@ -161,8 +166,11 @@ export default async function DashboardPage() {
       teamContext.teamId
         ? supabase
             .from("events")
-            .select("*")
+            .select("*,event_assignments!inner(assignment,team_member_id)")
             .eq("team_id", teamContext.teamId)
+            .eq("event_assignments.team_member_id", teamContext.memberId)
+            .eq("approval_status", "approved")
+            .is("deleted_at", null)
             .gte("event_date", todayStr)
             .order("event_date", { ascending: true })
             .order("starts_at", { ascending: true })
@@ -216,6 +224,24 @@ export default async function DashboardPage() {
           time: `${dbEvent.starts_at.slice(0, 5)} - ${dbEvent.ends_at?.slice(0, 5) || ""}`,
           location: dbEvent.location ?? "Main Sanctuary",
         };
+        if (teamContext.memberId) {
+          const [assignmentResult, attendanceResult] = await Promise.all([
+            supabase
+              .from("event_assignments")
+              .select("assignment")
+              .eq("event_id", dbEvent.id)
+              .eq("team_member_id", teamContext.memberId)
+              .order("assignment"),
+            supabase
+              .from("attendance")
+              .select("status")
+              .eq("event_id", dbEvent.id)
+              .eq("team_member_id", teamContext.memberId)
+              .maybeSingle(),
+          ]);
+          nextEventAssignment = assignmentResult.data?.map(row => row.assignment).join(", ") || null;
+          nextEventRsvp = attendanceResult.data?.status ?? "no_response";
+        }
       } else {
         nextEvent = null;
       }
@@ -289,7 +315,7 @@ export default async function DashboardPage() {
         if (sc !== null) totalSetlistsCount = sc;
       }
 
-      const [announcementsResult, remindersResult, activityLogsResult, membersResult] = await Promise.all([
+      const [announcementsResult, remindersResult, activityLogsResult, membersResult, preparationResult] = await Promise.all([
         supabase
           .from("announcements")
           .select("id, category, title, body, priority, created_at")
@@ -319,8 +345,18 @@ export default async function DashboardPage() {
             team_anniversary,
             profile:profiles(full_name, birthday)
           `)
-          .eq("team_id", teamContext.teamId)
+          .eq("team_id", teamContext.teamId),
+        supabase.rpc("get_personal_preparation", { p_team_id: teamContext.teamId }, { count: "exact" })
+          .order("setlist_date", { ascending: true }).order("setlist_id").order("task_key").range(0, 2)
       ]);
+
+      outstandingPrepCount = preparationResult.count ?? 0;
+      preparationItems = (preparationResult.data ?? []).map((item) => ({
+        id: `${item.setlist_id}:${item.task_key}`,
+        title: item.task_key,
+        body: item.setlist_name,
+        targetPath: `/setlists/${item.setlist_id}`,
+      }));
 
       announcementItems = (announcementsResult.data ?? []).map((announcement, index) => {
         const visual = getAnnouncementVisual(announcement.category, announcement.title, index);
@@ -441,6 +477,14 @@ export default async function DashboardPage() {
           </Link>
         )}
       </section>
+
+      <DashboardPersonalSummary
+        nextEvent={nextEvent}
+        assignment={nextEventAssignment}
+        attendance={nextEventRsvp}
+        preparationItems={preparationItems}
+        outstandingCount={outstandingPrepCount}
+      />
 
       {/* ── Main grid ─────────────────────────────── */}
       <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">

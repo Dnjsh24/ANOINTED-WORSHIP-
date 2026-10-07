@@ -8,23 +8,40 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { getSetlistTypeLabel } from "@/lib/domain/event-types";
-import type { Setlist } from "@/lib/types";
+import { EVENT_TYPE_OPTIONS, getSetlistTypeLabel } from "@/lib/domain/event-types";
+import type { EventType, Setlist } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type DateFilter = "all" | "upcoming" | "past";
 
-export function SetlistsClient({ setlists, referenceDate }: { setlists: Setlist[]; referenceDate?: string }) {
+export function SetlistsClient({
+  setlists,
+  referenceDate,
+  initialQuery = "",
+  initialDateFilter = "all",
+  initialSort = "descending",
+  initialLeaderFilter = "",
+  initialTypeFilter = "",
+  leaderOptions = [],
+}: {
+  setlists: Setlist[];
+  referenceDate?: string;
+  initialQuery?: string;
+  initialDateFilter?: DateFilter;
+  initialSort?: "ascending" | "descending";
+  initialLeaderFilter?: string;
+  initialTypeFilter?: EventType | "unlinked" | "";
+  leaderOptions?: Array<{ value: string; label: string }>;
+}) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
-  const [leader, setLeader] = useState("all");
-  const [serviceType, setServiceType] = useState("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>(initialDateFilter);
+  const [leader, setLeader] = useState(initialLeaderFilter);
+  const [serviceType, setServiceType] = useState(initialTypeFilter);
   const today = referenceDate ?? new Date().toISOString().slice(0, 10);
+  const selectedLeaderLabel = leaderOptions.find((option) => option.value === leader)?.label;
 
-  const leaders = [...new Set(setlists.map((setlist) => setlist.leader))];
-  const setlistTypeLabels = [...new Set(setlists.map((setlist) => getSetlistTypeLabel(setlist)))];
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -37,20 +54,20 @@ export function SetlistsClient({ setlists, referenceDate }: { setlists: Setlist[
       const matchesSearch = !normalized || haystack.includes(normalized);
       const matchesDate =
         dateFilter === "all" || (dateFilter === "upcoming" ? setlist.date >= today : setlist.date < today);
-      const matchesLeader = leader === "all" || setlist.leader === leader;
-      const matchesType = serviceType === "all" || typeLabel === serviceType;
+      const matchesLeader = !leader || setlist.leader === selectedLeaderLabel;
+      const matchesType = !serviceType || (serviceType === "unlinked" ? !setlist.eventId : setlist.eventType === serviceType);
 
       return matchesSearch && matchesDate && matchesLeader && matchesType;
     });
-  }, [dateFilter, leader, query, serviceType, setlists, today]);
+  }, [dateFilter, leader, query, selectedLeaderLabel, serviceType, setlists, today]);
 
   // Group filtered setlists into upcoming and past
   const upcomingSetlists = useMemo(() => {
-    return filtered.filter((s) => s.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+    return filtered.filter((s) => s.date >= today);
   }, [filtered, today]);
 
   const pastSetlists = useMemo(() => {
-    return filtered.filter((s) => s.date < today).sort((a, b) => b.date.localeCompare(a.date));
+    return filtered.filter((s) => s.date < today);
   }, [filtered, today]);
 
   function getMonthDay(dateStr: string) {
@@ -77,10 +94,19 @@ export function SetlistsClient({ setlists, referenceDate }: { setlists: Setlist[
           <p className="mt-1.5 text-sm font-semibold text-zinc-400">Manage and plan your upcoming setlists and linked events.</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <div className="relative w-full sm:w-64">
+          <form action="/setlists" method="get" className="relative flex w-full gap-2 sm:w-80">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
-            <Input className="pl-10" placeholder="Search setlists..." value={query} onChange={(event) => setQuery(event.target.value)} />
-          </div>
+            <Input name="q" maxLength={100} className="pl-10" placeholder="Search setlists and songs..." value={query} onChange={(event) => setQuery(event.target.value)} />
+            <input type="hidden" name="date" value={dateFilter === "all" ? "" : dateFilter} />
+            <input type="hidden" name="leader" value={leader} />
+            <input type="hidden" name="type" value={serviceType} />
+            <label className="sr-only" htmlFor="setlist-sort">Sort setlists</label>
+            <select id="setlist-sort" name="sort" defaultValue={initialSort} className="h-10 rounded-md border border-white/10 bg-[#111014] px-2 text-xs text-white">
+              <option value="descending">Newest first</option>
+              <option value="ascending">Oldest first</option>
+            </select>
+            <Button type="submit" variant="secondary">Search</Button>
+          </form>
           <Button type="button" variant="secondary" className="flex items-center gap-2" onClick={() => setFiltersOpen((value) => !value)}>
             <SlidersHorizontal className="size-4 text-violet-300" />
             Filters
@@ -100,7 +126,16 @@ export function SetlistsClient({ setlists, referenceDate }: { setlists: Setlist[
         {(["all", "upcoming", "past"] as const).map((filter) => (
           <button
             key={filter}
-            onClick={() => setDateFilter(filter)}
+            onClick={() => {
+              setDateFilter(filter);
+              const next = new URLSearchParams();
+              if (query.trim()) next.set("q", query.trim());
+              if (leader) next.set("leader", leader);
+              if (serviceType) next.set("type", serviceType);
+              if (filter !== "all") next.set("date", filter);
+              next.set("sort", filter === "upcoming" ? "ascending" : filter === "past" ? "descending" : initialSort);
+              router.push("/setlists?" + next.toString());
+            }}
             className={cn(
               "px-5 py-3 font-semibold transition-all border-b-2 -mb-px",
               dateFilter === filter ? "border-violet-500 text-violet-300 font-bold" : "border-transparent text-zinc-500 hover:text-white"
@@ -113,14 +148,17 @@ export function SetlistsClient({ setlists, referenceDate }: { setlists: Setlist[
 
       {/* Filters Panel */}
       {filtersOpen && (
-        <div className="mt-5 grid gap-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-4 md:grid-cols-2 animate-fade-in">
+        <form action="/setlists" method="get" className="mt-5 grid gap-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-4 md:grid-cols-2 animate-fade-in">
+          <input type="hidden" name="q" value={query} />
+          <input type="hidden" name="date" value={dateFilter === "all" ? "" : dateFilter} />
+          <input type="hidden" name="sort" value={initialSort} />
           <label className="space-y-1.5">
             <span className="text-xs font-mono font-bold uppercase text-zinc-500 tracking-wider">Leader</span>
             <div className="relative">
-              <select value={leader} onChange={(event) => setLeader(event.target.value)} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white focus:border-violet-400/50 focus:outline-none transition-all">
-                <option value="all" className="bg-[#111014]">All leaders</option>
-                {leaders.map((item) => (
-                  <option key={item} className="bg-[#111014]">{item}</option>
+              <select name="leader" value={leader} onChange={(event) => setLeader(event.target.value)} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white focus:border-violet-400/50 focus:outline-none transition-all">
+                <option value="" className="bg-[#111014]">All leaders</option>
+                {leaderOptions.map((item) => (
+                  <option key={item.value} value={item.value} className="bg-[#111014]">{item.label}</option>
                 ))}
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
@@ -129,16 +167,18 @@ export function SetlistsClient({ setlists, referenceDate }: { setlists: Setlist[
           <label className="space-y-1.5">
             <span className="text-xs font-mono font-bold uppercase text-zinc-500 tracking-wider">Setlist Type</span>
             <div className="relative">
-              <select value={serviceType} onChange={(event) => setServiceType(event.target.value)} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white focus:border-violet-400/50 focus:outline-none transition-all">
-                <option value="all" className="bg-[#111014]">All setlist types</option>
-                {setlistTypeLabels.map((item) => (
-                  <option key={item} className="bg-[#111014]">{item}</option>
+              <select name="type" value={serviceType} onChange={(event) => setServiceType(event.target.value as EventType | "unlinked" | "")} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white focus:border-violet-400/50 focus:outline-none transition-all">
+                <option value="" className="bg-[#111014]">All setlist types</option>
+                {EVENT_TYPE_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value} className="bg-[#111014]">{item.label}</option>
                 ))}
+                <option value="unlinked" className="bg-[#111014]">No linked event</option>
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
             </div>
           </label>
-        </div>
+          <Button type="submit" variant="secondary" className="md:col-span-2 justify-self-end">Apply filters</Button>
+        </form>
       )}
 
       {/* Setlists Content */}

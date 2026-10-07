@@ -9,6 +9,7 @@ const serverClient = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/supabase/server", () => ({ createClient: serverClient }));
 vi.mock("@/lib/supabase/env", () => ({ hasSupabaseEnv: () => true }));
 vi.mock("@/lib/desktop/runtime", () => ({ isDesktopRuntime: () => false }));
+vi.mock("@/lib/desktop/workspace", () => ({}));
 vi.mock("@/components/desktop-sync-status", () => ({ DesktopSyncStatus: () => null }));
 vi.mock("@/components/app-shell-actions", () => ({ AppShellActions: () => null }));
 vi.mock("@/components/member-usage-tracker", () => ({ MemberUsageTracker: () => null }));

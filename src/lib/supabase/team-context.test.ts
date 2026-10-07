@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   demoTeamContext,
   getCurrentTeamContext,
@@ -7,6 +7,8 @@ import {
 } from "@/lib/supabase/team-context";
 import type { Database } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+vi.mock("@/lib/desktop/workspace", () => ({}));
 
 type QueryResult = { data: unknown; error?: unknown };
 

@@ -2,6 +2,7 @@
 
 import {
   CalendarDays,
+  ClipboardList,
   LayoutDashboard,
   MessageSquare,
   MoreHorizontal,
@@ -89,10 +90,11 @@ export function MobileIconRail({
   }
 
   // The 5th tab is "More"
-  const moreTabActive = ["profile", "settings", "team settings", "reports"].includes(activeLabel);
+  const moreTabActive = ["profile", "settings", "team settings", "reports", "requests"].includes(activeLabel);
 
   // More menu links
   const moreMenuLinks = [
+    { href: "/requests", label: "Edit requests", icon: ClipboardList },
     { href: "/songs", label: "Songs", icon: Music },
     { href: "/events", label: "Timeline Events", icon: CalendarDays },
     { href: "/profile", label: "My Profile", icon: User },

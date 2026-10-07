@@ -40,7 +40,7 @@ test("home and setlist screens render core workflow", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Announcements" })).toBeVisible();
   await page.goto("/dashboard");
   await page.getByRole("link", { name: /View all reminders/i }).click();
-  await expect(page.getByRole("heading", { name: "Reminders" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Reminders", exact: true })).toBeVisible();
   await page.goto("/dashboard");
   await page.getByRole("link", { name: "Opening Song B 90 BPM" }).click();
   await expect(page.getByRole("heading", { name: "Opening Song" })).toBeVisible();
@@ -162,7 +162,7 @@ test("global shell opens notifications and settings", async ({ page, isMobile })
   await page.getByRole("button", { name: "Open notifications" }).click();
   await expect(page.getByRole("menu", { name: "Notifications" })).toBeVisible();
   await page.getByRole("link", { name: /Attendance reminder/i }).click();
-  await expect(page.getByRole("heading", { name: "Reminders" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Reminders", exact: true })).toBeVisible();
 
   await page.goto("/dashboard");
   await page.getByRole("link", { name: "Open settings" }).click();
@@ -171,7 +171,8 @@ test("global shell opens notifications and settings", async ({ page, isMobile })
 
 test("setlists page filters and exposes create/edit flows", async ({ page }) => {
   await page.goto("/setlists");
-  await page.getByPlaceholder("Search setlists...").fill("Youth");
+  await page.getByPlaceholder("Search setlists and songs...").fill("Youth");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Youth Night", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Sunday Service", exact: true })).toHaveCount(0);
 
@@ -207,11 +208,12 @@ test("setlist detail actions have real targets", async ({ page }) => {
 
 test("events filters and detail actions work", async ({ page }) => {
   await page.goto("/events");
-  await page.getByPlaceholder("Search events...").fill("Prayer");
+  await page.getByPlaceholder("Search all events...").fill("Prayer");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByRole("link", { name: "Prayer Meeting", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Sunday Morning Worship", exact: true })).toHaveCount(0);
 
-  await page.getByPlaceholder("Search events...").fill("");
+  await page.getByPlaceholder("Search all events...").fill("");
   await page.getByRole("button", { name: "All Events" }).click();
   await expect(page.getByRole("link", { name: /Midweek Band Rehearsal/i })).toBeVisible();
   await page.getByRole("button", { name: "Calendar View" }).click();
@@ -241,7 +243,7 @@ test("messages controls switch channel and report send persistence", async ({ pa
   await page.getByRole("button", { name: /Insert/i }).first().click();
   await page.getByPlaceholder(/Message Worship Team/i).fill("See you at rehearsal");
   await page.getByRole("button", { name: "Send message" }).click();
-  await expect(page.getByRole("region", { name: "Worship Team conversation" }).getByRole("status")).toContainText(/Sent!|Sign in with Supabase to send messages/i);
+  await expect(page.getByRole("region", { name: "Worship Team conversation" }).getByRole("status").filter({ hasText: /Sent!|Sign in with Supabase to send messages/i })).toContainText(/Sent!|Sign in with Supabase to send messages/i);
 });
 
 test("team/profile/song/settings controls are interactive", async ({ page }) => {
@@ -261,10 +263,13 @@ test("team/profile/song/settings controls are interactive", async ({ page }) => 
   await expect(page.getByText(/Password reset needs a Supabase email reset flow/i)).toBeVisible();
 
   await page.goto("/songs");
-  await page.getByPlaceholder("Search by title, artist, or tag...").fill("Opening");
+  await page.getByPlaceholder("Title, artist, or tag").fill("Opening");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
   await expect(page.getByRole("link", { name: /Opening Song/i })).toBeVisible();
-  await page.getByRole("button", { name: "Filter songs" }).click();
-  await expect(page.getByRole("button", { name: "Favorites" })).toBeVisible();
+  await page.getByRole("checkbox", { name: "Favorites only" }).check();
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(page).toHaveURL(/favorites=true/);
+  await expect(page.getByRole("checkbox", { name: "Favorites only" })).toBeChecked();
 
   await page.goto("/admin/settings");
   await expect(page.getByRole("heading", { name: "Team Controls" })).toBeVisible();

@@ -1,0 +1,304 @@
+{
+  "baseline": "0cdbfc5ee131172e30033ca14461c79602b39ece",
+  "head": "0cdbfc5ee131172e30033ca14461c79602b39ece",
+  "sourceHashes": {
+    "src/app/messages/page.tsx": "47c5bbb9c08e52876ef5ab90aed0b7b8a2785f84af9fc5c8772cd2d72f162350",
+    "src/components/messages-client.tsx": "991ffc931ea55325c0b8dbc34059d353752e960cda133d550c5bdd7249415d8d",
+    "src/app/messages/message-actions.ts": "d68d21a611f7120b56bdc38886066f741a77219b978a615e9e9e16b82612768c",
+    "src/lib/supabase/message-data.ts": "81e6bf2752d3f2b180103998caa6a7750a05f03c265277f59aa391e001d42047",
+    "src/lib/domain/files.ts": "5850d705d108910890cec715889d7ae249222881e86907c778560efbe4c8cc84",
+    "src/lib/utils.ts": "e78871045f98038c929d5f253007593b94bf3ffd7329e5d5436b600fb6ac683b",
+    "src/lib/domain/rbac.ts": "a4e9532973272104577ee96cc89f2046285ee0a2a35c2e22fc833667f110291d",
+    "src/lib/domain/validators.ts": "6b2970115a6329a3c6a7fb4aedfe2badcc59206a9083a3adcb85e370164a779c",
+    "package-lock.json": "f8127e489d47758cbb7cc6ddee9c2e499aae9c65c6ebe12bce1a7b2dc763ab84",
+    "scripts/benchmark-messages-browser.mjs": "6bb0f85516a07b205c562f1e1b5c2158af60f8178455c1b6f20f3a2aeaa53b18",
+    ".next/static/css/e8b9b57349f7725e.css": "723946d93dfe8ce4c45136787774e58f931cfa279445e03410b59ec26e58f4b3"
+  },
+  "fixture": {
+    "members": 50,
+    "channels": 20,
+    "messages": 10000
+  },
+  "scope": "Actual Messages page loaders, first-page server action and components, synthetic HTTP fixture; auth/Next shell/realtime/action HTTP transport adapted; no live or complete Next.js route latency claim",
+  "payloadEvidence": {
+    "before": {
+      "loaderMs": 1281.33,
+      "bytes": 5074553,
+      "queries": [
+        {
+          "table": "team_members",
+          "rows": 50,
+          "bytes": 14683
+        },
+        {
+          "table": "message_channels",
+          "rows": 20,
+          "bytes": 114412
+        },
+        {
+          "table": "messages",
+          "rows": 10000,
+          "bytes": 5668895
+        },
+        {
+          "table": "message_reads",
+          "rows": 0,
+          "bytes": 2
+        }
+      ]
+    },
+    "after": {
+      "loaderMs": 2.35,
+      "bytes": 122650,
+      "queries": [
+        {
+          "table": "team_members",
+          "rows": 50,
+          "bytes": 14683
+        },
+        {
+          "table": "message_channel_members",
+          "rows": 20,
+          "bytes": 2201
+        },
+        {
+          "table": "message_channels",
+          "rows": 20,
+          "bytes": 114412
+        },
+        {
+          "table": "get_message_previews",
+          "rows": 20,
+          "bytes": 12622
+        }
+      ]
+    }
+  },
+  "historyEvidence": {
+    "messages": 50,
+    "hasMore": true,
+    "cursor": "2026-10-01T02:30:00.000Z|00000000-0000-4000-8000-000000010000",
+    "bytes": 23805,
+    "queries": [
+      {
+        "table": "message_channels",
+        "rows": 1,
+        "bytes": 5721
+      },
+      {
+        "table": "message_channel_members",
+        "rows": 1,
+        "bytes": 111
+      },
+      {
+        "table": "team_members",
+        "rows": 50,
+        "bytes": 14683
+      },
+      {
+        "table": "messages",
+        "rows": 51,
+        "bytes": 28918
+      },
+      {
+        "table": "message_reads",
+        "rows": 0,
+        "bytes": 2
+      }
+    ]
+  },
+  "measurements": [
+    {
+      "device": "desktop",
+      "samples": 7,
+      "rawSamples": {
+        "before": [
+          {
+            "inboxMs": 1264.1000000089407,
+            "conversationMs": 361.1000000089407,
+            "totalMs": 1625.2000000178814
+          },
+          {
+            "inboxMs": 1290,
+            "conversationMs": 258.6000000089407,
+            "totalMs": 1548.6000000089407
+          },
+          {
+            "inboxMs": 1319.2999999970198,
+            "conversationMs": 255.5,
+            "totalMs": 1574.7999999970198
+          },
+          {
+            "inboxMs": 1319.9000000059605,
+            "conversationMs": 272,
+            "totalMs": 1591.9000000059605
+          },
+          {
+            "inboxMs": 1313.0999999940395,
+            "conversationMs": 250.40000000596046,
+            "totalMs": 1563.5
+          },
+          {
+            "inboxMs": 1299.1000000089407,
+            "conversationMs": 264.20000000298023,
+            "totalMs": 1563.300000011921
+          },
+          {
+            "inboxMs": 1277.3999999910593,
+            "conversationMs": 268.40000000596046,
+            "totalMs": 1545.7999999970198
+          }
+        ],
+        "after": [
+          {
+            "inboxMs": 23.700000002980232,
+            "conversationMs": 82.79999999701977,
+            "totalMs": 106.5
+          },
+          {
+            "inboxMs": 44,
+            "conversationMs": 79.20000000298023,
+            "totalMs": 123.20000000298023
+          },
+          {
+            "inboxMs": 23.100000008940697,
+            "conversationMs": 90.3999999910593,
+            "totalMs": 113.5
+          },
+          {
+            "inboxMs": 48.80000001192093,
+            "conversationMs": 84.09999999403954,
+            "totalMs": 132.90000000596046
+          },
+          {
+            "inboxMs": 23.900000005960464,
+            "conversationMs": 93.79999999701977,
+            "totalMs": 117.70000000298023
+          },
+          {
+            "inboxMs": 45.29999999701977,
+            "conversationMs": 111.1000000089407,
+            "totalMs": 156.40000000596046
+          },
+          {
+            "inboxMs": 46.70000000298023,
+            "conversationMs": 67.70000000298023,
+            "totalMs": 114.40000000596046
+          }
+        ]
+      },
+      "profile": "1280x800, unthrottled",
+      "before": {
+        "inboxMs": 1299.1,
+        "conversationMs": 264.2,
+        "totalMs": 1563.5
+      },
+      "after": {
+        "inboxMs": 44,
+        "conversationMs": 84.1,
+        "totalMs": 117.7
+      },
+      "improvementPercent": {
+        "inboxMs": 96.6,
+        "conversationMs": 68.2,
+        "totalMs": 92.5
+      }
+    },
+    {
+      "device": "phone",
+      "samples": 7,
+      "rawSamples": {
+        "before": [
+          {
+            "inboxMs": 7271.800000011921,
+            "conversationMs": 1258,
+            "totalMs": 8529.800000011921
+          },
+          {
+            "inboxMs": 7316.0999999940395,
+            "conversationMs": 1165.2999999970198,
+            "totalMs": 8481.39999999106
+          },
+          {
+            "inboxMs": 7328.5999999940395,
+            "conversationMs": 1229.2000000029802,
+            "totalMs": 8557.79999999702
+          },
+          {
+            "inboxMs": 7461.70000000298,
+            "conversationMs": 1280.7999999970198,
+            "totalMs": 8742.5
+          },
+          {
+            "inboxMs": 7284.5,
+            "conversationMs": 1268,
+            "totalMs": 8552.5
+          },
+          {
+            "inboxMs": 7396.100000008941,
+            "conversationMs": 1214.5,
+            "totalMs": 8610.60000000894
+          },
+          {
+            "inboxMs": 7300.5,
+            "conversationMs": 1322.7999999970198,
+            "totalMs": 8623.29999999702
+          }
+        ],
+        "after": [
+          {
+            "inboxMs": 1126.6000000089407,
+            "conversationMs": 361.40000000596046,
+            "totalMs": 1488.0000000149012
+          },
+          {
+            "inboxMs": 1141.4000000059605,
+            "conversationMs": 378.29999999701977,
+            "totalMs": 1519.7000000029802
+          },
+          {
+            "inboxMs": 1121.9000000059605,
+            "conversationMs": 382.69999998807907,
+            "totalMs": 1504.5999999940395
+          },
+          {
+            "inboxMs": 1147.3999999910593,
+            "conversationMs": 468.5,
+            "totalMs": 1615.8999999910593
+          },
+          {
+            "inboxMs": 1145.9000000059605,
+            "conversationMs": 389.40000000596046,
+            "totalMs": 1535.300000011921
+          },
+          {
+            "inboxMs": 1232.7999999970198,
+            "conversationMs": 394.29999999701977,
+            "totalMs": 1627.0999999940395
+          },
+          {
+            "inboxMs": 1129.9000000059605,
+            "conversationMs": 391.29999999701977,
+            "totalMs": 1521.2000000029802
+          }
+        ]
+      },
+      "profile": "Pixel 7, 4x CPU, 150 ms network latency, 8 Mbps throughput",
+      "before": {
+        "inboxMs": 7316.1,
+        "conversationMs": 1258,
+        "totalMs": 8557.8
+      },
+      "after": {
+        "inboxMs": 1141.4,
+        "conversationMs": 389.4,
+        "totalMs": 1521.2
+      },
+      "improvementPercent": {
+        "inboxMs": 84.4,
+        "conversationMs": 69,
+        "totalMs": 82.2
+      }
+    }
+  ]
+}

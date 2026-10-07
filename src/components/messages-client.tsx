@@ -3,8 +3,9 @@
 import { ArrowLeft, Download, FileText, Image as ImageIcon, Menu, MoreHorizontal, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X, Info, CalendarClock } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition, type ComponentProps, type Dispatch, type SetStateAction } from "react";
-import { addChannelMemberAction, createChannelAction, getOrCreateDirectChannelAction, leaveChannelAction, removeChannelMemberAction, sendMessageAction, markMessagesReadAction } from "@/app/actions";
+import { useEffect, useLayoutEffect, useRef, useState, useTransition, type ComponentProps, type Dispatch, type SetStateAction } from "react";
+import { addChannelMemberAction, createChannelAction, getOrCreateDirectChannelAction, leaveChannelAction, removeChannelMemberAction, markMessagesReadAction } from "@/app/actions";
+import { loadChannelMessagesAction, searchChannelMessagesAction, sendMessageOnceAction } from "@/app/messages/message-actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,9 @@ export type MessagesChannel = {
   membersOnline: number;
   preview: string;
   messages: Message[];
+  messagesLoaded?: boolean;
+  hasMoreMessages?: boolean;
+  nextMessageCursor?: string | null;
   adminOnly?: boolean;
   avatarUrl?: string | null;
 };
@@ -74,12 +78,15 @@ function MessagesSession(props: MessagesProps) {
   const router = useRouter();
   const currentMemberId = props.currentMemberId;
   const [liveStatus, setLiveStatus] = useState("");
+  const wasConnectedRef = useRef(false);
   // Keep a ref to teamMembers so the realtime callback always sees the latest value
   // without needing to re-subscribe every time state changes
   const teamMembersRef = useRef(props.teamMembers ?? []);
   useEffect(() => { teamMembersRef.current = props.teamMembers ?? []; }, [props.teamMembers]);
 
   const channelListRef = useRef(channelList);
+  const activeChannelRef = useRef(activeChannelId);
+  useEffect(() => { activeChannelRef.current = activeChannelId; }, [activeChannelId]);
   useEffect(() => { channelListRef.current = channelList; }, [channelList]);
 
   const currentMemberIdRef = useRef(currentMemberId);
@@ -167,9 +174,11 @@ function MessagesSession(props: MessagesProps) {
               return {
                 ...chan,
                 preview: `${authorName}: ${newMessage.body}`,
-                messages: chan.messages.some((m) => m.id === formattedMessage.id)
-                  ? chan.messages
-                  : [...chan.messages, formattedMessage],
+                messages: ((chan.messagesLoaded ?? chan.messages.length > 0) || chan.id === activeChannelRef.current)
+                  ? chan.messages.some((m) => m.id === formattedMessage.id)
+                    ? chan.messages
+                    : [...chan.messages, formattedMessage]
+                  : chan.messages,
               };
             })
           );
@@ -182,13 +191,24 @@ function MessagesSession(props: MessagesProps) {
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           setLiveStatus("");
+          if (wasConnectedRef.current) router.refresh();
+          wasConnectedRef.current = true;
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           setLiveStatus("Live messages disconnected. Reconnecting when the network is ready.");
         }
       });
 
+    const refreshWhenOnline = () => router.refresh();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+    window.addEventListener("online", refreshWhenOnline);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
     return () => {
       stopped = true;
+      window.removeEventListener("online", refreshWhenOnline);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
       supabase.removeChannel(realtimeChannel);
     };
   }, [router, setChannelList]);
@@ -210,6 +230,11 @@ function MessagesView({
   setMemberships,
   liveStatus,
   activeChannelId,
+  channelPage = 1,
+  channelPageCount = 1,
+  previousChannelsHref,
+  nextChannelsHref,
+  initialLoadError = "",
 }: {
   channels: MessagesChannel[];
   teamMembers?: MessagesTeamMember[];
@@ -224,12 +249,22 @@ function MessagesView({
   setChannelList: Dispatch<SetStateAction<MessagesChannel[]>>;
   memberships: MessagesChannelMembership[];
   setMemberships: Dispatch<SetStateAction<MessagesChannelMembership[]>>;
+  channelPage?: number;
+  channelPageCount?: number;
+  previousChannelsHref?: string | null;
+  nextChannelsHref?: string | null;
+  initialLoadError?: string;
 }) {
   const router = useRouter();
   function setActiveChannelId(channelId: string) {
     setDraft("");
+    setSearch("");
+    setSearchResults(null);
+    setSearchMessagesLoading(false);
     setReplyingTo(null);
     setScheduledFor("");
+    const nextChannel = channelList.find((channel) => channel.id === channelId);
+    setMessagesLoading(Boolean(nextChannel && !nextChannel.adminOnly && !(nextChannel.messagesLoaded ?? nextChannel.messages.length > 0)));
     clearSelectedAttachment();
     setInfoPanelOpen(false);
     setManagePanelOpen(false);
@@ -245,7 +280,11 @@ function MessagesView({
     }
   }
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearchValue] = useState("");
+  function setSearch(value: string) {
+    setSearchValue(value);
+    if (!value.trim()) { setSearchResults(null); setSearchMessagesLoading(false); }
+  }
   const [draft, setDraft] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -258,12 +297,24 @@ function MessagesView({
   const [messageOptionsOpenId, setMessageOptionsOpenId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [status, setStatus] = useState("");
+  const [messagesLoading, setMessagesLoading] = useState(() => {
+    const initiallySelected = channelList.find((channel) => channel.id === activeChannelId);
+    return Boolean(initiallySelected && !initiallySelected.adminOnly && !(initiallySelected.messagesLoaded ?? initiallySelected.messages.length > 0));
+  });
+  const [olderMessagesLoading, setOlderMessagesLoading] = useState(false);
+  const [searchMessagesLoading, setSearchMessagesLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<Message[] | null>(null);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
+  const pendingScrollPositionRef = useRef<{ height: number; top: number } | null>(null);
+  const skipAutoScrollRef = useRef(false);
+  const selectedIdRef = useRef(activeChannelId);
+  const pendingSendRef = useRef<{ nonce: string; key: string; file: File | null; attachment?: AttachmentDetails } | null>(null);
 
   const [onlineMemberIds, setOnlineMemberIds] = useState<string[]>([]);
 
@@ -335,13 +386,121 @@ function MessagesView({
     };
   }, [activeChannelId, currentMemberId, channels]);
   const selectedChannel = channelList.find((channel) => channel.id === activeChannelId);
-  const activeChannel = selectedChannel ?? { id: "", name: "No Channel", membersOnline: 0, preview: "", messages: [] };
+  const activeChannel = selectedChannel ?? { id: "", name: "No Channel", membersOnline: 0, preview: "", messages: [], messagesLoaded: true };
   const showingList = !selectedChannel;
   const listExpanded = sidebarExpanded || showingList;
   const activeMessageCount = activeChannel.messages.length;
+  const selectedChannelId = selectedChannel?.id;
+  const selectedChannelLoaded = selectedChannel?.messagesLoaded ?? Boolean(selectedChannel?.messages.length);
+  const selectedChannelAdminOnly = selectedChannel?.adminOnly;
+
+  useEffect(() => {
+    if (!selectedChannelId || selectedChannelAdminOnly || selectedChannelLoaded) return;
+    let active = true;
+    loadChannelMessagesAction(selectedChannelId).then((result) => {
+      if (!active) return;
+      if (!result.ok) {
+        setStatus(result.message);
+        setMessagesLoading(false);
+        return;
+      }
+      setChannelList((current) => current.map((channel) => channel.id === selectedChannelId
+        ? { ...channel, messages: [...result.data.messages, ...channel.messages.filter(message => !result.data.messages.some(loaded => loaded.id === message.id))], messagesLoaded: true, hasMoreMessages: result.data.hasMore, nextMessageCursor: result.data.nextCursor }
+        : channel));
+      setMessagesLoading(false);
+    }).catch(() => {
+      if (active) setStatus("Messages could not be loaded. Check your connection and retry.");
+    }).finally(() => {
+      if (active) setMessagesLoading(false);
+    });
+    return () => { active = false; };
+  }, [selectedChannelAdminOnly, selectedChannelId, selectedChannelLoaded, setChannelList]);
+
+  useEffect(() => {
+    const term = search.trim();
+    if (!activeChannel.id || !term) return;
+    let active = true;
+    const timeout = window.setTimeout(() => {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeChannel.id)) {
+        setSearchMessagesLoading(false);
+        return;
+      }
+      setSearchMessagesLoading(true);
+      searchChannelMessagesAction(activeChannel.id, term).then((result) => {
+        if (!active) return;
+        if (result.ok) {
+          setSearchResults(result.data.messages);
+        } else {
+          setSearchResults([]);
+          setStatus(result.message);
+        }
+        setSearchMessagesLoading(false);
+      }).catch(() => {
+        if (active) setStatus("Search could not finish. Check your connection and retry.");
+      }).finally(() => {
+        if (active) setSearchMessagesLoading(false);
+      });
+    }, 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [activeChannel.id, search]);
+
+  async function loadOlderMessages() {
+    const cursor = activeChannel.nextMessageCursor;
+    if (!cursor || olderMessagesLoading) return;
+    const list = messageListRef.current;
+    if (list) pendingScrollPositionRef.current = { height: list.scrollHeight, top: list.scrollTop };
+    setOlderMessagesLoading(true);
+    const requestedChannelId = activeChannel.id;
+    try {
+    const result = await loadChannelMessagesAction(activeChannel.id, cursor);
+    if (selectedIdRef.current !== requestedChannelId) { pendingScrollPositionRef.current = null; return; }
+    if (!result.ok) {
+      pendingScrollPositionRef.current = null;
+      setStatus(result.message);
+      setOlderMessagesLoading(false);
+      return;
+    }
+    setChannelList((current) => current.map((channel) => {
+      if (channel.id !== activeChannel.id) return channel;
+      const knownIds = new Set(channel.messages.map((message) => message.id));
+      const olderMessages = result.data.messages.filter((message) => !knownIds.has(message.id));
+      return {
+        ...channel,
+        messages: [...olderMessages, ...channel.messages],
+        hasMoreMessages: result.data.hasMore,
+        nextMessageCursor: result.data.nextCursor,
+      };
+    }));
+    setOlderMessagesLoading(false);
+    } catch {
+      pendingScrollPositionRef.current = null;
+      if (selectedIdRef.current === requestedChannelId) setStatus("Older messages could not be loaded. Retry when connected.");
+    } finally {
+      setOlderMessagesLoading(false);
+    }
+  }
+
+  useLayoutEffect(() => {
+    if (selectedIdRef.current !== activeChannelId) {
+      selectedIdRef.current = activeChannelId;
+      pendingScrollPositionRef.current = null;
+      skipAutoScrollRef.current = false;
+    }
+    const pending = pendingScrollPositionRef.current;
+    const list = messageListRef.current;
+    if (!pending || !list) return;
+    list.scrollTop = pending.top + (list.scrollHeight - pending.height);
+    skipAutoScrollRef.current = true;
+    pendingScrollPositionRef.current = null;
+  }, [activeChannelId, activeMessageCount]);
 
   // Auto-scroll to bottom when active channel or its messages change
   useEffect(() => {
+    if (skipAutoScrollRef.current) { skipAutoScrollRef.current = false; return; }
+    if (pendingScrollPositionRef.current) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [activeChannelId, activeMessageCount]);
 
@@ -380,25 +539,21 @@ function MessagesView({
     }
   }, [activeChannel.id, activeChannel.messages, activeChannelId, activeMessageCount, currentProfileId, setChannelList]);
 
-  const activeChannelFiles = useMemo(() => {
-    const seen = new Set<string>();
-    return (activeChannel.messages || [])
-      .map((message) => message.attachment)
-      .filter((attachment): attachment is AttachmentDetails => Boolean(attachment))
-      .filter((attachment) => {
-        const key = attachment.id ?? attachment.name;
-        if (seen.has(key)) {
-          return false;
-        }
-        seen.add(key);
-        return true;
-      });
-  }, [activeChannel.messages]);
+  const seenAttachmentKeys = new Set<string>();
+  const activeChannelFiles = (activeChannel.messages || [])
+    .map((message) => message.attachment)
+    .filter((attachment): attachment is AttachmentDetails => Boolean(attachment))
+    .filter((attachment) => {
+      const key = attachment.id ?? attachment.name;
+      if (seenAttachmentKeys.has(key)) return false;
+      seenAttachmentKeys.add(key);
+      return true;
+    });
   const normalizedSearch = search.trim().toLowerCase();
   const visibleChannels = channelList.filter((channel) => `${channel.name} ${channel.preview}`.toLowerCase().includes(normalizedSearch));
-  const visibleMessages = activeChannel.messages?.filter((message) =>
+  const visibleMessages = (searchResults ?? activeChannel.messages?.filter((message) =>
     `${message.author} ${message.body} ${message.attachment?.name ?? ""}`.toLowerCase().includes(normalizedSearch),
-  ) || [];
+  )) || [];
   const visibleMembers = normalizedSearch
     ? teamMembers.filter(
         (m) =>
@@ -413,6 +568,7 @@ function MessagesView({
         channel.id === activeChannel.id
           ? {
               ...channel,
+              messagesLoaded: true,
               preview: `${nextMessage.author}: ${nextMessage.body}`,
               messages: channel.messages.some((message) => message.id === nextMessage.id)
                 ? channel.messages
@@ -592,14 +748,21 @@ function MessagesView({
     if (!body) {
       return;
     }
+    const attachmentFile = pendingAttachment?.file ?? null;
+    const requestKey = [activeChannel.id, body, scheduledFor, replyingTo?.id ?? ""].join("|");
+    if (!pendingSendRef.current || pendingSendRef.current.key !== requestKey || pendingSendRef.current.file !== attachmentFile) {
+      pendingSendRef.current = { nonce: crypto.randomUUID(), key: requestKey, file: attachmentFile };
+    }
+    const pendingSend = pendingSendRef.current;
 
     startTransition(async () => {
-      let uploadedAttachment: AttachmentDetails | undefined;
+      let uploadedAttachment = pendingSend.attachment;
 
       try {
-        if (pendingAttachment) {
+        if (pendingAttachment && !uploadedAttachment) {
           setStatus("Uploading attachment...");
           uploadedAttachment = await uploadSelectedAttachment(pendingAttachment);
+          pendingSend.attachment = uploadedAttachment;
         }
       } catch (error) {
         setStatus(error instanceof Error ? error.message : "Attachment upload failed.");
@@ -610,6 +773,7 @@ function MessagesView({
         const formData = new FormData();
         formData.set("channelId", activeChannel.id);
         formData.set("body", body);
+        formData.set("clientNonce", pendingSend.nonce);
         if (uploadedAttachment?.id) {
           formData.set("attachmentFileId", uploadedAttachment.id);
         }
@@ -621,9 +785,10 @@ function MessagesView({
         }
 
         setStatus("Sending...");
-        const result = await sendMessageAction(formData);
+        const result = await sendMessageOnceAction(formData);
 
         if (result.ok) {
+          pendingSendRef.current = null;
           setDraft("");
           setScheduledFor("");
           setSelectedAttachment(null);
@@ -743,7 +908,12 @@ function MessagesView({
         {/* Search — shows when expanded on mobile, always on desktop */}
         <div className={cn("relative mt-4", listExpanded ? "block" : "hidden lg:block")}>
           <Search className="absolute left-3 top-2.5 size-4 text-zinc-400" />
-          <Input ref={searchInputRef} className="pl-10" placeholder="Search messages..." value={search} onChange={(event) => setSearch(event.target.value)} />
+          <Input ref={searchInputRef} className="pl-10" placeholder="Search messages..." value={search} onChange={(event) => {
+            const value = event.target.value;
+            setSearch(value);
+            setSearchResults(null);
+            setSearchMessagesLoading(Boolean(value.trim()));
+          }} />
         </div>
 
         {/* CHANNELS SECTION */}
@@ -758,7 +928,7 @@ function MessagesView({
         )}
 
         <div className="mt-2 space-y-1">
-          {showingList && (status || liveStatus) && <p role="status" className="rounded-lg bg-white/5 p-3 text-sm text-zinc-300">{status || liveStatus}</p>}
+          {showingList && (initialLoadError || status || liveStatus) && <p role="status" className="rounded-lg bg-white/5 p-3 text-sm text-zinc-300">{initialLoadError || status || liveStatus}</p>}
           {showingList && activeChannelId && <p role="status" className="p-3 text-sm text-zinc-400">This conversation is unavailable. Choose another chat.</p>}
           {channelList.length === 0 && <p className="p-3 text-sm text-zinc-400">No chats yet. Search for a teammate to start a conversation.</p>}
           {visibleChannels.map((channel) => (
@@ -786,6 +956,13 @@ function MessagesView({
             </button>
           ))}
         </div>
+        {showingList && channelPageCount > 1 && (
+          <nav aria-label="Chat list pages" className="mt-4 flex items-center justify-between border-t border-white/10 pt-3 text-xs font-semibold text-zinc-400">
+            {previousChannelsHref ? <Link href={previousChannelsHref} className="rounded px-2 py-1 hover:bg-white/10 hover:text-white">Previous chats</Link> : <span />}
+            <span>Page {channelPage} of {channelPageCount}</span>
+            {nextChannelsHref ? <Link href={nextChannelsHref} className="rounded px-2 py-1 hover:bg-white/10 hover:text-white">More chats</Link> : <span />}
+          </nav>
+        )}
 
         {/* DIRECT MESSAGES SECTION (Only shown when searching) */}
         {visibleMembers.length > 0 && (
@@ -953,7 +1130,17 @@ function MessagesView({
           </div>
         ) : (
           <>
-            <div className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden p-6">
+            <div ref={messageListRef} className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden p-6">
+              {activeChannel.hasMoreMessages && !normalizedSearch && (
+                <div className="text-center">
+                  <Button type="button" variant="secondary" disabled={olderMessagesLoading} onClick={() => void loadOlderMessages()}>
+                    {olderMessagesLoading ? "Loading older messages..." : "Load older messages"}
+                  </Button>
+                </div>
+              )}
+              {messagesLoading && <p role="status" className="text-center text-sm text-zinc-400">Loading messages...</p>}
+              {searchMessagesLoading && <p role="status" className="text-center text-sm text-zinc-400">Searching this conversation...</p>}
+              {searchResults && searchResults.length === 0 && !searchMessagesLoading && <p role="status" className="text-center text-sm text-zinc-400">No matching messages.</p>}
               <div className="flex items-center gap-4 text-center font-mono text-[10px] font-bold text-zinc-500">
                 <span className="h-px flex-1 bg-white/10" />
                 Today

@@ -34,6 +34,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      shared_edit_requests: {
+        Row: {
+          id: string
+          team_id: string
+          target_type: string
+          target_id: string
+          base_revision: number
+          changes: Json
+          before_snapshot: Json
+          after_snapshot: Json | null
+          reason: string
+          status: string
+          requested_by: string
+          reviewed_by: string | null
+          review_reason: string | null
+          requested_at: string
+          reviewed_at: string | null
+          request_nonce: string
+          legacy_song_request_id: string | null
+        }
+        Insert: {
+          id?: string
+          team_id: string
+          target_type: string
+          target_id: string
+          base_revision: number
+          changes: Json
+          before_snapshot: Json
+          after_snapshot?: Json | null
+          reason: string
+          status?: string
+          requested_by: string
+          reviewed_by?: string | null
+          review_reason?: string | null
+          requested_at?: string
+          reviewed_at?: string | null
+          request_nonce: string
+          legacy_song_request_id?: string | null
+        }
+        Update: {
+          id?: string
+          team_id?: string
+          target_type?: string
+          target_id?: string
+          base_revision?: number
+          changes?: Json
+          before_snapshot?: Json
+          after_snapshot?: Json | null
+          reason?: string
+          status?: string
+          requested_by?: string
+          reviewed_by?: string | null
+          review_reason?: string | null
+          requested_at?: string
+          reviewed_at?: string | null
+          request_nonce?: string
+          legacy_song_request_id?: string | null
+        }
+        Relationships: []
+      }
       member_usage_state: {
         Row: { member_id: string; team_id: string; last_seen_at: string; last_credited_minute: string }
         Insert: { member_id: string; team_id: string; last_seen_at: string; last_credited_minute: string }
@@ -151,6 +211,7 @@ export type Database = {
       }
       announcements: {
         Row: {
+          shared_edit_revision: number
           body: string
           category: string
           created_at: string
@@ -167,6 +228,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          shared_edit_revision?: number
           body: string
           category: string
           created_at?: string
@@ -183,6 +245,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          shared_edit_revision?: number
           body?: string
           category?: string
           created_at?: string
@@ -344,6 +407,7 @@ export type Database = {
       }
       dance_notes: {
         Row: {
+          shared_edit_revision: number
           choreography_notes: string | null
           created_at: string
           created_by: string
@@ -361,6 +425,7 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          shared_edit_revision?: number
           choreography_notes?: string | null
           created_at?: string
           created_by: string
@@ -378,6 +443,7 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          shared_edit_revision?: number
           choreography_notes?: string | null
           created_at?: string
           created_by?: string
@@ -479,6 +545,7 @@ export type Database = {
           name: string
           recurrence_parent_id: string | null
           recurrence_rule: string | null
+          requested_assignments: Json
           rehearsal_date: string | null
           rehearsal_end_time: string | null
           rehearsal_time: string | null
@@ -502,6 +569,7 @@ export type Database = {
           name: string
           recurrence_parent_id?: string | null
           recurrence_rule?: string | null
+          requested_assignments?: Json
           rehearsal_date?: string | null
           rehearsal_end_time?: string | null
           rehearsal_time?: string | null
@@ -525,6 +593,7 @@ export type Database = {
           name?: string
           recurrence_parent_id?: string | null
           recurrence_rule?: string | null
+          requested_assignments?: Json
           rehearsal_date?: string | null
           rehearsal_end_time?: string | null
           rehearsal_time?: string | null
@@ -902,6 +971,7 @@ export type Database = {
       }
       notifications: {
         Row: {
+          shared_edit_revision: number
           acknowledged_at: string | null
           body: string | null
           created_at: string
@@ -924,6 +994,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          shared_edit_revision?: number
           acknowledged_at?: string | null
           body?: string | null
           created_at?: string
@@ -946,6 +1017,7 @@ export type Database = {
           title: string
         }
         Update: {
+          shared_edit_revision?: number
           acknowledged_at?: string | null
           body?: string | null
           created_at?: string
@@ -2199,6 +2271,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      submit_shared_edit_request: { Args: { p_target_type: string; p_target_id: string; p_revision: number; p_changes: Json; p_reason: string; p_request_nonce: string }; Returns: string }
+      get_shared_edit_target: { Args: { p_target_type: string; p_target_id: string }; Returns: Json }
+      search_events: { Args: { p_team_id: string; p_query: string }; Returns: Database["public"]["Tables"]["events"]["Row"][] }
+      search_songs: { Args: { p_team_id: string; p_query: string; p_favorites?: boolean; p_sort?: string }; Returns: Database["public"]["Tables"]["songs"]["Row"][] }
+      search_setlists: { Args: { p_team_id: string; p_query: string }; Returns: Database["public"]["Tables"]["setlists"]["Row"][] }
+      get_personal_preparation: { Args: { p_team_id: string }; Returns: { setlist_id: string; task_key: string; setlist_name: string; setlist_date: string }[] }
+      mutate_setlist_slot: { Args: { p_setlist_id: string; p_slot_id: string | null; p_operation: string; p_values?: Json }; Returns: undefined }
+      save_setlist_presentation_settings: { Args: { p_team_id: string; p_setlist_id: string; p_settings: Json }; Returns: number }
+      review_shared_edit_request: { Args: { p_request_id: string; p_decision: string; p_reason?: string }; Returns: string }
+      withdraw_shared_edit_request: { Args: { p_request_id: string }; Returns: undefined }
+      save_event_workspace: {
+        Args: { p_team_id: string; p_event_id: string | null; p_details: Json; p_assignments: Json; p_linked_setlist_id: string | null; p_expected_revision?: number }
+        Returns: string
+      }
+      review_event_request: { Args: { p_event_id: string; p_decision: string }; Returns: undefined }
+      save_setlist_workspace: {
+        Args: { p_team_id: string; p_setlist_id: string | null; p_event_id: string | null; p_details: Json; p_song_ids: string[]; p_template_id: string | null; p_expected_revision?: number }
+        Returns: string
+      }
+
       add_setlist_songs: {
         Args: { p_setlist_id: string; p_songs: Json }
         Returns: number

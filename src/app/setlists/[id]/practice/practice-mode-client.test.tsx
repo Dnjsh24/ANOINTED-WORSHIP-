@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import PracticeModeClient from "./practice-mode-client";
 import type { PracticeSetlist } from "./practice-mode.types";
 import type { Song } from "@/lib/types";
+vi.mock("@/app/workflow-actions", () => ({ saveRehearsalPlanAction: vi.fn(), respondPreparationTaskAction: vi.fn(), reloadPreparationAction: vi.fn(), respondSongReadinessAction: vi.fn() }));
 
 vi.mock("@/components/song-viewer", () => ({
   SongViewer: ({ song, assignedKey }: { song: Song; assignedKey?: string }) => (

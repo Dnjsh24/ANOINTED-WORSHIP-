@@ -9,9 +9,10 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { messages as sampleMessages } from "@/lib/sample-data";
-import { fileKindLabel, formatFileSize } from "@/lib/domain/files";
 import type { Database } from "@/lib/supabase/database.types";
-import type { Message } from "@/lib/types";
+import { loadMessageHistoryPage, MESSAGE_PAGE_SIZE, type MessageAuthor } from "@/lib/supabase/message-data";
+import { getListingPage, getListingPageCount, parsePageNumber } from "@/lib/domain/listing-pagination";
+import { z } from "zod";
 
 type MessageMemberRow = Pick<
   Database["public"]["Tables"]["team_members"]["Row"],
@@ -26,259 +27,192 @@ type MessageChannelMembershipRow = Pick<
   Database["public"]["Tables"]["message_channel_members"]["Row"],
   "channel_id" | "team_member_id"
 >;
-type MessageChannelRow = Database["public"]["Tables"]["message_channels"]["Row"] & {
-  message_channel_members: MessageChannelMembershipRow[];
+type MessageChannelRow = Pick<
+  Database["public"]["Tables"]["message_channels"]["Row"],
+  "id" | "name" | "channel_type" | "avatar_url" | "updated_at"
+> & { message_channel_members: MessageChannelMembershipRow[] };
+type PreviewRpcRow = {
+  channel_id: string;
+  message: Pick<Database["public"]["Tables"]["messages"]["Row"], "id" | "body" | "created_at" | "sender_member_id"> | null;
 };
-type MessageReadRow = Pick<
-  Database["public"]["Tables"]["message_reads"]["Row"],
-  "message_id" | "profile_id"
-> & {
-  profiles: Pick<Database["public"]["Tables"]["profiles"]["Row"], "avatar_url" | "full_name"> | null;
-};
-type PracticeFileRow = Pick<
-  Database["public"]["Tables"]["practice_files"]["Row"],
-  "id" | "storage_path" | "file_name" | "mime_type" | "size_bytes"
->;
-type MessageAttachment = NonNullable<Message["attachment"]>;
-type MessageReadReceipt = NonNullable<Message["reads"]>[number];
+type SearchParams = Promise<{ channel?: string; channelPage?: string }>;
 
 export const dynamic = "force-dynamic";
+const channelIdSchema = z.string().uuid();
+const previewRpcClient = (client: Awaited<ReturnType<typeof createClient>>) => client as unknown as {
+  rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+};
 
-export default async function MessagesPage() {
+function getChannelName(channel: MessageChannelRow, currentMemberId: string, members: Map<string, MessagesTeamMember>) {
+  if (channel.channel_type !== "direct") return channel.name;
+  const otherMember = channel.message_channel_members.find((membership) => membership.team_member_id !== currentMemberId);
+  return otherMember ? members.get(otherMember.team_member_id)?.fullName ?? channel.name : channel.name;
+}
+
+export default async function MessagesPage({ searchParams = Promise.resolve({}) }: { searchParams?: SearchParams }) {
   const teamContext = await getRequiredTeamContext();
-
+  const params = await searchParams;
+  const requestedChannelId = channelIdSchema.safeParse(params.channel).success ? params.channel! : "";
+  const requestedPage = Math.min(parsePageNumber(params.channelPage), 1000);
+  const channelPage = getListingPage(requestedPage, MESSAGE_PAGE_SIZE);
   let channelsList: MessagesChannel[] = [];
   let teamMembersList: MessagesTeamMember[] = [];
   let allChannelMemberships: MessagesChannelMembership[] = [];
   let myMemberId = "";
+  let totalChannelCount = 0;
+  let historyError = "";
 
-  if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
+  if (hasSupabaseEnv() && teamContext.teamId && teamContext.memberId) {
     const supabase = await createClient();
+    myMemberId = teamContext.memberId;
+    const [membersResult, initialMembershipPage] = await Promise.all([
+      supabase
+        .from("team_members")
+        .select("id, profile_id, role, profiles(id, full_name, email, avatar_url)")
+        .eq("team_id", teamContext.teamId),
+      supabase
+        .from("message_channel_members")
+        .select("channel_id", { count: "exact" })
+        .eq("team_member_id", myMemberId)
+        .order("created_at", { ascending: false }).order("channel_id", { ascending: true })
+        .range(channelPage.from, channelPage.to),
+    ]);
 
-    if (teamContext.memberId) {
-      myMemberId = teamContext.memberId;
+    let channelMembershipPage = initialMembershipPage;
+    const lastPage = getListingPageCount(channelMembershipPage.count ?? 0, MESSAGE_PAGE_SIZE);
+    if (!channelMembershipPage.error && requestedPage > lastPage) {
+      const range = getListingPage(lastPage, MESSAGE_PAGE_SIZE);
+      channelMembershipPage = await supabase.from("message_channel_members").select("channel_id", { count: "exact" })
+        .eq("team_member_id", myMemberId).order("created_at", { ascending: false }).order("channel_id", { ascending: true }).range(range.from, range.to);
+    }
+    if (channelMembershipPage.error) historyError = "Chats could not be loaded. Reload to try again.";
+    const memberMap = new Map<string, MessagesTeamMember>();
+    for (const member of (membersResult.data ?? []) as unknown as MessageMemberRow[]) {
+      memberMap.set(member.id, {
+        memberId: member.id,
+        profileId: member.profile_id,
+        fullName: member.profiles?.full_name || "Unknown Member",
+        email: member.profiles?.email || "",
+        role: member.role,
+        avatarUrl: member.profiles?.avatar_url || null,
+      });
+    }
+    teamMembersList = [...memberMap.values()];
 
-      // 1. Fetch team members (with profiles) and channels (with memberships) in parallel.
-      const [membersResult, channelsResult] = await Promise.all([
-        supabase
-          .from("team_members")
-          .select(`
-            id,
-            profile_id,
-            role,
-            profiles (
-              id,
-              full_name,
-              email,
-              avatar_url
-            )
-          `)
-          .eq("team_id", teamContext.teamId),
+    const visibleChannelIds = (channelMembershipPage.data ?? []).map((membership) => membership.channel_id);
+    totalChannelCount = channelMembershipPage.count ?? visibleChannelIds.length;
+    let visibleDbChannels: MessageChannelRow[] = [];
+    if (visibleChannelIds.length) {
+      const { data, error } = await supabase
+        .from("message_channels")
+        .select("id, name, channel_type, avatar_url, updated_at, message_channel_members(channel_id, team_member_id)")
+        .eq("team_id", teamContext.teamId)
+        .in("id", visibleChannelIds);
+      if (error) historyError = "Chats could not be loaded. Reload to try again.";
+      visibleDbChannels = (data ?? []) as unknown as MessageChannelRow[];
+    }
+
+    const selectedIsOnPage = visibleDbChannels.some((channel) => channel.id === requestedChannelId);
+    if (requestedChannelId && !selectedIsOnPage) {
+      const [membershipResult, channelResult] = await Promise.all([
+        supabase.from("message_channel_members").select("channel_id").eq("channel_id", requestedChannelId).eq("team_member_id", myMemberId).maybeSingle(),
         supabase
           .from("message_channels")
-          .select(`
-            *,
-            message_channel_members (
-              channel_id,
-              team_member_id
-            )
-          `)
-          .eq("team_id", teamContext.teamId),
+          .select("id, name, channel_type, avatar_url, updated_at, message_channel_members(channel_id, team_member_id)")
+          .eq("team_id", teamContext.teamId)
+          .eq("id", requestedChannelId)
+          .maybeSingle(),
       ]);
-      const dbMembers = membersResult.data as unknown as MessageMemberRow[] | null;
-      const dbChannels = channelsResult.data as unknown as MessageChannelRow[] | null;
+      if (membershipResult.data && channelResult.data) visibleDbChannels = [channelResult.data as unknown as MessageChannelRow, ...visibleDbChannels];
+    }
 
-      const memberMap = new Map<string, MessagesTeamMember>();
-      dbMembers?.forEach((member) => {
-        const profile = member.profiles;
-        memberMap.set(member.id, {
-          memberId: member.id,
-          profileId: member.profile_id,
-          fullName: profile?.full_name || "Unknown Member",
-          email: profile?.email || "",
-          role: member.role,
-          avatarUrl: profile?.avatar_url || null,
+    allChannelMemberships = visibleDbChannels.flatMap((channel) => channel.message_channel_members ?? []).map((membership) => ({
+      channelId: membership.channel_id,
+      memberId: membership.team_member_id,
+    }));
+
+    const loadedChannelIds = [...new Set(visibleDbChannels.map((channel) => channel.id))].slice(0, 50);
+    const previewByChannelId = new Map<string, PreviewRpcRow["message"]>();
+    if (loadedChannelIds.length) {
+      const { data, error } = await previewRpcClient(supabase).rpc("get_message_previews", { p_channel_ids: loadedChannelIds });
+      if (error) historyError = "Chat previews could not be loaded. Try refreshing the page.";
+      for (const preview of (Array.isArray(data) ? data : []) as PreviewRpcRow[]) previewByChannelId.set(preview.channel_id, preview.message);
+    }
+
+    channelsList = visibleDbChannels.map((channel) => {
+      const preview = previewByChannelId.get(channel.id);
+      const author = preview ? memberMap.get(preview.sender_member_id)?.fullName ?? "Unknown Member" : "";
+      return {
+        id: channel.id,
+        name: getChannelName(channel, myMemberId, memberMap),
+        type: channel.channel_type,
+        membersOnline: channel.message_channel_members.length,
+        preview: preview ? author + ": " + (preview.body || "Shared an attachment") : "No messages yet",
+        messages: [],
+        messagesLoaded: false,
+        avatarUrl: channel.avatar_url,
+      };
+    });
+
+    if ((teamContext.role === "owner" || teamContext.role === "admin") && channelsList.length < 100) {
+      const { data: adminChannels } = await supabase
+        .from("message_channels")
+        .select("id, name, channel_type, avatar_url, updated_at, message_channel_members(channel_id, team_member_id)")
+        .eq("team_id", teamContext.teamId)
+        .neq("channel_type", "direct")
+        .order("updated_at", { ascending: false })
+        .range(0, 49);
+      const knownIds = new Set(channelsList.map((channel) => channel.id));
+      for (const channel of (adminChannels ?? []) as unknown as MessageChannelRow[]) {
+        if (knownIds.has(channel.id) || channel.message_channel_members.some((membership) => membership.team_member_id === myMemberId)) continue;
+        channelsList.push({
+          id: channel.id,
+          name: channel.name,
+          type: channel.channel_type,
+          membersOnline: 0,
+          preview: "Channel settings",
+          messages: [],
+          messagesLoaded: true,
+          adminOnly: true,
+          avatarUrl: channel.avatar_url,
         });
-      });
+      }
+    }
 
-      // All other team members (for DM list and admin panel)
-      teamMembersList = Array.from(memberMap.values());
-
-      const allMemberships = (dbChannels || []).flatMap((channel) => channel.message_channel_members || []);
-
-      allChannelMemberships = allMemberships.map((membership) => ({
-        channelId: membership.channel_id,
-        memberId: membership.team_member_id,
+    const targetChannel = channelsList.find((channel) => channel.id === requestedChannelId);
+    if (requestedChannelId && targetChannel && !targetChannel.adminOnly) {
+      const authorRows: MessageAuthor[] = teamMembersList.map((member) => ({
+        memberId: member.memberId,
+        fullName: member.fullName,
+        avatarUrl: member.avatarUrl ?? null,
       }));
-
-      const myChannelIds = new Set(
-        allChannelMemberships
-          .filter((membership) => membership.memberId === myMemberId)
-          .map((membership) => membership.channelId)
-      );
-
-      if (dbChannels) {
-        // Only show channels the current user is a member of
-        const visibleDbChannels = dbChannels.filter((channel) => myChannelIds.has(channel.id));
-        const visibleChannelIds = visibleDbChannels.map((channel) => channel.id);
-        let dbMsgs: Database["public"]["Tables"]["messages"]["Row"][] = [];
-        if (visibleChannelIds.length > 0) {
-          const messagesResult = await supabase
-              .from("messages")
-              .select("*")
-              .in("channel_id", visibleChannelIds)
-              .order("created_at", { ascending: true });
-          dbMsgs = messagesResult.data ?? [];
-        }
-
-        const messagesByChannel = new Map<string, Database["public"]["Tables"]["messages"]["Row"][]>();
-        dbMsgs.forEach((message) => {
-          const messages = messagesByChannel.get(message.channel_id) ?? [];
-          messages.push(message);
-          messagesByChannel.set(message.channel_id, messages);
-        });
-
-        const msgIds = dbMsgs.map((message) => message.id);
-        const attachmentFileIds = Array.from(new Set(
-          dbMsgs.map((message) => message.attachment_file_id)
-            .filter((id): id is string => typeof id === "string" && id.length > 0)
-        ));
-        const [readsResult, filesResult] = await Promise.all([
-          msgIds.length > 0 ? supabase
-              .from("message_reads")
-              .select("message_id, profile_id, profiles(avatar_url, full_name)")
-              .in("message_id", msgIds) : Promise.resolve({ data: [] }),
-          attachmentFileIds.length > 0 ? supabase
-              .from("practice_files")
-              .select("id, storage_path, file_name, mime_type, size_bytes")
-              .in("id", attachmentFileIds) : Promise.resolve({ data: [] }),
-        ]);
-        const dbMsgReads = (readsResult.data as unknown as MessageReadRow[] | null) ?? [];
-        const dbFiles: PracticeFileRow[] = filesResult.data ?? [];
-
-        const messageReadsByMsgId = new Map<string, MessageReadReceipt[]>();
-        dbMsgReads.forEach((read) => {
-          const reads = messageReadsByMsgId.get(read.message_id) ?? [];
-          reads.push({
-            profileId: read.profile_id,
-            avatarUrl: read.profiles?.avatar_url ?? null,
-            fullName: read.profiles?.full_name ?? undefined,
-          });
-          messageReadsByMsgId.set(read.message_id, reads);
-        });
-
-        const attachmentMap = new Map<string, MessageAttachment>();
-
-        if (dbFiles.length > 0) {
-          const signedUrls = new Map<string, string>();
-          try {
-            const { data } = await supabase.storage.from("practice-files")
-              .createSignedUrls([...new Set(dbFiles.map((file) => file.storage_path))], 60 * 60);
-            for (const signedUrl of data ?? []) {
-              if (signedUrl.path && signedUrl.signedUrl && !signedUrl.error) signedUrls.set(signedUrl.path, signedUrl.signedUrl);
-            }
-          } catch {
-            // Message history and attachment metadata stay available when signing fails.
-          }
-          for (const file of dbFiles) {
-            attachmentMap.set(file.id, {
-              id: file.id,
-              name: file.file_name,
-              size: formatFileSize(Number(file.size_bytes)),
-              type: fileKindLabel(file.mime_type, file.file_name),
-              mimeType: file.mime_type,
-              url: signedUrls.get(file.storage_path) ?? "",
-            });
-          }
-        }
-
-        for (const chan of visibleDbChannels) {
-          const chanMembers = allMemberships.filter((membership) => membership.channel_id === chan.id);
-          const membersCount = chanMembers.length;
-          const channelMessages = messagesByChannel.get(chan.id) ?? [];
-
-          // Resolve direct message name
-          let channelName = chan.name;
-          if (chan.channel_type === "direct") {
-            const otherMember = chanMembers.find((membership) => membership.team_member_id !== myMemberId);
-            if (otherMember) {
-              const sender = memberMap.get(otherMember.team_member_id);
-              if (sender) channelName = sender.fullName;
-            }
-          }
-
-          const formattedMessages: Message[] = channelMessages.map((msg) => {
-            const sender = memberMap.get(msg.sender_member_id);
-            return {
-              id: msg.id,
-              author: sender ? sender.fullName : "Unknown",
-              body: msg.body,
-              avatarUrl: sender ? sender.avatarUrl : null,
-              createdAt: new Date(msg.created_at).toLocaleTimeString("en-US", {
-                hour: "numeric",
-                minute: "2-digit",
-              }),
-              mine: msg.sender_member_id === myMemberId,
-              timestamp: new Date(msg.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
-              attachment: msg.attachment_file_id ? attachmentMap.get(msg.attachment_file_id) : undefined,
-              reads: messageReadsByMsgId.get(msg.id) || [],
-              parentMessageId: msg.parent_message_id || null,
-            };
-          });
-
-          channelsList.push({
-            id: chan.id,
-            name: channelName,
-            type: chan.channel_type,
-            membersOnline: membersCount,
-            preview:
-              formattedMessages.length > 0
-                ? `${formattedMessages[formattedMessages.length - 1].author}: ${formattedMessages[formattedMessages.length - 1].body}`
-                : "No messages yet",
-            messages: formattedMessages,
-            avatarUrl: chan.avatar_url ?? null,
-          });
-        }
-
-        // For admin panel: pass ALL channels (not just ones user is in)
-        // so they can manage members of other channels too
-        if (teamContext.role === "owner" || teamContext.role === "admin") {
-          const allChannelIds = new Set(channelsList.map((c) => c.id));
-          for (const chan of dbChannels) {
-            if (!allChannelIds.has(chan.id) && chan.channel_type !== "direct") {
-              channelsList.push({
-                id: chan.id,
-                name: chan.name,
-                type: chan.channel_type,
-                membersOnline: 0,
-                preview: "No messages yet",
-                messages: [],
-                adminOnly: true, // flag: admin can see but can't chat
-                avatarUrl: chan.avatar_url ?? null,
-              });
-            }
-          }
-        }
+      try {
+        const page = await loadMessageHistoryPage(supabase, requestedChannelId, myMemberId, authorRows);
+        targetChannel.messages = page.messages;
+        targetChannel.messagesLoaded = true;
+        targetChannel.hasMoreMessages = page.hasMore;
+        targetChannel.nextMessageCursor = page.nextCursor;
+      } catch {
+        historyError = "Messages could not be loaded. Try again.";
       }
     }
   }
 
-  // Fallback to sample data only when Supabase is not configured (demo mode).
   if (!hasSupabaseEnv() && channelsList.length === 0) {
-    channelsList = [
-      {
-        // Keep demo identifiers schema-valid so local journeys exercise the same
-        // validation path as production without relaxing the API boundary.
-        id: "11111111-1111-4111-8111-111111111111",
-        name: "Worship Team",
-        type: "team",
-        membersOnline: 8,
-        preview: "Casey: The new bridge arrangement...",
-        messages: sampleMessages,
-      },
-    ];
+    channelsList = [{
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "Worship Team",
+      type: "team",
+      membersOnline: 8,
+      preview: "Casey: The new bridge arrangement...",
+      messages: sampleMessages,
+      messagesLoaded: true,
+    }];
+    totalChannelCount = channelsList.length;
   }
 
+  const pageCount = getListingPageCount(totalChannelCount, MESSAGE_PAGE_SIZE);
+  const actualPage = Math.min(requestedPage, pageCount);
   return (
     <AppShell active="Messages" teamContext={teamContext}>
       <MessagesClient
@@ -289,6 +223,11 @@ export default async function MessagesPage() {
         teamId={teamContext.teamId ?? ""}
         role={teamContext.role || "member"}
         allChannelMemberships={allChannelMemberships}
+        channelPage={actualPage}
+        channelPageCount={pageCount}
+        previousChannelsHref={actualPage > 1 ? "/messages?channelPage=" + (actualPage - 1) : null}
+        nextChannelsHref={actualPage < pageCount ? "/messages?channelPage=" + (actualPage + 1) : null}
+        initialLoadError={historyError}
       />
     </AppShell>
   );

@@ -1,3 +1,4 @@
+import { can } from "@/lib/domain/rbac";
 import { AppShell } from "@/components/app-shell";
 import { SetlistForm, type SetlistFormSong } from "@/components/setlist-form";
 import { Panel } from "@/components/ui/card";
@@ -63,6 +64,9 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
             We will allow selecting a template, which passes a hidden field to SetlistForm. */}
         <SetlistTemplatePicker templates={setlistTemplates || []} />
       </div>
+      {!eventId && !can(teamContext.role, "events.manage", teamContext.customPermissions) && (
+        <p className="mb-4 text-sm text-zinc-300">This setlist will be saved without an event. An authorized event leader can create and link the event later.</p>
+      )}
       <Panel>
         <SetlistForm eventId={eventId} initialEventType={initialEventType} templateId={templateId} songs={songs} />
       </Panel>

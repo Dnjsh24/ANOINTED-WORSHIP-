@@ -104,14 +104,17 @@ export const messageSchema = z.object({
   parentMessageId: z.string().uuid("Invalid parent message").optional(),
 });
 
+const scheduleTimeSchema = z.string().trim().regex(/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/, "Choose a valid time.");
+const optionalScheduleTimeSchema = z.union([z.literal(""), scheduleTimeSchema]).optional();
+
 export const setlistInputSchema = z.object({
   title: z.string().trim().min(1, "Setlist title is required").max(160),
-  serviceDate: z.string().trim().min(1, "Service date is required"),
+  serviceDate: z.iso.date("Choose a valid service date."),
   eventType: z.enum(["service", "rehearsal", "meeting", "special_event", "service_rehearsal"]).default("service"),
   serviceType: z.string().trim().max(80).optional(),
   location: z.string().trim().min(1, "Location is required").max(160),
-  callTime: z.string().trim().min(1, "Call time is required"),
-  rehearsalTime: z.string().trim().min(1, "Rehearsal time is required"),
+  callTime: scheduleTimeSchema,
+  rehearsalTime: scheduleTimeSchema,
   worshipLeader: z.string().trim().max(160).optional(),
   notes: z.string().trim().max(2000).optional(),
   eventId: z.string().trim().optional(),
@@ -217,12 +220,12 @@ export const slideSettingsSchema = z.discriminatedUnion("backgroundType", [
 export const eventInputSchema = z.object({
   title: z.string().trim().min(1, "Event title is required").max(160),
   eventType: z.enum(["service", "rehearsal", "meeting", "special_event", "service_rehearsal"]),
-  date: z.string().trim().min(1, "Date is required"),
-  startTime: z.string().trim().min(1, "Start time is required"),
-  endTime: z.string().trim().optional(),
-  rehearsalStartTime: z.string().trim().optional(),
-  rehearsalEndTime: z.string().trim().optional(),
-  rehearsalDate: z.string().trim().optional(),
+  date: z.iso.date("Choose a valid event date."),
+  startTime: scheduleTimeSchema,
+  endTime: optionalScheduleTimeSchema,
+  rehearsalStartTime: optionalScheduleTimeSchema,
+  rehearsalEndTime: optionalScheduleTimeSchema,
+  rehearsalDate: z.union([z.literal(""), z.iso.date()]).optional(),
   location: z.string().trim().min(1, "Location is required").max(160),
   assignedTeams: z.string().trim().max(500).optional(),
   linkedSetlistId: z.string().trim().optional(),

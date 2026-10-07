@@ -14,5 +14,6 @@ export type PracticeSetlist = {
   id: string;
   name: string;
   date: string;
+  eventId?: string | null;
   songs: PracticeSetlistSong[];
 };

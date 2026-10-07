@@ -14,6 +14,7 @@ export type Permission =
   | "songs.delete"
   | "setlists.manage"
   | "dance_notes.manage"
+  | "dance_notes.review"
   | "files.upload"
   | "attendance.confirm"
   | "messages.send"
@@ -34,6 +35,7 @@ const permissionsByRole: Record<TeamRole, Permission[]> = {
     "songs.delete",
     "setlists.manage",
     "dance_notes.manage",
+    "dance_notes.review",
     "files.upload",
     "attendance.confirm",
     "messages.send",
@@ -103,6 +105,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "songs.delete": "Delete Songs",
   "setlists.manage": "Manage Setlists",
   "dance_notes.manage": "Manage Dance Notes",
+  "dance_notes.review": "Review Choreography Edits",
   "files.upload": "Upload Files",
   "attendance.confirm": "Confirm Attendance",
   "messages.send": "Send Messages",
@@ -111,6 +114,9 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
 
 export function can(role: TeamRole | string, permission: Permission, customPermissions?: Permission[]): boolean {
   if (role === "owner") return true;
+  if (permission === "songs.create") return teamRoles.includes(role as TeamRole);
+  if (permission === "songs.review" || permission === "songs.edit") return role === "admin";
+  if (permission === "dance_notes.review" && role === "admin") return true;
   if (customPermissions && customPermissions.includes(permission)) return true;
   
   // Cast to TeamRole if it's one of the standard roles

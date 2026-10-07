@@ -9,6 +9,9 @@ import type { Database } from "@/lib/supabase/database.types";
 import type { Song } from "@/lib/types";
 import PracticeModeClient from "./practice-mode-client";
 import type { PracticeSetlist, PracticeSetlistSong } from "./practice-mode.types";
+import { loadPreparationWorkspace, type PreparationWorkspace, type WorkspaceResult } from "@/lib/supabase/workflow-data";
+import { can } from "@/lib/domain/rbac";
+import { requestRehearsalPlanAction } from "@/app/workflow-proposals";
 
 type PracticeSetlistSongRow = Pick<
   Database["public"]["Tables"]["setlist_songs"]["Row"],
@@ -33,7 +36,7 @@ type PracticeSetlistSongRow = Pick<
 
 type PracticeSetlistRow = Pick<
   Database["public"]["Tables"]["setlists"]["Row"],
-  "id" | "name" | "setlist_date"
+  "id" | "name" | "setlist_date" | "event_id"
 > & {
   setlist_songs: PracticeSetlistSongRow[];
 };
@@ -95,6 +98,7 @@ export default async function PracticeSetlistPage({ params }: { params: Promise<
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
   let setlist: PracticeSetlist | null = null;
+  let preparation: WorkspaceResult<PreparationWorkspace> | undefined;
 
   if (hasSupabaseEnv()) {
     const supabase = await createClient();
@@ -104,6 +108,7 @@ export default async function PracticeSetlistPage({ params }: { params: Promise<
         id,
         name,
         setlist_date,
+        event_id,
         setlist_songs (
           id,
           assigned_key,
@@ -138,6 +143,7 @@ export default async function PracticeSetlistPage({ params }: { params: Promise<
         id: databaseSetlist.id,
         name: databaseSetlist.name,
         date: databaseSetlist.setlist_date,
+        eventId: databaseSetlist.event_id,
         songs: [...databaseSetlist.setlist_songs]
           .sort((first, second) => (first.song_order ?? 0) - (second.song_order ?? 0))
           .flatMap((song) => {
@@ -145,6 +151,7 @@ export default async function PracticeSetlistPage({ params }: { params: Promise<
             return mappedSong ? [mappedSong] : [];
           }),
       };
+      preparation = await loadPreparationWorkspace(supabase, teamContext.teamId, setlist.id, setlist.eventId ?? null, setlist.songs.map(song => song.slotId));
     }
   } else {
     const sample = sampleSetlists.find((item) => item.id === id);
@@ -162,7 +169,7 @@ export default async function PracticeSetlistPage({ params }: { params: Promise<
 
   return (
     <AppShell active="Setlists" teamContext={teamContext}>
-      <PracticeModeClient key={setlist.id} setlist={setlist} />
+      <PracticeModeClient key={setlist.id} setlist={setlist} preparation={preparation} memberId={teamContext.memberId} canManage={can(teamContext.role, "setlists.manage", teamContext.customPermissions)} proposeAction={requestRehearsalPlanAction.bind(null, setlist.id)} />
     </AppShell>
   );
 }

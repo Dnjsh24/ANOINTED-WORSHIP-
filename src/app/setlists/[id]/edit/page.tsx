@@ -12,13 +12,15 @@ import type { EventType, Setlist } from "@/lib/types";
 
 type EditableSetlistRow = {
   id: string;
+  sync_revision: number;
   name: string;
+  notes: string | null;
   setlist_date: string;
   location: string;
   call_time: string;
   rehearsal_time: string;
   service_times: string[] | null;
-  events: { type: EventType } | Array<{ type: EventType }> | null;
+  events: { type: EventType; sync_revision: number } | Array<{ type: EventType; sync_revision: number }> | null;
 };
 
 export default async function EditSetlistPage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,6 +28,8 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
   const teamContext = await getRequiredTeamContext();
 
   let setlist: Setlist | null = null;
+  let revision = 0;
+  let eventRevision: number | undefined;
   let allSongs: SetlistFormSong[] = hasSupabaseEnv() ? [] : sampleSongs.map(song => ({ id: song.id, title: song.title, original_key: song.originalKey, bpm: song.bpm ?? null }));
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
@@ -37,7 +41,7 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
       .select(`
         *,
         events (
-          type
+          type, sync_revision
         )
       `)
       .eq("id", id)
@@ -46,12 +50,15 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
     const dbSetlist = data as unknown as EditableSetlistRow | null;
 
     if (dbSetlist) {
+      revision = dbSetlist.sync_revision;
       const linkedEvent = Array.isArray(dbSetlist.events)
         ? dbSetlist.events[0]
         : dbSetlist.events;
+      eventRevision = linkedEvent?.sync_revision;
       setlist = {
         id: dbSetlist.id,
         name: dbSetlist.name,
+        notes: dbSetlist.notes ?? "",
         date: dbSetlist.setlist_date,
         location: dbSetlist.location,
         callTime: dbSetlist.call_time,
@@ -137,7 +144,7 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
         <SaveAsTemplateButton setlistId={setlist.id} />
       </div>
       <Panel>
-        <SetlistForm setlist={setlist} songs={allSongs.length > 0 ? allSongs : undefined} />
+        <SetlistForm setlist={setlist} revision={revision} eventRevision={eventRevision} songs={allSongs.length > 0 ? allSongs : undefined} />
       </Panel>
     </AppShell>
   );

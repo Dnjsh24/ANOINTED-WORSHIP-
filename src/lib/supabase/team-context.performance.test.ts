@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { getCurrentTeamContextForClient } from "@/lib/supabase/team-context";
 import type { Database } from "@/lib/supabase/database.types";
 
+vi.mock("@/lib/desktop/workspace", () => ({}));
+
 describe("parallel authenticated team context reads", () => {
   it("starts the pending-request lookup before membership returns, retaining caller and active filters", async () => {
     const membership = Promise.withResolvers<Response>();

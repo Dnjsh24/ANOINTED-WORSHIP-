@@ -15,6 +15,8 @@ const websiteRoutes = [
   "/reminders",
   "/analytics",
   "/messages",
+  "/requests",
+  "/requests/new",
   "/dance",
   "/members",
   "/members/member-alex",

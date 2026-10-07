@@ -7,8 +7,11 @@ import { Panel } from "@/components/ui/card";
 import { SongViewer } from "@/components/song-viewer";
 import { ServicePreparation } from "@/components/service-preparation";
 import type { PracticeSetlist } from "./practice-mode.types";
+import { SharedPreparation, type PreparationProposalAction } from "@/components/shared-preparation";
+import { SavedSongReadiness } from "@/components/saved-song-readiness";
+import type { PreparationWorkspace, WorkspaceResult } from "@/lib/supabase/workflow-data";
 
-export default function PracticeModeClient({ setlist }: { setlist: PracticeSetlist }) {
+export default function PracticeModeClient({ setlist, preparation, memberId = "", canManage = false, proposeAction }: { setlist: PracticeSetlist; preparation?: WorkspaceResult<PreparationWorkspace>; memberId?: string; canManage?: boolean; proposeAction?: PreparationProposalAction }) {
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [practicedSongIds, setPracticedSongIds] = useState<Set<string>>(() => new Set());
   const currentSetlistSong = setlist.songs[currentSongIndex];
@@ -46,10 +49,13 @@ export default function PracticeModeClient({ setlist }: { setlist: PracticeSetli
         </div>
       </header>
 
-      <ServicePreparation key={setlist.id} name={setlist.name} songs={setlist.songs.map(slot => ({
+      {preparation?.ok ? <SharedPreparation key={setlist.id} setlistId={setlist.id} name={setlist.name} workspace={preparation.data} memberId={memberId} canManage={canManage} proposeAction={proposeAction} songs={setlist.songs.map(slot => ({
         id: slot.slotId, title: slot.song.title, assignedKey: slot.assignedKey ?? slot.song.originalKey,
         bpm: slot.song.bpm, lead: slot.lead, arrangement: slot.arrangement,
-      }))} />
+      }))} /> : <><ServicePreparation key={setlist.id} name={setlist.name} songs={setlist.songs.map(slot => ({
+        id: slot.slotId, title: slot.song.title, assignedKey: slot.assignedKey ?? slot.song.originalKey,
+        bpm: slot.song.bpm, lead: slot.lead, arrangement: slot.arrangement,
+      }))} />{preparation && <p role="status" className="text-sm text-amber-200">{preparation.message}</p>}</>}
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <section className="order-last min-w-0 space-y-5 lg:order-first" aria-label="Current song practice">
@@ -85,6 +91,11 @@ export default function PracticeModeClient({ setlist }: { setlist: PracticeSetli
                 song={currentSetlistSong.song}
                 assignedKey={currentSetlistSong.assignedKey ?? undefined}
               />
+              {preparation?.ok && <SavedSongReadiness key={`readiness:${currentSetlistSong.slotId}`} slotId={currentSetlistSong.slotId}
+                linkedEvent={Boolean(setlist.eventId)} assigned={preparation.data.assignedMemberIds.includes(memberId)}
+                own={preparation.data.readiness.find(row => row.slot_id === currentSetlistSong.slotId && row.team_member_id === memberId)}
+                summary={preparation.data.readiness.filter(row => row.slot_id === currentSetlistSong.slotId).map(row => ({ name: preparation.data.members.find(member => member.id === row.team_member_id)?.name ?? "Unavailable member", state: row.state }))}
+              />}
             </>
           ) : (
             <Panel className="py-10 text-center">

@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { createSetlistAction, updateSetlistAction, deleteSetlistAction } from "@/app/actions";
-import { ActionMessage, SubmitButton } from "@/components/action-form";
+import { ActionMessage } from "@/components/action-form";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { initialActionState } from "@/lib/action-state";
@@ -97,15 +97,23 @@ export function SetlistForm({
   initialEventType,
   templateId,
   songs,
+  revision = 0,
+  eventRevision,
   }: {
   setlist?: Setlist;
   eventId?: string;
   initialEventType?: EventType;
   templateId?: string;
   songs?: SetlistFormSong[];
+  revision?: number;
+  eventRevision?: number;
   }) {
   const action = setlist ? updateSetlistAction : createSetlistAction;
-  const [state, formAction] = useActionState(action, initialActionState);
+  const [, startSave] = useTransition();
+  const [state, formAction, pendingSave] = useActionState(async (previous: typeof initialActionState, data: FormData) => {
+    try { return await action(previous, data); }
+    catch { return { ok: false, message: "The save could not be confirmed. Your draft is retained. Retry when connected." }; }
+  }, initialActionState);
   const [serviceTitle, setServiceTitle] = useState(setlist?.name ?? "");
   const [eventType] = useState(() => resolveSetlistEventType(setlist?.eventType ?? initialEventType, setlist?.serviceTimes));
   const [serviceType] = useState(() => getPrimaryServiceType(setlist?.serviceTimes) || DEFAULT_SERVICE_TYPE);
@@ -154,7 +162,9 @@ export function SetlistForm({
   return (
     <DndContext id="setlist-form-dnd" sensors={sensors} collisionDetection={args => args.pointerCoordinates ? pointerWithin(args) : rectIntersection(args)} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setActiveSong(null)}>
       <div className="animate-fade-in">
-        <form action={formAction} className="space-y-6">
+        <form onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); startSave(() => formAction(data)); }} className="space-y-6">
+          <input type="hidden" name="revision" value={revision} />
+          {eventRevision !== undefined && <input type="hidden" name="eventRevision" value={eventRevision} />}
           {setlist && <input type="hidden" name="setlistId" value={setlist.id} />}
           {eventId && <input type="hidden" name="eventId" value={eventId} />}
           {templateId && <input type="hidden" name="templateId" value={templateId} />}
@@ -232,9 +242,9 @@ export function SetlistForm({
             <ButtonLink href={setlist ? `/setlists/${setlist.id}` : "/setlists"} variant="secondary" className="rounded-xl px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]">
               Cancel
             </ButtonLink>
-            <SubmitButton className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
+            <Button type="submit" disabled={pendingSave} className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
               {setlist ? "Save Changes" : "Create Setlist"}
-            </SubmitButton>
+            </Button>
           </div>
         </form>
 

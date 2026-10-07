@@ -15,27 +15,29 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
   const { date } = await searchParams;
   const teamContext = await getRequiredTeamContext();
   
-  if (!can(teamContext.role, "events.manage") && !can(teamContext.role, "events.request")) {
+  if (!can(teamContext.role, "events.manage", teamContext.customPermissions) && !can(teamContext.role, "events.request")) {
     redirect("/events");
   }
 
-  const canCreateOfficialEvents = can(teamContext.role, "events.manage");
-  const canLinkSetlists = canCreateOfficialEvents && can(teamContext.role, "setlists.manage");
+  const canCreateOfficialEvents = can(teamContext.role, "events.manage", teamContext.customPermissions);
+  const canLinkSetlists = canCreateOfficialEvents && can(teamContext.role, "setlists.manage", teamContext.customPermissions);
   let teamMembersList: TeamMember[] = [];
   let serviceTemplates: ServiceTemplate[] = fallbackServiceTemplates;
   let setlistsList: Array<{ id: string; name: string; date: string }> = [];
 
-  if (canLinkSetlists && hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
+  if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
     const todayStr = new Date().toISOString().split("T")[0];
 
 
     // Fetch team members
-    const { data: dbMembers } = await supabase
+    const { data: dbMembers, error: membersError } = await supabase
       .from("team_members")
       .select("id, profile_id, role, status, ministry, ministries")
-      .eq("team_id", teamContext.teamId)
+      .eq("team_id", teamContext.teamId).eq("status", "active")
       .order("created_at", { ascending: true });
+
+    if (membersError) throw new Error("Event members are unavailable. Please retry.");
 
     // Collect profile IDs
     const memberProfileIds = (dbMembers ?? []).map((tm) => tm.profile_id);
@@ -43,11 +45,12 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
     // Fetch profiles
     let memberProfilesMap: Record<string, { id: string; full_name: string | null; email: string | null }> = {};
     if (memberProfileIds.length > 0) {
-      const { data: memberProfiles } = await supabase
+      const { data: memberProfiles, error: profilesError } = await supabase
         .from("profiles")
         .select("id, full_name, email")
         .in("id", memberProfileIds);
 
+      if (profilesError) throw new Error("Event member profiles are unavailable. Please retry.");
       memberProfilesMap = Object.fromEntries(
         (memberProfiles ?? []).map((p) => [p.id, { id: p.id, full_name: p.full_name, email: p.email }])
       );
@@ -71,33 +74,36 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
     });
 
     
-    const { data: templateRows } = await supabase
+    const { data: templateRows, error: templatesError } = await supabase
       .from("service_templates")
       .select("id, name, service_type, location, call_time, rehearsal_time, reminder_frequency, reminder_occurrences, default_roles")
       .eq("team_id", teamContext.teamId)
       .order("created_at", { ascending: true });
 
+    if (templatesError) throw new Error("Event templates are unavailable. Please retry.");
     if (templateRows && templateRows.length > 0) {
       serviceTemplates = templateRows.map(mapServiceTemplate);
     }
 
 
     // Fetch recent setlists
-    const { data: dbSetlists } = await supabase
-      .from("setlists")
-      .select("id, name, setlist_date")
-      .eq("team_id", teamContext.teamId)
-      .gte("setlist_date", todayStr)
-      .order("setlist_date", { ascending: true });
-
-    if (dbSetlists) {
-      setlistsList = dbSetlists.map((setlist) => ({
-        id: setlist.id,
-        name: setlist.name,
-        date: setlist.setlist_date,
-      }));
-    }
+    if (canLinkSetlists) {
+      const { data: dbSetlists, error: setlistsError } = await supabase
+        .from("setlists")
+        .select("id, name, setlist_date")
+        .eq("team_id", teamContext.teamId)
+        .gte("setlist_date", todayStr)
+        .order("setlist_date", { ascending: true });
   
+      if (setlistsError) throw new Error("Linked setlists are unavailable. Please retry.");
+      if (dbSetlists) {
+        setlistsList = dbSetlists.map((setlist) => ({
+          id: setlist.id,
+          name: setlist.name,
+          date: setlist.setlist_date,
+        }));
+      }
+    }
   } else if (!hasSupabaseEnv()) {
     teamMembersList = sampleMembers;
     // Demo mode fallback

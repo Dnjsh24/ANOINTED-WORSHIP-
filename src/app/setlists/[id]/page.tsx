@@ -11,6 +11,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { getSetlistTypeLabel } from "@/lib/domain/event-types";
 import { can } from "@/lib/domain/rbac";
+import { eventScheduleWindows } from "@/lib/domain/event-workflows";
 import { SetlistSongOrder, type OrderedSetlistSong } from "@/components/setlist-song-order";
 import {
   buildAssignmentConflicts,
@@ -25,6 +26,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { EventType, SetlistChangeLog } from "@/lib/types";
 import type { Database } from "@/lib/supabase/database.types";
+import { SharedPreparation } from "@/components/shared-preparation";
+import { loadPreparationWorkspace } from "@/lib/supabase/workflow-data";
+import { requestRehearsalPlanAction } from "@/app/workflow-proposals";
 
 type DetailSetlistSong = OrderedSetlistSong & { youtubeUrl: string | null };
 type DetailSetlist = {
@@ -38,7 +42,7 @@ type DetailSetlist = {
   eventType?: EventType | null;
   leader: string;
   songs: DetailSetlistSong[];
-  eventId: string;
+  eventId: string | null;
 };
 type DetailSetlistSongRow = Pick<
   Database["public"]["Tables"]["setlist_songs"]["Row"],
@@ -53,7 +57,7 @@ type DetailSetlistRow = Pick<
   Database["public"]["Tables"]["setlists"]["Row"],
   "id" | "name" | "setlist_date" | "location" | "call_time" | "rehearsal_time" | "service_times" | "event_id"
 > & {
-  events: Pick<Database["public"]["Tables"]["events"]["Row"], "type"> | null;
+  events: Pick<Database["public"]["Tables"]["events"]["Row"], "id" | "name" | "type" | "event_date" | "starts_at" | "ends_at" | "rehearsal_date" | "rehearsal_time" | "rehearsal_end_time"> | null;
   leader: {
     id: string;
     profile_id: string;
@@ -80,11 +84,11 @@ type ConflictAssignmentRow = {
   event:
     | Pick<
         Database["public"]["Tables"]["events"]["Row"],
-        "id" | "name" | "event_date" | "starts_at" | "ends_at"
+        "id" | "name" | "event_date" | "starts_at" | "ends_at" | "rehearsal_date" | "rehearsal_time" | "rehearsal_end_time"
       >
     | Array<Pick<
         Database["public"]["Tables"]["events"]["Row"],
-        "id" | "name" | "event_date" | "starts_at" | "ends_at"
+        "id" | "name" | "event_date" | "starts_at" | "ends_at" | "rehearsal_date" | "rehearsal_time" | "rehearsal_end_time"
       >>;
 };
 
@@ -97,7 +101,7 @@ function hasYoutubeUrl(
 export default async function SetlistDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
-  const canManageSetlist = can(teamContext.role, "setlists.manage");
+  const canManageSetlist = can(teamContext.role, "setlists.manage", teamContext.customPermissions);
 
   let setlist: DetailSetlist | null = null;
   let teamAssignmentsList: Array<[string, string, string]> = [];
@@ -114,12 +118,12 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
     const supabase = await createClient();
 
     // Fetch setlist details, leader profiles and setlist songs with titles/BPMs in a single query
-    const { data } = await supabase
+    const { data, error: setlistError } = await supabase
       .from("setlists")
       .select(`
         *,
         events (
-          type
+          id, name, type, event_date, starts_at, ends_at, rehearsal_date, rehearsal_time, rehearsal_end_time
         ),
         leader:team_members (
           id,
@@ -149,6 +153,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
       .maybeSingle();
+    if (setlistError) throw new Error("Setlist details are unavailable. Please retry.");
     const dbSetlist = data as unknown as DetailSetlistRow | null;
 
     if (dbSetlist) {
@@ -187,7 +192,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             .select(`
               team_member_id,
               assignment,
-              team_member:team_members (
+              team_member:team_members!inner (
                 id,
                 profile_id,
                 profiles (
@@ -196,11 +201,11 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
                 )
               )
             `)
-            .eq("event_id", dbSetlist.event_id),
+            .eq("event_id", dbSetlist.event_id).eq("team_member.team_id", teamContext.teamId).eq("team_member.status", "active"),
           supabase
             .from("attendance")
-            .select("status, team_member_id")
-            .eq("event_id", dbSetlist.event_id),
+            .select("status, team_member_id, team_member:team_members!inner(id)")
+            .eq("event_id", dbSetlist.event_id).eq("team_member.team_id", teamContext.teamId).eq("team_member.status", "active"),
           supabase
             .from("team_members")
             .select("id", { count: "exact", head: true })
@@ -208,6 +213,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             .eq("status", "active"),
         ]);
 
+        if (assignmentsResult.error || attendanceResult.error || activeMembersResult.error) throw new Error("Setlist readiness is unavailable. Please retry.");
         const dbAssignments = (assignmentsResult.data ?? []) as unknown as EventAssignmentRow[];
         const dbAttendance = (attendanceResult.data ?? []) as AttendanceRow[];
         const totalMembers = activeMembersResult.count;
@@ -246,7 +252,12 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
 
         const assignedMemberIds = Array.from(new Set(assignmentSummaries.map((assignment) => assignment.memberId).filter(Boolean))) as string[];
         if (assignedMemberIds.length > 0) {
-          const { data: conflictData } = await supabase
+          const currentWindows = eventScheduleWindows(dbSetlist.events ?? {
+            id: dbSetlist.event_id, name: dbSetlist.name, event_date: dbSetlist.setlist_date,
+            starts_at: dbSetlist.call_time, ends_at: null,
+          });
+          const dates = Array.from(new Set(currentWindows.map((window) => window.date)));
+          const { data: conflictData, error: conflictError } = await supabase
             .from("event_assignments")
             .select(`
               team_member_id,
@@ -257,44 +268,34 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
                 event_date,
                 starts_at,
                 ends_at,
+                rehearsal_date, rehearsal_time, rehearsal_end_time,
                 approval_status,
                 team_id
               )
             `)
             .in("team_member_id", assignedMemberIds)
             .neq("event_id", dbSetlist.event_id)
-            .eq("events.team_id", teamContext.teamId)
-            .eq("events.event_date", dbSetlist.setlist_date)
-            .eq("events.approval_status", "approved");
+            .eq("event.team_id", teamContext.teamId)
+            .or(`event_date.in.(${dates.join(",")}),rehearsal_date.in.(${dates.join(",")})`, { referencedTable: "event" })
+            .eq("event.approval_status", "approved");
+          if (conflictError) throw new Error("Scheduling conflicts are unavailable. Please retry.");
           const conflictRows = conflictData as unknown as ConflictAssignmentRow[] | null;
 
-          assignmentConflicts = buildAssignmentConflicts({
-            currentEvent: {
-              id: dbSetlist.event_id,
-              name: dbSetlist.name,
-              date: dbSetlist.setlist_date,
-              startsAt: dbSetlist.call_time ?? "09:00",
-              endsAt: null,
-            },
+          assignmentConflicts = currentWindows.flatMap((currentEvent) => buildAssignmentConflicts({
+            currentEvent,
             currentAssignments: assignmentSummaries,
-            otherAssignments: (conflictRows ?? []).map((row) => {
+            otherAssignments: (conflictRows ?? []).flatMap((row) => {
               const event = Array.isArray(row.event) ? row.event[0] : row.event;
               const currentMember = assignmentSummaries.find((assignment) => assignment.memberId === row.team_member_id);
 
-              return {
+              return eventScheduleWindows(event).map((window) => ({
                 assignment: row.assignment,
                 memberId: row.team_member_id,
                 memberName: currentMember?.memberName ?? "Assigned member",
-                event: {
-                  id: event.id,
-                  name: event.name,
-                  date: event.event_date,
-                  startsAt: event.starts_at,
-                  endsAt: event.ends_at,
-                },
-              };
+                event: window,
+              }));
             }),
-          });
+          }));
         }
 
         let respondedCount = 0;
@@ -358,7 +359,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
         eventType: dbSetlist.events?.type,
         leader: leaderName,
         songs: songsList,
-        eventId: dbSetlist.event_id || id,
+        eventId: dbSetlist.event_id,
       };
     }
   }
@@ -430,6 +431,9 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
       })
     : "Sunday, July 12, 2026";
   const setlistTypeLabel = getSetlistTypeLabel(setlist);
+  const preparation = hasSupabaseEnv()
+    ? await loadPreparationWorkspace(await createClient(), teamContext.teamId, setlist.id, setlist.eventId, setlist.songs.map(song => song.id))
+    : null;
 
   return (
     <AppShell active="Setlists" teamContext={teamContext}>
@@ -457,6 +461,13 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
+      {preparation && <div className="mt-6">{preparation.ok ? <SharedPreparation
+        key={setlist.id} setlistId={setlist.id} name={setlist.name}
+        songs={setlist.songs.map(slot => ({ id: slot.id, title: slot.song.title, assignedKey: slot.assignedKey, bpm: slot.song.bpm, lead: slot.lead, arrangement: slot.arrangement }))}
+        workspace={preparation.data} memberId={teamContext.memberId} canManage={canManageSetlist}
+        proposeAction={requestRehearsalPlanAction.bind(null, setlist.id)}
+      /> : <Panel><p role="status" className="text-sm text-amber-200">{preparation.message}</p></Panel>}</div>}
+
       <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_340px] animate-fade-up" style={{ animationDelay: "100ms" }}>
         <div className="min-w-0 space-y-6">
           <div className="grid gap-5 md:grid-cols-2">
@@ -482,6 +493,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
 
           <Panel className="card-hover">
             <h2 className="text-xl font-bold">My Status</h2>
+            {setlist.eventId ? <>
             <p className="mt-1 text-sm font-semibold text-zinc-300">Are you attending this service?</p>
             <div className="mt-5">
               <AttendanceToggle eventId={setlist.eventId} initialStatus={myStatus} />
@@ -490,6 +502,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
               <Users className="size-4" />
               {attendingCount} Attending - {declinedCount} Declined - {pendingCount} Pending
             </p>
+            </> : <p className="mt-3 text-sm text-zinc-300">Attendance opens when an event is linked to this setlist.</p>}
           </Panel>
 
           <div>
@@ -514,12 +527,16 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             <div className="flex items-center gap-3">
               {assignmentConflicts.length > 0 ? (
                 <AlertTriangle className="size-5 text-amber-300" />
+              ) : !setlist.eventId ? (
+                <Clock className="size-5 text-zinc-400" />
               ) : (
                 <CheckCircle2 className="size-5 text-emerald-300" />
               )}
               <h2 className="text-lg font-bold">Conflict Detection</h2>
             </div>
-            {assignmentConflicts.length === 0 ? (
+            {!setlist.eventId ? (
+              <p className="mt-3 text-sm font-semibold text-zinc-400">Link an event to check member assignments.</p>
+            ) : assignmentConflicts.length === 0 ? (
               <p className="mt-3 text-sm font-semibold text-zinc-400">No overlapping member assignments found.</p>
             ) : (
               <div className="mt-4 space-y-3">
