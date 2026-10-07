@@ -1,0 +1,12 @@
+{
+  "mode": "local-demo",
+  "baseURL": "http://127.0.0.1:3000",
+  "stages": [1, 2],
+  "holdSeconds": 10,
+  "thinkSeconds": 5,
+  "maxRequests": 1000,
+  "actors": [
+    { "id": "demo-phone", "role": "browse", "device": "phone", "routes": ["/dashboard", "/songs", "/setlists"] },
+    { "id": "demo-tablet", "role": "browse", "device": "tablet", "routes": ["/dashboard", "/messages", "/setlists"] }
+  ]
+}

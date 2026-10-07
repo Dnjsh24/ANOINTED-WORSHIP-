@@ -398,7 +398,10 @@ export function MembersClient({
                       <button
                         type="button"
                         aria-label={`View ${member.profile.fullName}`}
-                        onClick={() => setSelectedMember(member)}
+                        onClick={(event) => {
+                          event.currentTarget.focus();
+                          setSelectedMember(member);
+                        }}
                         className="flex items-center gap-3 hover:text-violet-300 transition-colors min-w-0 text-left"
                       >
                         <Avatar name={member.profile.fullName} src={member.profile.avatarUrl} className="size-8" />

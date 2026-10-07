@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import type { CookieOptions } from "@supabase/ssr";
 
-const mocks = vi.hoisted(() => ({ getUser: vi.fn(), limit: vi.fn(), cookies: false }));
+const mocks = vi.hoisted(() => ({ getUser: vi.fn(), limit: vi.fn(), cookies: false, desktop: false }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: mocks.limit }));
-vi.mock("@/lib/desktop/runtime", () => ({ isDesktopRuntime: () => false }));
+vi.mock("@/lib/desktop/runtime", () => ({ isDesktopRuntime: () => mocks.desktop }));
 vi.mock("@/lib/supabase/env", () => ({ hasSupabaseEnv: () => true, getSupabaseEnv: () => ({ url: "https://example.supabase.co", publishableKey: "test" }) }));
 vi.mock("@supabase/ssr", () => ({
   createServerClient: (_url: string, _key: string, options: { cookies: { setAll: (cookies: Array<{ name: string; value: string; options: CookieOptions }>) => void } }) => ({
@@ -27,6 +27,7 @@ describe("verified users sharing venue WiFi", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("E2E_FORCE_DEMO", "0");
     mocks.cookies = false;
+    mocks.desktop = false;
     mocks.getUser.mockReset().mockResolvedValue({ data: { user: { id: "verified-1" } }, error: null });
     mocks.limit.mockReset().mockResolvedValue({ allowed: true, resetAt: Date.now() + 60_000 });
   });
@@ -73,6 +74,38 @@ describe("verified users sharing venue WiFi", () => {
   it("keeps prefixed auth routes on their strict IP budget", async () => {
     await updateSession(request("/services/anointed-worship-app/auth/callback"));
     expect(mocks.limit).toHaveBeenCalledExactlyOnceWith("ip:auth:203.0.113.1", 10, 60_000);
+  });
+
+  it("preserves offline desktop navigation without Redis or cloud Auth in production", async () => {
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", undefined);
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", undefined);
+    mocks.desktop = true;
+    mocks.limit.mockRejectedValue(new Error("Offline"));
+    mocks.getUser.mockRejectedValue(new Error("Offline"));
+    const response = await updateSession(request());
+    expect(response.status).toBe(200);
+    expect(mocks.limit).not.toHaveBeenCalled();
+    expect(mocks.getUser).not.toHaveBeenCalled();
+    expect(response.headers.get("content-security-policy")).toContain("nonce-");
+  });
+
+  it("bounds venue sign-in completions separately without widening malformed auth routes", async () => {
+    const counts = new Map<string, number>();
+    mocks.limit.mockImplementation(async (key: string, max: number) => {
+      const count = (counts.get(key) ?? 0) + 1;
+      counts.set(key, count);
+      return { allowed: count <= max, resetAt: Date.now() + 60_000 };
+    });
+    for (let index = 0; index < 200; index++) {
+      const path = index % 2 ? "/auth/confirm?token_hash=one-time&type=email" : "/services/anointed-worship-app/auth/callback?code=one-time";
+      expect((await updateSession(request(path))).status).toBe(200);
+    }
+    expect((await updateSession(request("/auth/callback?code=one-time"))).status).toBe(429);
+    expect(counts.get("ip:auth-completion:203.0.113.1")).toBe(201);
+    for (const path of ["/auth/callback", "/auth/confirm?token_hash=x&type=invalid", "/auth/other?code=x"]) {
+      await updateSession(request(path));
+      expect(mocks.limit).toHaveBeenLastCalledWith("ip:auth:203.0.113.1", 10, 60_000);
+    }
   });
 
   it("forwards refreshed cookies and CSP through rewrites and login redirects", async () => {

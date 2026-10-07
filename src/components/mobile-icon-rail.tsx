@@ -164,6 +164,9 @@ export function MobileIconRail({
     activeLabel === tab.id || activeLabel === tab.label.toLowerCase() || (tab.id === "home" && activeLabel === "dashboard");
 
   function toggleMoreMenu() {
+    // Safari touch/click does not focus buttons automatically. Capture a
+    // predictable return target before the dialog takes focus.
+    moreButtonRef.current?.focus();
     setShowMoreMenu((prev) => !prev);
   }
 

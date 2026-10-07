@@ -11,6 +11,17 @@ const FOCUSABLE_SELECTOR = [
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
+function getFocusableElements(dialog: HTMLDivElement) {
+  return Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((element) => {
+    if (element.tabIndex < 0 || element.matches(':disabled, input[type="hidden"]') || element.closest('[hidden], [inert], [aria-hidden="true"]')) return false;
+    for (let ancestor: HTMLElement | null = element; ancestor; ancestor = ancestor.parentElement) {
+      const style = window.getComputedStyle(ancestor);
+      if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return false;
+    }
+    return true;
+  });
+}
+
 export function useAccessibleDialog({
   open,
   onClose,
@@ -35,7 +46,7 @@ export function useAccessibleDialog({
     document.body.style.overflow = "hidden";
 
     const dialog = dialogRef.current;
-    const firstFocusable = dialog?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+    const firstFocusable = dialog ? getFocusableElements(dialog)[0] : null;
     (firstFocusable ?? dialog)?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -46,24 +57,20 @@ export function useAccessibleDialog({
       }
       if (event.key !== "Tab" || !dialogRef.current) return;
 
-      const focusable = Array.from(
-        dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-      ).filter((element) => !element.hasAttribute("hidden"));
+      const focusable = getFocusableElements(dialogRef.current);
       if (focusable.length === 0) {
         event.preventDefault();
         dialogRef.current.focus();
         return;
       }
 
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      // Safari can omit links from its native Tab order. Explicit traversal
+      // keeps the same complete, contained keyboard order on every browser.
+      event.preventDefault();
+      const index = focusable.indexOf(document.activeElement as HTMLElement);
+      const next = index < 0 ? (event.shiftKey ? focusable.length - 1 : 0)
+        : (index + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length;
+      focusable[next].focus();
     };
 
     document.addEventListener("keydown", handleKeyDown);

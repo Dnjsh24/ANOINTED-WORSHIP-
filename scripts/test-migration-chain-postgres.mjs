@@ -101,6 +101,8 @@ begin
  if (select count(*) from public.search_setlists(workspace.team_id,'Chain song')) <> 1 then raise exception 'Setlist search smoke failed'; end if;
  if (select count(*) from public.search_events(workspace.team_id,'Chain service')) <> 1 then raise exception 'Event search smoke failed'; end if;
  if not exists(select 1 from public.setlist_songs ss where ss.setlist_id=smoke.setlist_id and ss.song_id=smoke.song_id) then raise exception 'Setlist entry missing'; end if;
+ snapshot := public.get_team_analytics(workspace.team_id);
+ if jsonb_array_length(snapshot->'mostPlayedSongs')<>1 or (snapshot->'mostPlayedSongs'->0->>'count')::int<>1 then raise exception 'Team analytics owner smoke failed'; end if;
  select s.sync_revision into revision from public.songs s where s.id=smoke.song_id;
  mutation := public.apply_worship_mutation('chain-local-device','00000000-0000-0000-0000-000000000101','song.update',
   jsonb_build_object('teamId',workspace.team_id,'id',song_id,'title','Chain synced song','artist','Test artist','originalKey','C','lyricsChords','Verse'),revision);
@@ -117,6 +119,7 @@ begin
  if exists(select 1 from (values ('shared_edit_requests'),('rehearsal_plans'),('rehearsal_task_responses'),('song_readiness'),('service_orders'),('assignment_responses')) expected(name)
   left join pg_class c on c.oid=to_regclass('public.'||expected.name) where c.oid is null or not c.relrowsecurity) then raise exception 'Missing protected milestone table'; end if;
  if has_function_privilege('anon','public.apply_worship_mutation(text,uuid,text,jsonb,bigint)','execute') then raise exception 'Anonymous sync execute grant'; end if;
+ if has_function_privilege('anon','public.get_team_analytics(uuid)','execute') then raise exception 'Anonymous analytics execute grant'; end if;
  if exists(select 1 from (values ('events'),('setlists'),('event_assignments'),('setlist_songs'),('worship_sync_receipts')) protected(name)
   where has_table_privilege('authenticated','public.'||protected.name,'INSERT,UPDATE,DELETE,TRUNCATE')
    or has_table_privilege('anon','public.'||protected.name,'INSERT,UPDATE,DELETE,TRUNCATE')
@@ -144,13 +147,15 @@ try {
   await psql("chronological", bootstrap);
   await psql("manual_bundle", bootstrap.replace("create role anon; create role authenticated; create role service_role bypassrls;", ""));
   for (const database of ["chronological", "manual_bundle"]) {
+    const beforeMilestone = migrations.filter(migration => migration.name < milestone[0].name);
+    const afterMilestone = migrations.filter(migration => migration.name > milestone.at(-1).name);
     const replaySource = database === "chronological" ? migrations.map(replay).join("\n")
-      : migrations.filter(migration => !migration.name.startsWith("20261006")).map(replay).join("\n") + `\\echo APPLY manual milestone bundle\n${bundle}\n\\echo APPLIED manual milestone bundle\n`;
+      : beforeMilestone.map(replay).join("\n") + `\\echo APPLY manual milestone bundle\n${bundle}\n\\echo APPLIED manual milestone bundle\n` + afterMilestone.map(replay).join("\n");
     console.log(`Replaying ${database}: ${migrations.length} migrations`);
     const output = await psql(database, replaySource);
     const applied = output.split(/\r?\n/).filter(line => line.startsWith("APPLIED "));
     const expectedApplied = database === "chronological" ? migrations.map(migration => `APPLIED ${migration.name}`)
-      : [...migrations.filter(migration => !migration.name.startsWith("20261006")).map(migration => `APPLIED ${migration.name}`), "APPLIED manual milestone bundle"];
+      : [...beforeMilestone.map(migration => `APPLIED ${migration.name}`), "APPLIED manual milestone bundle", ...afterMilestone.map(migration => `APPLIED ${migration.name}`)];
     assert.deepEqual(applied, expectedApplied, "Every migration must apply in chronological order");
     const result = { database, applied, ddl: "passed", smoke: "pending" };
     evidence.results.push(result);

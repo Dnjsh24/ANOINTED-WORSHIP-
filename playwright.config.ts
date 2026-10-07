@@ -40,5 +40,15 @@ export default defineConfig({
       name: "mobile",
       use: { ...devices["Pixel 7"] },
     },
+    {
+      name: "tablet",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 820, height: 1180 }, hasTouch: true },
+      testMatch: /(?:responsive|website-smoke|security-accessibility)\.spec\.ts/,
+    },
+    {
+      name: "iphone",
+      use: { ...devices["iPhone 13"] },
+      testMatch: /(?:responsive|website-smoke|security-accessibility)\.spec\.ts/,
+    },
   ],
 });

@@ -1,0 +1,15 @@
+{
+  "reviewedParent": "cf6875b4cf6e1764a38a013968aba623877e0edb",
+  "files": {
+    "src/components/mobile-icon-rail.tsx": "ba968cb699a832b84c934f9b561d5e4173deb6f27b6c2c8cd535446a03993cfb",
+    "src/components/ui/use-accessible-dialog.ts": "78d8107b10ecb88d81cb476f915142effe3e4b90412b2cb785de3338c13b48eb",
+    "src/components/members-client.tsx": "294657291a7dfa48efb5a412d43acf46ce84165a01f359747bdbb12dd658a359",
+    "src/lib/supabase/proxy.ts": "8192b486bbaa1c28deeca3899e3c129477f96b77329ef754c09937851444de9c",
+    "src/lib/rate-limit.ts": "b698ca82e8c5e0e048600b9ae318452524d9200a0b9e22905b48ea6660a3c702",
+    "src/lib/server/team-analytics.ts": "40dc748572068ee265d23d7eb0f09bba94e5545923a2c84a26554baefb8b0993",
+    "supabase/migrations/20261008010000_team_analytics_summary.sql": "085932d63b8f2dfc1ca7c92a986982e906aa58dad526be4d97a7c65288bf051d",
+    "scripts/free-capacity.mjs": "9dc5282bfc09512fa4a96b2a8f65f27b6ec24233f8155c0af340d5d09b966405",
+    "src/app/api/capacity/identity/route.ts": "c9b6df8e7329b16806114b11ce53391f3bfbfce502f93c61a646161f25c88baa",
+    "scripts/test-migration-chain-postgres.mjs": "5fd9813f6a5d2b88c745bb0a27620c806f9ef5a2f7fc7482666e9d9b21a1a244"
+  }
+}

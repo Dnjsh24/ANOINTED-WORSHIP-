@@ -11,6 +11,7 @@ import { hasValidCronAuthorization } from "@/lib/server/cron-auth";
 // pre-authentication work when many legitimate users share a venue network.
 export const RATE_LIMITS = {
   auth: { max: 10, windowMs: 60_000 },
+  authCompletion: { max: 200, windowMs: 60_000 },
   aggregateApi: { max: 3_000, windowMs: 60_000 },
   aggregateGeneral: { max: 12_000, windowMs: 60_000 },
   userApi: { max: 150, windowMs: 60_000 },
@@ -97,10 +98,27 @@ export async function updateSession(request: NextRequest) {
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", contentSecurityPolicy);
 
+  // The packaged app authenticates from its cached workspace while offline.
+  // Website budgets must never introduce a Redis or Auth network dependency.
+  if (isDesktopRuntime()) {
+    return withContentSecurityPolicy(
+      NextResponse.next({ request: { headers: requestHeaders } }),
+      contentSecurityPolicy,
+    );
+  }
+
   const isAuthRoute = pathname === "/auth" || pathname.startsWith("/auth/");
   const isApiRoute = pathname === "/api" || pathname.startsWith("/api/");
-  const tier = isAuthRoute ? "auth" : isApiRoute ? "api" : "general";
-  const aggregateConfig = isAuthRoute ? RATE_LIMITS.auth
+  const code = request.nextUrl.searchParams.get("code");
+  const tokenHash = request.nextUrl.searchParams.get("token_hash");
+  const otpType = request.nextUrl.searchParams.get("type");
+  // Only classifies an IP budget; the route still verifies the one-time code.
+  const isAuthCompletion = request.method === "GET" && (
+    (pathname === "/auth/callback" && Boolean(code && code.length <= 2048)) ||
+    (pathname === "/auth/confirm" && Boolean(tokenHash && tokenHash.length <= 2048 && otpType && ["signup", "invite", "magiclink", "recovery", "email_change", "email"].includes(otpType)))
+  );
+  const tier = isAuthCompletion ? "auth-completion" : isAuthRoute ? "auth" : isApiRoute ? "api" : "general";
+  const aggregateConfig = isAuthCompletion ? RATE_LIMITS.authCompletion : isAuthRoute ? RATE_LIMITS.auth
     : isApiRoute ? RATE_LIMITS.aggregateApi : RATE_LIMITS.aggregateGeneral;
 
   async function enforceLimit(key: string, config: { max: number; windowMs: number }, cookies?: NextResponse) {
@@ -124,16 +142,6 @@ export async function updateSession(request: NextRequest) {
   if (aggregateDenial) return aggregateDenial;
 
   if (!hasSupabaseEnv()) {
-    return withContentSecurityPolicy(
-      NextResponse.next({ request: { headers: requestHeaders } }),
-      contentSecurityPolicy,
-    );
-  }
-
-  // The local Next server is always reachable while the internet may not be.
-  // Desktop routes authenticate through the cached workspace context instead of
-  // forcing a Supabase request on every navigation.
-  if (isDesktopRuntime()) {
     return withContentSecurityPolicy(
       NextResponse.next({ request: { headers: requestHeaders } }),
       contentSecurityPolicy,
