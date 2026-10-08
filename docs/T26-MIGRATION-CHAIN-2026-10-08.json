@@ -1,0 +1,478 @@
+{
+  "scope": "Application DDL replay with local Supabase prerequisite adapters; provider services and live history unverified",
+  "postgresVersion": "18.4",
+  "migrationCount": 77,
+  "migrations": [
+    {
+      "name": "20260630010000_anointed_worship_mvp.sql",
+      "sha256": "ecedf17d3c2cdaa5bd9f784a55ac178d3078d7b93a4d1c0e46c84e5258232cc4"
+    },
+    {
+      "name": "20260630011000_fix_team_creation_bootstrap.sql",
+      "sha256": "3057ec8396b7f518b219822565fe01c168b26fc6432560ea0a6a8e727859c37f"
+    },
+    {
+      "name": "20260630023000_harden_supabase_policies.sql",
+      "sha256": "48e527f282ca262ffa7b1ae7f9e0629b462456ecafa2dd565a655965dc8e6cc9"
+    },
+    {
+      "name": "20260630030000_interaction_mvp_persistence.sql",
+      "sha256": "35495006a5293f2ebc30aba0782d65ed1a73933a25da7a1b613363a1b8ec70a9"
+    },
+    {
+      "name": "20260630040000_fix_profile_visibility_for_join_requests.sql",
+      "sha256": "ffd13f26951dd5db8d02d036436c0ff3b38e5bcec1c7d8f9223b3ba78cbee7f0"
+    },
+    {
+      "name": "20260630050000_enable_realtime_join_requests.sql",
+      "sha256": "ba8bcf09f740f7a46752194ea1ec47f64d99a74411a09776945d0a50f003c15a"
+    },
+    {
+      "name": "20260630060000_fix_teams_select_policy_for_join.sql",
+      "sha256": "790c9e42fa2abbf4695245d03ba0f4b49df342457c830a27487afa995c5651ef"
+    },
+    {
+      "name": "20260630070000_allow_admin_insert_members.sql",
+      "sha256": "5b6f826aeede8f805b2c932ddd34e6a95d7b34c2898b7d77e3f36f22cdafb0aa"
+    },
+    {
+      "name": "20260701000000_add_channel_avatar.sql",
+      "sha256": "6e05a1a095afe607cfaa6df6ac401f72d00c5278765eb5bcd8c29881bce06c0f"
+    },
+    {
+      "name": "20260702000000_add_event_approval_status.sql",
+      "sha256": "b48f5a9d43bbfc0b91aae3f2c55c0df624fbbec1280d89142c1f7f8d8b965f1a"
+    },
+    {
+      "name": "20260702010000_targeted_announcements_reminders.sql",
+      "sha256": "7ec4960a05b5e57b127188da22c54d1ab1f69c495ce6d8f74ca7538b1b11ac59"
+    },
+    {
+      "name": "20260702020000_notice_acknowledgements_recurring_reminders.sql",
+      "sha256": "f10ebbebeff79831963214a1f9b08c12078b539d95172c2e7835879aa47dab48"
+    },
+    {
+      "name": "20260702030000_service_templates_conflicts_setlist_history.sql",
+      "sha256": "930c924bceaf0d75f56d15220136c10c16dbb162e0ed8d21ca467d096ccb3a3b"
+    },
+    {
+      "name": "20260703000000_fix_message_channel_membership_insert.sql",
+      "sha256": "82892782158c45eb21acff0dff2cafa2e055293c6c193c6da4a1a6f1fbb8535b"
+    },
+    {
+      "name": "20260703010000_backfill_default_team_channels.sql",
+      "sha256": "fccdbe03ec557bd5928fa7da7f2e2b2ed492a114f196bcec101c40c4e5a1c43c"
+    },
+    {
+      "name": "20260703020000_atomic_team_workspace_lifecycle.sql",
+      "sha256": "e245c9eb6e46e0691b7195d12aa1b97705a6965e78401a428e3fa878a1d5ba26"
+    },
+    {
+      "name": "20260703030000_fix_create_team_workspace_template_conflict.sql",
+      "sha256": "93957020718a6107712efdf24edcad61f35ae8fbcf4446f718ad90f285b97111"
+    },
+    {
+      "name": "20260703040000_enable_realtime_messages.sql",
+      "sha256": "1d55a54a1cfa98755b38a8c8601441008757b523b38a65ff974769d1de75bc99"
+    },
+    {
+      "name": "20260704000000_profile_avatar_storage.sql",
+      "sha256": "dc7c2914059ad728c35edbffa4c26abe44b95dcf6a029acb15e35e9a53f31818"
+    },
+    {
+      "name": "20260704010000_cancel_join_requests.sql",
+      "sha256": "79835232174dd510a5f37ab289a7ae1d5b9ce9a72e21f29ab646c3e7c041a5cb"
+    },
+    {
+      "name": "20260704020000_add_dance_details_video_url.sql",
+      "sha256": "244bf1527a3bf5e17fc74d0c9903b0ac2ca946d420e5f45d41e16630542bf5e0"
+    },
+    {
+      "name": "20260704030000_add_service_rehearsal_event_type.sql",
+      "sha256": "264d7ab409e0c37c7f5a6660f5d390c5f2356f060455e6c54a116cf4c3d55886"
+    },
+    {
+      "name": "20260704040000_feedback_reports.sql",
+      "sha256": "c85e270e9e0db0a4d5010ed67bab5e851a6486a75a1f1daf22458fa5e322d1d1"
+    },
+    {
+      "name": "20260704050000_add_rehearsal_date.sql",
+      "sha256": "cb2f9b602805f684ee73e65bd9ab943f49fa5b7ace83499a2beb876f043d2dde"
+    },
+    {
+      "name": "20260704060000_add_setlist_song_youtube_url.sql",
+      "sha256": "f879408f2c837bcec975f7b74d087a476867ebc4f224e311f322fca31e2c7838"
+    },
+    {
+      "name": "20260704070000_make_bpm_optional.sql",
+      "sha256": "545e813313c28277a6bb4921dcbf590bc87608d606bcd41874f1f2211c617039"
+    },
+    {
+      "name": "20260707000000_allow_admin_delete_members.sql",
+      "sha256": "2c077e8295e7aa52c04706aaac7e11360d0eda2cc68320aa96d6e0ba1800a0dd"
+    },
+    {
+      "name": "20260707095728_create_user_annotations.sql",
+      "sha256": "64193f307acd38c978d1678b363a8186a3c1a09c60690bc00979f7b26dcf3ddf"
+    },
+    {
+      "name": "20260708115600_harden_rpc_functions.sql",
+      "sha256": "f8761b72c9fd7c0ffc993fc80f4b2763ae0bd65266aaa7b8165375a5cc7844f5"
+    },
+    {
+      "name": "20260708121500_fix_public_bucket_listing.sql",
+      "sha256": "b0bd5a5a9651dfd093204e4cdd545eb4e7a4d1de4f654a28a2598c42e6ca1561"
+    },
+    {
+      "name": "20260714000000_push_notifications.sql",
+      "sha256": "49527ef703172f12d849532c4558a1bc560d8e9009ab8374fd24c1f47e15ab9a"
+    },
+    {
+      "name": "20260714180000_add_setlist_song_arrangement.sql",
+      "sha256": "618c68bacf892fef7fc334072733009d7ab77b9efc763f35a23e7731506d49ce"
+    },
+    {
+      "name": "20260714190000_add_presentation_settings.sql",
+      "sha256": "34a73b91af7ce992bb0affe77d937f724591f77fa2906673acbac8e64acc411f"
+    },
+    {
+      "name": "20260714200000_presentation_media_bucket.sql",
+      "sha256": "63a713161e0093596fea41a10efbfe2d36356528034ae8edac55ee262d7f913b"
+    },
+    {
+      "name": "20260719000000_fix_push_notification_triggers.sql",
+      "sha256": "fced4c42f888a2bdee9b08301432240867cbbe1ed07500b9452b9c6a291b2e9f"
+    },
+    {
+      "name": "20260719010000_security_advisor_fixes.sql",
+      "sha256": "16198602f1a6ceff24a0f985f438a65747031b07eb913a28feb991bcdc4d0a30"
+    },
+    {
+      "name": "20260721000000_add_song_image_url.sql",
+      "sha256": "1c4e0b15c2c8d63a4ce0b7dca0263a58833e247f941bd7303ae6231bcb10fca5"
+    },
+    {
+      "name": "20260722010000_add_song_deleted_at.sql",
+      "sha256": "11c7af3eb76d44a034ff54203eed707776fe602c322dc3117e1ea7da614bc8ec"
+    },
+    {
+      "name": "20260722020000_add_announcement_is_pinned.sql",
+      "sha256": "da68abe6757f39130921c983034364fb18615fe8b6cffc867685b201167ab953"
+    },
+    {
+      "name": "20260723000000_add_band_notes.sql",
+      "sha256": "4a2bc84a946c4938e63999239eca874e2942d783cdb1cc6e7790914eed3ef0ae"
+    },
+    {
+      "name": "20260723000001_add_message_receipts.sql",
+      "sha256": "c393136cb977bfb102c1630eeee631aa86aa9ff27a9b97e2ab2923bfe8ac210e"
+    },
+    {
+      "name": "20260723000002_add_ministries_array.sql",
+      "sha256": "dca0649f0f81ecad0ea3d09dd328a224c127e06b8c715689453409985a72dc4e"
+    },
+    {
+      "name": "20260723000003_add_activity_logs.sql",
+      "sha256": "5492ef9baa16532512b01f0b43f1824a88699634aad72ad7b0583ba9efd9b52d"
+    },
+    {
+      "name": "20260724000000_feature_24_32_39.sql",
+      "sha256": "0e96803c938c76bc1a72f2c481631fd0bd4b134ebfc882d5bea389ecdf0f7f4a"
+    },
+    {
+      "name": "20260725000000_fix_missing_columns.sql",
+      "sha256": "3e3c01d71a8ecca57fb0903f962dce00f361f513808b0c12c9570cebacbbbfa2"
+    },
+    {
+      "name": "20260726000000_desktop_offline_sync_foundation.sql",
+      "sha256": "ca1f3ac4a1ca53acc1445734e5e46053f54f906d676043e51fd70b1e06dd7d01"
+    },
+    {
+      "name": "20260726000001_offline_sync_rls_policies.sql",
+      "sha256": "f9a26355340630cf9271574b18091b4373ebccd670974054305a322290db3f67"
+    },
+    {
+      "name": "20260726133308_private_worship_remote_realtime.sql",
+      "sha256": "a1a0e85c75f9bda70705ce3de22ded56d7ef5229e9a2a0255ccf53a0cbbc1711"
+    },
+    {
+      "name": "20260726134512_worship_remote_pairing_sessions.sql",
+      "sha256": "1ac83f1a09fdeb404c58e56774a146b213c5099339928835a052c1734ce1cf97"
+    },
+    {
+      "name": "20260726195808_harden_worship_remote_pairing_function_permissions.sql",
+      "sha256": "3e9856a2ebea5e95c6d32e71374a7714ecfb96003b9fb3ab308371e500cec912"
+    },
+    {
+      "name": "20260726200156_make_worship_remote_pairing_one_time.sql",
+      "sha256": "3c56fed1efc0a18fc45f423f03224b32f33fa64c51e1e72c225202809729f5ed"
+    },
+    {
+      "name": "20260726201305_move_remote_policy_helper_to_private_schema.sql",
+      "sha256": "9d9186cb1fef328e071aa61ecc0d2ebf9fa857ec44d9dbbb629666cc52a1e92e"
+    },
+    {
+      "name": "20260730063024_harden_website_boundaries.sql",
+      "sha256": "39dbf7de405ecb993ee1b6e60022b9d07b6d5a29cd6c2cb28008eee4b773c226"
+    },
+    {
+      "name": "20260730063102_fix_website_remote_pairing_digest.sql",
+      "sha256": "fe75c90929b27b6aa7b2b0da863bd9945ebbcb53f4fb191f3bd573dd98392f4b"
+    },
+    {
+      "name": "20260730063114_add_profile_birthday.sql",
+      "sha256": "a1e38a3aff0fad00389186865236440924f87f2ad0666cf8b557b2ebfac705da"
+    },
+    {
+      "name": "20260730063200_setlist_presentation_sync.sql",
+      "sha256": "0e973f8c10d341ed9e9658aeab16d7eddac2ee9039d57fb79c681c08f5757b43"
+    },
+    {
+      "name": "20260730063300_add_missing_messages_columns.sql",
+      "sha256": "3234099afb1070e0e7e61c09602e0877c60d0b3fb7f3a39f67af7886a683c72a"
+    },
+    {
+      "name": "20260730063400_fix_notify_new_message_member_id.sql",
+      "sha256": "aebfb8a5aaeb17d07529060f8052c8fbe41f05b02188e0d3722677906f73ee75"
+    },
+    {
+      "name": "20260802000000_optimize_website_rls_and_indexes.sql",
+      "sha256": "2b359a0795e4de852fc45d9195d9f1641942f8e8acb4ec2ea919c41990521a81"
+    },
+    {
+      "name": "20260802010000_harden_attendance_notifications.sql",
+      "sha256": "2eb912d2c216b08da04d17de49fd62afa33f27e13586224fa517dcb32843a2b4"
+    },
+    {
+      "name": "20260802020000_consolidate_website_rls_policies.sql",
+      "sha256": "2d08afb0a39f6050102d3758a2992d71df1f170bd4d4bd6e3eb2ae9eae1fdcc5"
+    },
+    {
+      "name": "20260802030000_enforce_website_integrity.sql",
+      "sha256": "8a72ef2a59d044c98419bf71f4389abdc6462747273844b0de7884febdcb0f0c"
+    },
+    {
+      "name": "20260802040000_secure_worship_remote_pairing.sql",
+      "sha256": "b565a037daef9c9427a860c5168c9c1ea308f6c5cdcda623f1bb291249b4e6e1"
+    },
+    {
+      "name": "20260810172514_fix_worship_remote_realtime_authorization.sql",
+      "sha256": "9561cc3c98dea4dc7be7aad2005d301df6d46857ae0ffe2c0f3aa1878fcc08ac"
+    },
+    {
+      "name": "20261005010000_member_usage_tracking.sql",
+      "sha256": "0736b732f589591983dca488942cec621bf85f36730f600c8e92ef2d89fa1387"
+    },
+    {
+      "name": "20261006010000_atomic_event_setlist_workflows.sql",
+      "sha256": "2ce76f21eed0a29ef461f564e15a0dcec1c2c823655126fb007aaf2b97f7e01b"
+    },
+    {
+      "name": "20261006020000_shared_edit_requests_song_ownership.sql",
+      "sha256": "5ad6c1535c59c92d2914d3d907a60779ddc64362af11170ac8bff1e38a247c40"
+    },
+    {
+      "name": "20261006030000_message_paging_retry.sql",
+      "sha256": "24b3b87a159fdef1e36031b21815d219a072980ef2ac24c5e4751fb521efba38"
+    },
+    {
+      "name": "20261006040000_shared_preparation_service_order.sql",
+      "sha256": "a42e4c584459c72f265f52aa94fc9718a4ac73530f1022dcf0feccc3dd1df1a0"
+    },
+    {
+      "name": "20261006050000_shared_edit_workflow_adapters.sql",
+      "sha256": "8a0104074cd71453561cc2586f2d85db1e6adb6cd6d6e90f69e2e41db0f4682f"
+    },
+    {
+      "name": "20261006060000_global_setlist_search.sql",
+      "sha256": "152d37dc22d8a5e8fdfb37d726cf337c8d88b5cd6da6f753c5b5e91bce9ced0b"
+    },
+    {
+      "name": "20261006070000_personal_preparation_summary.sql",
+      "sha256": "8997b85b86a3505371338efb8d3a05efbb229833d2e6dff22d74427ba13390f5"
+    },
+    {
+      "name": "20261006080000_setlist_aggregate_revisions.sql",
+      "sha256": "b16d7161abe156dc23d74b80d67566cc32659b87770eb2f1fcbcddfbbf8f2d83"
+    },
+    {
+      "name": "20261006090000_sync_snapshot_visibility.sql",
+      "sha256": "13acd6c57fc914883e00a32a6c40f9a33eacc90f706ba234187e7437fca04b08"
+    },
+    {
+      "name": "20261006100000_song_library_search_sort.sql",
+      "sha256": "1d18a2490106a68bd5f6a69071f7525c8d62c5d0cb4e90ca731c1dedf1443d27"
+    },
+    {
+      "name": "20261006110000_global_event_search.sql",
+      "sha256": "ef2d77aa0c104e9c40be5adc7391b671c9714bb3f2845adc78fb68a8d8a72735"
+    },
+    {
+      "name": "20261008010000_team_analytics_summary.sql",
+      "sha256": "085932d63b8f2dfc1ca7c92a986982e906aa58dad526be4d97a7c65288bf051d"
+    }
+  ],
+  "scriptSha256": "5fd9813f6a5d2b88c745bb0a27620c806f9ef5a2f7fc7482666e9d9b21a1a244",
+  "bundleSha256": "e28dbc07fd2d710651457ce819a75126a8621b3b47c5b4e8edcbea8e3d0f7931",
+  "adaptedStatement": "create extension if not exists pg_net with schema extensions;",
+  "results": [
+    {
+      "database": "chronological",
+      "applied": [
+        "APPLIED 20260630010000_anointed_worship_mvp.sql",
+        "APPLIED 20260630011000_fix_team_creation_bootstrap.sql",
+        "APPLIED 20260630023000_harden_supabase_policies.sql",
+        "APPLIED 20260630030000_interaction_mvp_persistence.sql",
+        "APPLIED 20260630040000_fix_profile_visibility_for_join_requests.sql",
+        "APPLIED 20260630050000_enable_realtime_join_requests.sql",
+        "APPLIED 20260630060000_fix_teams_select_policy_for_join.sql",
+        "APPLIED 20260630070000_allow_admin_insert_members.sql",
+        "APPLIED 20260701000000_add_channel_avatar.sql",
+        "APPLIED 20260702000000_add_event_approval_status.sql",
+        "APPLIED 20260702010000_targeted_announcements_reminders.sql",
+        "APPLIED 20260702020000_notice_acknowledgements_recurring_reminders.sql",
+        "APPLIED 20260702030000_service_templates_conflicts_setlist_history.sql",
+        "APPLIED 20260703000000_fix_message_channel_membership_insert.sql",
+        "APPLIED 20260703010000_backfill_default_team_channels.sql",
+        "APPLIED 20260703020000_atomic_team_workspace_lifecycle.sql",
+        "APPLIED 20260703030000_fix_create_team_workspace_template_conflict.sql",
+        "APPLIED 20260703040000_enable_realtime_messages.sql",
+        "APPLIED 20260704000000_profile_avatar_storage.sql",
+        "APPLIED 20260704010000_cancel_join_requests.sql",
+        "APPLIED 20260704020000_add_dance_details_video_url.sql",
+        "APPLIED 20260704030000_add_service_rehearsal_event_type.sql",
+        "APPLIED 20260704040000_feedback_reports.sql",
+        "APPLIED 20260704050000_add_rehearsal_date.sql",
+        "APPLIED 20260704060000_add_setlist_song_youtube_url.sql",
+        "APPLIED 20260704070000_make_bpm_optional.sql",
+        "APPLIED 20260707000000_allow_admin_delete_members.sql",
+        "APPLIED 20260707095728_create_user_annotations.sql",
+        "APPLIED 20260708115600_harden_rpc_functions.sql",
+        "APPLIED 20260708121500_fix_public_bucket_listing.sql",
+        "APPLIED 20260714000000_push_notifications.sql",
+        "APPLIED 20260714180000_add_setlist_song_arrangement.sql",
+        "APPLIED 20260714190000_add_presentation_settings.sql",
+        "APPLIED 20260714200000_presentation_media_bucket.sql",
+        "APPLIED 20260719000000_fix_push_notification_triggers.sql",
+        "APPLIED 20260719010000_security_advisor_fixes.sql",
+        "APPLIED 20260721000000_add_song_image_url.sql",
+        "APPLIED 20260722010000_add_song_deleted_at.sql",
+        "APPLIED 20260722020000_add_announcement_is_pinned.sql",
+        "APPLIED 20260723000000_add_band_notes.sql",
+        "APPLIED 20260723000001_add_message_receipts.sql",
+        "APPLIED 20260723000002_add_ministries_array.sql",
+        "APPLIED 20260723000003_add_activity_logs.sql",
+        "APPLIED 20260724000000_feature_24_32_39.sql",
+        "APPLIED 20260725000000_fix_missing_columns.sql",
+        "APPLIED 20260726000000_desktop_offline_sync_foundation.sql",
+        "APPLIED 20260726000001_offline_sync_rls_policies.sql",
+        "APPLIED 20260726133308_private_worship_remote_realtime.sql",
+        "APPLIED 20260726134512_worship_remote_pairing_sessions.sql",
+        "APPLIED 20260726195808_harden_worship_remote_pairing_function_permissions.sql",
+        "APPLIED 20260726200156_make_worship_remote_pairing_one_time.sql",
+        "APPLIED 20260726201305_move_remote_policy_helper_to_private_schema.sql",
+        "APPLIED 20260730063024_harden_website_boundaries.sql",
+        "APPLIED 20260730063102_fix_website_remote_pairing_digest.sql",
+        "APPLIED 20260730063114_add_profile_birthday.sql",
+        "APPLIED 20260730063200_setlist_presentation_sync.sql",
+        "APPLIED 20260730063300_add_missing_messages_columns.sql",
+        "APPLIED 20260730063400_fix_notify_new_message_member_id.sql",
+        "APPLIED 20260802000000_optimize_website_rls_and_indexes.sql",
+        "APPLIED 20260802010000_harden_attendance_notifications.sql",
+        "APPLIED 20260802020000_consolidate_website_rls_policies.sql",
+        "APPLIED 20260802030000_enforce_website_integrity.sql",
+        "APPLIED 20260802040000_secure_worship_remote_pairing.sql",
+        "APPLIED 20260810172514_fix_worship_remote_realtime_authorization.sql",
+        "APPLIED 20261005010000_member_usage_tracking.sql",
+        "APPLIED 20261006010000_atomic_event_setlist_workflows.sql",
+        "APPLIED 20261006020000_shared_edit_requests_song_ownership.sql",
+        "APPLIED 20261006030000_message_paging_retry.sql",
+        "APPLIED 20261006040000_shared_preparation_service_order.sql",
+        "APPLIED 20261006050000_shared_edit_workflow_adapters.sql",
+        "APPLIED 20261006060000_global_setlist_search.sql",
+        "APPLIED 20261006070000_personal_preparation_summary.sql",
+        "APPLIED 20261006080000_setlist_aggregate_revisions.sql",
+        "APPLIED 20261006090000_sync_snapshot_visibility.sql",
+        "APPLIED 20261006100000_song_library_search_sort.sql",
+        "APPLIED 20261006110000_global_event_search.sql",
+        "APPLIED 20261008010000_team_analytics_summary.sql"
+      ],
+      "ddl": "passed",
+      "smoke": "passed"
+    },
+    {
+      "database": "manual_bundle",
+      "applied": [
+        "APPLIED 20260630010000_anointed_worship_mvp.sql",
+        "APPLIED 20260630011000_fix_team_creation_bootstrap.sql",
+        "APPLIED 20260630023000_harden_supabase_policies.sql",
+        "APPLIED 20260630030000_interaction_mvp_persistence.sql",
+        "APPLIED 20260630040000_fix_profile_visibility_for_join_requests.sql",
+        "APPLIED 20260630050000_enable_realtime_join_requests.sql",
+        "APPLIED 20260630060000_fix_teams_select_policy_for_join.sql",
+        "APPLIED 20260630070000_allow_admin_insert_members.sql",
+        "APPLIED 20260701000000_add_channel_avatar.sql",
+        "APPLIED 20260702000000_add_event_approval_status.sql",
+        "APPLIED 20260702010000_targeted_announcements_reminders.sql",
+        "APPLIED 20260702020000_notice_acknowledgements_recurring_reminders.sql",
+        "APPLIED 20260702030000_service_templates_conflicts_setlist_history.sql",
+        "APPLIED 20260703000000_fix_message_channel_membership_insert.sql",
+        "APPLIED 20260703010000_backfill_default_team_channels.sql",
+        "APPLIED 20260703020000_atomic_team_workspace_lifecycle.sql",
+        "APPLIED 20260703030000_fix_create_team_workspace_template_conflict.sql",
+        "APPLIED 20260703040000_enable_realtime_messages.sql",
+        "APPLIED 20260704000000_profile_avatar_storage.sql",
+        "APPLIED 20260704010000_cancel_join_requests.sql",
+        "APPLIED 20260704020000_add_dance_details_video_url.sql",
+        "APPLIED 20260704030000_add_service_rehearsal_event_type.sql",
+        "APPLIED 20260704040000_feedback_reports.sql",
+        "APPLIED 20260704050000_add_rehearsal_date.sql",
+        "APPLIED 20260704060000_add_setlist_song_youtube_url.sql",
+        "APPLIED 20260704070000_make_bpm_optional.sql",
+        "APPLIED 20260707000000_allow_admin_delete_members.sql",
+        "APPLIED 20260707095728_create_user_annotations.sql",
+        "APPLIED 20260708115600_harden_rpc_functions.sql",
+        "APPLIED 20260708121500_fix_public_bucket_listing.sql",
+        "APPLIED 20260714000000_push_notifications.sql",
+        "APPLIED 20260714180000_add_setlist_song_arrangement.sql",
+        "APPLIED 20260714190000_add_presentation_settings.sql",
+        "APPLIED 20260714200000_presentation_media_bucket.sql",
+        "APPLIED 20260719000000_fix_push_notification_triggers.sql",
+        "APPLIED 20260719010000_security_advisor_fixes.sql",
+        "APPLIED 20260721000000_add_song_image_url.sql",
+        "APPLIED 20260722010000_add_song_deleted_at.sql",
+        "APPLIED 20260722020000_add_announcement_is_pinned.sql",
+        "APPLIED 20260723000000_add_band_notes.sql",
+        "APPLIED 20260723000001_add_message_receipts.sql",
+        "APPLIED 20260723000002_add_ministries_array.sql",
+        "APPLIED 20260723000003_add_activity_logs.sql",
+        "APPLIED 20260724000000_feature_24_32_39.sql",
+        "APPLIED 20260725000000_fix_missing_columns.sql",
+        "APPLIED 20260726000000_desktop_offline_sync_foundation.sql",
+        "APPLIED 20260726000001_offline_sync_rls_policies.sql",
+        "APPLIED 20260726133308_private_worship_remote_realtime.sql",
+        "APPLIED 20260726134512_worship_remote_pairing_sessions.sql",
+        "APPLIED 20260726195808_harden_worship_remote_pairing_function_permissions.sql",
+        "APPLIED 20260726200156_make_worship_remote_pairing_one_time.sql",
+        "APPLIED 20260726201305_move_remote_policy_helper_to_private_schema.sql",
+        "APPLIED 20260730063024_harden_website_boundaries.sql",
+        "APPLIED 20260730063102_fix_website_remote_pairing_digest.sql",
+        "APPLIED 20260730063114_add_profile_birthday.sql",
+        "APPLIED 20260730063200_setlist_presentation_sync.sql",
+        "APPLIED 20260730063300_add_missing_messages_columns.sql",
+        "APPLIED 20260730063400_fix_notify_new_message_member_id.sql",
+        "APPLIED 20260802000000_optimize_website_rls_and_indexes.sql",
+        "APPLIED 20260802010000_harden_attendance_notifications.sql",
+        "APPLIED 20260802020000_consolidate_website_rls_policies.sql",
+        "APPLIED 20260802030000_enforce_website_integrity.sql",
+        "APPLIED 20260802040000_secure_worship_remote_pairing.sql",
+        "APPLIED 20260810172514_fix_worship_remote_realtime_authorization.sql",
+        "APPLIED 20261005010000_member_usage_tracking.sql",
+        "APPLIED manual milestone bundle",
+        "APPLIED 20261008010000_team_analytics_summary.sql"
+      ],
+      "ddl": "passed",
+      "smoke": "passed"
+    }
+  ]
+}

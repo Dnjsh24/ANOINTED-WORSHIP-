@@ -37,6 +37,7 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
+    ".worktrees",
     "node_modules",
     "desktop/node_modules",
     "desktop/dist",

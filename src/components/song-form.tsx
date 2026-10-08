@@ -2,8 +2,8 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { createSongAction, updateSongAction, deleteSongAction } from "@/app/actions";
-import { ActionMessage, SubmitButton } from "@/components/action-form";
-import { ButtonLink } from "@/components/ui/button";
+import { ActionMessage } from "@/components/action-form";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { initialActionState } from "@/lib/action-state";
 import { formatSongToText } from "@/lib/domain/chords";
@@ -15,8 +15,42 @@ import { VoiceKeyDetector } from "@/lib/voice-key-detector";
 import { SpotifySearch, type SpotifyTrack } from "./spotify-search";
 import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
 
-export function SongForm({ song }: { song?: Song }) {
-  const [state, formAction] = useActionState(song ? updateSongAction : createSongAction, initialActionState);
+export function SongForm({
+  song,
+  revision = 0,
+  isProposal = false,
+  canDelete = false,
+  cancelHref,
+  onSaved,
+}: {
+  song?: Song;
+  revision?: number;
+  isProposal?: boolean;
+  canDelete?: boolean;
+  cancelHref?: string;
+  onSaved?: () => void;
+}) {
+  const requestRef = useRef<{ fingerprint: string; nonce: string } | null>(null);
+  const [, startSaveTransition] = useTransition();
+  const [state, formAction, pendingSave] = useActionState(async (previous: typeof initialActionState, data: FormData) => {
+    try {
+    if (!song) return await createSongAction(previous, data);
+    data.set("revision", String(revision));
+    if (isProposal) {
+      const fingerprint = JSON.stringify(Array.from(data.entries()).filter(([key]) => key !== "requestNonce"));
+      if (requestRef.current?.fingerprint !== fingerprint) requestRef.current = { fingerprint, nonce: crypto.randomUUID() };
+      data.set("requestNonce", requestRef.current.nonce);
+    }
+    const result = await updateSongAction(previous, data);
+    if (result.ok) onSaved?.();
+    return result;
+    } catch { return { ok: false, message: "The save could not be confirmed. Your draft is retained. Retry when connected." }; }
+  }, initialActionState);
+  const [originalKey, setOriginalKey] = useState(song?.originalKey ?? "C");
+  const [bpm, setBpm] = useState(String(song?.bpm ?? ""));
+  const [timeSignature, setTimeSignature] = useState(song?.timeSignature ?? "4/4");
+  const [youtubeUrl, setYoutubeUrl] = useState(song?.youtubeUrl ?? "");
+  const [reason, setReason] = useState("");
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const deleteDialogRef = useAccessibleDialog({
     open: deleteModalOpen,
@@ -111,10 +145,7 @@ export function SongForm({ song }: { song?: Song }) {
       return;
     }
 
-    const select = originalKeyRef.current;
-    if (select) {
-      select.value = result.key;
-    }
+    setOriginalKey(result.key);
     const matchPct = Math.round(result.score * 100);
     const mode = result.mode === "minor" ? "minor" : "major";
     setDetectMessage(`Detected ${result.key} ${mode} (${result.matchCount}/${result.totalChords} chords fit, ${matchPct}% confidence)`);
@@ -151,7 +182,6 @@ export function SongForm({ song }: { song?: Song }) {
   };
 
   const handleDetectKeyFromVoice = async () => {
-    const select = originalKeyRef.current;
 
     const clearVoiceTimers = () => {
       if (voiceStopTimerRef.current) {
@@ -174,9 +204,7 @@ export function SongForm({ song }: { song?: Song }) {
       setVoiceLevel(0);
 
       if (result.status === "ok") {
-        if (select) {
-          select.value = result.key;
-        }
+        setOriginalKey(result.key);
         const pct = Math.round(result.confidence * 100);
         const prefix = isAutoStop ? "10s scan complete." : "Voice scan stopped.";
         setDetectMessage(`${prefix} Detected ${result.key} ${result.mode} (${pct}% confidence). Top sung note: ${result.topNote ?? "-"}.`);
@@ -251,7 +279,11 @@ export function SongForm({ song }: { song?: Song }) {
   }, []);
 
   return (
-    <form action={formAction} className="space-y-6 text-left animate-fade-in">
+    <form onSubmit={event => {
+      event.preventDefault();
+      const data = new FormData(event.currentTarget);
+      startSaveTransition(() => formAction(data));
+    }} className="space-y-6 text-left animate-fade-in">
       {song && <input type="hidden" name="songId" value={song.id} />}
       <input type="hidden" name="spotifyUrl" value={spotifyUrl} />
       <input type="hidden" name="imageUrl" value={imageUrl} />
@@ -275,7 +307,8 @@ export function SongForm({ song }: { song?: Song }) {
 
           <div className="flex gap-2 mb-4">
             <Input 
-              value={importUrl} 
+              value={importUrl}
+              aria-label="Song import URL"
               onChange={e => setImportUrl(e.target.value)} 
               placeholder="Paste WorshipChords / Ultimate Guitar URL to auto-import..." 
               className="h-9 text-xs"
@@ -314,7 +347,8 @@ export function SongForm({ song }: { song?: Song }) {
                   <select
                     name="originalKey"
                     ref={originalKeyRef}
-                    defaultValue={song?.originalKey ?? "C"}
+                    value={originalKey}
+                    onChange={(event) => setOriginalKey(event.target.value)}
                     className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400"
                     required
                   >
@@ -373,7 +407,7 @@ export function SongForm({ song }: { song?: Song }) {
 
             <label className="block space-y-1.5">
               <span className="text-xs font-bold text-zinc-300">BPM (Optional)</span>
-              <Input type="number" name="bpm" min={40} max={240} defaultValue={song?.bpm ?? ""} />
+              <Input type="number" name="bpm" min={40} max={240} value={bpm} onChange={(event) => setBpm(event.target.value)} />
             </label>
           </div>
 
@@ -382,7 +416,8 @@ export function SongForm({ song }: { song?: Song }) {
             <div className="relative">
               <select
                 name="timeSignature"
-                defaultValue={song?.timeSignature ?? "4/4"}
+                value={timeSignature}
+                onChange={(event) => setTimeSignature(event.target.value)}
                 className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#17161b] px-3 text-sm font-semibold text-white outline-none focus:border-violet-400"
                 required
               >
@@ -402,7 +437,7 @@ export function SongForm({ song }: { song?: Song }) {
 
           <label className="block space-y-1.5">
             <span className="text-xs font-bold text-zinc-300">YouTube Link (Optional)</span>
-            <Input name="youtubeUrl" defaultValue={song?.youtubeUrl} placeholder="https://youtube.com/watch?v=..." className="h-10 text-xs font-semibold" />
+            <Input name="youtubeUrl" value={youtubeUrl} onChange={(event) => setYoutubeUrl(event.target.value)} placeholder="https://youtube.com/watch?v=..." className="h-10 text-xs font-semibold" />
           </label>
         </div>
 
@@ -451,6 +486,7 @@ export function SongForm({ song }: { song?: Song }) {
             <textarea
               ref={lyricsRef}
               name="lyrics"
+              aria-label="Lyrics and chords"
               value={lyrics}
               onChange={(event) => setLyrics(event.target.value)}
               placeholder="Intro&#10;C   C   G   Am   F   C&#10;&#10;Verse 1&#10;C&#10;You are faithful, always faithful..."
@@ -463,10 +499,14 @@ export function SongForm({ song }: { song?: Song }) {
 
       </div>
 
+      {isProposal && <label className="block text-sm font-semibold">Reason for the edit request
+        <textarea name="reason" value={reason} onChange={(event) => setReason(event.target.value)} required maxLength={1000} className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 p-3" />
+        <span className="block text-xs text-zinc-400">An owner or admin reviews these changes before they appear in the library.</span>
+      </label>}
       {/* Action Footer */}
       <div className="flex items-center justify-between gap-3 pt-4 border-t border-white/[0.04]">
         <div>
-          {song && (
+          {song && canDelete && (
             <>
               <button
                 type="button"
@@ -536,12 +576,12 @@ export function SongForm({ song }: { song?: Song }) {
           )}
         </div>
         <div className="flex items-center gap-3">
-          <ButtonLink href={song ? `/songs/${song.id}` : "/songs"} variant="secondary" className="rounded-xl px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]">
+          <ButtonLink href={cancelHref ?? (song ? `/songs/${song.id}` : "/songs")} variant="secondary" className="rounded-xl px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]">
             Cancel
           </ButtonLink>
-          <SubmitButton className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
-            {song ? "Save Song" : "Create Song"}
-          </SubmitButton>
+          <Button type="submit" disabled={pendingSave} className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
+            {pendingSave ? "Saving…" : song ? isProposal ? "Submit edit request" : "Save Song" : "Create Song"}
+          </Button>
         </div>
       </div>
     </form>

@@ -1,0 +1,296 @@
+{
+  "baseline": "0cdbfc5ee131172e30033ca14461c79602b39ece",
+  "head": "0cdbfc5ee131172e30033ca14461c79602b39ece",
+  "sourceHashes": {
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\scripts\\benchmark-listings-browser.mjs": "2cf1082c225303245691dd5f56c032f3eeb590400b37e62939d46af75420b305",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\package-lock.json": "f8127e489d47758cbb7cc6ddee9c2e499aae9c65c6ebe12bce1a7b2dc763ab84",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\lib\\utils.ts": "e78871045f98038c929d5f253007593b94bf3ffd7329e5d5436b600fb6ac683b",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\components\\ui\\button.tsx": "f5d2c3b504097a07a77bcbb83b5145e41215458e62f5e2192dc3ed2ddf731670",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\lib\\types.ts": "8498e8e846df4766531691e51c80669b66ee22d2f693e8df8747d6fed7eff5e2",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\lib\\domain\\rbac.ts": "a4e9532973272104577ee96cc89f2046285ee0a2a35c2e22fc833667f110291d",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\lib\\sample-data.ts": "d2b5f96236cf4c15399d75467b6d6dbc20b44faecbef4fa30b7ec3b9d94835be",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\lib\\server\\safe-error.ts": "4a254bc1b7fff2cf03992d039af12bda1f726e7926f6ada38a4213ceaba1e9b9",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\components\\ui\\input.tsx": "23afe4bca86cae5a0f6c8bf31dbfe0d24e28b900305ba8d68e676491e2929091",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\components\\search-box.tsx": "c4c68c7312d74a0beed2c7d9882a8943b41bb53e20dc485183401fde5e1da9ed",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\components\\ui\\badge.tsx": "7b63ad5433b2250bd9e5a800e2a6f4d555c5d1027a23d03e8308aa88004b6a4d",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\components\\ui\\card.tsx": "6a870afce80c35e7a566789d63401dd5a21086209e628ccbfdac059112f33e03",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\lib\\domain\\listing-pagination.ts": "52e6f34af1d3a6bc092849fbb9ca497faf97f2c297130ae41e61f0fb93a9fe4c",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\components\\list-pagination.tsx": "6ec95a7fdc8eded09974de644393c644094bd4afa0b6a50e58674918ea9438b9",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\app\\songs\\page.tsx": "2cb18dce10a136496e005d0f56c6d4fd4bcf67f580f3e17df449f1d978fa96f8",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\components\\song-library-grid.tsx": "d83cf4def4b8be7dcfd7a7f4b1250c425b4de65d1125d0e8086d6a0aa708e400",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\lib\\domain\\event-types.ts": "c570b269a1692baab0380136e0fac554226fd3737a72dc2a2f513b09f2ee5f13",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\app\\setlists\\page.tsx": "0341635c6e02c7b14e857d7e2c5090fe0811a1e0555daed26ec6084abaabfbc8",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\src\\components\\setlists-client.tsx": "7706300e2a63b172e5603ed61cb680316ec88f7bc6f1b166858d4adf9f432263",
+    "C:\\Users\\danje\\orca\\workspaces\\Anointed worship setlist - Copy\\Manager\\.next\\static\\css\\e8b9b57349f7725e.css": "723946d93dfe8ce4c45136787774e58f931cfa279445e03410b59ec26e58f4b3"
+  },
+  "fixture": {
+    "members": 50,
+    "songs": 1000,
+    "setlists": 500,
+    "songsPerSetlist": 4
+  },
+  "scope": "Actual listing loaders and clients, synthetic Supabase HTTP fixture; Next shell/navigation/auth/action transport adapted; no live database or complete Next route latency claim",
+  "payloadEvidence": {
+    "songs-before": {
+      "loaderMs": 6.95,
+      "bytes": 254034,
+      "count": 1000,
+      "total": 1000,
+      "queries": [
+        {
+          "table": "songs",
+          "rows": 1000,
+          "total": 1000,
+          "bytes": 260001,
+          "search": "?select=id%2Ctitle%2Cartist%2Coriginal_key%2Cbpm%2Ctime_signature%2Ctags%2Cyoutube_url%2Cimage_url%2Calbum%2Csetlist_songs%28count%29&deleted_at=is.null&team_id=eq.00000000-0000-4000-8000-000000000001&order=title.asc",
+          "args": {}
+        }
+      ]
+    },
+    "songs-after": {
+      "loaderMs": 1.92,
+      "bytes": 12888,
+      "count": 50,
+      "total": 1000,
+      "queries": [
+        {
+          "table": "search_songs",
+          "rows": 50,
+          "total": 1000,
+          "bytes": 13001,
+          "search": "?select=id%2Ctitle%2Cartist%2Coriginal_key%2Cbpm%2Ctime_signature%2Ctags%2Cyoutube_url%2Cimage_url%2Calbum%2Csetlist_songs%28count%29&order=title.asc%2Cid.asc&offset=0&limit=50",
+          "args": {
+            "p_team_id": "00000000-0000-4000-8000-000000000001",
+            "p_query": "",
+            "p_favorites": false,
+            "p_sort": "title"
+          }
+        },
+        {
+          "table": "song_favorites",
+          "rows": 0,
+          "total": 0,
+          "bytes": 2,
+          "search": "?select=song_id&team_member_id=eq.00000000-0000-4000-8000-000000000100&song_id=in.%2800000000-0000-4000-8000-000000001000%2C00000000-0000-4000-8000-000000001001%2C00000000-0000-4000-8000-000000001002%2C00000000-0000-4000-8000-000000001003%2C00000000-0000-4000-8000-000000001004%2C00000000-0000-4000-8000-000000001005%2C00000000-0000-4000-8000-000000001006%2C00000000-0000-4000-8000-000000001007%2C00000000-0000-4000-8000-000000001008%2C00000000-0000-4000-8000-000000001009%2C00000000-0000-4000-8000-000000001010%2C00000000-0000-4000-8000-000000001011%2C00000000-0000-4000-8000-000000001012%2C00000000-0000-4000-8000-000000001013%2C00000000-0000-4000-8000-000000001014%2C00000000-0000-4000-8000-000000001015%2C00000000-0000-4000-8000-000000001016%2C00000000-0000-4000-8000-000000001017%2C00000000-0000-4000-8000-000000001018%2C00000000-0000-4000-8000-000000001019%2C00000000-0000-4000-8000-000000001020%2C00000000-0000-4000-8000-000000001021%2C00000000-0000-4000-8000-000000001022%2C00000000-0000-4000-8000-000000001023%2C00000000-0000-4000-8000-000000001024%2C00000000-0000-4000-8000-000000001025%2C00000000-0000-4000-8000-000000001026%2C00000000-0000-4000-8000-000000001027%2C00000000-0000-4000-8000-000000001028%2C00000000-0000-4000-8000-000000001029%2C00000000-0000-4000-8000-000000001030%2C00000000-0000-4000-8000-000000001031%2C00000000-0000-4000-8000-000000001032%2C00000000-0000-4000-8000-000000001033%2C00000000-0000-4000-8000-000000001034%2C00000000-0000-4000-8000-000000001035%2C00000000-0000-4000-8000-000000001036%2C00000000-0000-4000-8000-000000001037%2C00000000-0000-4000-8000-000000001038%2C00000000-0000-4000-8000-000000001039%2C00000000-0000-4000-8000-000000001040%2C00000000-0000-4000-8000-000000001041%2C00000000-0000-4000-8000-000000001042%2C00000000-0000-4000-8000-000000001043%2C00000000-0000-4000-8000-000000001044%2C00000000-0000-4000-8000-000000001045%2C00000000-0000-4000-8000-000000001046%2C00000000-0000-4000-8000-000000001047%2C00000000-0000-4000-8000-000000001048%2C00000000-0000-4000-8000-000000001049%29",
+          "args": {}
+        }
+      ]
+    },
+    "setlists-before": {
+      "loaderMs": 13.12,
+      "bytes": 712946,
+      "count": 500,
+      "total": 500,
+      "queries": [
+        {
+          "table": "setlists",
+          "rows": 500,
+          "total": 500,
+          "bytes": 819411,
+          "search": "?select=*%2Cevents%28type%29%2Cleader%3Ateam_members%28id%2Cprofile_id%2Cprofiles%28id%2Cfull_name%29%29%2Csetlist_songs%28id%2Cassigned_key%2Csong_order%2Csong%3Asongs%28id%2Ctitle%2Cartist%2Coriginal_key%2Cbpm%2Ctime_signature%2Ctags%29%29&team_id=eq.00000000-0000-4000-8000-000000000001&order=setlist_date.desc",
+          "args": {}
+        }
+      ]
+    },
+    "setlists-after": {
+      "loaderMs": 1.91,
+      "bytes": 33220,
+      "count": 20,
+      "total": 500,
+      "queries": [
+        {
+          "table": "team_members",
+          "rows": 50,
+          "total": 50,
+          "bytes": 4142,
+          "search": "?select=id%2Cprofiles%28full_name%29&team_id=eq.00000000-0000-4000-8000-000000000001&offset=0&limit=1000",
+          "args": {}
+        },
+        {
+          "table": "setlists",
+          "rows": 20,
+          "total": 500,
+          "bytes": 32781,
+          "search": "?select=*%2Cevents%28type%29%2Cleader%3Ateam_members%28id%2Cprofile_id%2Cprofiles%28id%2Cfull_name%29%29%2Csetlist_songs%28id%2Cassigned_key%2Csong_order%2Csong%3Asongs%28id%2Ctitle%2Cartist%2Coriginal_key%2Cbpm%2Ctime_signature%2Ctags%29%29&team_id=eq.00000000-0000-4000-8000-000000000001&deleted_at=is.null&order=setlist_date.desc%2Cid.asc&offset=0&limit=20",
+          "args": {}
+        }
+      ]
+    }
+  },
+  "searchEvidence": {
+    "songs": {
+      "loaderMs": 1.9,
+      "bytes": 460,
+      "count": 1,
+      "total": 1,
+      "queries": [
+        {
+          "table": "search_songs",
+          "rows": 1,
+          "total": 1,
+          "bytes": 261,
+          "search": "?select=id%2Ctitle%2Cartist%2Coriginal_key%2Cbpm%2Ctime_signature%2Ctags%2Cyoutube_url%2Cimage_url%2Calbum%2Csetlist_songs%28count%29&order=title.asc%2Cid.asc&offset=0&limit=50",
+          "args": {
+            "p_team_id": "00000000-0000-4000-8000-000000000001",
+            "p_query": "Song 1000",
+            "p_favorites": false,
+            "p_sort": "title"
+          }
+        },
+        {
+          "table": "song_favorites",
+          "rows": 0,
+          "total": 0,
+          "bytes": 2,
+          "search": "?select=song_id&team_member_id=eq.00000000-0000-4000-8000-000000000100&song_id=in.%2800000000-0000-4000-8000-000000001999%29",
+          "args": {}
+        }
+      ]
+    },
+    "setlists": {
+      "loaderMs": 2.87,
+      "bytes": 6690,
+      "count": 2,
+      "total": 2,
+      "queries": [
+        {
+          "table": "team_members",
+          "rows": 50,
+          "total": 50,
+          "bytes": 4142,
+          "search": "?select=id%2Cprofiles%28full_name%29&team_id=eq.00000000-0000-4000-8000-000000000001&offset=0&limit=1000",
+          "args": {}
+        },
+        {
+          "table": "search_setlists",
+          "rows": 2,
+          "total": 2,
+          "bytes": 3279,
+          "search": "?select=*%2Cevents%28type%29%2Cleader%3Ateam_members%28id%2Cprofile_id%2Cprofiles%28id%2Cfull_name%29%29%2Csetlist_songs%28id%2Cassigned_key%2Csong_order%2Csong%3Asongs%28id%2Ctitle%2Cartist%2Coriginal_key%2Cbpm%2Ctime_signature%2Ctags%29%29&team_id=eq.00000000-0000-4000-8000-000000000001&deleted_at=is.null&order=setlist_date.desc%2Cid.asc&offset=0&limit=20",
+          "args": {
+            "p_team_id": "00000000-0000-4000-8000-000000000001",
+            "p_query": "Song 1000"
+          }
+        }
+      ]
+    }
+  },
+  "measurements": [
+    {
+      "route": "songs",
+      "device": "desktop",
+      "samples": 7,
+      "rawSamples": {
+        "before": [
+          103.5,
+          101.29999999701977,
+          111.20000000298023,
+          496.70000000298023,
+          314.5,
+          334.8999999910593,
+          312.79999999701977
+        ],
+        "after": [
+          27.799999997019768,
+          39.400000005960464,
+          28.5,
+          46.6000000089407,
+          30.399999991059303,
+          58.29999999701977,
+          26.799999997019768
+        ]
+      },
+      "beforeMs": 312.79999999701977,
+      "afterMs": 30.399999991059303,
+      "improvementPercent": 90.28132992603935,
+      "profile": "1280x800, unthrottled"
+    },
+    {
+      "route": "setlists",
+      "device": "desktop",
+      "samples": 7,
+      "rawSamples": {
+        "before": [
+          431.90000000596046,
+          463.59999999403954,
+          473.29999999701977,
+          494.29999999701977,
+          442.79999999701977,
+          469.5,
+          429.80000001192093
+        ],
+        "after": [
+          36.29999999701977,
+          60.599999994039536,
+          46,
+          60.19999998807907,
+          43.19999998807907,
+          44,
+          45.80000001192093
+        ]
+      },
+      "beforeMs": 463.59999999403954,
+      "afterMs": 45.80000001192093,
+      "improvementPercent": 90.12079378504966,
+      "profile": "1280x800, unthrottled"
+    },
+    {
+      "route": "songs",
+      "device": "phone",
+      "samples": 7,
+      "rawSamples": {
+        "before": [
+          2779.1000000089407,
+          2806.2000000029802,
+          2801.3999999910593,
+          2865.8999999910593,
+          3025.5,
+          2793,
+          2760.7000000029802
+        ],
+        "after": [
+          1057.5999999940395,
+          1124.6000000089407,
+          1024.4000000059605,
+          1137.0999999940395,
+          1076.7000000029802,
+          1169.6000000089407,
+          1030.7999999970198
+        ]
+      },
+      "beforeMs": 2801.3999999910593,
+      "afterMs": 1076.7000000029802,
+      "improvementPercent": 61.565645748325245,
+      "profile": "Pixel 7, 4x CPU, 150 ms network latency, 8 Mbps throughput"
+    },
+    {
+      "route": "setlists",
+      "device": "phone",
+      "samples": 7,
+      "rawSamples": {
+        "before": [
+          3510.5999999940395,
+          3838.4000000059605,
+          3770,
+          3843.5,
+          3621.7999999970198,
+          3633.5999999940395,
+          3794.0999999940395
+        ],
+        "after": [
+          1078,
+          1130.0999999940395,
+          1051.5999999940395,
+          1137.2000000029802,
+          1082.7000000029802,
+          1135.2999999970198,
+          1081.7999999970198
+        ]
+      },
+      "beforeMs": 3770,
+      "afterMs": 1082.7000000029802,
+      "improvementPercent": 71.28116710867427,
+      "profile": "Pixel 7, 4x CPU, 150 ms network latency, 8 Mbps throughput"
+    }
+  ]
+}

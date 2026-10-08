@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { chordToNashville, progressionToNashville, transposeChord, transposeProgression, transposeTokens, tokensToNashville } from "@/lib/domain/chords";
 import { ChordDiagrams } from "@/components/chord-diagrams";
 import type { Song } from "@/lib/types";
@@ -8,16 +8,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { Play, Square, Music, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getYouTubeVideoId } from "@/lib/domain/media";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MINOR_KEYS = ["Cm", "C#m", "Dm", "D#m", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
-
-function getYouTubeEmbedId(url?: string): string | null {
-  if (!url) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : null;
-}
 
 function getSpotifyTrackUrls(url?: string): { embed: string; external: string } | null {
   if (!url) return null;
@@ -38,6 +32,20 @@ function getSpotifyTrackUrls(url?: string): { embed: string; external: string } 
   } catch {
     return null;
   }
+}
+
+function getPracticeMeter(timeSignature: string): { beatsPerMeasure: number; label: string } {
+  const [numeratorText, denominatorText] = timeSignature.split("/");
+  const numerator = Number(numeratorText);
+  const denominator = Number(denominatorText);
+  const beatsPerMeasure = Number.isInteger(numerator) && numerator >= 1 && numerator <= 12 ? numerator : 4;
+  const beatUnit = Number.isInteger(denominator) && denominator >= 1 && denominator <= 16 ? denominator : 4;
+
+  return { beatsPerMeasure, label: `${beatsPerMeasure}/${beatUnit}` };
+}
+
+function getInitialPracticeTempo(bpm: number | null): number {
+  return typeof bpm === "number" && Number.isFinite(bpm) && bpm > 0 ? bpm : 80;
 }
 
 // Renders ChordPro tokens: each chord floats perfectly above its syllable
@@ -111,7 +119,6 @@ function playClick(beat: number, volume: number = 0.5) {
 }
 
 import { updateSetlistSongKeyAction } from "@/app/actions";
-import { useTransition } from "react";
 
 export function SongViewer({ 
   song,
@@ -125,6 +132,9 @@ export function SongViewer({
   assignedKey?: string;
 }) {
   const [selectedKey, setSelectedKey] = useState(assignedKey ?? song.currentKey);
+  const [savedKey, setSavedKey] = useState(assignedKey ?? song.currentKey);
+  const [keySaveMessage, setKeySaveMessage] = useState("");
+  const [keySaveError, setKeySaveError] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const handleSaveKey = () => {
@@ -133,9 +143,22 @@ export function SongViewer({
     formData.set("setlistId", setlistId);
     formData.set("slotId", slotId);
     formData.set("assignedKey", selectedKey);
+    setKeySaveMessage("Saving key…");
+    setKeySaveError("");
     startTransition(async () => {
-      await updateSetlistSongKeyAction(formData);
-      // Wait for revalidation or assume success
+      try {
+        const result = await updateSetlistSongKeyAction(formData);
+        if (!result.ok) {
+          setKeySaveMessage("");
+          setKeySaveError(result.message || "Key could not be saved. Please retry.");
+          return;
+        }
+        setSavedKey(selectedKey);
+        setKeySaveMessage(result.message);
+      } catch {
+        setKeySaveMessage("");
+        setKeySaveError("Key could not be saved. Please retry when connected.");
+      }
     });
   };
   const [showNumbers] = useState(false);
@@ -144,10 +167,13 @@ export function SongViewer({
 
   // Metronome State
   const [metronomePlaying, setMetronomePlaying] = useState(false);
-  const [bpm, setBpm] = useState(song.bpm);
+  const [bpm, setBpm] = useState(() => getInitialPracticeTempo(song.bpm));
   const [metronomeVolume, setMetronomeVolume] = useState(0.5);
   const [tapTimes, setTapTimes] = useState<number[]>([]);
-  const [, setCurrentBeat] = useState(1);
+  const [currentBeat, setCurrentBeat] = useState(1);
+  const [practiceTimeSignature, setPracticeTimeSignature] = useState(() => getPracticeMeter(song.timeSignature).label);
+  const meter = getPracticeMeter(practiceTimeSignature);
+  const hasRecordedBpm = typeof song.bpm === "number" && Number.isFinite(song.bpm) && song.bpm > 0;
 
   // Auto-Scroll State
   const [scrollPlaying, setScrollPlaying] = useState(false);
@@ -155,15 +181,20 @@ export function SongViewer({
 
   // Tab State: "chords" | "lyrics"
   const [activeTab, setActiveTab] = useState<"chords" | "lyrics">("chords");
-  const songStateKey = `${song.id}:${song.bpm ?? ""}:${song.currentKey}`;
+  const songStateKey = `${song.id}:${song.bpm ?? ""}:${song.currentKey}:${song.timeSignature}:${assignedKey ?? ""}`;
   const [previousSongStateKey, setPreviousSongStateKey] = useState(songStateKey);
 
   if (songStateKey !== previousSongStateKey) {
     setPreviousSongStateKey(songStateKey);
     setMetronomePlaying(false);
     setScrollPlaying(false);
-    setBpm(song.bpm);
-    setSelectedKey(song.currentKey);
+    setBpm(getInitialPracticeTempo(song.bpm));
+    setCurrentBeat(1);
+    setSelectedKey(assignedKey ?? song.currentKey);
+    setSavedKey(assignedKey ?? song.currentKey);
+    setKeySaveMessage("");
+    setKeySaveError("");
+    setPracticeTimeSignature(getPracticeMeter(song.timeSignature).label);
   }
 
   // Metronome Sound Loop
@@ -180,7 +211,7 @@ export function SongViewer({
 
     const intervalMs = (60 / bpm) * 1000;
     const timer = setInterval(() => {
-      beat = beat === 4 ? 1 : beat + 1;
+      beat = beat === meter.beatsPerMeasure ? 1 : beat + 1;
       setCurrentBeat(beat);
       playClick(beat, metronomeVolume);
     }, intervalMs);
@@ -189,7 +220,7 @@ export function SongViewer({
       window.clearTimeout(initialTick);
       clearInterval(timer);
     };
-  }, [metronomePlaying, bpm, metronomeVolume]);
+  }, [metronomePlaying, bpm, metronomeVolume, meter.beatsPerMeasure]);
 
   // Auto-Scroll Loop
   useEffect(() => {
@@ -220,7 +251,7 @@ export function SongViewer({
     };
   }, [scrollPlaying, scrollSpeed]);
 
-  const embedId = useMemo(() => getYouTubeEmbedId(song.youtubeUrl), [song.youtubeUrl]);
+  const embedId = useMemo(() => getYouTubeVideoId(song.youtubeUrl), [song.youtubeUrl]);
   const spotifyTrackUrls = useMemo(() => getSpotifyTrackUrls(song.spotifyUrl), [song.spotifyUrl]);
   // Extract unique chords (handles both legacy and ChordPro token formats)
   const uniqueChords = useMemo(() => {
@@ -315,13 +346,13 @@ export function SongViewer({
         <div className="flex flex-wrap gap-2 w-full md:w-auto md:justify-end">
           <Link
             href={`/songs/${song.id}/edit`}
-            className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]"
+            className="min-h-11 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]"
           >
             Edit Song
           </Link>
           <Link
             href="/setlists"
-            className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white hover:bg-violet-500"
+            className="min-h-11 rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white hover:bg-violet-500"
           >
             Add to Setlist
           </Link>
@@ -335,32 +366,34 @@ export function SongViewer({
           <div className="flex items-center justify-between w-full">
             <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Key</span>
             <div className="flex items-center gap-2">
-              <button onClick={() => changeKey(-1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">-</button>
+              <button aria-label="Lower song key" onClick={() => changeKey(-1)} className="flex size-11 items-center justify-center rounded-lg bg-white/[0.04] text-sm font-bold hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">-</button>
               <div className="flex items-center gap-1.5">
                 <span className="font-mono text-base font-extrabold text-white min-w-6 text-center">{selectedKey}</span>
                 <span className="text-[9px] font-bold text-zinc-600 whitespace-nowrap">(orig: {song.originalKey})</span>
               </div>
-              <button onClick={() => changeKey(1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">+</button>
+              <button aria-label="Raise song key" onClick={() => changeKey(1)} className="flex size-11 items-center justify-center rounded-lg bg-white/[0.04] text-sm font-bold hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">+</button>
             </div>
           </div>
-          {setlistId && slotId && selectedKey !== assignedKey && (
+          {setlistId && slotId && selectedKey !== savedKey && (
             <button 
               onClick={handleSaveKey} 
               disabled={isPending} 
-              className="w-full rounded-md bg-amber-500/20 px-2 py-1 text-[10px] font-bold uppercase text-amber-300 hover:bg-amber-500/30 transition disabled:opacity-50 flex items-center justify-center gap-1"
+              className="flex min-h-11 w-full items-center justify-center gap-1 rounded-md bg-amber-500/20 px-2 py-1 text-[10px] font-bold uppercase text-amber-300 transition hover:bg-amber-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 disabled:opacity-50"
             >
               <Save className="size-3" /> Save to Setlist
             </button>
           )}
+          {keySaveMessage && <p role="status" className="text-xs text-emerald-300">{keySaveMessage}</p>}
+          {keySaveError && <p role="alert" className="text-xs text-red-300">{keySaveError}</p>}
         </div>
 
         {/* Transpose Selector */}
         <div className="flex items-center justify-between border-r border-white/[0.06] px-4 md:px-6">
           <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Transpose</span>
           <div className="flex items-center gap-2">
-            <button onClick={() => changeTranspose(-1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">-</button>
+            <button aria-label="Transpose down" onClick={() => changeTranspose(-1)} className="flex size-11 items-center justify-center rounded-lg bg-white/[0.04] text-sm font-bold hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">-</button>
             <span className="font-mono text-base font-extrabold text-white min-w-6 text-center">{transposeOffset > 0 ? `+${transposeOffset}` : transposeOffset}</span>
-            <button onClick={() => changeTranspose(1)} className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold">+</button>
+            <button aria-label="Transpose up" onClick={() => changeTranspose(1)} className="flex size-11 items-center justify-center rounded-lg bg-white/[0.04] text-sm font-bold hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">+</button>
           </div>
         </div>
 
@@ -373,7 +406,8 @@ export function SongViewer({
         {/* Time Signature */}
         <div className="flex items-center justify-between pl-4 md:pl-6">
           <span className="text-xs font-bold text-zinc-500 tracking-wide uppercase">Time Sig</span>
-          <select defaultValue="4/4" className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-xs font-bold text-white outline-none focus:border-violet-400">
+          <select aria-label="Practice time signature" value={meter.label} onChange={event => { setPracticeTimeSignature(event.target.value); setCurrentBeat(1); }} className="h-11 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-xs font-bold text-white outline-none focus:border-violet-400">
+            {!["4/4", "3/4", "6/8"].includes(meter.label) && <option value={meter.label}>{meter.label}</option>}
             <option value="4/4" className="bg-[#111014]">4/4</option>
             <option value="3/4" className="bg-[#111014]">3/4</option>
             <option value="6/8" className="bg-[#111014]">6/8</option>
@@ -415,6 +449,7 @@ export function SongViewer({
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wide">Instrument:</span>
               <select
+                aria-label="Chord diagram instrument"
                 value={instrument}
                 onChange={(event) => {
                   const value = event.target.value;
@@ -422,7 +457,7 @@ export function SongViewer({
                     setInstrument(value);
                   }
                 }}
-                className="bg-[#17161b] rounded-lg border border-white/10 px-2.5 py-1 text-xs font-bold text-violet-400 outline-none"
+                className="min-h-11 rounded-lg border border-white/10 bg-[#17161b] px-2.5 text-xs font-bold text-violet-400 outline-none"
               >
                 <option value="guitar" className="bg-[#111014] text-white">Guitar</option>
                 <option value="piano" className="bg-[#111014] text-white">Piano</option>
@@ -449,7 +484,7 @@ export function SongViewer({
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "px-5 py-3 font-semibold transition-all border-b-2 -mb-px",
+              "min-h-11 px-5 py-3 font-semibold transition-all border-b-2 -mb-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400",
               activeTab === tab.id
                 ? "border-violet-500 text-violet-300 font-bold"
                 : "border-transparent text-zinc-500 hover:text-white"
@@ -560,6 +595,7 @@ export function SongViewer({
                   className="w-full h-full"
                   src={`https://www.youtube.com/embed/${embedId}?autoplay=0`}
                   title={`YouTube player for ${song.title}`}
+                  loading="lazy"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   referrerPolicy="strict-origin-when-cross-origin"
                   allowFullScreen
@@ -589,13 +625,19 @@ export function SongViewer({
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[11px] font-bold text-white">Metronome</p>
-                      <p className="text-[9px] text-zinc-500 font-semibold">{bpm} BPM</p>
+                      <p className="text-[9px] text-zinc-500 font-semibold">
+                        {hasRecordedBpm ? `${bpm} BPM` : `Practice tempo · ${bpm} BPM`}
+                      </p>
+                      <p className="text-[9px] text-zinc-500 font-semibold">
+                        {meter.label} meter · beat {currentBeat} of {meter.beatsPerMeasure}
+                      </p>
                     </div>
                     <button
                       type="button"
+                      aria-label={metronomePlaying ? "Stop metronome" : "Start metronome"}
                       onClick={() => setMetronomePlaying((val) => !val)}
                       className={cn(
-                        "flex size-8 items-center justify-center rounded-lg transition",
+                        "flex size-11 items-center justify-center rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400",
                         metronomePlaying ? "bg-red-500 text-white" : "bg-violet-600 text-white hover:bg-violet-500"
                       )}
                     >
@@ -617,7 +659,7 @@ export function SongViewer({
                       step="1"
                       value={bpm}
                       onChange={(e) => setBpm(parseInt(e.target.value))}
-                      className="h-1.5 w-full appearance-none rounded-lg bg-white/[0.08] outline-none accent-violet-500"
+                      className="h-11 w-full touch-none appearance-none rounded-lg bg-white/[0.08] outline-none accent-violet-500"
                     />
                   </div>
 
@@ -635,17 +677,16 @@ export function SongViewer({
                       step="0.05"
                       value={metronomeVolume}
                       onChange={(e) => setMetronomeVolume(parseFloat(e.target.value))}
-                      className="h-1.5 w-full appearance-none rounded-lg bg-white/[0.08] outline-none accent-violet-500"
+                      className="h-11 w-full touch-none appearance-none rounded-lg bg-white/[0.08] outline-none accent-violet-500"
                     />
                   </div>
                 </>
               )}
-
               {/* Tap Tempo Button */}
               <button
                 type="button"
                 onClick={handleTapTempo}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-1.5 text-[10px] font-extrabold text-violet-300 transition hover:bg-white/[0.08] hover:text-white"
+                className="min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.04] py-1.5 text-[10px] font-extrabold text-violet-300 transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
               >
                 🥁 Tap Tempo
               </button>
@@ -660,9 +701,10 @@ export function SongViewer({
                 </div>
                 <button
                   type="button"
+                  aria-label={scrollPlaying ? "Stop auto-scroll" : "Start auto-scroll"}
                   onClick={() => setScrollPlaying((val) => !val)}
                   className={cn(
-                    "flex size-8 items-center justify-center rounded-lg transition",
+                    "flex size-11 items-center justify-center rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400",
                     scrollPlaying ? "bg-red-500 text-white" : "bg-violet-600 text-white hover:bg-violet-500"
                   )}
                 >
@@ -686,9 +728,10 @@ export function SongViewer({
                   min="1" 
                   max="5" 
                   step="1" 
-                  value={scrollSpeed}
+                  aria-label="Auto-scroll speed"
+                value={scrollSpeed}
                   onChange={(e) => setScrollSpeed(parseInt(e.target.value))}
-                  className="w-full accent-violet-500 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                  className="h-11 w-full touch-none cursor-pointer appearance-none rounded-lg bg-white/10 accent-violet-500"
                 />
                 <div className="flex justify-between px-1">
                   <span className="text-[8px] text-zinc-600 font-bold">1</span>

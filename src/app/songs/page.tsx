@@ -1,8 +1,9 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { ListPagination } from "@/components/list-pagination";
 import { SongLibraryGrid } from "@/components/song-library-grid";
 import { ButtonLink } from "@/components/ui/button";
-import { can } from "@/lib/domain/rbac";
 import { songs as sampleSongs } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -11,6 +12,7 @@ import { isDesktopRuntime } from "@/lib/desktop/runtime";
 import { listDesktopSongs } from "@/lib/desktop/workspace";
 import type { Song } from "@/lib/types";
 import { safeErrorDetails } from "@/lib/server/safe-error";
+import { getListingPage, getListingPageCount, parsePageNumber, sanitizeListingSearch } from "@/lib/domain/listing-pagination";
 
 type SongListRow = {
   id: string;
@@ -25,69 +27,110 @@ type SongListRow = {
   album?: string | null;
   setlist_songs: unknown;
 };
+type SearchParams = Promise<{ q?: string; page?: string; sort?: string; favorites?: string }>;
+const PAGE_SIZE = 50;
 
 function playCountFromRelation(value: unknown): number {
   const relation = Array.isArray(value) ? value[0] : value;
-  if (!relation || typeof relation !== "object" || !("count" in relation)) {
-    return 0;
-  }
+  if (!relation || typeof relation !== "object" || !("count" in relation)) return 0;
   return typeof relation.count === "number" ? relation.count : 0;
 }
 
-export default async function SongsPage() {
-  const teamContext = await getRequiredTeamContext();
+function toSong(row: SongListRow, favorite: boolean): Song {
+  return {
+    id: row.id,
+    title: row.title,
+    artist: row.artist,
+    originalKey: row.original_key,
+    currentKey: row.original_key,
+    bpm: row.bpm,
+    timeSignature: row.time_signature ?? "4/4",
+    tags: row.tags || [],
+    favorite,
+    sections: [],
+    youtubeUrl: row.youtube_url ?? undefined,
+    imageUrl: row.image_url ?? undefined,
+    album: row.album ?? undefined,
+    playCount: playCountFromRelation(row.setlist_songs),
+  };
+}
 
-  let songsList: Song[] = hasSupabaseEnv() ? [] : sampleSongs;
-  let totalSongsCount = hasSupabaseEnv() ? 0 : sampleSongs.length;
+export default async function SongsPage({ searchParams = Promise.resolve({}) }: { searchParams?: SearchParams }) {
+  const teamContext = await getRequiredTeamContext();
+  const params = await searchParams;
+  const searchTerm = sanitizeListingSearch(params.q);
+  const favoriteOnly = params.favorites === "true";
+  const sortBy = params.sort === "playCount" ? "playCount" : "title";
+  const requestedPage = Math.min(parsePageNumber(params.page), 1000);
+  let songsList: Song[] = [];
+  let totalSongsCount = 0;
+  let currentPage = 1;
+  let pageCount = 1;
+  const pageRange = (page: number) => getListingPage(page, PAGE_SIZE);
 
   if (isDesktopRuntime() && teamContext.teamId) {
-    songsList = listDesktopSongs(teamContext.teamId);
-    totalSongsCount = songsList.length;
+    const allSongs = listDesktopSongs(teamContext.teamId);
+    const normalized = searchTerm.toLowerCase();
+    const filtered = allSongs.filter((song) =>
+      (!normalized || (song.title + " " + song.artist + " " + song.tags.join(" ")).toLowerCase().includes(normalized))
+      && (!favoriteOnly || song.favorite),
+    );
+    const sorted = [...filtered].sort((left, right) => (sortBy === "playCount" ? (right.playCount ?? 0) - (left.playCount ?? 0) : 0) || left.title.localeCompare(right.title) || left.id.localeCompare(right.id));
+    totalSongsCount = sorted.length;
+    pageCount = getListingPageCount(totalSongsCount, PAGE_SIZE);
+    currentPage = Math.min(requestedPage, pageCount);
+    const range = pageRange(currentPage);
+    songsList = sorted.slice(range.from, range.to + 1);
   } else if (hasSupabaseEnv() && teamContext.teamId) {
     const supabase = await createClient();
-    const initialResult = await supabase
-      .from("songs")
-      .select("id, title, artist, original_key, bpm, time_signature, tags, youtube_url, image_url, album, setlist_songs(count)")
-      .is("deleted_at", null)
-      .eq("team_id", teamContext.teamId)
-      .order("title");
-    const { error } = initialResult;
-    let dbSongs = initialResult.data as SongListRow[] | null;
+    let favoriteIds: string[] | null = null;
 
-    // Fallback if the remote database hasn't had the migration applied yet
-    if (error && error.message.includes("column")) {
-      console.warn(
-        "Migration missing on remote DB, falling back to safe query:",
-        safeErrorDetails(error),
-      );
-      const fallback = await supabase
-        .from("songs")
-        .select("id, title, artist, original_key, bpm, time_signature, tags, youtube_url, setlist_songs(count)")
-        .eq("team_id", teamContext.teamId)
-        .order("title");
-      
-      dbSongs = fallback.data as SongListRow[] | null;
-    }
+    const runQuery = async (withOptionalColumns: boolean, page: number) => {
+      const columns = withOptionalColumns
+        ? "id, title, artist, original_key, bpm, time_signature, tags, youtube_url, image_url, album, setlist_songs(count)"
+        : "id, title, artist, original_key, bpm, time_signature, tags, youtube_url, setlist_songs(count)";
+      let query = supabase.rpc("search_songs", {
+        p_team_id: teamContext.teamId!, p_query: searchTerm, p_favorites: favoriteOnly, p_sort: sortBy,
+      }, { count: "exact" }).select(columns);
+      if (sortBy === "title") query = query.order("title").order("id", { ascending: true });
+      const range = pageRange(page);
+      return query.range(range.from, range.to);
+    };
 
-    if (dbSongs) {
-      songsList = dbSongs.map((s) => ({
-        id: s.id,
-        title: s.title,
-        artist: s.artist,
-        originalKey: s.original_key,
-        currentKey: s.original_key,
-        bpm: s.bpm,
-        timeSignature: s.time_signature ?? "4/4",
-        tags: s.tags || [],
-        favorite: false,
-        sections: [],
-        youtubeUrl: s.youtube_url ?? undefined,
-        imageUrl: s.image_url ?? undefined,
-        album: s.album ?? undefined,
-        playCount: playCountFromRelation(s.setlist_songs),
-      }));
-      totalSongsCount = dbSongs.length;
+    let result = await runQuery(true, requestedPage);
+    if (result.error?.message.includes("column")) {
+      console.warn("Migration missing on remote DB, retrying the safe song list query:", safeErrorDetails(result.error));
+      result = await runQuery(false, requestedPage);
     }
+    totalSongsCount = result.count ?? 0;
+    pageCount = getListingPageCount(totalSongsCount, PAGE_SIZE);
+    currentPage = Math.min(requestedPage, pageCount);
+    if (currentPage !== requestedPage) {
+      result = await runQuery(result.data?.some((row) => "image_url" in row || "album" in row) ?? false, currentPage);
+    }
+    if (result.error) console.warn("Song page query failed:", safeErrorDetails(result.error));
+    const rows = (result.data ?? []) as unknown as SongListRow[];
+    if (teamContext.memberId && rows.length) {
+      const { data, error } = await supabase.from("song_favorites").select("song_id")
+        .eq("team_member_id", teamContext.memberId).in("song_id", rows.map(row => row.id));
+      if (error) console.warn("Favorite songs could not be loaded:", safeErrorDetails(error));
+      favoriteIds = (data ?? []).map(row => row.song_id);
+    }
+    const favoritesOnPage = new Set(favoriteIds ?? []);
+    songsList = ((result.data ?? []) as unknown as SongListRow[]).map((song) => toSong(song, favoritesOnPage.has(song.id)));
+    totalSongsCount = result.count ?? totalSongsCount;
+  } else {
+    const normalized = searchTerm.toLowerCase();
+    const filtered = sampleSongs.filter((song) =>
+      (!normalized || (song.title + " " + song.artist + " " + song.tags.join(" ")).toLowerCase().includes(normalized))
+      && (!favoriteOnly || song.favorite),
+    );
+    const sorted = [...filtered].sort((left, right) => (sortBy === "playCount" ? (right.playCount ?? 0) - (left.playCount ?? 0) : 0) || left.title.localeCompare(right.title) || left.id.localeCompare(right.id));
+    totalSongsCount = sorted.length;
+    pageCount = getListingPageCount(totalSongsCount, PAGE_SIZE);
+    currentPage = Math.min(requestedPage, pageCount);
+    const range = pageRange(currentPage);
+    songsList = sorted.slice(range.from, range.to + 1);
   }
 
   return (
@@ -100,14 +143,14 @@ export default async function SongsPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <ButtonLink href="/songs/trash" variant="secondary" className="px-3">
+          <ButtonLink href="/songs/trash" variant="secondary" className="px-3" aria-label="View deleted songs">
             <Trash2 className="size-4" />
           </ButtonLink>
           <div className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-[#18171c] px-4 py-2.5 text-sm font-bold">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Total Songs</span>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Matching Songs</span>
             <span className="text-white font-extrabold text-base">{totalSongsCount}</span>
           </div>
-          {can(teamContext.role, "songs.create") && (
+          {canForTeam(teamContext, "songs.create") && (
             <ButtonLink href="/songs/new">
               <Plus className="size-4" />
               Add New Song
@@ -116,9 +159,14 @@ export default async function SongsPage() {
         </div>
       </div>
 
-      <div className="mt-8">
-        <SongLibraryGrid songs={songsList} />
-      </div>
+      <SongLibraryGrid songs={songsList} searchTerm={searchTerm} favoritesOnly={favoriteOnly} sortBy={sortBy} />
+      <ListPagination
+        path="/songs"
+        page={currentPage}
+        pageCount={pageCount}
+        totalCount={totalSongsCount}
+        params={{ q: searchTerm || undefined, favorites: favoriteOnly ? "true" : undefined, sort: sortBy }}
+      />
     </AppShell>
   );
 }

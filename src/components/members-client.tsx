@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, useEffect } from "react";
 import { bulkApproveJoinRequestsAction, regenerateTeamCodeAction, removeTeamMemberAction, reviewJoinRequestAction, transferTeamOwnershipAction, updateMemberRoleAction } from "@/app/actions";
 import { Avatar } from "@/components/ui/avatar";
+import { useMemberLastSeen } from "@/components/member-last-seen";
+import { MemberUsageAnalytics } from "@/components/member-usage-analytics";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
@@ -23,6 +25,7 @@ import { cn } from "@/lib/utils";
 export function MembersClient({
   members,
   pendingRequests,
+  requestsError,
   teamCode,
   teamId,
   currentUserRole,
@@ -30,12 +33,15 @@ export function MembersClient({
 }: {
   members: TeamMember[];
   pendingRequests: JoinRequestSummary[];
+  requestsError?: string;
   teamCode: string;
   teamId: string | null;
   currentUserRole: TeamRole | string;
   customRoles?: CustomRole[];
 }) {
   const router = useRouter();
+  const canAssignRoles = currentUserRole === "owner" || currentUserRole === "admin";
+  const lastSeen = useMemberLastSeen(teamId);
   const [requests, setRequests] = useState(pendingRequests);
   const [previousPendingRequests, setPreviousPendingRequests] = useState(pendingRequests);
   const [query, setQuery] = useState("");
@@ -45,7 +51,7 @@ export function MembersClient({
   const [roleValues, setRoleValues] = useState<Record<string, TeamRole>>(() =>
     Object.fromEntries(members.map((member) => [member.id, member.role])) as Record<string, TeamRole>,
   );
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(requestsError ?? "");
   const [isPending, startTransition] = useTransition();
   const [onlineMemberUserIds, setOnlineMemberUserIds] = useState<string[]>([]);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
@@ -97,7 +103,10 @@ export function MembersClient({
     const supabase = createOptionalClient();
     if (!supabase) return;
     const client = supabase;
+    let active = true;
     async function refreshPendingRequests() {
+      if (document.visibilityState === "hidden") return;
+      try {
       const { data, error } = await client
         .from("join_requests")
         .select(joinRequestWithRequesterProfileSelect)
@@ -105,15 +114,24 @@ export function MembersClient({
         .eq("status", "pending")
         .order("created_at", { ascending: false });
 
+      if (!active) return;
       if (error) {
         setStatus("Pending requests could not refresh. Please try again.");
         return;
       }
 
       setRequests((data ?? []).map((request) => normalizeJoinRequest(request as RawJoinRequest)));
-      router.refresh();
+      setStatus("");
+      } catch {
+        if (active) setStatus("Pending requests could not refresh. Please try again.");
+      }
     }
 
+    void refreshPendingRequests();
+    const interval = window.setInterval(() => { void refreshPendingRequests(); }, 30_000);
+    const onFocus = () => { void refreshPendingRequests(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
     const channel = client
       .channel(`team-join-requests-${activeTeamId}`)
       .on(
@@ -125,12 +143,19 @@ export function MembersClient({
       )
       .subscribe();
 
-    return () => { client.removeChannel(channel); };
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+      client.removeChannel(channel);
+    };
   }, [router, teamId]);
 
   useEffect(() => {
     const handleOnlineUsersChanged = (e: Event) => {
-      const onlineIds = (e as CustomEvent).detail || [];
+      const detail: unknown = e instanceof CustomEvent ? e.detail : [];
+      const onlineIds = Array.isArray(detail) ? detail.filter((id): id is string => typeof id === "string") : [];
       setOnlineMemberUserIds(onlineIds);
     };
 
@@ -232,6 +257,7 @@ export function MembersClient({
   const maxRoleCount = useMemo(() => Math.max(...Object.values(roleCounts), 1), [roleCounts]);
 
   const requestPreview = requests.slice(0, 3);
+  const eligiblePreviewIds = requestPreview.filter(request => canAssignRoles || request.requestedRole === "member").map(request => request.id);
   const hiddenRequestCount = Math.max(0, requests.length - requestPreview.length);
 
   return (
@@ -248,7 +274,7 @@ export function MembersClient({
         </ButtonLink>
       </div>
 
-      {status && <p aria-live="polite" className="mt-4 text-sm font-bold text-emerald-300">{status}</p>}
+      {status && <p aria-live="polite" className="mt-4 text-sm font-bold text-zinc-300">{status}</p>}
 
       {/* 3-Column main layout */}
       <section className="mt-7 grid gap-6 lg:grid-cols-[300px_1fr_300px]">
@@ -264,8 +290,9 @@ export function MembersClient({
                   <input
                     type="checkbox"
                     className="accent-violet-600 cursor-pointer"
-                    checked={selectedRequests.size === requestPreview.length && requestPreview.length > 0}
-                    onChange={() => toggleAllRequests(requestPreview.map(r => r.id))}
+                    checked={eligiblePreviewIds.length > 0 && eligiblePreviewIds.every(id => selectedRequests.has(id))}
+                    disabled={eligiblePreviewIds.length === 0}
+                    onChange={() => toggleAllRequests(eligiblePreviewIds)}
                   />
                   Select All
                 </label>
@@ -291,6 +318,7 @@ export function MembersClient({
                       type="checkbox"
                       className="accent-violet-600 cursor-pointer shrink-0"
                       checked={selectedRequests.has(request.id)}
+                      disabled={!canAssignRoles && request.requestedRole !== "member"}
                       onChange={() => toggleRequest(request.id)}
                     />
                     <Avatar name={request.name} src={request.avatarUrl} className="size-9" />
@@ -303,7 +331,7 @@ export function MembersClient({
                     <form action={reviewJoinRequestAction}>
                       <input type="hidden" name="requestId" value={request.id} />
                       <input type="hidden" name="decision" value="approved" />
-                      <button type="submit" className="flex size-7 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition" aria-label={`Approve ${request.name}`}>
+                      <button type="submit" disabled={!canAssignRoles && request.requestedRole !== "member"} title={!canAssignRoles && request.requestedRole !== "member" ? "An owner or admin must approve this role." : undefined} className="flex size-7 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition disabled:opacity-40" aria-label={`Approve ${request.name}`}>
                         <Check className="size-3.5" />
                       </button>
                     </form>
@@ -387,16 +415,17 @@ export function MembersClient({
               </div>
               <div className="divide-y divide-white/[0.06]">
                 {filteredMembers.map((member) => {
-                  const isOnline = onlineMemberUserIds.length > 0 
-                    ? onlineMemberUserIds.includes(member.profile.id)
-                    : (member.status === "active");
+                  const isOnline = member.status === "active" && onlineMemberUserIds.includes(member.profile.id);
 
                   return (
                     <div key={member.id} className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_32px] items-center px-4 py-3 text-xs font-semibold group">
                       <button
                         type="button"
                         aria-label={`View ${member.profile.fullName}`}
-                        onClick={() => setSelectedMember(member)}
+                        onClick={(event) => {
+                          event.currentTarget.focus();
+                          setSelectedMember(member);
+                        }}
                         className="flex items-center gap-3 hover:text-violet-300 transition-colors min-w-0 text-left"
                       >
                         <Avatar name={member.profile.fullName} src={member.profile.avatarUrl} className="size-8" />
@@ -415,7 +444,7 @@ export function MembersClient({
                       <select
                         aria-label={`Role for ${member.profile.fullName}`}
                         value={roleValues[member.id] ?? member.role}
-                        disabled={isPending || member.role === "owner"}
+                        disabled={isPending || member.role === "owner" || (currentUserRole !== "owner" && currentUserRole !== "admin")}
                         onChange={(event) => updateRole(member.id, event.target.value as TeamRole)}
                         className="h-8 w-full max-w-[130px] rounded-lg border border-white/10 bg-white/[0.04] px-2 text-[11px] font-bold text-white outline-none focus:border-violet-400"
                       >
@@ -437,13 +466,13 @@ export function MembersClient({
                       <div className="flex items-center gap-2">
                         <span className={cn("size-2 rounded-full", isOnline ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-zinc-500")} />
                         <span className={cn("text-[10px] font-bold capitalize", isOnline ? "text-emerald-400" : "text-zinc-500")}>
-                          {isOnline ? "Online" : "Offline"}
+                          {isOnline ? "Online" : lastSeen(member.id)}
                         </span>
                       </div>
                       <span className="font-bold text-zinc-200 pl-4">{member.attendanceRate}%</span>
                       <button
                         type="button"
-                        disabled={isPending || member.role === "owner"}
+                        disabled={isPending || member.role === "owner" || (member.role === "admin" && currentUserRole !== "owner" && currentUserRole !== "admin")}
                         onClick={() => kickMember(member.id)}
                         className="flex size-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-red-500/10 hover:text-red-400 transition ml-auto opacity-0 group-hover:opacity-100 disabled:opacity-50"
                         aria-label={`Remove ${member.profile.fullName}`}
@@ -500,6 +529,11 @@ export function MembersClient({
         </div>
 
       </section>
+
+      {(currentUserRole === "owner" || currentUserRole === "admin") && <MemberUsageAnalytics
+        teamId={teamId}
+        memberNames={Object.fromEntries(memberList.map((member) => [member.id, member.profile.fullName]))}
+      />}
 
       {/* Member Profile Drawer */}
       {selectedMember && (

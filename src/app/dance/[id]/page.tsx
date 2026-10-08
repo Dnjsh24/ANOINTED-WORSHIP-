@@ -1,20 +1,14 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { ArrowLeft, Edit2, CalendarDays, Video, Sparkles, Users, ExternalLink, Footprints } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getYouTubeVideoId, safeVideoUrl } from "@/lib/domain/media";
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { can } from "@/lib/domain/rbac";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
-
-function getYoutubeEmbedUrl(url: string | null) {
-  if (!url) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  return match && match[2].length === 11 ? `https://www.youtube.com/embed/${match[2]}` : null;
-}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("en-US", {
@@ -27,7 +21,7 @@ function formatDate(value: string) {
 export default async function DanceChartDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
-  const canManageDanceCharts = can(teamContext.role, "dance_notes.manage");
+  const canManageDanceCharts = canForTeam(teamContext, "dance_notes.manage");
 
   let chart = null;
 
@@ -85,7 +79,9 @@ export default async function DanceChartDetailPage({ params }: { params: Promise
     notFound();
   }
 
-  const embedUrl = getYoutubeEmbedUrl(chart.videoUrl);
+  const videoUrl = safeVideoUrl(chart.videoUrl);
+  const youtubeId = getYouTubeVideoId(videoUrl);
+  const embedUrl = youtubeId ? `https://www.youtube.com/embed/${youtubeId}` : null;
 
   return (
     <AppShell active="Dance Charts" teamContext={teamContext}>
@@ -137,7 +133,7 @@ export default async function DanceChartDetailPage({ params }: { params: Promise
                 {chart.eventName}
               </Badge>
             ) : null}
-            {chart.videoUrl ? (
+            {videoUrl ? (
               <Badge className="inline-flex items-center gap-1.5 text-xs py-1 px-3 bg-red-500/10 text-red-400 border-red-500/20 rounded-lg">
                 <Video className="size-3.5" />
                 Video Reference
@@ -161,7 +157,7 @@ export default async function DanceChartDetailPage({ params }: { params: Promise
             </Card>
 
             {/* Video Reference */}
-            {chart.videoUrl && (
+            {videoUrl && (
               <Card className="p-6 border-white/[0.08] bg-[#111014]/60">
                 <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
                   <Video className="size-5 text-violet-400" />
@@ -171,6 +167,7 @@ export default async function DanceChartDetailPage({ params }: { params: Promise
                   <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 shadow-lg">
                     <iframe
                       src={embedUrl}
+                      loading="lazy"
                       title={`YouTube video for ${chart.title}`}
                       className="absolute inset-0 h-full w-full"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -179,7 +176,7 @@ export default async function DanceChartDetailPage({ params }: { params: Promise
                   </div>
                 ) : (
                   <a
-                    href={chart.videoUrl}
+                    href={videoUrl ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 rounded-lg bg-red-600/10 border border-red-500/20 px-4 py-2.5 text-xs font-bold text-red-400 hover:bg-red-600/20 transition-all"

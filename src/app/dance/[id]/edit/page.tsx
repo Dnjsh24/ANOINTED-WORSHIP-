@@ -1,7 +1,7 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { DanceChartForm, type DanceChartOption } from "@/components/dance-chart-form";
-import { can } from "@/lib/domain/rbac";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
@@ -18,7 +18,7 @@ export default async function EditDanceChartPage({ params }: { params: Promise<{
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
 
-  if (!can(teamContext.role, "dance_notes.manage")) {
+  if (!canForTeam(teamContext, "dance_notes.manage")) {
     redirect(`/dance/${id}`);
   }
 

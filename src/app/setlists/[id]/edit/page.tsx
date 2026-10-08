@@ -4,7 +4,7 @@ import { SetlistForm } from "@/components/setlist-form";
 import { Panel } from "@/components/ui/card";
 import { type SetlistFormSong } from "@/components/setlist-form";
 import { SaveAsTemplateButton } from "@/components/save-as-template-button";
-import { setlists as sampleSetlists } from "@/lib/sample-data";
+import { setlists as sampleSetlists, songs as sampleSongs } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
@@ -12,13 +12,15 @@ import type { EventType, Setlist } from "@/lib/types";
 
 type EditableSetlistRow = {
   id: string;
+  sync_revision: number;
   name: string;
+  notes: string | null;
   setlist_date: string;
   location: string;
   call_time: string;
   rehearsal_time: string;
   service_times: string[] | null;
-  events: { type: EventType } | Array<{ type: EventType }> | null;
+  events: { type: EventType; sync_revision: number } | Array<{ type: EventType; sync_revision: number }> | null;
 };
 
 export default async function EditSetlistPage({ params }: { params: Promise<{ id: string }> }) {
@@ -26,7 +28,9 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
   const teamContext = await getRequiredTeamContext();
 
   let setlist: Setlist | null = null;
-  let allSongs: SetlistFormSong[] = [];
+  let revision = 0;
+  let eventRevision: number | undefined;
+  let allSongs: SetlistFormSong[] = hasSupabaseEnv() ? [] : sampleSongs.map(song => ({ id: song.id, title: song.title, original_key: song.originalKey, bpm: song.bpm ?? null }));
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
@@ -37,7 +41,7 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
       .select(`
         *,
         events (
-          type
+          type, sync_revision
         )
       `)
       .eq("id", id)
@@ -46,12 +50,15 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
     const dbSetlist = data as unknown as EditableSetlistRow | null;
 
     if (dbSetlist) {
+      revision = dbSetlist.sync_revision;
       const linkedEvent = Array.isArray(dbSetlist.events)
         ? dbSetlist.events[0]
         : dbSetlist.events;
+      eventRevision = linkedEvent?.sync_revision;
       setlist = {
         id: dbSetlist.id,
         name: dbSetlist.name,
+        notes: dbSetlist.notes ?? "",
         date: dbSetlist.setlist_date,
         location: dbSetlist.location,
         callTime: dbSetlist.call_time,
@@ -90,19 +97,26 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
         .order("song_order", { ascending: true });
         
       if (selectedSongsData) {
-        setlist.songs = selectedSongsData.map((row: any) => {
+        setlist.songs = selectedSongsData.flatMap((row) => {
           const s = Array.isArray(row.songs) ? row.songs[0] : row.songs;
-          return {
+          if (!s) return [];
+          return [{
             id: row.id,
             order: row.song_order,
             assignedKey: row.assigned_key,
             song: {
-              id: s?.id,
-              title: s?.title,
-              originalKey: s?.original_key,
-              bpm: s?.bpm,
-            } as any
-          };
+              id: s.id,
+              title: s.title,
+              originalKey: s.original_key,
+              currentKey: s.original_key,
+              bpm: s.bpm,
+              artist: "",
+              timeSignature: "4/4",
+              tags: [],
+              favorite: false,
+              sections: [],
+            },
+          }];
         });
       }
     }
@@ -130,7 +144,7 @@ export default async function EditSetlistPage({ params }: { params: Promise<{ id
         <SaveAsTemplateButton setlistId={setlist.id} />
       </div>
       <Panel>
-        <SetlistForm setlist={setlist} songs={allSongs.length > 0 ? allSongs : undefined} />
+        <SetlistForm setlist={setlist} revision={revision} eventRevision={eventRevision} songs={allSongs.length > 0 ? allSongs : undefined} />
       </Panel>
     </AppShell>
   );

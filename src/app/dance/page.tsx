@@ -1,9 +1,9 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { Footprints } from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { DanceChartForm, type DanceChartOption } from "@/components/dance-chart-form";
 import { DanceLibraryList } from "@/components/dance-library-list";
-import { can } from "@/lib/domain/rbac";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
@@ -55,7 +55,7 @@ type DanceNoteRow = {
 export default async function DanceChartsPage({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
   const { new: isNew } = await searchParams;
   const teamContext = await getRequiredTeamContext();
-  const canManageDanceCharts = can(teamContext.role, "dance_notes.manage");
+  const canManageDanceCharts = canForTeam(teamContext, "dance_notes.manage");
   const showForm = isNew === "true" && canManageDanceCharts;
 
   let charts: DanceChart[] = [];

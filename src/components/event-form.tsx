@@ -1,27 +1,14 @@
 "use client";
 
-import { type Dispatch, type ReactNode, type SetStateAction, useActionState, useEffect, useId, useRef, useState } from "react";
+import { type Dispatch, type ReactNode, type SetStateAction, useActionState, useEffect, useId, useRef, useState, useTransition } from "react";
 import { AlertCircle, Plus, X } from "lucide-react";
 import type { ServiceTemplate, TeamMember } from "@/lib/types";
 import { createEventAction, updateEventAction } from "@/app/actions";
-import { ActionMessage, SubmitButton } from "@/components/action-form";
-import { ButtonLink } from "@/components/ui/button";
+import { ActionMessage } from "@/components/action-form";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { eventConflictResponseSchema, type EventAssignments } from "@/lib/domain/event-workflows";
 import { initialActionState } from "@/lib/action-state";
-
-export interface EventAssignments {
-  worshipLeader?: string;
-  acousticGuitar?: string;
-  electricGuitar?: string;
-  bass?: string;
-  drums?: string;
-  mainKeys?: string;
-  secondKeys?: string;
-  extraBandMembers?: string[];
-  backupSingers?: string[];
-  media?: string;
-  dancers?: string[];
-}
 
 type AssignmentRow = { id: string; };
 
@@ -38,6 +25,7 @@ export function EventForm({
   requiresApproval = false,
   canLinkSetlists = true,
   initialEvent,
+  revision = 0,
 }: {
   teamMembers?: TeamMember[];
   serviceTemplates?: ServiceTemplate[];
@@ -61,13 +49,25 @@ export function EventForm({
     notes: string;
     linkedSetlistId: string;
   };
+  revision?: number;
 }) {
   const actionToUse = initialEvent ? updateEventAction : createEventAction;
-  const [state, formAction] = useActionState(actionToUse, initialActionState);
+  const [, startSave] = useTransition();
+  const [state, formAction, pendingSave] = useActionState(async (previous: typeof initialActionState, data: FormData) => {
+    try { return await actionToUse(previous, data); }
+    catch { return { ok: false, message: "The save could not be confirmed. Your draft is retained. Retry when connected." }; }
+  }, initialActionState);
   const [eventType, setEventType] = useState(initialEvent?.type ?? "service");
   const [recurrence, setRecurrence] = useState("none");
   const [eventDate, setEventDate] = useState(initialEvent?.date ?? defaultDate ?? "");
-  const [conflicts, setConflicts] = useState<{ memberName: string; eventName: string }[]>([]);
+  const [startTime, setStartTime] = useState(initialEvent?.startTime ?? "09:00");
+  const [endTime, setEndTime] = useState(initialEvent?.endTime ?? "12:30");
+  const [rehearsalDate, setRehearsalDate] = useState(initialEvent?.rehearsalDate ?? "");
+  const [rehearsalStartTime, setRehearsalStartTime] = useState(initialEvent?.rehearsalStartTime || "07:00");
+  const [rehearsalEndTime, setRehearsalEndTime] = useState(initialEvent?.rehearsalEndTime || "08:30");
+  const [conflictResult, setConflictResult] = useState<{ schedule: string; conflicts: Array<{ memberName: string; eventName: string }>; error?: string }>();
+  const [acknowledgedSchedule, setAcknowledgedSchedule] = useState("");
+  const [conflictRetry, setConflictRetry] = useState(0);
     
   const isServiceRehearsal = eventType === "service_rehearsal";
 
@@ -127,54 +127,45 @@ export function EventForm({
     setDancerRows(createAssignmentRows("dancer", nextAssignments.dancers, 3));
   }
 
-  // Conflict detection
+  const memberIds = Array.from(new Set(Object.values(assignmentValues).flatMap((value) => Array.isArray(value) ? value : value ? [value] : []).filter(Boolean))).sort();
+  const schedule = eventDate && memberIds.length ? JSON.stringify({
+    date: eventDate, memberIds, excludeEventId: initialEvent?.id, startTime,
+    endTime: endTime || undefined,
+    rehearsalDate: isServiceRehearsal && rehearsalDate ? rehearsalDate : undefined,
+    rehearsalStartTime: isServiceRehearsal && rehearsalDate ? rehearsalStartTime : undefined,
+    rehearsalEndTime: isServiceRehearsal && rehearsalDate && rehearsalEndTime ? rehearsalEndTime : undefined,
+  }) : "";
+  const currentResult = conflictResult?.schedule === schedule ? conflictResult : undefined;
+  const conflicts = currentResult?.conflicts ?? [];
+  const checkingConflicts = Boolean(schedule && !currentResult);
+
   useEffect(() => {
-    if (!eventDate) {
-      queueMicrotask(() => setConflicts([]));
-      return;
-    }
-
-    const assignedIds = new Set<string>();
-    for (const value of Object.values(assignmentValues)) {
-      if (Array.isArray(value)) {
-        value.forEach((id) => id && assignedIds.add(id));
-      } else if (value) {
-        assignedIds.add(value);
-      }
-    }
-
-    if (assignedIds.size === 0) {
-      queueMicrotask(() => setConflicts([]));
-      return;
-    }
-
-    const checkConflicts = async () => {
+    if (!schedule) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
       try {
-        const res = await fetch("/api/events/conflict-check", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            date: eventDate,
-            memberIds: Array.from(assignedIds),
-            excludeEventId: initialEvent?.id
-          })
+        const response = await fetch("/api/events/conflict-check", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: schedule, signal: controller.signal,
         });
-        if (res.ok) {
-          const data = await res.json();
-          setConflicts(data.conflicts || []);
-        }
-      } catch (err) {
-        console.error("Failed to check conflicts", err);
+        if (!response.ok) throw new Error("Conflict check unavailable");
+        const result = eventConflictResponseSchema.safeParse(await response.json());
+        if (!result.success) throw new Error("Invalid conflict response");
+        if (!controller.signal.aborted) setConflictResult({ schedule, conflicts: result.data.conflicts });
+      } catch {
+        if (!controller.signal.aborted) setConflictResult({ schedule, conflicts: [], error: "Scheduling conflicts could not be checked. Please retry before saving." });
       }
-    };
-
-    const timer = setTimeout(checkConflicts, 500); // debounce
-    return () => clearTimeout(timer);
-  }, [eventDate, assignmentValues, initialEvent?.id]);
+    }, 500);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [schedule, conflictRetry]);
 
   return (
     <div className="animate-fade-in">
-      <form action={formAction} className="space-y-6">
+      <form className="space-y-6" onSubmit={(event) => {
+        event.preventDefault();
+        if (checkingConflicts || (conflicts.length > 0 && acknowledgedSchedule !== schedule)) return;
+        const data = new FormData(event.currentTarget);
+        startSave(() => formAction(data));
+      }}>
         <ActionMessage state={state} />
 
         {requiresApproval ? (
@@ -184,7 +175,15 @@ export function EventForm({
         ) : null}
 
         {initialEvent ? <input type="hidden" name="eventId" value={initialEvent.id} /> : null}
+        <input type="hidden" name="revision" value={revision} />
         
+        {checkingConflicts && <p role="status" className="text-sm text-zinc-300">Checking scheduling conflicts...</p>}
+        {currentResult?.error && (
+          <div role="alert" className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+            <p>{currentResult.error}</p>
+            <button type="button" className="mt-2 underline" onClick={() => { setConflictResult(undefined); setConflictRetry((value) => value + 1); }}>Retry conflict check</button>
+          </div>
+        )}
         {conflicts.length > 0 && (
           <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4 animate-fade-down">
             <div className="flex items-center gap-2 mb-2">
@@ -198,6 +197,10 @@ export function EventForm({
                 </li>
               ))}
             </ul>
+            <label className="mt-3 flex items-center gap-2 text-sm text-yellow-100">
+              <input type="checkbox" required checked={acknowledgedSchedule === schedule} onChange={(event) => setAcknowledgedSchedule(event.target.checked ? schedule : "")} />
+              I reviewed these conflicts and want to save this schedule.
+            </label>
           </div>
         )}
 
@@ -287,11 +290,11 @@ export function EventForm({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label className="block space-y-1.5">
                 <span className="text-xs font-bold text-zinc-300">{isServiceRehearsal ? "Service start time" : "Start time"} *</span>
-                <Input type="time" name="startTime" defaultValue={initialEvent?.startTime ?? "09:00"} required className="rounded-xl border-white/10" />
+                <Input type="time" name="startTime" value={startTime} onChange={(event) => setStartTime(event.target.value)} required className="rounded-xl border-white/10" />
               </label>
               <label className="block space-y-1.5">
                 <span className="text-xs font-bold text-zinc-300">{isServiceRehearsal ? "Service end time" : "End time"}</span>
-                <Input type="time" name="endTime" defaultValue={initialEvent?.endTime ?? "12:30"} className="rounded-xl border-white/10" />
+                <Input type="time" name="endTime" value={endTime} onChange={(event) => setEndTime(event.target.value)} className="rounded-xl border-white/10" />
               </label>
             </div>
 
@@ -301,15 +304,15 @@ export function EventForm({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <label className="block space-y-1.5">
                     <span className="text-xs font-bold text-zinc-300">Rehearsal date *</span>
-                    <Input type="date" name="rehearsalDate" defaultValue={initialEvent?.rehearsalDate ?? ""} className="rounded-xl border-white/10" />
+                    <Input type="date" name="rehearsalDate" value={rehearsalDate} onChange={(event) => setRehearsalDate(event.target.value)} required className="rounded-xl border-white/10" />
                   </label>
                   <label className="block space-y-1.5">
                     <span className="text-xs font-bold text-zinc-300">Rehearsal start time *</span>
-                    <Input type="time" name="rehearsalStartTime" defaultValue={initialEvent?.rehearsalStartTime ?? "07:00"} required className="rounded-xl border-white/10" />
+                    <Input type="time" name="rehearsalStartTime" value={rehearsalStartTime} onChange={(event) => setRehearsalStartTime(event.target.value)} required className="rounded-xl border-white/10" />
                   </label>
                   <label className="block space-y-1.5">
                     <span className="text-xs font-bold text-zinc-300">Rehearsal end time</span>
-                    <Input type="time" name="rehearsalEndTime" defaultValue={initialEvent?.rehearsalEndTime ?? "08:30"} className="rounded-xl border-white/10" />
+                    <Input type="time" name="rehearsalEndTime" value={rehearsalEndTime} onChange={(event) => setRehearsalEndTime(event.target.value)} className="rounded-xl border-white/10" />
                   </label>
                 </div>
               </div>
@@ -439,9 +442,9 @@ export function EventForm({
           <ButtonLink href="/events" variant="secondary" className="rounded-xl px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]">
             Cancel
           </ButtonLink>
-          <SubmitButton className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
-            {initialEvent ? "Save Changes" : requiresApproval ? "Request Event" : "Create Event"}
-          </SubmitButton>
+          <Button type="submit" disabled={pendingSave} className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
+            {pendingSave ? "Saving…" : initialEvent ? "Save Changes" : requiresApproval ? "Request Event" : "Create Event"}
+          </Button>
         </div>
       </form>
     </div>

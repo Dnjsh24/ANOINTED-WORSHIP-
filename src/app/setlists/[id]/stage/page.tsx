@@ -1,3 +1,4 @@
+import { parseSongSlotNotes } from "@/lib/domain/song-slot-notes";
 import { notFound } from "next/navigation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -5,6 +6,8 @@ import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import StageModeClient from "./stage-mode-client";
 import type { Viewport } from "next";
 import type { Database } from "@/lib/supabase/database.types";
+import { setlists as sampleSetlists } from "@/lib/sample-data";
+import { formatSongToText } from "@/lib/domain/chords";
 
 type StageSetlistSongRow = Pick<
   Database["public"]["Tables"]["setlist_songs"]["Row"],
@@ -12,7 +15,7 @@ type StageSetlistSongRow = Pick<
 > & {
   song: Pick<
     Database["public"]["Tables"]["songs"]["Row"],
-    "id" | "title" | "bpm" | "original_key" | "lyrics_chords" | "youtube_url"
+    "id" | "title" | "bpm" | "original_key" | "time_signature" | "lyrics_chords" | "youtube_url"
   > | null;
 };
 
@@ -30,10 +33,29 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
 
+  if (!hasSupabaseEnv()) {
+    const sample = sampleSetlists.find(setlist => setlist.id === id);
+    if (!sample) notFound();
+    return <StageModeClient setlist={{
+      id: sample.id,
+      date: sample.date,
+      type: sample.eventType ?? "service",
+      songs: [...sample.songs].sort((a, b) => a.order - b.order).map(slot => ({
+        id: slot.id,
+        order: slot.order,
+        assignedKey: slot.assignedKey,
+        lead: slot.lead ?? "",
+        youtubeUrl: slot.song.youtubeUrl ?? null,
+        arrangement: slot.arrangement ?? null,
+        song: { id: slot.song.id, title: slot.song.title, bpm: slot.song.bpm ?? 70, originalKey: slot.song.originalKey, timeSignature: slot.song.timeSignature ?? "4/4", lyricsChords: formatSongToText(slot.song) },
+      })),
+    }} />;
+  }
+
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("setlists")
       .select(`
         *,
@@ -51,6 +73,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
             title,
             bpm,
             original_key,
+            time_signature,
             lyrics_chords,
             youtube_url
           )
@@ -59,6 +82,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
       .maybeSingle();
+    if (error) throw new Error("Stage mode could not load. Please retry.");
     const dbSetlist = data as unknown as StageSetlistRow | null;
 
     if (dbSetlist) {
@@ -69,9 +93,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
 
       const songsList = dbSetlistSongs.map((ss) => {
         let leadVocal = "";
-        if (ss.notes && ss.notes.startsWith("Lead: ")) {
-          leadVocal = ss.notes.replace("Lead: ", "");
-        }
+        leadVocal = parseSongSlotNotes(ss.notes).lead;
         return {
           id: ss.id,
           order: ss.song_order,
@@ -84,6 +106,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
             title: ss.song?.title || "Unknown Song",
             bpm: ss.song?.bpm || 70,
             originalKey: ss.song?.original_key || "C",
+            timeSignature: ss.song?.time_signature ?? "4/4",
             lyricsChords: ss.song?.lyrics_chords || "",
           },
         };

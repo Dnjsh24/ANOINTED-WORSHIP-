@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { createSetlistAction, updateSetlistAction, deleteSetlistAction } from "@/app/actions";
-import { ActionMessage, SubmitButton } from "@/components/action-form";
+import { ActionMessage } from "@/components/action-form";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { initialActionState } from "@/lib/action-state";
@@ -12,8 +13,8 @@ import {
   resolveSetlistEventType,
 } from "@/lib/domain/event-types";
 import type { EventType, Setlist } from "@/lib/types";
-import { DndContext, useDraggable, useDroppable, DragOverlay, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
-import { Trash2 } from "lucide-react";
+import { DndContext, useDraggable, useDroppable, DragOverlay, MouseSensor, TouchSensor, KeyboardSensor, useSensor, useSensors, pointerWithin, rectIntersection, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
+import { GripVertical, Plus, Trash2 } from "lucide-react";
 
 export type SetlistFormSong = {
   id: string;
@@ -35,16 +36,24 @@ function isSetlistFormSong(value: unknown): value is SetlistFormSong {
   );
 }
 
-function DraggableSong({ song }: { song: SetlistFormSong }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+function DraggableSong({ song, onAdd, selected }: { song: SetlistFormSong; onAdd: () => void; selected: boolean }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({
     id: `song-${song.id}`,
     data: song,
   });
   const style = { opacity: isDragging ? 0.4 : 1 };
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className="p-3 border border-white/10 rounded-xl bg-[#17161b] hover:bg-[#1f1e24] hover:border-violet-500/50 cursor-grab active:cursor-grabbing mb-2 transition-colors">
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 p-3 border border-white/10 rounded-xl bg-[#17161b] hover:bg-[#1f1e24] hover:border-violet-500/50 mb-2 transition-colors">
+      <button type="button" ref={setActivatorNodeRef} {...listeners} {...attributes} aria-label={`Drag ${song.title}`} className="touch-none select-none flex size-11 shrink-0 items-center justify-center cursor-grab active:cursor-grabbing rounded-lg hover:bg-white/10">
+        <GripVertical className="size-5 text-zinc-400" />
+      </button>
+      <div className="min-w-0 flex-1">
       <div className="text-sm font-bold text-white">{song.title}</div>
       <div className="text-xs text-zinc-400 mt-1">{song.original_key} • {song.bpm} BPM</div>
+      </div>
+      <button type="button" onClick={onAdd} disabled={selected} aria-label={`Add ${song.title}`} className="flex size-11 shrink-0 items-center justify-center rounded-lg text-violet-300 hover:bg-white/10 disabled:opacity-40">
+        <Plus className="size-5" />
+      </button>
     </div>
   );
 }
@@ -57,7 +66,7 @@ function DroppableZone({ selectedSongs, onRemove }: { selectedSongs: SetlistForm
       <div ref={setNodeRef} className={`p-4 rounded-xl border-2 border-dashed transition-colors min-h-[120px] ${isOver ? 'border-violet-500 bg-violet-500/10' : 'border-white/20 bg-[#111014]/40'}`}>
         {selectedSongs.length === 0 ? (
           <div className="flex items-center justify-center h-full text-xs text-zinc-500 text-center py-6">
-            Drag songs here from the right side
+            Hold a song’s drag handle and drag here, or tap its Add button.
           </div>
         ) : (
           <div className="space-y-2">
@@ -88,15 +97,23 @@ export function SetlistForm({
   initialEventType,
   templateId,
   songs,
+  revision = 0,
+  eventRevision,
   }: {
   setlist?: Setlist;
   eventId?: string;
   initialEventType?: EventType;
   templateId?: string;
   songs?: SetlistFormSong[];
+  revision?: number;
+  eventRevision?: number;
   }) {
   const action = setlist ? updateSetlistAction : createSetlistAction;
-  const [state, formAction] = useActionState(action, initialActionState);
+  const [, startSave] = useTransition();
+  const [state, formAction, pendingSave] = useActionState(async (previous: typeof initialActionState, data: FormData) => {
+    try { return await action(previous, data); }
+    catch { return { ok: false, message: "The save could not be confirmed. Your draft is retained. Retry when connected." }; }
+  }, initialActionState);
   const [serviceTitle, setServiceTitle] = useState(setlist?.name ?? "");
   const [eventType] = useState(() => resolveSetlistEventType(setlist?.eventType ?? initialEventType, setlist?.serviceTimes));
   const [serviceType] = useState(() => getPrimaryServiceType(setlist?.serviceTimes) || DEFAULT_SERVICE_TYPE);
@@ -109,13 +126,22 @@ export function SetlistForm({
       return setlist.songs.map((s) => ({
         id: s.song.id,
         title: s.song.title,
-        original_key: (s.song as any).originalKey || (s.song as any).original_key || s.assignedKey || "",
+        original_key: s.song.originalKey || s.assignedKey || "",
         bpm: s.song.bpm || null,
       }));
     }
     return [];
   });
   const [activeSong, setActiveSong] = useState<SetlistFormSong | null>(null);
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  function addSong(song: SetlistFormSong) {
+    setSelectedSongs(current => current.some(selected => selected.id === song.id) ? current : [...current, song]);
+  }
 
   function handleDragStart(event: DragStartEvent) {
     const { active } = event;
@@ -129,16 +155,16 @@ export function SetlistForm({
     const { active, over } = event;
     if (over && over.id === "setlist-dropzone") {
        const song = active.data.current;
-       if (isSetlistFormSong(song) && !selectedSongs.some(s => s.id === song.id)) {
-         setSelectedSongs([...selectedSongs, song]);
-       }
+       if (isSetlistFormSong(song)) addSong(song);
     }
   }
 
   return (
-    <DndContext id="setlist-form-dnd" onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext id="setlist-form-dnd" sensors={sensors} collisionDetection={args => args.pointerCoordinates ? pointerWithin(args) : rectIntersection(args)} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setActiveSong(null)}>
       <div className="animate-fade-in">
-        <form action={formAction} className="space-y-6">
+        <form onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); startSave(() => formAction(data)); }} className="space-y-6">
+          <input type="hidden" name="revision" value={revision} />
+          {eventRevision !== undefined && <input type="hidden" name="eventRevision" value={eventRevision} />}
           {setlist && <input type="hidden" name="setlistId" value={setlist.id} />}
           {eventId && <input type="hidden" name="eventId" value={eventId} />}
           {templateId && <input type="hidden" name="templateId" value={templateId} />}
@@ -199,7 +225,7 @@ export function SetlistForm({
                   {songs
                     .filter(song => song.title.toLowerCase().includes(searchQuery.toLowerCase()))
                     .map(song => (
-                      <DraggableSong key={song.id} song={song} />
+                      <DraggableSong key={song.id} song={song} onAdd={() => addSong(song)} selected={selectedSongs.some(selected => selected.id === song.id)} />
                   ))}
                   {songs.filter(song => song.title.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
                     <p className="text-xs text-zinc-500 text-center py-4">
@@ -216,9 +242,9 @@ export function SetlistForm({
             <ButtonLink href={setlist ? `/setlists/${setlist.id}` : "/setlists"} variant="secondary" className="rounded-xl px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]">
               Cancel
             </ButtonLink>
-            <SubmitButton className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
+            <Button type="submit" disabled={pendingSave} className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
               {setlist ? "Save Changes" : "Create Setlist"}
-            </SubmitButton>
+            </Button>
           </div>
         </form>
 
@@ -245,14 +271,14 @@ export function SetlistForm({
           </div>
         )}
       </div>
-      <DragOverlay dropAnimation={null}>
+      {typeof document !== "undefined" ? createPortal(<DragOverlay dropAnimation={null}>
         {activeSong ? (
           <div className="p-3 border border-violet-500/50 rounded-xl bg-[#1f1e24] shadow-2xl shadow-black/50 cursor-grabbing w-[310px] m-0">
             <div className="text-sm font-bold text-white truncate">{activeSong.title}</div>
             <div className="text-xs text-zinc-400 mt-1">{activeSong.original_key} • {activeSong.bpm} BPM</div>
           </div>
         ) : null}
-      </DragOverlay>
+      </DragOverlay>, document.body) : null}
     </DndContext>
   );
 }

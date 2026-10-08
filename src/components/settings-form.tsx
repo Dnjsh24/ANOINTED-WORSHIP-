@@ -4,12 +4,14 @@ import { useActionState } from "react";
 import { updateTeamSettingsAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { Input } from "@/components/ui/input";
+import { RegenerateTeamCodeButton } from "@/components/team-code-actions";
 import { initialActionState } from "@/lib/action-state";
 
 export function SettingsForm({
   teamName,
   teamCode,
   isAdmin = false,
+  canRegenerateCode = false,
   defaultServiceLocation = "Main Sanctuary",
   defaultCallTime = "08:00",
   defaultRehearsalTime = "08:15",
@@ -17,6 +19,7 @@ export function SettingsForm({
   teamName: string;
   teamCode: string;
   isAdmin?: boolean;
+  canRegenerateCode?: boolean;
   defaultServiceLocation?: string;
   defaultCallTime?: string;
   defaultRehearsalTime?: string;
@@ -75,14 +78,16 @@ export function SettingsForm({
         <aside className="rounded-lg border border-white/10 bg-[#17161b] p-5">
           <h2 className="text-xl font-bold">Role Permissions Summary</h2>
           <div className="mt-4 space-y-3 text-sm font-semibold text-zinc-300">
-            <p>Owner/Admin: members, settings, invites, team code.</p>
-            <p>Worship/Band leaders: setlists, events, song reviews.</p>
+            <p>Owner: team settings and permissions.</p>
+            <p>Admins: members, invites, team code.</p>
+            <p>Leaders: setlists and events, according to permissions.</p>
             <p>Members: attendance, messages, own profile.</p>
           </div>
           {isAdmin && (
             <div className="mt-6 rounded-md border border-white/10 bg-violet-400/5 p-4 text-center">
               <p className="font-mono text-[10px] font-bold uppercase text-zinc-400">Team code</p>
               <p className="mt-2 text-3xl font-bold text-violet-200">{teamCode}</p>
+              {canRegenerateCode && <RegenerateTeamCodeButton />}
             </div>
           )}
         </aside>

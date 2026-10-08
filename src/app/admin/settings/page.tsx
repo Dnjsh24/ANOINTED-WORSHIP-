@@ -5,6 +5,9 @@ import { teamCode } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+import { canForTeam, type PermissionOverrideRow } from "@/lib/domain/permission-overrides";
+import type { PermissionMember } from "@/components/team-permission-editor";
+import { PERMISSION_LABELS, type Permission } from "@/lib/domain/rbac";
 import type { CustomRole } from "@/lib/types";
 
 function formatTimeForInput(timeStr: string | null): string {
@@ -24,6 +27,7 @@ function formatTimeForInput(timeStr: string | null): string {
 }
 
 interface ActivityEntry {
+  id: string;
   user: string;
   action: string;
   time: string;
@@ -33,12 +37,12 @@ interface ActivityEntry {
 export default async function AdminSettingsPage() {
   const teamContext = await getRequiredTeamContext();
 
-  if (!teamContext.canManageMembers) {
+  if (!teamContext.canManageMembers && !canForTeam(teamContext, "team.manage")) {
     redirect("/dashboard");
   }
 
   const code = teamContext.teamCode ?? teamCode;
-  const isAdmin = teamContext.canManageMembers;
+  const isAdmin = canForTeam(teamContext, "team.manage");
 
   let defaultServiceLocation = "Main Sanctuary";
   let defaultCallTime = "08:00";
@@ -47,11 +51,15 @@ export default async function AdminSettingsPage() {
   let memberCountsByRole: Record<string, number> = {};
   let totalMembers = 0;
   let customRoles: CustomRole[] = [];
+  let permissionMembers: PermissionMember[] = [];
+  let permissionRows: PermissionOverrideRow[] = [];
+  let permissionsAvailable = false;
+  let activityError = "";
 
   if (hasSupabaseEnv() && teamContext.teamId) {
     const supabase = await createClient();
 
-    const [settingsResult, changesResult, eventsResult, teamMembersResult] = await Promise.all([
+    const [settingsResult, changesResult, eventsResult, teamMembersResult, logsResult, overridesResult] = await Promise.all([
       supabase
         .from("team_settings")
         .select("default_service_location, default_call_time, default_rehearsal_time")
@@ -71,10 +79,16 @@ export default async function AdminSettingsPage() {
         .limit(10),
       supabase
         .from("team_members")
-        .select("profile_id, role, profiles!inner(full_name)")
+        .select("id, profile_id, role, profiles!inner(full_name), custom_roles(team_id, permissions)")
         .eq("team_id", teamContext.teamId)
         .eq("status", "active"),
+      supabase.from("activity_logs").select("id, profile_id, action, target_type, details, created_at")
+        .eq("team_id", teamContext.teamId).order("created_at", { ascending: false }).limit(50),
+      supabase.from("team_permission_overrides").select("role, member_id, permission, allowed").eq("team_id", teamContext.teamId),
     ]);
+    permissionRows = overridesResult.data ?? [];
+    permissionsAvailable = !overridesResult.error;
+    if (logsResult.error || changesResult.error || eventsResult.error) activityError = "Some activity could not be loaded. Refresh to retry.";
 
     const settings = settingsResult.data;
     if (settings) {
@@ -94,6 +108,8 @@ export default async function AdminSettingsPage() {
       if (event.created_by) userIds.add(event.created_by);
     });
 
+    (logsResult.data ?? []).forEach(log => userIds.add(log.profile_id));
+
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name")
@@ -104,12 +120,14 @@ export default async function AdminSettingsPage() {
     );
 
     const teamMembers = teamMembersResult.data ?? [];
+    permissionMembers = teamMembers.map(member => ({ id: member.id, name: member.profiles?.full_name || "Team member", role: member.role, customPermissions: member.custom_roles?.team_id === teamContext.teamId ? member.custom_roles.permissions.filter((value): value is Permission => Object.hasOwn(PERMISSION_LABELS, value)) : [] }));
     const roleByProfileId = new Map(
       teamMembers.map((member) => [member.profile_id, member.role ?? "member"] as const),
     );
 
     (changesResult.data ?? []).forEach((change) => {
       activityEntries.push({
+        id: `setlist:${change.id}`,
         user: profileNameMap.get(change.changed_by ?? "") ?? "Team Member",
         action: change.summary,
         time: change.created_at,
@@ -119,6 +137,7 @@ export default async function AdminSettingsPage() {
 
     (eventsResult.data ?? []).forEach((event) => {
       activityEntries.push({
+        id: `event:${event.id}`,
         user: profileNameMap.get(event.created_by ?? "") ?? "Team Member",
         action: `created event "${event.name}"`,
         time: event.created_at,
@@ -126,6 +145,12 @@ export default async function AdminSettingsPage() {
       });
     });
 
+    (logsResult.data ?? []).forEach(log => {
+      const details = log.details && typeof log.details === "object" && !Array.isArray(log.details) ? log.details : {};
+      const title = typeof details.title === "string" ? ` "${details.title}"` : "";
+      const permission = typeof details.permission === "string" && Object.hasOwn(PERMISSION_LABELS, details.permission) ? `: ${PERMISSION_LABELS[details.permission as Permission]}` : "";
+      activityEntries.push({ id: `activity:${log.id}`, user: profileNameMap.get(log.profile_id) || "Team member", action: `${log.action} ${log.target_type}${title}${permission}`, time: log.created_at, role: roleByProfileId.get(log.profile_id) ?? "member" });
+    });
     activityEntries.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
     activityLog = activityEntries.slice(0, 25);
 
@@ -169,6 +194,11 @@ export default async function AdminSettingsPage() {
         totalMembers={totalMembers}
         customRoles={customRoles}
         customPermissions={teamContext.customPermissions}
+        permissionOverrides={teamContext.permissionOverrides}
+        permissionMembers={permissionMembers}
+        permissionRows={permissionRows}
+        permissionsAvailable={permissionsAvailable}
+        activityError={activityError}
       />
     </AppShell>
   );
