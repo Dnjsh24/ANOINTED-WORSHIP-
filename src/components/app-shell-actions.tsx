@@ -49,8 +49,8 @@ export function AppShellActions({
           ]
         : [];
 
-    return [...pendingNotification, ...reminderNotification, ...baseNotifications];
-  }, [pendingRequestCount, unreadReminderCount]);
+    return [...pendingNotification, ...reminderNotification, ...(userId ? [] : baseNotifications)];
+  }, [pendingRequestCount, unreadReminderCount, userId]);
 
   const badgeCount = pendingRequestCount + unreadReminderCount;
 
@@ -191,6 +191,7 @@ export function AppShellActions({
           aria-label="Notifications"
           className="menu-enter absolute right-10 top-11 z-50 w-80 rounded-lg border border-white/10 bg-[#18171c] p-3 shadow-2xl shadow-black/40"
         >
+          {notifications.length === 0 && <p className="px-3 py-3 text-sm text-zinc-400">No new notifications.</p>}
           {notifications.map((notification) => (
             <Link
               key={notification.title}

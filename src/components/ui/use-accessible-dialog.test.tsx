@@ -4,7 +4,7 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
 
-function Fixture({ onClose, hiddenWrapper = false }: { onClose: () => void; hiddenWrapper?: boolean }) {
+function Fixture({ onClose, hiddenWrapper = false, details = false }: { onClose: () => void; hiddenWrapper?: boolean; details?: boolean }) {
   const [open, setOpen] = useState(false);
   const dialogRef = useAccessibleDialog({
     open,
@@ -28,6 +28,7 @@ function Fixture({ onClose, hiddenWrapper = false }: { onClose: () => void; hidd
           <button tabIndex={-2}>Skipped tabindex</button>
           <button>First</button>
           <a href="/profile">Middle link</a>
+          {details && <details><summary tabIndex={0}>Edit song</summary><input aria-label="Song title" /><details><summary tabIndex={0}>Nested editor</summary><input aria-label="Nested title" /></details></details>}
           <button>Last</button>
         </div>
         </div>
@@ -37,6 +38,23 @@ function Fixture({ onClose, hiddenWrapper = false }: { onClose: () => void; hidd
 }
 
 describe("useAccessibleDialog", () => {
+  it("includes disclosure summaries and skips hidden fields inside closed details", async () => {
+    const user = userEvent.setup();
+    render(<Fixture onClose={vi.fn()} details />);
+    await user.click(screen.getByRole("button", { name: "Open dialog" }));
+    screen.getByRole("link", { name: "Middle link" }).focus();
+    await user.keyboard("{Tab}");
+    expect(screen.getByText("Edit song")).toHaveFocus();
+    await user.keyboard("{Tab}");
+    expect(screen.getByRole("button", { name: "Last" })).toHaveFocus();
+    await user.click(screen.getByText("Edit song"));
+    await user.keyboard("{Tab}");
+    expect(screen.getByRole("textbox", { name: "Song title" })).toHaveFocus();
+    await user.keyboard("{Tab}");
+    expect(screen.getByText("Nested editor")).toHaveFocus();
+    await user.keyboard("{Tab}");
+    expect(screen.getByRole("button", { name: "Last" })).toHaveFocus();
+  });
   it("excludes controls inside a CSS-hidden wrapper outside the dialog", async () => {
     const user = userEvent.setup();
     render(<Fixture onClose={vi.fn()} hiddenWrapper />);

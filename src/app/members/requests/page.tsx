@@ -7,7 +7,6 @@ import {
   normalizeJoinRequest,
   type RawJoinRequest,
 } from "@/lib/domain/join-requests";
-import { pendingRequests as samplePendingRequests } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
@@ -20,11 +19,12 @@ export default async function MemberRequestsPage() {
     redirect("/dashboard");
   }
 
-  let pendingRequests: JoinRequestSummary[] = hasSupabaseEnv() ? [] : samplePendingRequests;
+  let pendingRequests: JoinRequestSummary[] = [];
+  let requestsError: string | undefined;
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("join_requests")
       .select(joinRequestWithRequesterProfileSelect)
       .eq("team_id", teamContext.teamId)
@@ -32,6 +32,7 @@ export default async function MemberRequestsPage() {
       .order("created_at", { ascending: false });
 
     pendingRequests = (data ?? []).map((request) => normalizeJoinRequest(request as RawJoinRequest));
+    if (error) requestsError = "Pending requests could not be loaded. Retry when connected.";
   }
 
   return (
@@ -41,7 +42,7 @@ export default async function MemberRequestsPage() {
           Back to Team
         </ButtonLink>
       </div>
-      <JoinRequestsClient initialRequests={pendingRequests} teamId={teamContext.teamId} />
+      <JoinRequestsClient initialRequests={pendingRequests} teamId={teamContext.teamId} initialError={requestsError} canAssignRoles={teamContext.role === "owner" || teamContext.role === "admin"} />
     </AppShell>
   );
 }

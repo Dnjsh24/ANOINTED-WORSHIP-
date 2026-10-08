@@ -1,5 +1,4 @@
 import {
-  BarChart3,
   CalendarCheck2,
   CalendarDays,
   Headphones,
@@ -32,7 +31,7 @@ export function AnalyticsDashboard({
   const strongestAttendance = [...attendanceStats].sort((a, b) => b.rate - a.rate)[0];
 
   return (
-    <div className="mt-7 space-y-5">
+    <div className="mt-7 space-y-5 motion-safe:animate-fade-up">
       <section aria-label="Engagement summary" className="stagger grid gap-3 sm:grid-cols-3">
         <MetricCard
           icon={Music2}
@@ -58,7 +57,7 @@ export function AnalyticsDashboard({
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.85fr)]">
-        <section className="animate-fade-up overflow-hidden rounded-2xl border border-white/10 bg-[#111014]/90">
+        <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#111014]/90">
           <PanelHeader
             icon={Headphones}
             eyebrow="Repertoire"
@@ -88,7 +87,7 @@ export function AnalyticsDashboard({
                   </p>
                   <div className="col-span-2 col-start-2 mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06] sm:col-span-1 sm:col-start-auto sm:mt-0">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-violet-600 to-violet-300 transition-[width] duration-500"
+                      className="h-full rounded-full bg-gradient-to-r from-violet-600 to-violet-300 motion-safe:transition-[width] motion-safe:duration-500 motion-reduce:transition-none"
                       style={{ width: `${Math.max((song.count / maxSongCount) * 100, 4)}%` }}
                       aria-hidden="true"
                     />
@@ -108,10 +107,7 @@ export function AnalyticsDashboard({
           )}
         </section>
 
-        <section
-          className="animate-fade-up overflow-hidden rounded-2xl border border-white/10 bg-[#111014]/90"
-          style={{ animationDelay: "80ms" }}
-        >
+        <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#111014]/90">
           <PanelHeader
             icon={CalendarDays}
             eyebrow="Readiness"
@@ -164,7 +160,7 @@ export function AnalyticsDashboard({
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-300"
+                          className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-300 motion-safe:transition-[width] motion-safe:duration-500 motion-reduce:transition-none"
                           style={{ width: `${rate}%` }}
                           aria-hidden="true"
                         />
@@ -184,10 +180,7 @@ export function AnalyticsDashboard({
         </section>
       </div>
 
-      <section
-        className="animate-fade-up overflow-hidden rounded-2xl border border-white/10 bg-[#111014]/90"
-        style={{ animationDelay: "160ms" }}
-      >
+      <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#111014]/90">
         <PanelHeader
           icon={MessageSquareText}
           eyebrow="Connection"
@@ -205,9 +198,7 @@ export function AnalyticsDashboard({
               >
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-xl border border-sky-400/15 bg-sky-500/10 text-sky-300">
-                      <MessageSquareText className="size-4" aria-hidden="true" />
-                    </span>
+                    <MessageSquareText className="size-4 shrink-0 text-sky-300" aria-hidden="true" />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold text-white">{channel.name}</p>
                       <p className="mt-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-400">
@@ -221,7 +212,7 @@ export function AnalyticsDashboard({
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-sky-600 to-sky-300"
+                    className="h-full rounded-full bg-gradient-to-r from-sky-600 to-sky-300 motion-safe:transition-[width] motion-safe:duration-500 motion-reduce:transition-none"
                     style={{ width: `${Math.max((channel.count / maxChannelCount) * 100, 4)}%` }}
                     aria-hidden="true"
                   />
@@ -242,10 +233,8 @@ export function AnalyticsDashboard({
       </section>
 
       {(topSong || strongestAttendance) && (
-        <aside className="animate-fade-up flex flex-col gap-3 rounded-2xl border border-violet-400/15 bg-violet-500/[0.06] p-4 sm:flex-row sm:items-center sm:px-5">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-violet-500/15 text-violet-300">
-            <Lightbulb className="size-4" aria-hidden="true" />
-          </span>
+        <aside className="flex flex-col gap-3 rounded-2xl border border-violet-400/15 bg-violet-500/[0.06] p-4 sm:flex-row sm:items-center sm:px-5">
+          <Lightbulb className="size-4 shrink-0 text-violet-300" aria-hidden="true" />
           <p className="text-sm font-medium leading-6 text-zinc-300">
             <span className="font-bold text-white">Quick read:</span>{" "}
             {topSong && (
@@ -284,19 +273,16 @@ function MetricCard({
   detail: string;
   accent: "violet" | "emerald" | "sky";
 }) {
-  const accentClasses = {
-    violet: "border-violet-400/15 bg-violet-500/10 text-violet-300",
-    emerald: "border-emerald-400/15 bg-emerald-500/10 text-emerald-300",
-    sky: "border-sky-400/15 bg-sky-500/10 text-sky-300",
+  const accentTextClasses = {
+    violet: "text-violet-300",
+    emerald: "text-emerald-300",
+    sky: "text-sky-300",
   };
 
   return (
-    <article className="animate-fade-up min-w-0 rounded-2xl border border-white/10 bg-[#111014]/90 p-4 sm:p-5">
+    <article className="min-w-0 rounded-xl border border-white/10 bg-[#111014]/80 p-4 sm:p-5">
       <div className="mb-5 flex items-start justify-between gap-4">
-        <div className={`grid size-10 shrink-0 place-items-center rounded-xl border ${accentClasses[accent]}`}>
-          <Icon className="size-4.5" aria-hidden="true" />
-        </div>
-        <BarChart3 className="size-4 text-white/15" aria-hidden="true" />
+        <Icon className={`size-5 ${accentTextClasses[accent]}`} aria-hidden="true" />
       </div>
       <p className="font-mono text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-400">{label}</p>
       <p className="mt-1 truncate text-xl font-black tracking-tight text-white" title={value}>
@@ -323,9 +309,7 @@ function PanelHeader({
   return (
     <header className="flex items-start justify-between gap-4 p-5 sm:p-6">
       <div className="flex min-w-0 items-start gap-3">
-        <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl border border-violet-400/15 bg-violet-500/10 text-violet-300">
-          <Icon className="size-4" aria-hidden="true" />
-        </span>
+        <Icon className="mt-1 size-4 shrink-0 text-violet-300" aria-hidden="true" />
         <div className="min-w-0">
           <p className="font-mono text-[9px] font-bold uppercase tracking-[0.18em] text-violet-300">
             {eyebrow}

@@ -34,6 +34,13 @@ export type Database = {
   }
   public: {
     Tables: {
+      team_permission_overrides: {
+        Row: { id: string; team_id: string; role: Database["public"]["Enums"]["team_role"] | null; member_id: string | null; permission: string; allowed: boolean; created_at: string }
+        Insert: { id?: string; team_id: string; role?: Database["public"]["Enums"]["team_role"] | null; member_id?: string | null; permission: string; allowed: boolean; created_at?: string }
+        Update: { allowed?: boolean }
+        Relationships: []
+      }
+
       shared_edit_requests: {
         Row: {
           id: string
@@ -2271,6 +2278,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      set_team_permission_override: {
+        Args: { p_team_id: string; p_role: string | null; p_member_id: string | null; p_permission: string; p_allowed: boolean | null }
+        Returns: undefined
+      }
+
       get_team_analytics: {
         Args: { p_team_id: string }
         Returns: Json

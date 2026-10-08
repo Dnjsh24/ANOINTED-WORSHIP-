@@ -7,6 +7,9 @@ export type PracticeSetlistSong = {
   arrangement: string | null;
   notes: string | null;
   bandNotes: string | null;
+  songRevision?: number;
+  songIsProposal?: boolean;
+  songEditAllowed?: boolean;
   song: Song;
 };
 

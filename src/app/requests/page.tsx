@@ -7,12 +7,12 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 
 export default async function RequestsPage() {
   const context = await getRequiredTeamContext();
-  const initial = await loadSharedEditRequestsAction({ view: "mine" });
+  const initial = await loadSharedEditRequestsAction({ view: context.role === "owner" ? "review" : "mine" });
   const names: Record<string, string> = {};
   if (hasSupabaseEnv()) {
     const client = await createClient();
     const { data } = await client.from("team_members").select("profile_id,profiles(full_name)").eq("team_id", context.teamId);
     for (const member of data ?? []) if (member.profiles?.full_name) names[member.profile_id] = member.profiles.full_name;
   }
-  return <AppShell active="Requests" teamContext={context}><h1 className="mb-2 text-3xl font-bold">Edit requests</h1><p className="mb-6 text-zinc-400">Propose team content changes, track your requests and review changes you manage.</p><EditRequestInbox initial={initial} userId={context.userId} role={context.role} permissions={context.customPermissions} names={names} /></AppShell>;
+  return <AppShell active="Requests" teamContext={context}><h1 className="mb-2 text-3xl font-bold">Edit requests</h1><p className="mb-6 text-zinc-400">Propose team content changes, track your requests and review changes you manage.</p><EditRequestInbox initial={initial} userId={context.userId} role={context.role} permissions={context.customPermissions} permissionOverrides={context.permissionOverrides} names={names} /></AppShell>;
 }

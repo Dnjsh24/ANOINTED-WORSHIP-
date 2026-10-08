@@ -1,7 +1,8 @@
+import { canForTeam, type PermissionOverrides } from "@/lib/domain/permission-overrides";
 ﻿import { z } from "zod";
 import { eventAssignmentsSchema } from "@/lib/domain/event-workflows";
 import { rehearsalAllocationSchema, preparationTaskSchema, serviceOrderEntrySchema } from "@/lib/domain/team-workflows";
-import { can, type Permission } from "@/lib/domain/rbac";
+import { type Permission } from "@/lib/domain/rbac";
 const text = (max: number) => z.string().trim().max(max);
 const requiredText = (max: number) => text(max).min(1);
 const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/);
@@ -124,8 +125,11 @@ export type SharedEditRequestPage = { ok: true; requests: SharedEditRequestRow[]
 export const sharedEditReviewerPermissions: Record<SharedEditTargetType, Permission> = {
   song:"songs.review", setlist:"setlists.manage", event:"events.manage", song_slot:"setlists.manage", announcement:"announcements.create", reminder:"members.manage", choreography:"dance_notes.review", rehearsal_plan:"setlists.manage", service_order:"events.manage",
 };
-export function canReviewSharedEdit(role: string, type: SharedEditTargetType, permissions?: Permission[]) {
+export function canReviewSharedEdit(role: string, type: SharedEditTargetType, permissions?: Permission[], permissionOverrides?: PermissionOverrides) {
   if (type === "song") return role === "owner" || role === "admin";
-  return can(role,sharedEditReviewerPermissions[type],permissions);
+  return canForTeam({ role, customPermissions: permissions, permissionOverrides },sharedEditReviewerPermissions[type]);
 }
-export function canEditSongDirectly(role:string, actorId:string, creatorId:string) { return role === "owner" || role === "admin" || actorId === creatorId; }
+export function canEditSongDirectly(role:string, actorId:string, creatorId:string, permissionOverrides?: PermissionOverrides) {
+  if (role === "owner") return true;
+  return permissionOverrides?.["songs.edit"] ?? (role === "admin" || actorId === creatorId);
+}

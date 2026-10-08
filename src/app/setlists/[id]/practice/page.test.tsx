@@ -24,9 +24,12 @@ vi.mock("@/components/app-shell", () => ({
 }));
 vi.mock("./practice-mode-client", () => ({
   default: ({ setlist }: { setlist: PracticeSetlist }) => (
-    <div data-testid="practice-setlist">
-      {setlist.id}: {setlist.songs.map((song) => `${song.song.title} (${song.assignedKey})`).join(", ")}
-    </div>
+    <>
+      <div data-testid="practice-setlist">
+        {setlist.id}: {setlist.songs.map((song) => `${song.song.title} (${song.assignedKey})`).join(", ")}
+      </div>
+      <output data-testid="practice-song-notes">{JSON.stringify(setlist.songs.map(({ song, lead, notes, bandNotes }) => ({ title: song.title, lead, notes, bandNotes })))}</output>
+    </>
   ),
 }));
 
@@ -38,7 +41,7 @@ describe("PracticeSetlistPage", () => {
     mocks.maybeSingle.mockReset();
     mocks.where.mockReset();
     mocks.notFound.mockClear();
-    mocks.getRequiredTeamContext.mockResolvedValue({ teamId: "team-current", userId: "user-1" });
+    mocks.getRequiredTeamContext.mockResolvedValue({ teamId: "team-current", userId: "user-1", memberId: "member-1", role: "owner", customPermissions: [], permissionOverrides: {} });
   });
 
   it("loads songs in setlist order and scopes the route query to the active team", async () => {
@@ -49,7 +52,7 @@ describe("PracticeSetlistPage", () => {
         name: "Sunday Service",
         setlist_date: "2026-10-11",
         setlist_songs: [
-          { id: "slot-later", assigned_key: "E", song_order: 2, notes: null, arrangement: null, band_notes: null, song: makeDatabaseSong("song-later", "Second Song", "G") },
+          { id: "slot-later", assigned_key: "E", song_order: 2, notes: JSON.stringify({ lead: "Morgan", notes: "Watch the outro" }), arrangement: null, band_notes: null, song: makeDatabaseSong("song-later", "Second Song", "G") },
           { id: "slot-missing", assigned_key: "F", song_order: 1.5, notes: null, arrangement: null, band_notes: null, song: null },
           { id: "slot-first", assigned_key: "D", song_order: 1, notes: "Lead: Alex", arrangement: "Quiet intro", band_notes: "Watch the transition", song: makeDatabaseSong("song-first", "First Song", "C") },
         ],
@@ -73,6 +76,10 @@ describe("PracticeSetlistPage", () => {
     expect(screen.getByTestId("practice-setlist")).toHaveTextContent(
       "setlist-current: First Song (D), Second Song (E)",
     );
+    expect(JSON.parse(screen.getByTestId("practice-song-notes").textContent ?? "[]")).toEqual([
+      { title: "First Song", lead: "Alex", notes: "", bandNotes: "Watch the transition" },
+      { title: "Second Song", lead: "Morgan", notes: "Watch the outro", bandNotes: null },
+    ]);
   });
 
   it("returns not found when the team-scoped database query cannot see the setlist", async () => {

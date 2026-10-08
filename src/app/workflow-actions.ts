@@ -1,11 +1,12 @@
 "use server";
 
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ActionState } from "@/lib/action-state";
 import { assignmentStateSchema, readinessStateSchema, rehearsalPlanInputSchema, serviceOrderInputSchema } from "@/lib/domain/team-workflows";
-import { can, type Permission } from "@/lib/domain/rbac";
+import { type Permission } from "@/lib/domain/rbac";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -15,7 +16,7 @@ import { loadPreparationWorkspace, loadServiceWorkspace, type PreparationWorkspa
 async function workflowContext(permission?: Permission) {
   const context = await getRequiredTeamContext();
   if (!hasSupabaseEnv() || !context.userId || !context.memberId) return null;
-  if (permission && !can(context.role, permission, context.customPermissions)) return null;
+  if (permission && !canForTeam(context, permission)) return null;
   return await createClient() as SupabaseClient<WorkflowDatabase>;
 }
 function failure(error?: { code?: string } | null): ActionState {

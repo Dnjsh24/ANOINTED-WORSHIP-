@@ -1,9 +1,9 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { ListPagination } from "@/components/list-pagination";
 import { SongLibraryGrid } from "@/components/song-library-grid";
 import { ButtonLink } from "@/components/ui/button";
-import { can } from "@/lib/domain/rbac";
 import { songs as sampleSongs } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -150,7 +150,7 @@ export default async function SongsPage({ searchParams = Promise.resolve({}) }: 
             <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">Matching Songs</span>
             <span className="text-white font-extrabold text-base">{totalSongsCount}</span>
           </div>
-          {can(teamContext.role, "songs.create") && (
+          {canForTeam(teamContext, "songs.create") && (
             <ButtonLink href="/songs/new">
               <Plus className="size-4" />
               Add New Song

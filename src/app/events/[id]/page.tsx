@@ -1,3 +1,4 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { CalendarDays, Clock, MapPin, Users, Edit } from "lucide-react";
 import { notFound } from "next/navigation";
 import { AttendanceToggle } from "@/components/attendance-toggle";
@@ -7,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { AttendanceRoster, type AttendanceRecord } from "@/components/attendance-roster";
-import { can } from "@/lib/domain/rbac";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -218,7 +218,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <ButtonLink href={`/setlists/${linkedSetlistId}`} className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-violet-500">
                 View Setlist
               </ButtonLink>
-            ) : can(teamContext.role, "setlists.manage") ? (
+            ) : canForTeam(teamContext, "setlists.manage") ? (
               <ButtonLink href={`/setlists/new?eventId=${event.id}`} className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-violet-500">
                 Create Setlist
               </ButtonLink>
@@ -276,7 +276,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           )}
           {event.roster && <AttendanceRoster roster={event.roster} totalMembers={event.totalMembers!} />}
         </Panel>
-        {can(teamContext.role, "events.manage") ? (
+        {canForTeam(teamContext, "events.manage") ? (
           <div className="mt-1 flex gap-3">
             <ButtonLink
               href={`/events/${event.id}/edit`}
@@ -291,7 +291,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       </section>
       {servicePlanning && <div className="mt-6">{servicePlanning.ok ? <ServiceWorkspace
         key={event.id} eventId={event.id} name={event.name} startsAt={startsAt} workspace={servicePlanning.data}
-        songs={orderSongs} memberId={teamContext.memberId} canManage={can(teamContext.role, "events.manage", teamContext.customPermissions)}
+        songs={orderSongs} memberId={teamContext.memberId} canManage={canForTeam(teamContext, "events.manage")}
         proposeAction={requestServiceOrderAction.bind(null, event.id)}
       /> : <Panel><p role="status" className="text-sm text-amber-200">{servicePlanning.message}</p></Panel>}</div>}
     </AppShell>

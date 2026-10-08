@@ -1,3 +1,5 @@
+import { parseSongSlotNotes } from "@/lib/domain/song-slot-notes";
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { AlertTriangle, CalendarDays, CheckCircle2, Clock, History, MapPin, UserX, Users } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getYouTubeVideoId } from "@/lib/domain/media";
@@ -10,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { getSetlistTypeLabel } from "@/lib/domain/event-types";
-import { can } from "@/lib/domain/rbac";
 import { eventScheduleWindows } from "@/lib/domain/event-workflows";
 import { SetlistSongOrder, type OrderedSetlistSong } from "@/components/setlist-song-order";
 import {
@@ -101,7 +102,7 @@ function hasYoutubeUrl(
 export default async function SetlistDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
-  const canManageSetlist = can(teamContext.role, "setlists.manage", teamContext.customPermissions);
+  const canManageSetlist = canForTeam(teamContext, "setlists.manage");
 
   let setlist: DetailSetlist | null = null;
   let teamAssignmentsList: Array<[string, string, string]> = [];
@@ -163,9 +164,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
       const songsList: DetailSetlistSong[] = dbSetlistSongs.flatMap((ss) => {
         if (!ss.song) return [];
         let leadVocal = "";
-        if (ss.notes && ss.notes.startsWith("Lead: ")) {
-          leadVocal = ss.notes.replace("Lead: ", "");
-        }
+        leadVocal = parseSongSlotNotes(ss.notes).lead;
         return [{
           id: ss.id,
           order: ss.song_order,

@@ -1,3 +1,4 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { AppShell } from "@/components/app-shell";
 import { EventForm } from "@/components/event-form";
 import { redirect } from "next/navigation";
@@ -5,7 +6,6 @@ import { Panel } from "@/components/ui/card";
 import { fallbackServiceTemplates, mapServiceTemplate } from "@/lib/domain/service-templates";
 import { members as sampleMembers } from "@/lib/sample-data";
 import type { ServiceTemplate, TeamMember, TeamRole } from "@/lib/types";
-import { can } from "@/lib/domain/rbac";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { setlists as sampleSetlists } from "@/lib/sample-data";
 import { createClient } from "@/lib/supabase/server";
@@ -15,12 +15,12 @@ export default async function NewEventPage({ searchParams }: { searchParams: Pro
   const { date } = await searchParams;
   const teamContext = await getRequiredTeamContext();
   
-  if (!can(teamContext.role, "events.manage", teamContext.customPermissions) && !can(teamContext.role, "events.request")) {
+  if (!canForTeam(teamContext, "events.manage") && !canForTeam(teamContext, "events.request")) {
     redirect("/events");
   }
 
-  const canCreateOfficialEvents = can(teamContext.role, "events.manage", teamContext.customPermissions);
-  const canLinkSetlists = canCreateOfficialEvents && can(teamContext.role, "setlists.manage", teamContext.customPermissions);
+  const canCreateOfficialEvents = canForTeam(teamContext, "events.manage");
+  const canLinkSetlists = canCreateOfficialEvents && canForTeam(teamContext, "setlists.manage");
   let teamMembersList: TeamMember[] = [];
   let serviceTemplates: ServiceTemplate[] = fallbackServiceTemplates;
   let setlistsList: Array<{ id: string; name: string; date: string }> = [];

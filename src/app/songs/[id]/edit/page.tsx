@@ -1,8 +1,8 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { SongForm } from "@/components/song-form";
 import { Panel } from "@/components/ui/card";
-import { can } from "@/lib/domain/rbac";
 import { canEditSongDirectly } from "@/lib/domain/shared-edit-requests";
 import { songs as sampleSongs } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -34,7 +34,7 @@ export default async function EditSongPage({ params }: { params: Promise<{ id: s
 
     if (dbSong) {
       revision = dbSong.sync_revision;
-      isProposal = !canEditSongDirectly(teamContext.role, teamContext.userId, dbSong.created_by);
+      isProposal = !canEditSongDirectly(teamContext.role, teamContext.userId, dbSong.created_by, teamContext.permissionOverrides);
       song = {
         id: dbSong.id,
         title: dbSong.title,
@@ -66,7 +66,7 @@ export default async function EditSongPage({ params }: { params: Promise<{ id: s
         <p className="mt-2 text-sm font-semibold text-zinc-300">{song.title}</p>
       </div>
       <Panel>
-        <SongForm song={song} revision={revision} isProposal={isProposal} canDelete={can(teamContext.role, "songs.delete", teamContext.customPermissions)} />
+        <SongForm song={song} revision={revision} isProposal={isProposal} canDelete={canForTeam(teamContext, "songs.delete")} />
       </Panel>
     </AppShell>
   );

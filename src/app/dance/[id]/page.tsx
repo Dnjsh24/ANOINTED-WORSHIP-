@@ -1,3 +1,4 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { ArrowLeft, Edit2, CalendarDays, Video, Sparkles, Users, ExternalLink, Footprints } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -5,7 +6,6 @@ import { getYouTubeVideoId, safeVideoUrl } from "@/lib/domain/media";
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { can } from "@/lib/domain/rbac";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
@@ -21,7 +21,7 @@ function formatDate(value: string) {
 export default async function DanceChartDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
-  const canManageDanceCharts = can(teamContext.role, "dance_notes.manage");
+  const canManageDanceCharts = canForTeam(teamContext, "dance_notes.manage");
 
   let chart = null;
 

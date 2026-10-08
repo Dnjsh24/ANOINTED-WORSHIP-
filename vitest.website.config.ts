@@ -29,6 +29,7 @@ const websiteUnitCoverageSurface = [
   "src/lib/domain/post-login.ts",
   "src/lib/domain/presentation.ts",
   "src/lib/domain/rbac.ts",
+  "src/lib/domain/permission-overrides.ts",
   "src/lib/domain/setlist-readiness.ts",
   "src/lib/domain/setlists.ts",
   "src/lib/domain/team-code.ts",

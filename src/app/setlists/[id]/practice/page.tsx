@@ -1,16 +1,17 @@
 import { notFound } from "next/navigation";
-import { AppShell } from "@/components/app-shell";
 import { parseLyricsAndChords } from "@/lib/domain/chords";
 import { setlists as sampleSetlists } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
-import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
+import { getRequiredTeamContext, type ActiveTeamContext } from "@/lib/supabase/team-guard";
 import type { Database } from "@/lib/supabase/database.types";
 import type { Song } from "@/lib/types";
 import PracticeModeClient from "./practice-mode-client";
 import type { PracticeSetlist, PracticeSetlistSong } from "./practice-mode.types";
 import { loadPreparationWorkspace, type PreparationWorkspace, type WorkspaceResult } from "@/lib/supabase/workflow-data";
-import { can } from "@/lib/domain/rbac";
+import { canForTeam } from "@/lib/domain/permission-overrides";
+import { canEditSongDirectly } from "@/lib/domain/shared-edit-requests";
+import { parseSongSlotNotes } from "@/lib/domain/song-slot-notes";
 import { requestRehearsalPlanAction } from "@/app/workflow-proposals";
 
 type PracticeSetlistSongRow = Pick<
@@ -31,6 +32,8 @@ type PracticeSetlistSongRow = Pick<
     | "spotify_url"
     | "image_url"
     | "album"
+    | "sync_revision"
+    | "created_by"
   > | null;
 };
 
@@ -41,17 +44,7 @@ type PracticeSetlistRow = Pick<
   setlist_songs: PracticeSetlistSongRow[];
 };
 
-function getLead(notes: string | null): string | null {
-  const leadPrefix = "Lead: ";
-  return notes?.startsWith(leadPrefix) ? notes.slice(leadPrefix.length).trim() || null : null;
-}
-
-function getPracticeNotes(notes: string | null): string | null {
-  if (!notes || notes.startsWith("Lead: ") || notes.startsWith("Template Tag: ")) return null;
-  return notes;
-}
-
-function mapDatabaseSong(row: PracticeSetlistSongRow): PracticeSetlistSong | null {
+function mapDatabaseSong(row: PracticeSetlistSongRow, teamContext: ActiveTeamContext): PracticeSetlistSong | null {
   if (!row.song) return null;
 
   const song: Song = {
@@ -70,14 +63,19 @@ function mapDatabaseSong(row: PracticeSetlistSongRow): PracticeSetlistSong | nul
     imageUrl: row.song.image_url ?? undefined,
     album: row.song.album ?? undefined,
   };
+  const slotNotes = parseSongSlotNotes(row.notes);
+  const songIsProposal = !canEditSongDirectly(teamContext.role, teamContext.userId, row.song.created_by, teamContext.permissionOverrides);
 
   return {
     slotId: row.id,
     assignedKey: row.assigned_key,
-    lead: getLead(row.notes),
+    lead: slotNotes.lead,
     arrangement: row.arrangement,
-    notes: getPracticeNotes(row.notes),
+    notes: slotNotes.notes,
     bandNotes: row.band_notes,
+    songRevision: row.song.sync_revision,
+    songIsProposal,
+    songEditAllowed: !songIsProposal || canForTeam(teamContext, "songs.edit"),
     song,
   };
 }
@@ -128,7 +126,9 @@ export default async function PracticeSetlistPage({ params }: { params: Promise<
             youtube_url,
             spotify_url,
             image_url,
-            album
+            album,
+            sync_revision,
+            created_by
           )
         )
       `)
@@ -147,7 +147,7 @@ export default async function PracticeSetlistPage({ params }: { params: Promise<
         songs: [...databaseSetlist.setlist_songs]
           .sort((first, second) => (first.song_order ?? 0) - (second.song_order ?? 0))
           .flatMap((song) => {
-            const mappedSong = mapDatabaseSong(song);
+            const mappedSong = mapDatabaseSong(song, teamContext);
             return mappedSong ? [mappedSong] : [];
           }),
       };
@@ -167,9 +167,5 @@ export default async function PracticeSetlistPage({ params }: { params: Promise<
 
   if (!setlist) notFound();
 
-  return (
-    <AppShell active="Setlists" teamContext={teamContext}>
-      <PracticeModeClient key={setlist.id} setlist={setlist} preparation={preparation} memberId={teamContext.memberId} canManage={can(teamContext.role, "setlists.manage", teamContext.customPermissions)} proposeAction={requestRehearsalPlanAction.bind(null, setlist.id)} />
-    </AppShell>
-  );
+  return <PracticeModeClient key={setlist.id} setlist={setlist} preparation={preparation} memberId={teamContext.memberId} canManage={canForTeam(teamContext, "setlists.manage")} proposeAction={requestRehearsalPlanAction.bind(null, setlist.id)} />;
 }

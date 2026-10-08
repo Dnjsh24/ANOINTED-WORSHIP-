@@ -1,3 +1,4 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import {
   CalendarDays,
   LayoutDashboard,
@@ -44,7 +45,7 @@ export async function AppShell({
   teamContext?: TeamContext;
 }) {
   const context = teamContext ?? (await getCurrentTeamContext());
-  const navigation = getVisibleNavigationItems(context.role);
+  const navigation = getVisibleNavigationItems(context.role, context.customPermissions, context.permissionOverrides);
   
   // Share one request-local lookup. Optional badges must not delay page content.
   const unreadMessageCount = hasSupabaseEnv() && context.userId && !isDesktopRuntime()
@@ -85,13 +86,13 @@ export async function AppShell({
             <AppShellActions
               userId={context.userId}
               teamId={context.teamId}
-              canManageTeam={context.canManageMembers}
+              canManageTeam={context.canManageMembers || canForTeam(context, "team.manage")}
               desktopSync={isDesktopRuntime() ? <DesktopSyncStatus compact /> : undefined}
             />
           </div>
         </div>
       </header>
-      <MobileIconRail active={active} items={mobileNavigation} canManageTeam={context.canManageMembers} messageBadge={
+      <MobileIconRail active={active} items={mobileNavigation} canManageTeam={context.canManageMembers || canForTeam(context, "team.manage")} messageBadge={
         <Suspense fallback={null}>
           <UnreadMessageBadge count={unreadMessageCount} className="absolute -top-1 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0f0e14]" />
         </Suspense>
@@ -124,7 +125,8 @@ async function UnreadMessageBadge({
   ) : null;
 }
 
-function getVisibleNavigationItems(role: TeamRole | string) {
-  const visibleIds = visibleNavigation(role);
+function getVisibleNavigationItems(role: TeamRole | string, customPermissions?: TeamContext["customPermissions"], permissionOverrides?: TeamContext["permissionOverrides"]) {
+  const visibleIds = visibleNavigation(role).filter(id => id !== "members");
+  if (canForTeam({ role, customPermissions, permissionOverrides }, "members.manage")) visibleIds.splice(visibleIds.length - 1, 0, "members");
   return navItems.filter((item) => visibleIds.includes(item.id));
 }

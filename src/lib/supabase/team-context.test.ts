@@ -40,6 +40,8 @@ class FakeQueryBuilder {
     return this;
   }
 
+  then(resolve: (result: QueryResult) => unknown) { return Promise.resolve(this.result).then(resolve); }
+
   maybeSingle() {
     return Promise.resolve(this.result);
   }
@@ -53,6 +55,7 @@ function fakeSupabase({
   membershipResult,
   pendingRequestResult,
   customRoleResult = { data: null },
+  permissionResult = { data: [] },
   userResult = {
     data: { user: { id: "profile-1" } },
     error: null,
@@ -61,6 +64,7 @@ function fakeSupabase({
   membershipResult: QueryResult;
   pendingRequestResult: QueryResult;
   customRoleResult?: QueryResult;
+  permissionResult?: QueryResult;
   userResult?: {
     data: { user: { id: string } | null };
     error: unknown;
@@ -78,7 +82,7 @@ function fakeSupabase({
           ? membershipResult
           : table === "join_requests"
             ? pendingRequestResult
-            : customRoleResult,
+            : table === "team_permission_overrides" ? permissionResult : customRoleResult,
       );
       builders.push(builder);
       return builder;
@@ -131,6 +135,11 @@ describe("getCurrentTeamContextForClient", () => {
       hasPendingJoinRequest: true,
     });
     await expect(getPostLoginRedirectPath(client)).resolves.toBe("/pending");
+  });
+
+  it("loads current team overrides and denies member management on a read outage", async () => {
+    const { client } = fakeSupabase({ membershipResult: { data: { id: "member-1", team_id: "team-1", role: "admin", status: "active", teams: null } }, pendingRequestResult: { data: null }, permissionResult: { data: null, error: { code: "08006" } } });
+    expect((await getCurrentTeamContextForClient(client)).canManageMembers).toBe(false);
   });
 
   it("selects only active memberships with existing teams and prefers the newest", async () => {
@@ -186,7 +195,7 @@ describe("getCurrentTeamContextForClient", () => {
       canManageMembers: true,
       customPermissions: ["members.manage"],
     });
-    expect(builders).toHaveLength(2);
+    expect(builders).toHaveLength(3);
     expect(builders[0].operations).toContainEqual({ name: "select", args: [expect.stringContaining("custom_roles")] });
     await expect(getPostLoginRedirectPath(client)).resolves.toBe("/dashboard");
   });

@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SongViewer } from "@/components/song-viewer";
 import type { Song } from "@/lib/types";
+import { updateSetlistSongKeyAction } from "@/app/actions";
 
 vi.mock("@/app/actions", () => ({
   updateSetlistSongKeyAction: vi.fn(),
@@ -106,6 +107,26 @@ describe("SongViewer", () => {
     expect(screen.getByLabelText("Auto-scroll speed")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Raise song key" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Transpose down" })).toBeInTheDocument();
+  });
+
+  it("confirms a saved setlist key and reports action failures", async () => {
+    const saveKey = vi.mocked(updateSetlistSongKeyAction);
+    saveKey.mockResolvedValueOnce({ ok: true, message: "Key updated." });
+    const { unmount } = render(<SongViewer song={songWithRepeatedSections} setlistId="setlist-1" slotId="slot-1" assignedKey="C" />);
+    fireEvent.click(screen.getByRole("button", { name: "Raise song key" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save to Setlist" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Key updated.");
+    expect(screen.queryByRole("button", { name: "Save to Setlist" })).not.toBeInTheDocument();
+    expect(saveKey).toHaveBeenCalledWith(expect.any(FormData));
+    unmount();
+
+    saveKey.mockResolvedValueOnce({ ok: false, message: "Permission denied." });
+    render(<SongViewer song={songWithRepeatedSections} setlistId="setlist-1" slotId="slot-1" assignedKey="C" />);
+    fireEvent.click(screen.getByRole("button", { name: "Raise song key" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save to Setlist" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Permission denied.");
+    expect(screen.getByRole("button", { name: "Save to Setlist" })).toBeInTheDocument();
   });
 
   it("cycles the metronome beat count and clears both practice timers on unmount", () => {

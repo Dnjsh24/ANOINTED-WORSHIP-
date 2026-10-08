@@ -32,7 +32,7 @@ export function DashboardPersonalSummary({
           : "Response needed";
 
   return (
-    <section aria-labelledby="personal-preparation-title" className="mt-6 grid gap-4 rounded-2xl border border-violet-400/20 bg-violet-500/[0.06] p-5 md:grid-cols-[1fr_1fr]">
+    <section aria-labelledby="personal-preparation-title" className="mt-6 grid gap-4 rounded-2xl border border-white/10 p-5 md:grid-cols-[1fr_1fr]">
       <div>
         <div className="flex items-center gap-2">
           <CalendarDays aria-hidden="true" className="size-4 text-violet-300" />
@@ -63,7 +63,7 @@ export function DashboardPersonalSummary({
             <ClipboardList aria-hidden="true" className="size-4 text-violet-300" />
             <h3 className="text-sm font-bold text-white">Open service reminders</h3>
           </div>
-          <span className="rounded-full bg-violet-500/15 px-2.5 py-1 text-xs font-bold text-violet-200">{outstandingCount}</span>
+          <span className="px-2.5 py-1 text-xs font-bold text-zinc-300">{outstandingCount}</span>
         </div>
         {preparationItems.length ? (
           <ul className="mt-3 space-y-2">

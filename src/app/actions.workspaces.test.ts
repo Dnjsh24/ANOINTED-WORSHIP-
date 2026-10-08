@@ -16,7 +16,7 @@ const eventForm = () => { const form = new FormData(); Object.entries({ title:"S
 beforeEach(() => {
   vi.clearAllMocks(); mocks.role="owner"; mocks.customPermissions=[]; mocks.rpc.mockResolvedValue({data:null,error:{message:"write failed"}});
   mocks.from.mockImplementation((table:string) => {
-    const data = table === "custom_roles" ? {permissions:mocks.customPermissions} : {id:memberId,team_id:teamId,role:mocks.role,status:"active",custom_role_id:mocks.customPermissions.length?targetId:null,teams:{id:teamId}};
+    const data = table === "custom_roles" ? {permissions:mocks.customPermissions} : {id:memberId,team_id:teamId,role:mocks.role,status:"active",custom_role_id:mocks.customPermissions.length?targetId:null,custom_roles:{team_id:teamId,permissions:mocks.customPermissions},teams:{id:teamId}};
     const query={select:()=>query,eq:()=>query,order:()=>query,limit:()=>query,maybeSingle:async()=>({data,error:null})};return query;
   });
   mocks.client.mockResolvedValue({auth:{getUser:async()=>({data:{user:{id:targetId}}})},from:mocks.from,rpc:mocks.rpc});

@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { loadSharedEditRequestsAction as loadRequestsFromServer, reviewSharedEditRequestAction, withdrawSharedEditRequestAction } from "@/app/edit-request-actions";
 import { canReviewSharedEdit, type SharedEditRequestPage, type SharedEditRequestRow } from "@/lib/domain/shared-edit-requests";
 import type { Permission } from "@/lib/domain/rbac";
+import type { PermissionOverrides } from "@/lib/domain/permission-overrides";
 async function loadSharedEditRequestsAction(input: unknown): Promise<SharedEditRequestPage> {
   try { return await loadRequestsFromServer(input); }
   catch { return { ok: false, message: "Requests could not be loaded. Retry when connected." }; }
@@ -18,12 +19,12 @@ function describe(value: unknown): string {
   return String(value);
 }
 
-function RequestCard({ request, userId, role, permissions, names, onChanged }: { request: SharedEditRequestRow; userId: string; role: string; permissions?: Permission[]; names: Record<string, string>; onChanged: () => Promise<void> }) {
+function RequestCard({ request, userId, role, permissions, permissionOverrides, names, onChanged }: { request: SharedEditRequestRow; userId: string; role: string; permissions?: Permission[]; permissionOverrides?: PermissionOverrides; names: Record<string, string>; onChanged: () => Promise<void> }) {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
   const own = request.requested_by === userId;
-  const canReview = !own && request.status === "pending" && canReviewSharedEdit(role, request.target_type, permissions);
+  const canReview = !own && request.status === "pending" && canReviewSharedEdit(role, request.target_type, permissions, permissionOverrides);
   function decide(decision: "approved" | "rejected" | "withdrawn") {
     startTransition(async () => {
       try {
@@ -46,8 +47,9 @@ function RequestCard({ request, userId, role, permissions, names, onChanged }: {
   </article>;
 }
 
-export function EditRequestInbox({ initial, userId, role, permissions, names }: { initial: SharedEditRequestPage; userId: string; role: string; permissions?: Permission[]; names: Record<string, string> }) {
-  const [view, setView] = useState<"mine" | "review">("mine");
+export function EditRequestInbox({ initial, userId, role, permissions, permissionOverrides, names }: { initial: SharedEditRequestPage; userId: string; role: string; permissions?: Permission[]; permissionOverrides?: PermissionOverrides; names: Record<string, string> }) {
+  const isOwner = role === "owner";
+  const [view, setView] = useState<"mine" | "review">(isOwner ? "review" : "mine");
   const [page, setPage] = useState(initial);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
@@ -61,10 +63,10 @@ export function EditRequestInbox({ initial, userId, role, permissions, names }: 
     startTransition(async () => { const result = await loadSharedEditRequestsAction({ view: selected }); if (result.ok) { setView(selected); setPage(result); setMessage(""); } else setMessage(result.message); });
   }
   return <div className="space-y-4">
-    <div className="flex flex-wrap gap-3"><button aria-pressed={view === "mine"} disabled={pending} onClick={() => switchView("mine")} className="rounded-lg border border-white/20 px-4 py-2">My requests</button><button aria-pressed={view === "review"} disabled={pending} onClick={() => switchView("review")} className="rounded-lg border border-white/20 px-4 py-2">Review queue</button><button disabled={pending} onClick={() => startTransition(() => reload())} className="rounded-lg border border-white/20 px-4 py-2">Refresh</button><Link href="/requests/new" className="rounded-lg bg-violet-600 px-4 py-2">Request changes</Link></div>
+    <div className="flex flex-wrap gap-3">{!isOwner && <button aria-pressed={view === "mine"} disabled={pending} onClick={() => switchView("mine")} className="rounded-lg border border-white/20 px-4 py-2">My requests</button>}<button aria-pressed={view === "review"} disabled={pending} onClick={() => switchView("review")} className="rounded-lg border border-white/20 px-4 py-2">Review queue</button><button disabled={pending} onClick={() => startTransition(() => reload())} className="rounded-lg border border-white/20 px-4 py-2">Refresh</button>{!isOwner && <Link href="/requests/new" className="rounded-lg bg-violet-600 px-4 py-2">Request changes</Link>}</div>
     <p role="status">{message || (!page.ok ? page.message : "")}</p>
     {page.ok && page.requests.length === 0 && <p className="text-zinc-400">No requests in this view.</p>}
-    {page.ok && page.requests.map(request => <RequestCard key={request.id} request={request} userId={userId} role={role} permissions={permissions} names={names} onChanged={() => reload()} />)}
+    {page.ok && page.requests.map(request => <RequestCard key={request.id} request={request} userId={userId} role={role} permissions={permissions} permissionOverrides={permissionOverrides} names={names} onChanged={() => reload()} />)}
     {page.ok && page.nextCursor && <button disabled={pending} className="rounded-lg border border-white/20 px-4 py-2" onClick={() => startTransition(async () => {
       const result = await loadSharedEditRequestsAction({ view, cursor: page.nextCursor });
       if (result.ok) setPage({ ...result, requests: [...page.requests, ...result.requests.filter(row => !page.requests.some(existing => existing.id === row.id))] }); else setMessage(result.message);

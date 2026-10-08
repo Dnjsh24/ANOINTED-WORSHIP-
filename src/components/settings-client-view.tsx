@@ -1,17 +1,21 @@
 "use client";
 
-import { useState, useActionState } from "react";
+import { useState, useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { Check, Copy, CreditCard, FileText, LayoutGrid, Link2, Lock, Plus, Shield, ShieldAlert, Sliders, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { RegenerateTeamCodeButton } from "@/components/team-code-actions";
+import { TeamPermissionEditor, type PermissionMember } from "@/components/team-permission-editor";
+import { canForTeam, resolvePermissionOverrides, type PermissionOverrideRow, type PermissionOverrides } from "@/lib/domain/permission-overrides";
 import { SettingsForm } from "@/components/settings-form";
 import { Panel } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { deleteTeamAction, leaveTeamAction, createCustomRoleAction, deleteCustomRoleAction } from "@/app/actions";
 import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { initialActionState } from "@/lib/action-state";
-import { can, PERMISSION_LABELS, type Permission } from "@/lib/domain/rbac";
-import { teamRoles, type TeamRole, type CustomRole } from "@/lib/types";
+import { PERMISSION_LABELS, type Permission } from "@/lib/domain/rbac";
+import { teamRoles, type CustomRole } from "@/lib/types";
 
 const TABS = [
   { id: "controls", label: "Team Controls", icon: LayoutGrid },
@@ -72,6 +76,13 @@ export function SettingsClientView({
   memberCountsByRole = {},
   totalMembers = 0,
   customRoles = [],
+  activityLog = [],
+  activityError = "",
+  permissionMembers = [],
+  permissionRows = [],
+  permissionsAvailable = false,
+  permissionOverrides = {},
+  customPermissions = [],
 }: {
   teamId: string;
   teamName: string;
@@ -81,13 +92,26 @@ export function SettingsClientView({
   defaultServiceLocation: string;
   defaultCallTime: string;
   defaultRehearsalTime: string;
-  activityLog?: Array<{ user: string; action: string; time: string; role: string }>;
+  activityLog?: Array<{ id: string; user: string; action: string; time: string; role: string }>;
+  activityError?: string;
+  permissionMembers?: PermissionMember[];
+  permissionRows?: PermissionOverrideRow[];
+  permissionsAvailable?: boolean;
+  permissionOverrides?: PermissionOverrides;
   memberCountsByRole?: Record<string, number>;
   totalMembers?: number;
   customRoles?: CustomRole[];
   customPermissions?: Permission[];
 }) {
   const [activeTab, setActiveTab] = useState("controls");
+  const router = useRouter();
+  useEffect(() => {
+    if (activeTab !== "activity") return;
+    const refresh = () => { if (document.visibilityState === "visible") router.refresh(); };
+    const timer = window.setInterval(refresh, 15000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", refresh); };
+  }, [activeTab, router]);
   const [copied, setCopied] = useState(false);
   const [deleteState, deleteFormAction] = useActionState(deleteTeamAction, initialActionState);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -98,9 +122,10 @@ export function SettingsClientView({
   const [isCreatingRole, setIsCreatingRole] = useState(false);
 
   function handleCopy() {
-    navigator.clipboard.writeText(teamCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    navigator.clipboard.writeText(teamCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => showSettingsStatus("Code could not be copied. Select and copy it manually."));
   }
 
   function showSettingsStatus(message: string) {
@@ -167,7 +192,7 @@ export function SettingsClientView({
                     <Copy className="size-3.5" />
                     {copied ? "Copied!" : "Copy Code"}
                   </button>
-                  <p className="mt-2 text-[10px] font-semibold text-zinc-600 text-center">This code expires in 7 days.</p>
+                  {canForTeam({ role: role ?? "member", customPermissions, permissionOverrides }, "members.manage") && <RegenerateTeamCodeButton />}
                 </div>
               </Panel>
 
@@ -269,7 +294,7 @@ export function SettingsClientView({
                   { label: "Manage Events", perm: "events.manage" as Permission },
                 ].map(({ label, perm }) => (
                   <div key={label} className="flex items-center gap-2 text-xs font-semibold text-zinc-300">
-                    {role && can(role as TeamRole, perm) ? (
+                    {role && canForTeam({ role, customPermissions, permissionOverrides }, perm) ? (
                       <Check className="size-4 text-emerald-400 shrink-0" />
                     ) : (
                       <span className="size-4 shrink-0 rounded border border-zinc-700" />
@@ -364,6 +389,7 @@ export function SettingsClientView({
               defaultServiceLocation={defaultServiceLocation}
               defaultCallTime={defaultCallTime}
               defaultRehearsalTime={defaultRehearsalTime}
+              canRegenerateCode={canForTeam({ role: role ?? "member", customPermissions, permissionOverrides }, "members.manage")}
             />
           </div>
         )}
@@ -498,7 +524,7 @@ export function SettingsClientView({
                 <span className="rounded bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-violet-300">Live</span>
               </div>
               <p className="text-xs text-zinc-400 font-semibold mb-6">
-                Permissions are enforced by the RBAC engine. The table below shows which roles have each capability.
+                Role defaults and saved overrides apply on the server and in the database. Only the owner can edit access.
               </p>
 
               <div className="overflow-x-auto rounded-xl border border-white/[0.06] bg-white/[0.01]">
@@ -520,17 +546,18 @@ export function SettingsClientView({
                   <tbody className="divide-y divide-white/[0.04] text-zinc-300 font-medium">
                     {[
                       { key: "setlists", label: "Create / Edit Setlists", perm: "setlists.manage" },
-                      { key: "songs", label: "Add / Edit Songs & Chords", perm: "songs.create" },
+                      { key: "songs", label: "Add Songs", perm: "songs.create" },
+                      { key: "song_edits", label: "Edit Songs & Chords", perm: "songs.edit" },
                       { key: "files", label: "Manage Attachments & PDFs", perm: "files.upload" },
                       { key: "members", label: "Invite & Manage Members", perm: "members.manage" },
                       { key: "events", label: "Manage Events", perm: "events.manage" },
-                      { key: "team", label: "Manage Team & Billing", perm: "team.manage" },
+                      { key: "team", label: "Manage Team Settings", perm: "team.manage" },
                     ].map((row) => (
                       <tr key={row.key} className="hover:bg-white/[0.01] transition-colors">
                         <td className="p-3 font-bold text-white">{row.label}</td>
                         {teamRoles.map((r) => (
                           <td key={r} className="p-3 text-center">
-                            {can(r as TeamRole, row.perm as Permission) ? (
+                            {canForTeam({ role: r, permissionOverrides: resolvePermissionOverrides(permissionRows, r) }, row.perm as Permission) ? (
                               <Check className="size-4 text-emerald-400 mx-auto" />
                             ) : (
                               <span className="inline-block size-4 rounded border border-zinc-700" />
@@ -543,6 +570,7 @@ export function SettingsClientView({
                 </table>
               </div>
 
+              <div className="mt-6"><TeamPermissionEditor teamId={teamId} members={permissionMembers} overrides={permissionRows} available={permissionsAvailable} isOwner={role === "owner"} /></div>
               <p className="mt-4 text-[10px] font-semibold text-zinc-500">
                 Roles with members: {Object.entries(memberCountsByRole).filter(([, c]) => c > 0).map(([r, c]) => `${r.replace("_", " ")} (${c})`).join(", ") || "None yet"}
               </p>
@@ -556,7 +584,7 @@ export function SettingsClientView({
                     Create custom roles with specific permissions tailored for your team.
                   </p>
                 </div>
-                {isAdmin && (
+                {role === "owner" && (
                   <button
                     type="button"
                     onClick={() => setIsCreatingRole(true)}
@@ -630,7 +658,7 @@ export function SettingsClientView({
                           ))}
                         </div>
                       </div>
-                      {isAdmin && (
+                              {role === "owner" && (
                         <form action={deleteCustomRoleAction} className="shrink-0">
                           <input type="hidden" name="teamId" value={teamId} />
                           <input type="hidden" name="roleId" value={cr.id} />
@@ -829,19 +857,14 @@ export function SettingsClientView({
             <Panel className="bg-[#111014]/80 p-5">
               <h3 className="text-base font-bold text-white mb-2">Team Activity Audit Log</h3>
               <p className="text-xs text-zinc-400 font-semibold mb-6">
-                A secure history of administrative events, member status changes, and settings modifications.
+                Team history refreshes every 15 seconds while this tab is open.
               </p>
 
+              <button type="button" onClick={() => router.refresh()} className="mb-4 text-sm font-semibold text-violet-300">Refresh activity</button>
+              {activityError ? <p role="alert" className="mb-4 text-sm text-amber-300">{activityError}</p> : !activityLog.length && <p className="text-sm text-zinc-400">No team activity recorded yet.</p>}
               <div className="space-y-3.5">
-                {[
-                  { user: "Casey Lee", action: "added song 'Opening Song' to Sunday Service Setlist", time: "10 mins ago", role: "admin" },
-                  { user: "Alex Morgan", action: "updated general team location preferences", time: "2 hours ago", role: "owner" },
-                  { user: "Worship Bot", action: "auto-expired Rehearsal practice guide audio files", time: "4 hours ago", role: "system" },
-                  { user: "Alex Morgan", action: "approved team join request from Jordan Lee (Guitarist)", time: "1 day ago", role: "owner" },
-                  { user: "Casey Lee", action: "regenerated team invitation security code", time: "3 days ago", role: "admin" },
-                  { user: "Alex Morgan", action: "modified Leader role permissions", time: "5 days ago", role: "owner" },
-                ].map((log, i) => (
-                  <div key={i} className="flex items-start justify-between gap-3 border-b border-white/[0.04] pb-3 last:border-0 last:pb-0">
+                {activityLog.map((log) => (
+                  <div key={log.id} className="flex items-start justify-between gap-3 border-b border-white/[0.04] pb-3 last:border-0 last:pb-0">
                     <div className="flex gap-2.5">
                       <span className={cn(
                         "mt-0.5 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase shrink-0",
@@ -856,7 +879,7 @@ export function SettingsClientView({
                         {log.action}
                       </p>
                     </div>
-                    <span className="text-[10px] font-mono font-semibold text-zinc-500 shrink-0">{log.time}</span>
+                    <span className="text-[10px] font-mono font-semibold text-zinc-500 shrink-0"><time dateTime={log.time}>{new Date(log.time).toLocaleString()}</time></span>
                   </div>
                 ))}
               </div>

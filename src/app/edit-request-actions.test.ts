@@ -15,6 +15,22 @@ beforeEach(() => {
   mocks.query.mockReturnValue(query);
 });
 describe("shared request server actions", () => {
+  it("loads the review queue for an owner even when mine is requested", async () => {
+    mocks.context.mockResolvedValue({ userId: id(3), memberId: id(4), teamId: id(5), role: "owner" });
+    const filters: unknown[][] = [];
+    const query = {
+      select: () => query, eq: (...args: unknown[]) => { filters.push(args); return query; },
+      neq: (...args: unknown[]) => { filters.push(["neq", ...args]); return query; },
+      order: () => query, limit: () => query,
+      then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(resolve),
+    };
+    mocks.query.mockReturnValue(query);
+    expect((await loadSharedEditRequestsAction({ view: "mine" })).ok).toBe(true);
+    expect(filters).toContainEqual(["team_id", id(5)]);
+    expect(filters).toContainEqual(["status", "pending"]);
+    expect(filters).toContainEqual(["neq", "requested_by", id(3)]);
+    expect(filters).not.toContainEqual(["requested_by", id(3)]);
+  });
   it("allows a member proposal and sends no caller-selected team or actor", async () => {
     expect((await submitSharedEditRequestAction(input)).data?.requestId).toBe(id(6));
     expect(mocks.rpc).toHaveBeenCalledWith("submit_shared_edit_request", { p_target_type: "song", p_target_id: id(1), p_revision: 2, p_changes: { title: "Correction" }, p_reason: "Typo", p_request_nonce: id(2) });

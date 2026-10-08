@@ -1,3 +1,4 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { mapEventAssignments, eventAssignmentsSchema } from "@/lib/domain/event-workflows";
 import type { Json } from "@/lib/supabase/database.types";
 import { notFound } from "next/navigation";
@@ -7,7 +8,6 @@ import { Panel } from "@/components/ui/card";
 import { fallbackServiceTemplates, mapServiceTemplate } from "@/lib/domain/service-templates";
 import { events as sampleEvents, members as sampleMembers } from "@/lib/sample-data";
 import type { EventType, ServiceTemplate, TeamMember, TeamRole } from "@/lib/types";
-import { can } from "@/lib/domain/rbac";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
@@ -33,13 +33,13 @@ type EditableEventRow = {
 export default async function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const teamContext = await getRequiredTeamContext();
-  const canEditEvents = can(teamContext.role, "events.manage", teamContext.customPermissions);
+  const canEditEvents = canForTeam(teamContext, "events.manage");
   
   if (!canEditEvents) {
     notFound();
   }
 
-  let canLinkSetlists = can(teamContext.role, "setlists.manage", teamContext.customPermissions);
+  let canLinkSetlists = canForTeam(teamContext, "setlists.manage");
   let teamMembersList: TeamMember[] = [];
   let serviceTemplates: ServiceTemplate[] = fallbackServiceTemplates;
   let setlistsList: Array<{ id: string; name: string; date: string }> = [];

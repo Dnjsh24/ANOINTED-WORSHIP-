@@ -161,6 +161,10 @@ try {
     evidence.results.push(result);
     console.log((await psql(database, smoke)).trim());
     result.smoke = "passed";
+    if (process.argv[2]) {
+      console.log((await psql(database, await readFile(path.resolve(repoRoot, process.argv[2]), "utf8"))).trim());
+      result.authorization = "passed";
+    }
   }
   console.log("PASS complete chronological application migration chain and equivalent manual milestone bundle");
 } catch (error) {

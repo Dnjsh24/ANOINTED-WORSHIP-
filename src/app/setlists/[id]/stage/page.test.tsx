@@ -21,6 +21,16 @@ describe("Stage mode route", () => {
   it("never substitutes another demo setlist for an unknown ID", async () => {
     await expect(StagePage({ params: Promise.resolve({ id: "missing" }) })).rejects.toThrow("NOT_FOUND");
   });
+  it("passes the persisted song meter to Stage controls", async () => {
+    mocks.connected = true;
+    const select = vi.fn<(selection: string) => unknown>();
+    const query = { select, eq: vi.fn(() => query), maybeSingle: vi.fn().mockResolvedValue({ data: { id: "set", setlist_songs: [{ id: "slot", song: { id: "song", title: "Waltz", time_signature: "3/4" } }] }, error: null }) };
+    select.mockReturnValue(query);
+    mocks.client.mockResolvedValue({ from: () => query });
+    const page = await StagePage({ params: Promise.resolve({ id: "set" }) });
+    expect(query.select.mock.calls[0][0]).toContain("time_signature");
+    expect(page.props.setlist.songs[0].song.timeSignature).toBe("3/4");
+  });
   it("scopes connected lookups and distinguishes query failure from missing sets", async () => {
     mocks.connected = true;
     const query = { select: vi.fn(() => query), eq: vi.fn(() => query), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: { message: "private backend details" } }) };

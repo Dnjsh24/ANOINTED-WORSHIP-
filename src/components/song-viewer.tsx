@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { chordToNashville, progressionToNashville, transposeChord, transposeProgression, transposeTokens, tokensToNashville } from "@/lib/domain/chords";
 import { ChordDiagrams } from "@/components/chord-diagrams";
 import type { Song } from "@/lib/types";
@@ -119,7 +119,6 @@ function playClick(beat: number, volume: number = 0.5) {
 }
 
 import { updateSetlistSongKeyAction } from "@/app/actions";
-import { useTransition } from "react";
 
 export function SongViewer({ 
   song,
@@ -133,6 +132,9 @@ export function SongViewer({
   assignedKey?: string;
 }) {
   const [selectedKey, setSelectedKey] = useState(assignedKey ?? song.currentKey);
+  const [savedKey, setSavedKey] = useState(assignedKey ?? song.currentKey);
+  const [keySaveMessage, setKeySaveMessage] = useState("");
+  const [keySaveError, setKeySaveError] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const handleSaveKey = () => {
@@ -141,9 +143,22 @@ export function SongViewer({
     formData.set("setlistId", setlistId);
     formData.set("slotId", slotId);
     formData.set("assignedKey", selectedKey);
+    setKeySaveMessage("Saving key…");
+    setKeySaveError("");
     startTransition(async () => {
-      await updateSetlistSongKeyAction(formData);
-      // Wait for revalidation or assume success
+      try {
+        const result = await updateSetlistSongKeyAction(formData);
+        if (!result.ok) {
+          setKeySaveMessage("");
+          setKeySaveError(result.message || "Key could not be saved. Please retry.");
+          return;
+        }
+        setSavedKey(selectedKey);
+        setKeySaveMessage(result.message);
+      } catch {
+        setKeySaveMessage("");
+        setKeySaveError("Key could not be saved. Please retry when connected.");
+      }
     });
   };
   const [showNumbers] = useState(false);
@@ -166,7 +181,7 @@ export function SongViewer({
 
   // Tab State: "chords" | "lyrics"
   const [activeTab, setActiveTab] = useState<"chords" | "lyrics">("chords");
-  const songStateKey = `${song.id}:${song.bpm ?? ""}:${song.currentKey}:${song.timeSignature}`;
+  const songStateKey = `${song.id}:${song.bpm ?? ""}:${song.currentKey}:${song.timeSignature}:${assignedKey ?? ""}`;
   const [previousSongStateKey, setPreviousSongStateKey] = useState(songStateKey);
 
   if (songStateKey !== previousSongStateKey) {
@@ -176,6 +191,9 @@ export function SongViewer({
     setBpm(getInitialPracticeTempo(song.bpm));
     setCurrentBeat(1);
     setSelectedKey(assignedKey ?? song.currentKey);
+    setSavedKey(assignedKey ?? song.currentKey);
+    setKeySaveMessage("");
+    setKeySaveError("");
     setPracticeTimeSignature(getPracticeMeter(song.timeSignature).label);
   }
 
@@ -356,7 +374,7 @@ export function SongViewer({
               <button aria-label="Raise song key" onClick={() => changeKey(1)} className="flex size-11 items-center justify-center rounded-lg bg-white/[0.04] text-sm font-bold hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">+</button>
             </div>
           </div>
-          {setlistId && slotId && selectedKey !== assignedKey && (
+          {setlistId && slotId && selectedKey !== savedKey && (
             <button 
               onClick={handleSaveKey} 
               disabled={isPending} 
@@ -365,6 +383,8 @@ export function SongViewer({
               <Save className="size-3" /> Save to Setlist
             </button>
           )}
+          {keySaveMessage && <p role="status" className="text-xs text-emerald-300">{keySaveMessage}</p>}
+          {keySaveError && <p role="alert" className="text-xs text-red-300">{keySaveError}</p>}
         </div>
 
         {/* Transpose Selector */}

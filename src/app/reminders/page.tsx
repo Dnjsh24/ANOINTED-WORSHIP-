@@ -1,10 +1,10 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { Bell, CheckCircle2, Clock, Folder, MessageSquare, Users } from "lucide-react";
 import Link from "next/link";
 import { acknowledgeReminderAction } from "@/app/actions";
 import { AppShell } from "@/components/app-shell";
 import { NoticeComposer } from "@/components/notice-composer";
 import { Badge } from "@/components/ui/badge";
-import { can } from "@/lib/domain/rbac";
 import { members as sampleMembers } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -120,7 +120,7 @@ const sampleReminders: ReminderItem[] = [
 
 export default async function RemindersPage() {
   const teamContext = await getRequiredTeamContext();
-  const canCreateNotices = can(teamContext.role, "members.manage");
+  const canCreateNotices = (teamContext.role === "owner" || teamContext.role === "admin") && canForTeam(teamContext, "members.manage");
   let reminders: ReminderItem[] = sampleReminders;
   let deliveryGroups: ReminderDeliveryGroup[] = [
     {

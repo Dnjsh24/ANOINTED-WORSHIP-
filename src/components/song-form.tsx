@@ -15,7 +15,21 @@ import { VoiceKeyDetector } from "@/lib/voice-key-detector";
 import { SpotifySearch, type SpotifyTrack } from "./spotify-search";
 import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
 
-export function SongForm({ song, revision = 0, isProposal = false, canDelete = false }: { song?: Song; revision?: number; isProposal?: boolean; canDelete?: boolean }) {
+export function SongForm({
+  song,
+  revision = 0,
+  isProposal = false,
+  canDelete = false,
+  cancelHref,
+  onSaved,
+}: {
+  song?: Song;
+  revision?: number;
+  isProposal?: boolean;
+  canDelete?: boolean;
+  cancelHref?: string;
+  onSaved?: () => void;
+}) {
   const requestRef = useRef<{ fingerprint: string; nonce: string } | null>(null);
   const [, startSaveTransition] = useTransition();
   const [state, formAction, pendingSave] = useActionState(async (previous: typeof initialActionState, data: FormData) => {
@@ -27,7 +41,9 @@ export function SongForm({ song, revision = 0, isProposal = false, canDelete = f
       if (requestRef.current?.fingerprint !== fingerprint) requestRef.current = { fingerprint, nonce: crypto.randomUUID() };
       data.set("requestNonce", requestRef.current.nonce);
     }
-    return await updateSongAction(previous, data);
+    const result = await updateSongAction(previous, data);
+    if (result.ok) onSaved?.();
+    return result;
     } catch { return { ok: false, message: "The save could not be confirmed. Your draft is retained. Retry when connected." }; }
   }, initialActionState);
   const [originalKey, setOriginalKey] = useState(song?.originalKey ?? "C");
@@ -291,7 +307,8 @@ export function SongForm({ song, revision = 0, isProposal = false, canDelete = f
 
           <div className="flex gap-2 mb-4">
             <Input 
-              value={importUrl} 
+              value={importUrl}
+              aria-label="Song import URL"
               onChange={e => setImportUrl(e.target.value)} 
               placeholder="Paste WorshipChords / Ultimate Guitar URL to auto-import..." 
               className="h-9 text-xs"
@@ -469,6 +486,7 @@ export function SongForm({ song, revision = 0, isProposal = false, canDelete = f
             <textarea
               ref={lyricsRef}
               name="lyrics"
+              aria-label="Lyrics and chords"
               value={lyrics}
               onChange={(event) => setLyrics(event.target.value)}
               placeholder="Intro&#10;C   C   G   Am   F   C&#10;&#10;Verse 1&#10;C&#10;You are faithful, always faithful..."
@@ -558,7 +576,7 @@ export function SongForm({ song, revision = 0, isProposal = false, canDelete = f
           )}
         </div>
         <div className="flex items-center gap-3">
-          <ButtonLink href={song ? `/songs/${song.id}` : "/songs"} variant="secondary" className="rounded-xl px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]">
+          <ButtonLink href={cancelHref ?? (song ? `/songs/${song.id}` : "/songs")} variant="secondary" className="rounded-xl px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]">
             Cancel
           </ButtonLink>
           <Button type="submit" disabled={pendingSave} className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">

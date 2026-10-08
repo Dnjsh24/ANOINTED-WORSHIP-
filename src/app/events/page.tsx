@@ -1,7 +1,8 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { AppShell } from "@/components/app-shell";
 import { EventsClient } from "@/components/events-client";
 import { ListPagination } from "@/components/list-pagination";
-import { can, canReviewEventRequests } from "@/lib/domain/rbac";
+import { canReviewEventRequests } from "@/lib/domain/rbac";
 import { events as sampleEvents } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -69,7 +70,7 @@ export default async function EventsPage({ searchParams = Promise.resolve({}) }:
   const teamContext = await getRequiredTeamContext();
   const params = await searchParams;
   const searchTerm = sanitizeListingSearch(params.q);
-  const memberSubmissionMode = !can(teamContext.role, "events.manage");
+  const memberSubmissionMode = !canForTeam(teamContext, "events.manage");
   const view = params.view === "all" || params.view === "past" || params.view === "calendar"
     ? params.view
     : memberSubmissionMode ? "calendar" : "upcoming";

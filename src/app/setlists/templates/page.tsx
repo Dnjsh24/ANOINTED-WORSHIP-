@@ -1,3 +1,4 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { AppShell } from "@/components/app-shell";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { createClient } from "@/lib/supabase/server";
@@ -5,7 +6,6 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { can } from "@/lib/domain/rbac";
 import { getCurrentTeamContext } from "@/lib/supabase/team-context";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import type { Database } from "@/lib/supabase/database.types";
@@ -14,7 +14,7 @@ type SetlistTemplate = Database["public"]["Tables"]["setlist_templates"]["Row"];
 
 export default async function TemplatesPage() {
   const teamContext = await getRequiredTeamContext();
-  const allowed = can(teamContext.role, "setlists.manage", teamContext.customPermissions);
+  const allowed = canForTeam(teamContext, "setlists.manage");
   if (!allowed) {
     redirect("/dashboard");
   }
@@ -35,7 +35,7 @@ export default async function TemplatesPage() {
     const id = String(formData.get("id") ?? "");
     if (!/^[0-9a-f-]{36}$/i.test(id)) return;
     const context = await getCurrentTeamContext();
-    if (!context.userId || !context.teamId || !can(context.role, "setlists.manage", context.customPermissions)) {
+    if (!context.userId || !context.teamId || !canForTeam(context, "setlists.manage")) {
       return;
     }
     const sb = await createClient();

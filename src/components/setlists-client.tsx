@@ -100,11 +100,6 @@ export function SetlistsClient({
             <input type="hidden" name="date" value={dateFilter === "all" ? "" : dateFilter} />
             <input type="hidden" name="leader" value={leader} />
             <input type="hidden" name="type" value={serviceType} />
-            <label className="sr-only" htmlFor="setlist-sort">Sort setlists</label>
-            <select id="setlist-sort" name="sort" defaultValue={initialSort} className="h-10 rounded-md border border-white/10 bg-[#111014] px-2 text-xs text-white">
-              <option value="descending">Newest first</option>
-              <option value="ascending">Oldest first</option>
-            </select>
             <Button type="submit" variant="secondary">Search</Button>
           </form>
           <Button type="button" variant="secondary" className="flex items-center gap-2" onClick={() => setFiltersOpen((value) => !value)}>

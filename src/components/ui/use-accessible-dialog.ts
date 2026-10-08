@@ -8,13 +8,18 @@ const FOCUSABLE_SELECTOR = [
   "input:not([disabled])",
   "select:not([disabled])",
   "textarea:not([disabled])",
+  "summary",
   "[tabindex]:not([tabindex='-1'])",
 ].join(",");
 
 function getFocusableElements(dialog: HTMLDivElement) {
   return Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((element) => {
-    if (element.tabIndex < 0 || element.matches(':disabled, input[type="hidden"]') || element.closest('[hidden], [inert], [aria-hidden="true"]')) return false;
+    if ((element.tabIndex < 0 && !(element.matches("summary") && !element.hasAttribute("tabindex"))) || element.matches(':disabled, input[type="hidden"]') || element.closest('[hidden], [inert], [aria-hidden="true"]')) return false;
     for (let ancestor: HTMLElement | null = element; ancestor; ancestor = ancestor.parentElement) {
+      if (ancestor instanceof HTMLDetailsElement && !ancestor.open) {
+        const summary = Array.from(ancestor.children).find(child => child.tagName === "SUMMARY");
+        if (!summary?.contains(element)) return false;
+      }
       const style = window.getComputedStyle(ancestor);
       if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return false;
     }

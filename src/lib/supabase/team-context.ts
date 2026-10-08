@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
-import { can, PERMISSION_LABELS, type Permission } from "@/lib/domain/rbac";
+import { PERMISSION_LABELS, type Permission } from "@/lib/domain/rbac";
 import { resolvePostLoginPath, type PostLoginPath } from "@/lib/domain/post-login";
 import { appName, teamCode } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -10,6 +10,9 @@ import { getDesktopTeamContext, saveDesktopTeamContext } from "@/lib/desktop/wor
 import type { Database } from "@/lib/supabase/database.types";
 import type { TeamRole } from "@/lib/types";
 
+import { canForTeam, type PermissionOverrides } from "@/lib/domain/permission-overrides";
+import { loadTeamPermissionOverrides } from "@/lib/server/team-permissions";
+
 export interface TeamContext {
   userId: string | null;
   teamId: string | null;
@@ -18,6 +21,7 @@ export interface TeamContext {
   teamCode: string | null;
   role: TeamRole | string;
   customPermissions?: Permission[];
+  permissionOverrides?: PermissionOverrides;
   canManageMembers: boolean;
   hasPendingJoinRequest: boolean;
 }
@@ -129,6 +133,8 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
     ? (customRole.permissions ?? []).filter((permission): permission is Permission => Object.hasOwn(PERMISSION_LABELS, permission))
     : [];
 
+  const permissionOverrides = await loadTeamPermissionOverrides(supabase, member.team_id, member.role, member.id);
+
   const team = Array.isArray(member.teams) ? member.teams[0] : member.teams;
 
   return {
@@ -139,7 +145,8 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
     teamCode: team?.code ?? null,
     role: member.role,
     customPermissions,
-    canManageMembers: can(member.role, "members.manage", customPermissions),
+    permissionOverrides,
+    canManageMembers: canForTeam({ role: member.role, customPermissions, permissionOverrides }, "members.manage"),
     hasPendingJoinRequest: Boolean(pendingRequest),
   };
 }

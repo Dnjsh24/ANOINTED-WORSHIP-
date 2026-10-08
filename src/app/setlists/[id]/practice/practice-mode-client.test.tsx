@@ -1,13 +1,71 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
 import PracticeModeClient from "./practice-mode-client";
 import type { PracticeSetlist } from "./practice-mode.types";
-import type { Song } from "@/lib/types";
-vi.mock("@/app/workflow-actions", () => ({ saveRehearsalPlanAction: vi.fn(), respondPreparationTaskAction: vi.fn(), reloadPreparationAction: vi.fn(), respondSongReadinessAction: vi.fn() }));
+import type { StageSetlist, StageSetlistSong } from "../stage/stage-mode-client";
 
-vi.mock("@/components/song-viewer", () => ({
-  SongViewer: ({ song, assignedKey }: { song: Song; assignedKey?: string }) => (
-    <div data-testid="song-viewer" data-assigned-key={assignedKey}>{song.title}</div>
+vi.mock("../stage/stage-mode-client", async () => {
+  const { useState } = await import("react");
+  return {
+    default: function StageModeStub({
+      setlist,
+      renderPracticeTools,
+      canManageSetlist,
+    }: {
+      setlist: StageSetlist;
+      renderPracticeTools?: (song: StageSetlistSong, close: () => void, selectSong: (slotId: string) => void) => ReactNode;
+      canManageSetlist: boolean;
+    }) {
+      const [index, setIndex] = useState(0);
+      const [toolsOpen, setToolsOpen] = useState(false);
+      const activeSong = setlist.songs[index];
+      return (
+        <div>
+          <h1 data-testid="stage-title">{activeSong?.song.title}</h1>
+          <p data-testid="stage-key">{activeSong?.assignedKey}</p>
+          <p data-testid="stage-lyrics">{activeSong?.song.lyricsChords}</p>
+          <button type="button" onClick={() => setIndex((current) => Math.min(current + 1, setlist.songs.length - 1))}>Next song</button>
+          <button type="button" onClick={() => setToolsOpen(true)}>Practice & edit</button>
+          <p data-testid="can-manage">{String(canManageSetlist)}</p>
+          {toolsOpen && activeSong && renderPracticeTools?.(activeSong, () => setToolsOpen(false), (slotId) => {
+            const nextIndex = setlist.songs.findIndex((song) => song.id === slotId);
+            if (nextIndex >= 0) setIndex(nextIndex);
+          })}
+        </div>
+      );
+    },
+  };
+});
+
+vi.mock("./practice-tools-panel", () => ({
+  PracticeToolsPanel: ({ stageSong, isPracticed, practicedCount, setlist, onTogglePracticed, practiceTimeSignature, onPracticeTimeSignatureChange, onSelectSong }: {
+    stageSong: StageSetlistSong;
+    isPracticed: boolean;
+    practicedCount: number;
+    setlist: PracticeSetlist;
+    onTogglePracticed: (slotId: string) => void;
+    practiceTimeSignature: string;
+    onPracticeTimeSignatureChange: (timeSignature: string) => void;
+    onSelectSong: (slotId: string) => void;
+  }) => (
+    <section aria-label="Practice tools">
+      <h2>{stageSong.song.title}</h2>
+      <p>{practicedCount} of {setlist.songs.length} songs practiced this session.</p>
+      <button type="button" aria-pressed={isPracticed} onClick={() => onTogglePracticed(stageSong.id)}>
+        {isPracticed ? "Practiced" : "Mark practiced"}
+      </button>
+      <label htmlFor="practice-song-picker">Song</label>
+      <select id="practice-song-picker" value={stageSong.id} onChange={(event) => onSelectSong(event.target.value)}>
+        {setlist.songs.map((song) => <option key={song.slotId} value={song.slotId}>{song.song.title}</option>)}
+      </select>
+      <label htmlFor="practice-time-signature">Practice time signature</label>
+      <select id="practice-time-signature" value={practiceTimeSignature} onChange={(event) => onPracticeTimeSignatureChange(event.target.value)}>
+        <option value="4/4">4/4</option>
+        <option value="3/4">3/4</option>
+        <option value="6/8">6/8</option>
+      </select>
+    </section>
   ),
 }));
 
@@ -46,7 +104,7 @@ const practiceSetlist: PracticeSetlist = {
   ],
 };
 
-function createSong(id: string, title: string, key: string): Song {
+function createSong(id: string, title: string, key: string) {
   return {
     id,
     title,
@@ -57,54 +115,50 @@ function createSong(id: string, title: string, key: string): Song {
     timeSignature: "4/4",
     tags: [],
     favorite: false,
-    sections: [],
+    sections: [{ label: "Verse", lines: [{ chords: "C G", lyric: "Sample lyrics" }] }],
   };
 }
 
 describe("PracticeModeClient", () => {
-  it("moves through ordered songs and passes each setlist key to SongViewer", () => {
-    render(<PracticeModeClient setlist={practiceSetlist} />);
+  it("reuses the stage setlist viewer with each song's assigned key and chord chart", () => {
+    render(<PracticeModeClient setlist={practiceSetlist} canManage />);
 
-    expect(screen.getByTestId("song-viewer")).toHaveTextContent("First Song");
-    expect(screen.getByTestId("song-viewer")).toHaveAttribute("data-assigned-key", "D");
-    expect(screen.getByRole("button", { name: "Previous song" })).toBeDisabled();
+    expect(screen.getByTestId("stage-title")).toHaveTextContent("First Song");
+    expect(screen.getByTestId("stage-key")).toHaveTextContent("D");
+    expect(screen.getByTestId("stage-lyrics")).toHaveTextContent("[Verse]");
+    expect(screen.getByTestId("can-manage")).toHaveTextContent("true");
 
     fireEvent.click(screen.getByRole("button", { name: "Next song" }));
-    expect(screen.getByTestId("song-viewer")).toHaveTextContent("Second Song");
-    expect(screen.getByTestId("song-viewer")).toHaveAttribute("data-assigned-key", "E");
-
-    fireEvent.click(screen.getByRole("button", { name: "Previous song" }));
-    expect(screen.getByTestId("song-viewer")).toHaveTextContent("First Song");
+    expect(screen.getByTestId("stage-title")).toHaveTextContent("Second Song");
+    expect(screen.getByTestId("stage-key")).toHaveTextContent("E");
   });
 
-  it("selects a song by its ordered picker and tracks practice progress for this session", () => {
+  it("tracks practice progress in the stage edit drawer for the active song", () => {
     render(<PracticeModeClient setlist={practiceSetlist} />);
-    const picker = screen.getByRole("combobox", { name: "Song" });
+    fireEvent.click(screen.getByRole("button", { name: "Practice & edit" }));
 
-    expect(within(picker).getAllByRole("option").map((option) => option.textContent)).toEqual([
-      "1. First Song",
-      "2. Second Song",
-      "3. Third Song",
-    ]);
-
-    fireEvent.change(picker, { target: { value: "slot-3" } });
-    expect(screen.getByTestId("song-viewer")).toHaveTextContent("Third Song");
-    fireEvent.click(screen.getByRole("button", { name: "Mark as practiced" }));
+    expect(screen.getByRole("region", { name: "Practice tools" })).toHaveTextContent("0 of 3 songs practiced this session.");
+    fireEvent.click(screen.getByRole("button", { name: "Mark practiced" }));
     expect(screen.getByRole("button", { name: "Practiced" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("1 of 3")).toBeInTheDocument();
-
-    fireEvent.change(picker, { target: { value: "slot-1" } });
-    expect(screen.getByRole("button", { name: "Mark as practiced" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("region", { name: "Practice tools" })).toHaveTextContent("1 of 3 songs practiced this session.");
   });
 
-  it("shows a safe empty state and disables song controls when setlist has no songs", () => {
+  it("lets the drawer jump songs and changes the active session meter", () => {
+    render(<PracticeModeClient setlist={practiceSetlist} />);
+    fireEvent.click(screen.getByRole("button", { name: "Practice & edit" }));
+    fireEvent.change(screen.getByLabelText("Practice time signature"), { target: { value: "6/8" } });
+    expect(screen.getByLabelText("Practice time signature")).toHaveValue("6/8");
+
+    fireEvent.change(screen.getByLabelText("Song"), { target: { value: "slot-2" } });
+    expect(screen.getByTestId("stage-title")).toHaveTextContent("Second Song");
+    expect(screen.getByLabelText("Practice time signature")).toHaveValue("4/4");
+  });
+
+  it("shows an add-song action instead of mounting the stage when the setlist is empty", () => {
     render(<PracticeModeClient setlist={{ ...practiceSetlist, songs: [] }} />);
 
     expect(screen.getByRole("heading", { name: "No songs in this setlist yet" })).toBeInTheDocument();
-    expect(screen.queryByTestId("song-viewer")).not.toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Song" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Previous song" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Next song" })).toBeDisabled();
+    expect(screen.queryByTestId("stage-title")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Add songs" })).toHaveAttribute("href", "/setlists/setlist-1/add-song");
   });
 });

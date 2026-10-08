@@ -9,6 +9,29 @@ import { EditRequestInbox } from "./edit-request-inbox";
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const row: SharedEditRequestRow = { id: id(1), team_id: id(2), target_type: "song", target_id: id(3), base_revision: 4, changes: { title: "New title" }, before_snapshot: { title: "Original" }, after_snapshot: null, reason: "Correct title", status: "pending", requested_by: id(4), reviewed_by: null, review_reason: null, requested_at: "2026-10-06T09:00:00Z", reviewed_at: null, request_nonce: id(5), legacy_song_request_id: null };
 beforeEach(() => { vi.clearAllMocks(); actions.submit.mockResolvedValue({ ok: false, message: "Retry" }); actions.load.mockResolvedValue({ ok: true, requests: [], nextCursor: null }); actions.review.mockResolvedValue({ ok: true, message: "Approved" }); });
+it("gives owners only the review queue and refreshes that queue", async () => {
+  const user = userEvent.setup();
+  render(<EditRequestInbox initial={{ ok: true, requests: [row], nextCursor: null }} userId={id(6)} role="owner" names={{}} />);
+  expect(screen.queryByRole("button", { name: "My requests" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Request changes" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Review queue" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "Refresh" }));
+  await waitFor(() => expect(actions.load).toHaveBeenCalledWith({ view: "review" }));
+});
+it("keeps My requests for members", () => {
+  render(<EditRequestInbox initial={{ ok: true, requests: [], nextCursor: null }} userId={id(6)} role="member" names={{}} />);
+  expect(screen.getByRole("button", { name: "My requests" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("link", { name: "Request changes" })).toBeInTheDocument();
+});
+it("uses the owner's per-person permission decision for setlist reviews", () => {
+  render(<EditRequestInbox initial={{ ok: true, requests: [{ ...row, target_type: "setlist" }], nextCursor: null }} userId={id(6)} role="member" permissionOverrides={{ "setlists.manage": true }} names={{}} />);
+  expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
+});
+it("removes setlist approval controls from an explicitly denied admin", () => {
+  render(<EditRequestInbox initial={{ ok: true, requests: [{ ...row, target_type: "setlist" }], nextCursor: null }} userId={id(6)} role="admin" permissionOverrides={{ "setlists.manage": false }} names={{}} />);
+  expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+});
 it("keeps the draft and nonce on a failed retry, then changes nonce for a new proposal", async () => {
   const user = userEvent.setup();
   render(<SharedContentRequestForm type="announcement" targetId={id(3)} revision={4} values={{ title: "Original", body: "Hello", is_pinned: false }} />);

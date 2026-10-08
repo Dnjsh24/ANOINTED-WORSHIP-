@@ -50,12 +50,10 @@ export default async function AnalyticsPage() {
   return (
     <AppShell active="Analytics" teamContext={teamContext}>
       <div className="mx-auto max-w-6xl">
-        <section className="animate-fade-down flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <section className="motion-safe:animate-fade-down flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <div className="mb-3 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-violet-300">
-              <span className="flex size-7 items-center justify-center rounded-lg border border-violet-400/20 bg-violet-500/10">
-                <Activity className="size-3.5" aria-hidden="true" />
-              </span>
+              <Activity className="size-4" aria-hidden="true" />
               Ministry overview
             </div>
             <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
@@ -67,7 +65,7 @@ export default async function AnalyticsPage() {
             </p>
           </div>
 
-          <div className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-300">
+          <div className="inline-flex w-fit shrink-0 items-center gap-2 px-1 py-2 text-xs font-semibold text-zinc-400">
             <Radio className="size-3.5 text-emerald-400" aria-hidden="true" />
             Current team snapshot
           </div>

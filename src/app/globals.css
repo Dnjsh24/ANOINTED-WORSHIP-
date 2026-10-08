@@ -315,7 +315,7 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
-/* Nav link underline slide */
+/* Static active navigation indicator */
 .nav-link {
   position: relative;
 }
@@ -328,9 +328,7 @@ body {
   height: 2px;
   background: rgba(167, 139, 250, 0.8);
   border-radius: 2px;
-  transition: width 0.25s ease;
 }
-.nav-link:hover::after,
 .nav-link.active::after {
   width: 100%;
 }

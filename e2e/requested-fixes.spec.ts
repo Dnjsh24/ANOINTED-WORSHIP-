@@ -14,28 +14,41 @@ test("demo sign-in explains missing configuration without a document reload", as
   expect(documentRequests).toHaveLength(0);
 });
 
-test("Practice beside Stage supports rehearsal controls, progress and a team plan download", async ({ page }) => {
+test("Practice reuses Stage controls and keeps preparation, progress, meter and team plan editing", async ({ page }) => {
   await page.route("https://www.youtube.com/embed/**", route => route.fulfill({ status: 200, contentType: "text/html", body: "Reference player" }));
   await page.goto("/setlists/sunday-service");
   await expect(page.getByRole("link", { name: "Stage", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Practice", exact: true }).click();
   await expect(page).toHaveURL(/\/setlists\/sunday-service\/practice$/);
-  await expect(page.getByText("Song 1 of", { exact: false })).toBeVisible();
-  const first = await page.getByLabel("Song", { exact: true }).inputValue();
+  await expect(page.getByRole("heading", { name: "Opening Song" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Previous song" })).toBeDisabled();
-  await page.getByRole("button", { name: "Mark as practiced" }).click();
+  await page.getByRole("button", { name: "Practice & edit" }).click();
+  const practiceDialog = page.getByRole("dialog", { name: "Practice & edit" });
+  await expect(practiceDialog).toBeVisible();
+  await expect(practiceDialog.getByRole("button", { name: "Close", exact: true })).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(page.getByRole("button", { name: "Return to stage" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(practiceDialog.getByRole("button", { name: "Close", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(practiceDialog).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Opening Song" })).toBeVisible();
+  await page.getByRole("button", { name: "Practice & edit" }).click();
+  const first = await page.getByLabel("Song", { exact: true }).inputValue();
+  await page.getByRole("button", { name: "Mark practiced" }).click();
   await expect(page.getByRole("progressbar", { name: "Setlist practice progress" })).toHaveAttribute("value", "1");
   await page.getByLabel("Practice time signature").selectOption("6/8");
+  await practiceDialog.getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.getByText("6/8 meter · beat 1 of 6")).toBeVisible();
-  await page.getByRole("button", { name: "Lyrics", exact: true }).click();
-  await page.getByRole("button", { name: "Chords", exact: true }).click();
   await page.getByRole("button", { name: "Start metronome" }).click();
   await expect(page.getByRole("button", { name: "Stop metronome" })).toBeVisible();
   await page.getByRole("button", { name: "Start auto-scroll" }).click();
   await page.getByRole("button", { name: "Next song" }).click();
-  await expect(page.getByLabel("Song", { exact: true })).not.toHaveValue(first);
+  await expect(page.getByRole("heading", { name: "Reflection Song" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start metronome" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start auto-scroll" })).toBeVisible();
+  await page.getByRole("button", { name: "Practice & edit" }).click();
+  await expect(page.getByLabel("Song", { exact: true })).not.toHaveValue(first);
   await page.getByLabel("Song", { exact: true }).selectOption(first);
   await expect(page.getByRole("button", { name: "Practiced", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.getByText("Open preparation tools", { exact: true }).click();
@@ -59,6 +72,7 @@ test("Practice beside Stage supports rehearsal controls, progress and a team pla
   await page.setViewportSize({ width: 320, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.goto("/setlists/midweek-prayer/practice");
+  await page.getByRole("button", { name: "Practice & edit" }).click();
   await page.getByText("Open preparation tools", { exact: true }).click();
   await expect(page.getByLabel("Tune instruments and check cables")).not.toBeChecked();
   await expect(page.getByRole("progressbar", { name: "Setlist practice progress" })).toHaveAttribute("value", "0");

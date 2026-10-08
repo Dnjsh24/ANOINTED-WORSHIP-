@@ -82,13 +82,15 @@ export async function loadSharedEditRequestsAction(input: unknown): Promise<Shar
   try {
     const client = await createClient();
     let query = client.from("shared_edit_requests").select("*").eq("team_id", context.teamId).order("requested_at", { ascending: false }).order("id", { ascending: false }).limit(parsed.data.limit + 1);
-    query = parsed.data.view === "mine" ? query.eq("requested_by", context.userId) : query.eq("status", "pending").neq("requested_by", context.userId);
+    const view = context.role === "owner" ? "review" : parsed.data.view;
+    query = view === "mine" ? query.eq("requested_by", context.userId) : query.eq("status", "pending").neq("requested_by", context.userId);
     if (parsed.data.cursor) {
       const cursor = parsed.data.cursor;
       query = query.or(`requested_at.lt.${cursor.requestedAt},and(requested_at.eq.${cursor.requestedAt},id.lt.${cursor.id})`);
     }
     const { data, error } = await query;
     const rows = z.array(sharedEditRequestRowSchema).safeParse(data);
+    if (error?.code === "42P01" || error?.code === "PGRST205") return { ok: false, message: "Edit requests are unavailable until the website database migration is applied." };
     if (error || !rows.success) return { ok: false, message: "Requests could not be loaded. Check your connection and retry." };
     const requests = rows.data.slice(0, parsed.data.limit);
     const last = requests.at(-1);

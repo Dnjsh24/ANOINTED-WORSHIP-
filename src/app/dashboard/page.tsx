@@ -129,7 +129,7 @@ export default async function DashboardPage() {
 
   let userFullName = sampleUser.fullName;
   let upcomingEventsCount = events.length;
-  let pendingRequestsCount = 2;
+  let pendingRequestsCount = 0;
   let confirmedThisMonthCount = 12;
   let myConfirmedCount = 5;
   let totalSetlistsCount = setlists.length;
