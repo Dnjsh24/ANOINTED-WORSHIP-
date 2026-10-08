@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ChartNoAxesCombined,
   CalendarDays,
   Footprints,
   ListMusic,
@@ -23,6 +24,7 @@ import {
   type ChannelVolume,
   type SongUsage,
 } from "@/lib/domain/analytics";
+import { AnalyticsInsightCharts } from "./analytics-insight-charts";
 import styles from "./analytics-dashboard.module.css";
 
 type TrendInterval = "daily" | "weekly";
@@ -60,8 +62,9 @@ export function AnalyticsDashboard({ analytics }: { analytics: AnalyticsData }) 
     <div className={styles.dashboard}>
       <header className={styles.pageHeader}>
         <div className={styles.titleBlock}>
+          <span className={styles.eyebrow}><ChartNoAxesCombined aria-hidden="true" /> Ministry overview</span>
           <h1>Analytics</h1>
-          <p>Insights from your ministry activity.</p>
+          <p>Your ministry, in perspective. Explore how your team serves and stays connected.</p>
           {analytics.mode === "demo" && (
             <span className={styles.demoTag}>Demo data</span>
           )}
@@ -122,6 +125,8 @@ export function AnalyticsDashboard({ analytics }: { analytics: AnalyticsData }) 
           onIntervalChange={setTrendInterval}
         />
       </div>
+
+      <AnalyticsInsightCharts availability={analytics.availability} activity={analytics.activity} />
 
       <ActivityPanel
         activity={analytics.activity}
@@ -648,6 +653,15 @@ function WebsiteTotals({ totals }: { totals: AnalyticsData["totals"] }) {
   );
 }
 
+const panelLabels: Record<string, string> = {
+  "song-usage-heading": "Repertoire",
+  "availability-trend-heading": "Team readiness",
+  "team-activity-heading": "Behind the scenes",
+  "message-volume-heading": "Connection",
+  "event-availability-heading": "Gatherings",
+  "website-totals-heading": "Your workspace",
+};
+
 function PanelHeader({
   title,
   description,
@@ -662,6 +676,7 @@ function PanelHeader({
   return (
     <header className={styles.panelHeader}>
       <div className={styles.panelHeading}>
+        <span className={styles.panelEyebrow}>{panelLabels[headingId] ?? "Overview"}</span>
         <h2 id={headingId}>{title}</h2>
         <p>{description}</p>
       </div>

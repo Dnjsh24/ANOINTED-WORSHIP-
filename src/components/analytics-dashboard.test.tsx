@@ -84,6 +84,27 @@ function makeAnalytics(overrides: Partial<AnalyticsData> = {}): AnalyticsData {
 }
 
 describe("AnalyticsDashboard", () => {
+  it("charts the recorded response ratio and recent activity counts", () => {
+    render(<AnalyticsDashboard analytics={makeAnalytics()} />);
+    expect(screen.getByRole("img", { name: "Availability snapshot: 75% available, 3 of 4 recorded responses" })).toBeInTheDocument();
+    const breakdown = screen.getByRole("list", { name: "Recent activity breakdown by area" });
+    expect(within(breakdown).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(breakdown).getAllByText("50% of recent entries")).toHaveLength(2);
+    expect(within(breakdown).getByText("setlist")).toBeInTheDocument();
+    expect(within(breakdown).getByText("song")).toBeInTheDocument();
+  });
+
+  it("does not turn missing chart sources into zero activity", () => {
+    render(<AnalyticsDashboard analytics={makeAnalytics({
+      availability: { status: "unavailable", message: "Responses unavailable" },
+      activity: { status: "unavailable", message: "Activity unavailable" },
+    })} />);
+    expect(screen.queryByRole("img", { name: /Availability snapshot:/ })).not.toBeInTheDocument();
+    const panel = screen.getByRole("region", { name: "Activity breakdown" });
+    expect(within(panel).getByRole("status")).toHaveTextContent("Activity unavailable");
+    expect(within(panel).queryByText("0 entries")).not.toBeInTheDocument();
+  });
+
   it("presents the selected date range, current rotation, weighted responses, charts, and website totals", () => {
     render(<AnalyticsDashboard analytics={makeAnalytics()} />);
 
@@ -144,6 +165,7 @@ describe("AnalyticsDashboard", () => {
 
     expect(screen.getByText("No setlist appearances in this date range.")).toBeInTheDocument();
     expect(screen.getByText("No availability responses in either period.")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Availability snapshot: no recorded responses" })).toBeInTheDocument();
     expect(screen.getAllByText("Message volume could not be loaded. Try again.")).toHaveLength(2);
     expect(screen.getByRole("link", { name: /Songs count unavailable/ })).toHaveTextContent("Unavailable");
   });

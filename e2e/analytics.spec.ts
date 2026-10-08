@@ -38,9 +38,13 @@ test("Analytics shows its metrics, real date filtering, charts, and accessible d
   await expect(page.getByRole("heading", { name: "Channel Activity", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Availability by Event Type" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Website Totals" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Availability snapshot" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Recent activity breakdown by area" })).toBeVisible();
+  const fonts = await page.locator("main > div").evaluate((element) => ({ page: getComputedStyle(element).fontFamily, body: getComputedStyle(document.body).fontFamily }));
+  expect(fonts.page).toBe(fonts.body);
 
   await testInfo.attach("analytics-desktop.png", {
-    body: await page.screenshot({ fullPage: true }),
+    body: await page.screenshot({ fullPage: true, animations: "disabled", path: testInfo.outputPath("analytics-enhanced.png") }),
     contentType: "image/png",
   });
 
@@ -103,7 +107,7 @@ test("Analytics stays within mobile viewports and respects keyboard and reduced-
     expect(measurements.scrollWidth, `analytics page should not create viewport-wide horizontal overflow at ${width}px`)
       .toBeLessThanOrEqual(measurements.clientWidth);
     await testInfo.attach(`analytics-${width}px.png`, {
-      body: await page.screenshot({ fullPage: true }),
+      body: await page.screenshot({ fullPage: true, animations: "disabled", path: testInfo.outputPath("analytics-enhanced.png") }),
       contentType: "image/png",
     });
   }
@@ -123,6 +127,10 @@ test("Analytics stays within mobile viewports and respects keyboard and reduced-
     page.locator('[class*="currentLine"]').first().evaluate((element) => getComputedStyle(element).animationName),
   ]);
   expect(animationNames).toEqual(["none", "none", "none"]);
+  for (const selector of ['circle[class*="ringFill"]', '[class*="activityBreakdown"] li > div > span', '[class*="channelBarCurrent"]']) {
+    const animations = await page.locator(selector).evaluateAll((elements) => elements.map((element) => getComputedStyle(element).animationName));
+    expect(animations.every((name) => name === "none")).toBe(true);
+  }
 
   const barScaleY = await page.locator('[class*="barFill"]').first().evaluate((element) => {
     const transform = getComputedStyle(element).transform;

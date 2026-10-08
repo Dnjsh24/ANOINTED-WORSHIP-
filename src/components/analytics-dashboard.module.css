@@ -1,16 +1,19 @@
 .dashboard {
   --analytics-bg: #0d0d10;
-  --analytics-panel: #17161b;
-  --analytics-panel-soft: #1b1a20;
-  --analytics-border: #303039;
-  --analytics-border-muted: #27262e;
+  --analytics-panel: #111014;
+  --analytics-panel-soft: #19171f;
+  --analytics-border: rgba(255, 255, 255, 0.14);
+  --analytics-border-muted: rgba(255, 255, 255, 0.08);
   --analytics-text: #f4f2f7;
   --analytics-muted: #aaa7b2;
   --analytics-violet: #9b6dff;
   --analytics-violet-light: #c0a5ff;
   --analytics-previous: #85838e;
   display: grid;
-  gap: 18px;
+  gap: 24px;
+  max-width: 1200px;
+  margin-inline: auto;
+  font-family: var(--font-sans);
   min-width: 0;
   color: var(--analytics-text);
   animation: dashboard-enter 360ms ease-out both;
@@ -31,8 +34,8 @@
 .titleBlock h1 {
   margin: 0;
   color: var(--analytics-text);
-  font-size: clamp(1.6rem, 4vw, 2rem);
-  font-weight: 750;
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 900;
   letter-spacing: -0.035em;
   line-height: 1.15;
   text-wrap: balance;
@@ -155,7 +158,7 @@
   margin: 0;
   border: 1px solid #55456e;
   border-radius: 8px;
-  padding: 9px 12px;
+  padding: 13px 18px;
   color: #e2d7f5;
   font-size: 0.8rem;
 }
@@ -170,12 +173,14 @@
 .panel {
   min-width: 0;
   border: 1px solid var(--analytics-border-muted);
-  border-radius: 12px;
+  border-radius: 20px;
   background: var(--analytics-panel);
 }
 
 .metricCard {
-  padding: 14px 16px;
+  padding: 24px;
+  background: radial-gradient(ellipse at top right, rgba(139, 92, 246, 0.12), transparent 75%), var(--analytics-panel);
+  transition: border-color 180ms ease, transform 180ms ease;
 }
 
 .metricHeading {
@@ -205,7 +210,7 @@
   margin: 7px 0 0;
   overflow-wrap: anywhere;
   color: var(--analytics-text);
-  font-size: clamp(1.25rem, 3vw, 1.65rem);
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   letter-spacing: -0.035em;
@@ -237,7 +242,7 @@
   justify-content: space-between;
   gap: 12px;
   min-width: 0;
-  padding: 14px 16px 11px;
+  padding: 24px 24px 20px;
 }
 
 .panelHeading {
@@ -247,7 +252,7 @@
 .panelHeading h2 {
   margin: 0;
   color: var(--analytics-text);
-  font-size: 0.9rem;
+  font-size: 1.05rem;
   font-weight: 680;
   letter-spacing: -0.015em;
   line-height: 1.3;
@@ -286,7 +291,7 @@
   align-items: end;
   gap: 8px;
   min-width: 100%;
-  height: 196px;
+  height: 250px;
   padding: 0 14px 8px;
 }
 
@@ -325,7 +330,8 @@
   transform: scaleY(0);
   transform-origin: bottom;
   border-radius: 4px 4px 0 0;
-  background: var(--analytics-violet);
+  background: linear-gradient(180deg, #c4b5fd, #8b5cf6 65%, #6d28d9);
+  box-shadow: 0 0 24px rgba(139, 92, 246, 0.18);
   animation: bar-enter 520ms cubic-bezier(0.22, 0.7, 0.25, 1) both;
 }
 
@@ -430,8 +436,8 @@
 
 .lineChartFrame {
   width: 100%;
-  min-width: 500px;
-  height: 162px;
+  min-width: 300px;
+  height: 210px;
   margin-top: 5px;
 }
 
@@ -446,13 +452,14 @@
 .lineChart {
   display: block;
   width: 100%;
-  min-width: 500px;
+  min-width: 300px;
   height: 100%;
   overflow: visible;
 }
 
 .gridLine {
-  stroke: #34323b;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-dasharray: 3 5;
   stroke-width: 1;
 }
 
@@ -636,7 +643,7 @@
 .channelBarTrack,
 .eventTypeTrack {
   display: block;
-  height: 7px;
+  height: 9px;
   overflow: hidden;
   border-radius: 4px;
   background: #302e37;
@@ -711,7 +718,7 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
-  min-height: 45px;
+  min-height: 76px;
   border: 1px solid var(--analytics-border-muted);
   border-radius: 8px;
   padding: 8px 9px;
@@ -989,4 +996,112 @@
   .totalItem {
     transition: none;
   }
+}
+
+/* Analytics shares the application fonts, surfaces and violet accents. */
+.eyebrow,
+.panelEyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--analytics-violet-light);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.eyebrow svg, .panelEyebrow svg { width: 14px; height: 14px; }
+.pageHeader { padding-block: 8px 4px; }
+.titleBlock > p { max-width: 430px; line-height: 1.7; }
+.dateControls { padding: 16px; border: 1px solid var(--analytics-border-muted); border-radius: 16px; background: var(--analytics-panel); }
+.dateForm input, .inlineControl select, .applyButton, .quickRange { min-height: 44px; border-radius: 10px; }
+.applyButton { background: #7c3aed; border-color: #8b5cf6; color: white; }
+.applyButton:hover { background: #6d28d9; }
+.quickRange[aria-current="date"] { background: rgba(139, 92, 246, 0.16); border-color: rgba(167, 139, 250, 0.45); }
+.metricIcon { width: 36px; height: 36px; padding: 8px; border-radius: 11px; background: rgba(139, 92, 246, 0.14); }
+.metricCard:nth-child(2) .metricIcon { color: #6ee7b7; background: rgba(52, 211, 153, 0.1); }
+.metricCard:nth-child(3) .metricIcon { color: #7dd3fc; background: rgba(56, 189, 248, 0.1); }
+.metricHeading h2 { font-size: 12px; }
+.metricDetail, .panelHeading p { font-size: 12px; line-height: 1.6; }
+.metricValue { margin-top: 18px; font-weight: 900; }
+.metricCard:hover { border-color: rgba(167, 139, 250, 0.35); transform: translateY(-3px); }
+.panel { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08); }
+.barTrack { border: none; background: rgba(255, 255, 255, 0.025); border-radius: 8px 8px 0 0; width: min(100%, 48px); }
+.barFill { border-radius: 8px 8px 0 0; }
+.barColumn:hover .barFill { filter: brightness(1.2); }
+.barValue { font-size: 12px; font-weight: 700; }
+.barLabel { font-size: 11px; }
+.trendSummary { padding: 10px 12px; background: rgba(139, 92, 246, 0.06); border-radius: 10px; }
+.channelList, .eventTypeList { padding: 10px 24px 24px; gap: 12px 24px; }
+.channelRow, .eventTypeRow { padding-block: 16px; }
+.channelBarCurrent, .eventTypeTrack span { background: linear-gradient(90deg, #7c3aed, #c4b5fd); }
+.channelBarCurrent, .channelBarPrevious, .eventTypeTrack span { transform-origin: left; animation: horizontal-enter 650ms ease both; }
+.totalGrid { padding: 0 24px 24px; gap: 12px; }
+.totalItem { background: rgba(255, 255, 255, 0.02); border-radius: 12px; }
+.totalValue { font-size: 18px; font-weight: 900; }
+.totalLabel { font-size: 11px; }
+.totalIcon { width: 20px; height: 20px; }
+.areaLabel { display: inline-flex; padding: 4px 8px; border-radius: 6px; background: rgba(139, 92, 246, 0.1); }
+.emptyState { padding: 24px; border-style: dashed; background: rgba(255, 255, 255, 0.02); text-align: center; }
+.insightGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.readinessSnapshot { display: flex; align-items: center; gap: 24px; padding: 0 24px 24px; }
+.readinessRing { position: relative; width: 140px; height: 140px; flex-shrink: 0; }
+.readinessRing svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ringTrack, .ringFill { fill: none; stroke-width: 9; }
+.ringTrack { stroke: rgba(255, 255, 255, 0.07); }
+.ringFill { stroke: #a78bfa; stroke-linecap: round; animation: ring-enter 900ms ease both; }
+.readinessRing > div { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.readinessRing strong { font-size: 30px; font-weight: 900; letter-spacing: -0.04em; }
+.readinessRing span { font-size: 11px; color: var(--analytics-muted); }
+.responseDetails { min-width: 0; font-size: 12px; color: var(--analytics-muted); }
+.responseDetails p { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.responseDetails strong { color: var(--analytics-text); font-variant-numeric: tabular-nums; }
+.responseDetails i { width: 8px; height: 8px; border-radius: 50%; background: #a78bfa; flex-shrink: 0; }
+.responseDetails p:nth-child(2) i { background: #85838e; }
+.responseDetails > span { display: block; font-size: 11px; line-height: 1.6; }
+.chartBadge { padding: 6px 10px; border: 1px solid var(--analytics-border-muted); border-radius: 20px; font-size: 11px; white-space: nowrap; color: var(--analytics-muted); }
+.activityBreakdown { display: grid; gap: 16px; list-style: none; margin: 0; padding: 0 24px 24px; }
+.activityBreakdown li { display: grid; grid-template-columns: 1fr auto; gap: 7px; font-size: 12px; }
+.activityBreakdown li > span { text-transform: capitalize; }
+.activityBreakdown li > div { grid-column: 1 / -1; height: 8px; border-radius: 10px; overflow: hidden; background: rgba(255, 255, 255, 0.06); }
+.activityBreakdown li > div > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7c3aed, #c4b5fd); transform-origin: left; animation: horizontal-enter 650ms ease both; }
+.activityBreakdown small { grid-column: 1 / -1; font-size: 10px; color: var(--analytics-muted); }
+@keyframes horizontal-enter { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes ring-enter { from { stroke-dasharray: 0 100; } }
+@media (prefers-reduced-motion: no-preference) {
+  .panel, .metricCard { animation: dashboard-enter 450ms ease both; }
+  .metricCard:nth-child(2) { animation-delay: 60ms; }
+  .metricCard:nth-child(3) { animation-delay: 120ms; }
+}
+@media (max-width: 900px) {
+  .pageHeader { align-items: start; flex-direction: column; }
+  .dateControls { width: 100%; justify-items: start; }
+  .insightGrid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .summaryGrid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .metricCard { padding: 18px; }
+  .metricValue { margin-top: 10px; font-size: 30px; }
+  .metricDetail { font-size: 12px; }
+  .panelHeader { padding: 20px 16px 16px; flex-wrap: wrap; }
+  .dateControls { padding: 12px; }
+  .dateForm { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .dateForm label { min-width: 0; }
+  .dateForm input { width: 100%; font-size: 12px; min-width: 0; }
+  .applyButton { grid-column: 1 / -1; }
+  .quickRanges { flex-wrap: wrap; justify-content: start; }
+  .readinessSnapshot { gap: 16px; padding: 0 16px 20px; }
+  .readinessRing { width: 112px; height: 112px; }
+  .readinessRing strong { font-size: 25px; }
+  .activityBreakdown, .channelList, .eventTypeList { padding-inline: 16px; }
+  .totalGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-inline: 16px; }
+  .totalItem { grid-template-columns: auto minmax(0, 1fr); padding: 12px; }
+  .totalValue { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .channelBarCurrent, .channelBarPrevious, .eventTypeTrack span, .ringFill, .activityBreakdown li > div > span { animation: none; }
+  .metricCard { transition: none; }
+  .metricCard:hover { transform: none; }
 }
