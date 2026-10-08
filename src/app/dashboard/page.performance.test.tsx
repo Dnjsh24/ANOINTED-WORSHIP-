@@ -29,10 +29,11 @@ describe("dashboard request dependencies", () => {
     mocks.client.mockResolvedValue(createClient<Database>("https://supabase.example.test", "test-key", { global: { fetch }, auth: { persistSession: false } }));
     const page = DashboardPage();
     await vi.waitFor(() => expect(urls.some(url => url.pathname.endsWith("notifications"))).toBe(true));
-    expect(urls.some(url => url.pathname.endsWith("get_personal_preparation"))).toBe(true);
+    expect(urls.some(url => url.pathname.endsWith("get_personal_preparation"))).toBe(false);
     profile.resolve(new Response(JSON.stringify({ full_name: "Verified member" })));
     await page;
-    expect(urls).toHaveLength(12);
+    expect(urls).toHaveLength(10);
+    expect(urls.some(url => url.pathname.endsWith("attendance") && url.searchParams.has("event_id"))).toBe(false);
     expect(urls.some(url => url.pathname.endsWith("event_assignments"))).toBe(false);
     const memberQueries = urls.filter(url => url.pathname.endsWith("team_members"));
     expect(memberQueries).toHaveLength(1); // Celebration data only; member ID comes from verified context.

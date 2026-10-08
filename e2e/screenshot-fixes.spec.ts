@@ -6,11 +6,11 @@ test.beforeEach(async ({ page }) => {
   await page.route("https://fonts.googleapis.com/**", route => route.fulfill({ status: 200, contentType: "text/css", body: "" }));
 });
 
-test("service summary and navigation have no purple panel or pulsing strip", async ({ page }) => {
+test("home omits the personal service summary and navigation has no pulsing strip", async ({ page }) => {
   await page.goto("/dashboard");
-  const summary = page.getByRole("region", { name: "Your next service" });
-  await expect(summary).toBeVisible();
-  expect(await summary.evaluate(element => getComputedStyle(element).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+  await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Your next service" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Open service reminders", exact: true })).toHaveCount(0);
   expect(await page.locator("header nav .animate-pulse, header nav .motion-safe\\:animate-pulse").count()).toBe(0);
   const current = page.locator('nav [aria-current="page"]');
   await expect(current.first()).toHaveAttribute("href", "/dashboard");

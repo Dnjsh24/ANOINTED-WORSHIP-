@@ -24,7 +24,6 @@ import {
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
 import { OfflinePreloader } from "@/components/offline-preloader";
-import { DashboardPersonalSummary, type PersonalPrepItem } from "@/components/dashboard-personal-summary";
 import { AppShell } from "@/components/app-shell";
 import { getSetlistTypeLabel } from "@/lib/domain/event-types";
 import { currentUser as sampleUser, events, setlists } from "@/lib/sample-data";
@@ -121,10 +120,6 @@ export default async function DashboardPage() {
     serviceTimes: ["9:00 AM", "11:00 AM"],
   };
   let nextEvent: DashboardNextEvent | null = events[0];
-  let nextEventAssignment: string | null = null;
-  let nextEventRsvp: "available" | "maybe" | "unavailable" | "pending" | "no_response" | null = null;
-  let preparationItems: PersonalPrepItem[] = [];
-  let outstandingPrepCount = 0;
   let setlistSongsList: DashboardSetlistSong[] = setlists[0].songs;
 
   let userFullName = sampleUser.fullName;
@@ -196,8 +191,6 @@ export default async function DashboardPage() {
           profile:profiles(full_name, birthday)
         `)
         .eq("team_id", teamContext.teamId),
-      supabase.rpc("get_personal_preparation", { p_team_id: teamContext.teamId }, { count: "exact" })
-        .order("setlist_date", { ascending: true }).order("setlist_id").order("task_key").range(0, 2)
     ]);
 
     const todayStr = new Date().toISOString().split("T")[0];
@@ -275,13 +268,6 @@ export default async function DashboardPage() {
           time: `${dbEvent.starts_at.slice(0, 5)} - ${dbEvent.ends_at?.slice(0, 5) || ""}`,
           location: dbEvent.location ?? "Main Sanctuary",
         };
-        if (teamContext.memberId) {
-          // The assigned-event query already returned this member's roles.
-          nextEventAssignment = dbEvent.event_assignments.map(row => row.assignment).sort().join(", ") || null;
-          const attendanceResult = await supabase.from("attendance").select("status")
-            .eq("event_id", dbEvent.id).eq("team_member_id", teamContext.memberId).maybeSingle();
-          nextEventRsvp = attendanceResult.data?.status ?? "no_response";
-        }
       } else {
         nextEvent = null;
       }
@@ -328,15 +314,7 @@ export default async function DashboardPage() {
         totalSetlistsCount = setlistsCountResult.count ?? totalSetlistsCount;
       }
 
-      const [announcementsResult, remindersResult, activityLogsResult, membersResult, preparationResult] = await summaryPromise;
-
-      outstandingPrepCount = preparationResult.count ?? 0;
-      preparationItems = (preparationResult.data ?? []).map((item) => ({
-        id: `${item.setlist_id}:${item.task_key}`,
-        title: item.task_key,
-        body: item.setlist_name,
-        targetPath: `/setlists/${item.setlist_id}`,
-      }));
+      const [announcementsResult, remindersResult, activityLogsResult, membersResult] = await summaryPromise;
 
       announcementItems = (announcementsResult.data ?? []).map((announcement, index) => {
         const visual = getAnnouncementVisual(announcement.category, announcement.title, index);
@@ -457,14 +435,6 @@ export default async function DashboardPage() {
           </Link>
         )}
       </section>
-
-      <DashboardPersonalSummary
-        nextEvent={nextEvent}
-        assignment={nextEventAssignment}
-        attendance={nextEventRsvp}
-        preparationItems={preparationItems}
-        outstandingCount={outstandingPrepCount}
-      />
 
       {/* ── Main grid ─────────────────────────────── */}
       <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
