@@ -13,6 +13,7 @@ import { Suspense, type ReactNode } from "react";
 import { AppShellActions } from "@/components/app-shell-actions";
 import { NavigationPending } from "@/components/navigation-pending";
 import { MemberUsageTracker } from "@/components/member-usage-tracker";
+import { BrandLogo } from "@/components/brand-logo";
 import { QuickReportButton } from "@/components/quick-report-button";
 import { MobileIconRail, type MobileNavigationItem } from "@/components/mobile-icon-rail";
 import { visibleNavigation } from "@/lib/domain/rbac";
@@ -63,9 +64,12 @@ export async function AppShell({
       {context.userId && context.teamId && !isDesktopRuntime() && <MemberUsageTracker teamId={context.teamId} />}
       <header className="sticky top-0 z-30 hidden border-b border-white/10 bg-[#111014]/95 backdrop-blur md:block animate-fade-down">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/dashboard" className="min-w-0 truncate text-lg font-bold text-white transition-colors duration-200 hover:text-violet-200 lg:max-w-40 xl:max-w-none">
-            {context.teamName || appName}
-          </Link>
+          <div className="flex min-w-0 items-center gap-3">
+            <Link href="/dashboard" aria-label="Sunday Setlist home" className="flex shrink-0 items-center">
+              <BrandLogo compact className="h-9 w-9" />
+            </Link>
+            <span className="max-w-40 truncate text-sm font-bold text-white">{context.teamName || appName}</span>
+          </div>
           <nav aria-label="Primary" className="hidden items-center gap-4 lg:flex xl:gap-6">
             {navigation.map((item) => (
               <Link
@@ -91,6 +95,12 @@ export async function AppShell({
             />
           </div>
         </div>
+      </header>
+      <header className="flex h-14 items-center gap-3 border-b border-white/10 bg-[#111014] px-4 md:hidden">
+        <Link href="/dashboard" aria-label="Sunday Setlist home" className="flex shrink-0 items-center">
+          <BrandLogo compact className="h-8 w-8" />
+        </Link>
+        <span className="min-w-0 truncate text-sm font-bold text-white">{context.teamName || appName}</span>
       </header>
       <MobileIconRail active={active} items={mobileNavigation} canManageTeam={context.canManageMembers || canForTeam(context, "team.manage")} messageBadge={
         <Suspense fallback={null}>

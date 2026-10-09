@@ -422,7 +422,7 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight">Home</h1>
           <p className="mt-1 text-sm font-semibold text-zinc-400">
-            Welcome back, <span className="text-violet-300">{firstName}</span>. Ready for {teamContext.teamName ?? "Anointed Worship"} this week.
+            Welcome back, <span className="text-violet-300">{firstName}</span>. Ready for {teamContext.teamName ?? "Sunday Setlist"} this week.
           </p>
         </div>
         {nextEvent && (

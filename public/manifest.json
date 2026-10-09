@@ -1,6 +1,6 @@
 {
-  "name": "Anointed Worship",
-  "short_name": "Anointed Worship",
+  "name": "Sunday Setlist",
+  "short_name": "Sunday Setlist",
   "description": "Empower your worship ministry with streamlined setlists, chords, scheduling, and messages.",
   "start_url": "/dashboard",
   "display": "standalone",
@@ -8,16 +8,22 @@
   "theme_color": "#8b5cf6",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "/sunday-setlist-icon-192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/sunday-setlist-icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any"
+    },
+    {
+      "src": "/sunday-setlist-maskable-icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ]
 }

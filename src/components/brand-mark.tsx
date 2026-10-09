@@ -1,16 +1,14 @@
-import { Music2 } from "lucide-react";
-import { appName } from "@/lib/sample-data";
+import { BrandLogo } from "@/components/brand-logo";
 import { cn } from "@/lib/utils";
 
 export function BrandMark({ compact = false, className }: { compact?: boolean; className?: string }) {
   return (
     <div className={cn("flex items-center gap-3", className)}>
-      <span className="inline-flex size-9 items-center justify-center rounded-md bg-violet-500 text-white">
-        <Music2 className="size-5" />
-      </span>
-      {!compact && (
+      {compact ? (
+        <BrandLogo compact className="h-9 w-9" />
+      ) : (
         <span className="leading-tight">
-          <span className="block text-sm font-bold text-white">{appName}</span>
+          <BrandLogo className="h-8 max-w-44" />
           <span className="block font-mono text-[10px] uppercase text-violet-200/80">Worship Team Management</span>
         </span>
       )}

@@ -1,10 +1,14 @@
-const CACHE_NAME = "anointed-worship-public-v2";
+const CACHE_NAME = "sunday-setlist-public-v3";
 const ASSETS_TO_CACHE = [
   "/",
   "/login",
   "/manifest.json",
-  "/icon-192.png",
-  "/icon-512.png"
+  "/sunday-setlist-icon-192.png",
+  "/sunday-setlist-icon-512.png",
+  "/sunday-setlist-maskable-icon-512.png",
+  "/sunday-setlist-favicon-16x16.png",
+  "/sunday-setlist-favicon-32x32.png",
+  "/sunday-setlist-apple-touch-icon.png"
 ];
 
 // Install Service Worker and Cache Base Assets
@@ -48,7 +52,7 @@ self.addEventListener("fetch", (event) => {
   const isPublicAsset =
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/brand/") ||
-    /^\/(?:icon-\d+|favicon|apple-touch-icon)/.test(url.pathname) ||
+    /^\/(?:icon-\d+|favicon|apple-touch-icon|sunday-setlist-)/.test(url.pathname) ||
     url.pathname === "/manifest.json";
   if (!isPublicAsset) return;
 
@@ -72,20 +76,20 @@ self.addEventListener("message", (event) => {
 
 // Handle push notification events
 self.addEventListener("push", (event) => {
-  let data = { title: "Anointed Worship", body: "You have a new update!" };
+  let data = { title: "Sunday Setlist", body: "You have a new update!" };
   
   if (event.data) {
     try {
       data = event.data.json();
     } catch {
-      data = { title: "Anointed Worship", body: event.data.text() };
+      data = { title: "Sunday Setlist", body: event.data.text() };
     }
   }
 
   const options = {
     body: data.body,
-    icon: "/icon-192.png",
-    badge: "/icon-192.png",
+    icon: "/sunday-setlist-icon-192.png",
+    badge: "/sunday-setlist-icon-192.png",
     vibrate: [100, 50, 100],
     data: {
       dateOfArrival: Date.now(),

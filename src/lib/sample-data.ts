@@ -8,7 +8,7 @@ import type {
   TeamMember,
 } from "@/lib/types";
 
-export const appName = "Anointed Worship";
+export const appName = "Sunday Setlist";
 export const teamCode = "DM-10001";
 
 export const currentUser = {

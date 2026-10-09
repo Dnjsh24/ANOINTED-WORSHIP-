@@ -16,14 +16,14 @@ test.afterEach(async ({ page }) => {
 
 test("landing page routes into login and team onboarding", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Anointed Worship Ministry Planning" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sunday Setlist Ministry Planning" })).toBeVisible();
   await page.getByRole("link", { name: /Get Started with Google/i }).click();
   await expect(page.getByRole("heading", { name: "Welcome Back" })).toBeVisible();
 });
 
 test("team join flow opens the join form and pending request screen", async ({ page }) => {
   await page.goto("/teams");
-  await expect(page.getByRole("heading", { name: "Welcome to Anointed Worship" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome to Sunday Setlist" })).toBeVisible();
   await page.getByRole("link", { name: /Join a Team/i }).click();
   await expect(page.getByRole("heading", { name: "Join an Existing Team" })).toBeVisible();
 

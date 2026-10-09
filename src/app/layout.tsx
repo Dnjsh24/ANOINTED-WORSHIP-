@@ -10,45 +10,45 @@ const siteUrl = new URL("https://anointed-worship-app.vercel.app");
 export const metadata: Metadata = {
   metadataBase: siteUrl,
   title: {
-    default: "Anointed Worship",
-    template: "%s | Anointed Worship",
+    default: "Sunday Setlist",
+    template: "%s | Sunday Setlist",
   },
   description: "Private worship team management for setlists, songs, schedules, and ministry communication.",
-  applicationName: "Anointed Worship",
+  applicationName: "Sunday Setlist",
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "/favicon.ico" },
-      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/sunday-setlist-favicon.ico" },
+      { url: "/sunday-setlist-favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/sunday-setlist-favicon-16x16.png", sizes: "16x16", type: "image/png" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/sunday-setlist-apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
-    title: "Anointed Worship",
+    title: "Sunday Setlist",
     description: "Private worship team management for setlists, songs, schedules, and ministry communication.",
     url: "/",
-    siteName: "Anointed Worship",
+    siteName: "Sunday Setlist",
     images: [
       {
-        url: "/brand/anointed-worship-og.png",
+        url: "/brand/sunday-setlist-og.png",
         width: 1200,
         height: 630,
-        alt: "Anointed Worship logo",
+        alt: "Sunday Setlist logo",
       },
     ],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Anointed Worship",
+    title: "Sunday Setlist",
     description: "Private worship team management for setlists, songs, schedules, and ministry communication.",
-    images: ["/brand/anointed-worship-og.png"],
+    images: ["/brand/sunday-setlist-og.png"],
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Anointed Worship",
+    title: "Sunday Setlist",
   },
 };
 

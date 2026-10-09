@@ -105,7 +105,7 @@ export default function WorshipRemoteClient({ initialError }: { initialError?: s
           <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-violet-400/30 bg-violet-500/15">
             <Smartphone className="size-6 text-violet-200" aria-hidden="true" />
           </div>
-          <p className="mt-5 text-xs font-bold uppercase tracking-[0.24em] text-violet-300">Anointed Worship</p>
+          <p className="mt-5 text-xs font-bold uppercase tracking-[0.24em] text-violet-300">Sunday Setlist</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight">Worship Remote</h1>
           <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-zinc-400">
             Connect this phone to the Windows Presenter and control lyrics, slides, displays, Bible verses, and stage tools.
@@ -274,7 +274,7 @@ function QrScanner({ onClose, onPair }: { onClose: () => void; onPair: (pair: st
     const accept = (rawValue: string) => {
       const pair = parseWorshipRemoteQrPayload(rawValue, window.location.origin);
       if (!pair) {
-        setError("That QR code is not an Anointed Worship Remote link.");
+        setError("That QR code is not a Sunday Setlist Remote link.");
         return false;
       }
       stop();

@@ -1,6 +1,7 @@
-import { Check, LogOut, Music2, Users } from "lucide-react";
+import { Check, LogOut, Users } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BrandLogo } from "@/components/brand-logo";
 import { signOut } from "@/app/actions";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { getCurrentTeamContext } from "@/lib/supabase/team-context";
@@ -24,13 +25,8 @@ export default async function TeamsPage() {
       <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 h-96 w-96 rounded-full bg-violet-600/10 blur-[100px]" />
 
       {/* Header */}
-      <nav className="flex items-center justify-between px-8 py-5 relative z-10">
-        <div className="flex items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-violet-500/20 border border-violet-400/30">
-            <Music2 className="size-4 text-violet-300" />
-          </span>
-          <span className="text-sm font-bold text-white">Anointed Worship</span>
-        </div>
+      <nav className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 relative z-10">
+        <BrandLogo className="h-8 max-w-52" />
         <form action={signOut}>
           <button
             type="submit"
@@ -42,9 +38,9 @@ export default async function TeamsPage() {
         </form>
       </nav>
 
-      <div className="relative z-10 mx-auto max-w-3xl px-6 py-16 text-center animate-fade-up">
-        <h1 className="text-3xl font-extrabold text-white">Welcome to Anointed Worship</h1>
-        <p className="mt-3 text-sm font-semibold text-zinc-400">
+      <div className="relative z-10 mx-auto max-w-3xl px-4 sm:px-6 py-10 sm:py-16 text-center animate-fade-up">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Welcome to Sunday Setlist</h1>
+        <p className="mt-2 sm:mt-3 text-xs sm:text-sm font-semibold text-zinc-400">
           To get started, create a new team or join an existing one.
         </p>
 
@@ -108,7 +104,7 @@ export default async function TeamsPage() {
       </div>
 
       <footer className="relative z-10 border-t border-white/[0.06] py-5 text-center font-mono text-[10px] font-bold text-zinc-600">
-        © 2026 Anointed Worship. All rights reserved.
+        © 2026 Sunday Setlist. All rights reserved.
       </footer>
     </main>
   );

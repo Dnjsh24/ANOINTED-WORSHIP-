@@ -223,7 +223,7 @@ export default function ProjectorClient({ setlistId, initialSettings, initialLiv
   }
 
   if (outputMode === "logo") {
-    return <>{backgroundLayer}<div className="fixed inset-0 flex items-center justify-center bg-black"><Image width={1024} height={1024} src="/brand/anointed-worship-logo-transparent.png" alt="Anointed Worship" className="h-auto w-auto max-h-[42vh] max-w-[42vw] object-contain opacity-90" /></div><LivePropOverlay prop={lookLayout.showProps ? liveProp : null} /></>;
+    return <>{backgroundLayer}<div className="fixed inset-0 flex items-center justify-center bg-black"><Image width={1100} height={256} src="/brand/sunday-setlist-logo.svg" alt="Sunday Setlist" className="h-auto w-auto max-h-[42vh] max-w-[42vw] object-contain opacity-90" /></div><LivePropOverlay prop={lookLayout.showProps ? liveProp : null} /></>;
   }
 
   if (!activeSlide || outputMode === "clear") {

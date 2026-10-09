@@ -470,7 +470,7 @@ export async function signOut() {
 }
 
 export async function createTeamAction(formData: FormData) {
-  const name = teamNameSchema.parse(formData.get("name") ?? "Anointed Worship");
+  const name = teamNameSchema.parse(formData.get("name") ?? "Sunday Setlist");
   const location = formData.get("location") as string || "";
   const serviceTime = formData.get("serviceTime") as string || "9:00 AM";
   const ministryRole = normalizeJoinableRole(formData.get("role"));

@@ -1,21 +1,15 @@
 import { CalendarDays, Library, MessageSquare, Rows3 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#0d0c12] text-white overflow-x-hidden">
       {/* Nav */}
-      <nav className="flex items-center justify-between px-8 py-5 animate-fade-down">
-        <Link href="/" className="flex items-center" aria-label="Anointed Worship home">
-          <Image
-            src="/brand/anointed-worship-logo-transparent.png"
-            alt="Anointed Worship"
-            width={259}
-            height={51}
-            priority
-            className="h-9 w-auto"
-          />
+      <nav className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 animate-fade-down">
+        <Link href="/" className="flex items-center" aria-label="Sunday Setlist home">
+          <BrandLogo className="h-7 max-w-44 sm:h-9 sm:max-w-56" />
         </Link>
         <Link
           href="/login"
@@ -29,19 +23,15 @@ export default function Home() {
       <section className="mx-auto grid max-w-7xl gap-12 px-8 pb-16 pt-10 lg:grid-cols-2 lg:items-center">
         {/* Left */}
         <div className="animate-fade-up">
-          <Image
-            src="/brand/anointed-worship-logo-transparent.png"
-            alt="Anointed Worship"
-            width={648}
-            height={128}
-            priority
-            className="mb-8 h-auto w-full max-w-xl"
-          />
-          <h1 className="text-5xl font-extrabold leading-tight tracking-tight text-white lg:text-6xl">
-            Anointed Worship<br />
-            <span className="bg-gradient-to-r from-violet-400 to-purple-300 bg-clip-text text-transparent">
-              Ministry Planning
-            </span>
+          <h1 className="mb-6 sm:mb-8">
+            <Image
+              src="/brand/sunday-setlist-banner-transparent-v4.svg"
+              alt="Sunday Setlist Ministry Planning"
+              width={1000}
+              height={300}
+              priority
+              className="h-auto w-full max-w-lg object-contain"
+            />
           </h1>
           <p className="mt-6 max-w-lg text-sm font-medium leading-7 text-zinc-400">
             Plan with excellence. Lead with worship. Streamline setlists, chord charts, scheduling, and team communication in one beautiful space.
@@ -134,8 +124,8 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="border-t border-white/[0.06] py-6 text-center font-mono text-[10px] font-bold text-zinc-600">
-        © 2026 Anointed Worship. All rights reserved.
+      <footer className="border-t border-white/[0.06] py-6 text-center font-mono text-[10px] font-bold text-zinc-600 px-4">
+        © 2026 Sunday Setlist. All rights reserved.
       </footer>
     </main>
   );

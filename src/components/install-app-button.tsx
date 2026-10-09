@@ -71,7 +71,7 @@ export function InstallAppButton() {
           App Installed Successfully
         </h3>
         <p className="mt-1 text-xs font-semibold text-zinc-400">
-          Anointed Worship is running directly on your device. You can launch it from your home screen icon.
+          Sunday Setlist is running directly on your device. You can launch it from your home screen icon.
         </p>
       </div>
     );
@@ -84,7 +84,7 @@ export function InstallAppButton() {
         Get the App on Your Phone
       </h3>
       <p className="mt-1 text-xs font-semibold text-zinc-400">
-        Run Anointed Worship in fullscreen standalone mode and access chord charts offline.
+        Run Sunday Setlist in fullscreen standalone mode and access chord charts offline.
       </p>
 
       {isInstallable ? (

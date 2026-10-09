@@ -3,6 +3,7 @@
 import { CheckCircle2, ChevronDown, Lock, MapPin, Music2, Users, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getTeamPreviewAction, joinTeamAction } from "@/app/actions";
+import { BrandLogo } from "@/components/brand-logo";
 
 const STEPS = ["Enter Code", "Review Team", "Request Access"];
 const ROLES = [
@@ -75,11 +76,8 @@ export function JoinTeamForm() {
     <main className="min-h-screen bg-[#0d0c12] text-white relative overflow-hidden">
       <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 h-96 w-96 rounded-full bg-violet-600/8 blur-[100px]" />
 
-      <nav className="flex items-center gap-2.5 px-8 py-5 relative z-10">
-        <span className="flex size-8 items-center justify-center rounded-lg bg-violet-500/20 border border-violet-400/30">
-          <Music2 className="size-4 text-violet-300" />
-        </span>
-        <span className="text-sm font-bold">Anointed Worship</span>
+      <nav className="flex items-center gap-2.5 px-4 sm:px-8 py-4 sm:py-5 relative z-10">
+        <BrandLogo className="h-8 max-w-52" />
       </nav>
 
       <div className="relative z-10 mx-auto max-w-lg px-6 pb-20 pt-6 animate-fade-up">
@@ -180,7 +178,7 @@ export function JoinTeamForm() {
       </div>
 
       <footer className="relative z-10 border-t border-white/[0.06] py-5 text-center font-mono text-[10px] font-bold text-zinc-600">
-        &copy; 2026 Anointed Worship. All rights reserved.
+        &copy; 2026 Sunday Setlist. All rights reserved.
       </footer>
     </main>
   );

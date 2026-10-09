@@ -148,7 +148,7 @@ export function PwaRegister({ enabled = true }: { enabled?: boolean }) {
             <div>
               <p className="text-xs font-bold text-white">App Update Available</p>
               <p className="mt-0.5 text-[10px] font-semibold text-violet-300">
-                A new version of Anointed Worship is ready.
+                A new version of Sunday Setlist is ready.
               </p>
             </div>
             <button
