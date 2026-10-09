@@ -32,11 +32,11 @@ function successfulFetch(url) {
   }
   if (path === "/sw.js") {
     return Promise.resolve(
-      response('const CACHE_NAME = "anointed-worship-public-v2"; const ASSETS_TO_CACHE = ["/"];'),
+      response('const CACHE_NAME = "sunday-setlist-public-v4"; const ASSETS_TO_CACHE = ["/"];'),
     );
   }
   if (path === "/manifest.json") {
-    return Promise.resolve(Response.json({ name: "Anointed Worship", display: "standalone" }));
+    return Promise.resolve(Response.json({ name: "Sunday Setlist", display: "standalone" }));
   }
   throw new Error(`Unexpected path: ${path}`);
 }
@@ -54,7 +54,7 @@ describe("production smoke", () => {
       if (path !== "/sw.js") return successfulFetch(url);
 
       return response(`
-        const CACHE_NAME = "anointed-worship-public-v2";
+        const CACHE_NAME = "sunday-setlist-public-v4";
         const ASSETS_TO_CACHE = ["/", "/login"];
         self.addEventListener("notificationclick", (event) => {
           event.waitUntil(self.clients.openWindow("/dashboard"));
@@ -100,7 +100,7 @@ describe("production smoke", () => {
         },
         {
           check: "service worker",
-          message: "expected public-v2 cache version was not deployed",
+          message: "expected Sunday Setlist public-v4 cache version was not deployed",
         },
         {
           check: "service worker",

@@ -84,8 +84,8 @@ export async function runProductionSmoke(baseUrlInput, fetchImplementation = fet
     failures.push(failure("service worker", `expected 200, received ${serviceWorker.status}`));
   } else {
     const source = await serviceWorker.text();
-    if (!source.includes("anointed-worship-public-v2")) {
-      failures.push(failure("service worker", "expected public-v2 cache version was not deployed"));
+    if (!source.includes("sunday-setlist-public-v4")) {
+      failures.push(failure("service worker", "expected Sunday Setlist public-v4 cache version was not deployed"));
     }
     const precacheDeclaration = source.match(
       /(?:const|let|var)\s+ASSETS_TO_CACHE\s*=\s*\[([\s\S]*?)\]\s*;/,

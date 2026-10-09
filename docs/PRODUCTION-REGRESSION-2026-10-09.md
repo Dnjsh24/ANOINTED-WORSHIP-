@@ -40,3 +40,15 @@ Gates 01–12 and 14–22: intake, ownership, source contracts, data flow, exist
 Reviewer model/effort: assignment `gpt-6.1-sol medium`; effective launch receipt and usage telemetry unavailable. Coordinator model/effort inherited, not independently verifiable. No application repair loop exceeded three attempts.
 
 Next action: obtain explicit approval, integrate only this candidate into main, push/deploy the exact reviewed SHA, keep Vercel production source on main, verify public branding and authenticated event/setlist creation. Production remains affected until activation.
+
+## Approved activation settlement
+
+The user approved pushing and deploying with “aprove”. The restoration was committed as `c8ead702837a8f01990947556aade78c32cd6d7c` and pushed normally to main; exact remote SHA verified. The first Git helper attempt could not prompt for the active account. The existing repository-owner Dnjsh24 login was used only for the successful push process, without modifying saved credentials or account settings.
+
+Vercel automatically deployed main to `dpl_8BEBQ35Bo9iXrd1LBufQosLqSMuC`; READY and exact commit verified on the production alias. Server build compilation, TypeScript and new production branch preflight passed. This automatic main production build confirms the project already uses main as its production source; no project setting change was needed.
+
+Live Chromium checks confirm homepage/login HTTP 200, Sunday Setlist tab title, versioned Sunday Setlist favicon, correct manifest name and exact reviewed favicon PNG bytes. Screenshots: `docs/testing/regression-live-home.png` and `regression-live-login.png`. Live read-only smoke passes health/Supabase reachability, security headers, unauthenticated dashboard redirect, public-only service-worker caching and manifest.
+
+The release check itself still expected the old `anointed-worship-public-v2` cache, despite `public/sw.js` using `sunday-setlist-public-v4`. Its expectation and fixtures were corrected so the scheduled monitor will not falsely report this restoration as broken. Independent Laura review approves the minimal script/test correction: 4/4 smoke tests, strict scoped lint and whitespace pass. Production dependencies remain unchanged. This follow-up is within the approved activation scope.
+
+Creation-path evidence: production uses reviewed main save workflows, authenticated EXECUTE grants exist, and local action success/failure tests passed. No live event/setlist was created as a test; authenticated submission is not claimed verified. Users can retry their intended entries after reloading the deployed application. No schema, database permission or credential changes were made.
