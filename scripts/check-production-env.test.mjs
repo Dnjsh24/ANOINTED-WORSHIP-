@@ -16,6 +16,19 @@ const validEnvironment = {
 };
 
 describe("production environment preflight", () => {
+  it("requires main for Vercel production builds, including redeploys", () => {
+    expect(validateProductionEnvironment({ ...validEnvironment, VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" })).toEqual([]);
+    for (const branch of ["codex/website-production-readiness", "Dn-Jsh/Fixing-things", ""]) {
+      expect(validateProductionEnvironment({ ...validEnvironment, VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: branch })).toEqual([
+        { variable: "VERCEL_GIT_COMMIT_REF", message: "production builds must use main; integrate reviewed changes before deploying" },
+      ]);
+    }
+  });
+
+  it("allows feature branch preview builds", () => {
+    expect(validateProductionEnvironment({ ...validEnvironment, VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "codex/website-production-readiness" })).toEqual([]);
+  });
+
   it("accepts a complete production environment", () => {
     expect(validateProductionEnvironment(validEnvironment)).toEqual([]);
   });

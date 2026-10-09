@@ -72,6 +72,10 @@ function validateOptionalPair(issues, environment, first, second) {
 export function validateProductionEnvironment(environment = process.env) {
   const issues = [];
 
+  if (environment.VERCEL_ENV === "production" && valueOf(environment, "VERCEL_GIT_COMMIT_REF") !== "main") {
+    addIssue(issues, "VERCEL_GIT_COMMIT_REF", "production builds must use main; integrate reviewed changes before deploying");
+  }
+
   for (const variable of REQUIRED_PRODUCTION_VARIABLES) {
     const value = valueOf(environment, variable);
     if (!value) {

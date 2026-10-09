@@ -10,9 +10,10 @@ vi.mock("@/lib/desktop/sync", () => ({}));
 vi.mock("@/lib/push-notifications", () => ({ notifyProfiles: vi.fn() }));
 vi.mock("@/lib/domain/activity", () => ({ logActivity: vi.fn() }));
 vi.mock("@/lib/supabase/team-context", () => ({ getCurrentTeamContext: vi.fn(), getCurrentTeamContextForClient: vi.fn() }));
-import { createEventAction, updateEventAction, updateSetlistAction, reviewEventAction, updateSetlistSongKeyAction } from "./actions";
+import { createEventAction, createSetlistAction, updateEventAction, updateSetlistAction, reviewEventAction, updateSetlistSongKeyAction } from "./actions";
 const teamId = "11111111-1111-4111-8111-111111111111", memberId = "22222222-2222-4222-8222-222222222222", targetId = "33333333-3333-4333-8333-333333333333";
 const eventForm = () => { const form = new FormData(); Object.entries({ title:"Sunday",eventType:"service",date:"2026-10-11",startTime:"09:00",endTime:"11:00",location:"Hall",worshipLeader:memberId,revision:"1",eventId:targetId,recurrence:"monthly" }).forEach(([key,value])=>form.set(key,value)); return form; };
+const setlistForm = () => { const form = new FormData(); Object.entries({title:"Sunday songs",serviceDate:"2026-10-11",eventType:"service",serviceType:"Sunday Worship",location:"Hall",callTime:"08:00",rehearsalTime:"08:30"}).forEach(([key,value])=>form.set(key,value));form.append("songIds",targetId);return form; };
 beforeEach(() => {
   vi.clearAllMocks(); mocks.role="owner"; mocks.customPermissions=[]; mocks.rpc.mockResolvedValue({data:null,error:{message:"write failed"}});
   mocks.from.mockImplementation((table:string) => {
@@ -22,6 +23,30 @@ beforeEach(() => {
   mocks.client.mockResolvedValue({auth:{getUser:async()=>({data:{user:{id:targetId}}})},from:mocks.from,rpc:mocks.rpc});
 });
 describe("atomic workspace action outcomes", () => {
+  it("creates an approved event through the guarded workflow", async () => {
+    mocks.rpc.mockResolvedValue({data:targetId,error:null});
+    await createEventAction({ok:false,message:""},eventForm());
+    expect(mocks.rpc).toHaveBeenCalledWith("save_event_workspace",expect.objectContaining({p_team_id:teamId,p_event_id:null}));
+    expect(mocks.redirect).toHaveBeenCalledWith(`/events/${targetId}`);
+  });
+  it("preserves an event draft when creation fails", async () => {
+    expect(await createEventAction({ok:false,message:""},eventForm())).toMatchObject({ok:false,message:expect.stringContaining("No changes were applied")});
+    expect(mocks.redirect).not.toHaveBeenCalled();
+    expect(mocks.revalidate).not.toHaveBeenCalled();
+  });
+  it("creates a setlist and its songs through the guarded workflow", async () => {
+    const form=setlistForm();
+    mocks.rpc.mockResolvedValue({data:targetId,error:null});
+    await createSetlistAction({ok:false,message:""},form);
+    expect(mocks.rpc).toHaveBeenCalledWith("save_setlist_workspace",expect.objectContaining({p_team_id:teamId,p_setlist_id:null,p_song_ids:[targetId]}));
+    expect(mocks.redirect).toHaveBeenCalledWith(`/setlists/${targetId}`);
+  });
+  it("preserves a setlist draft when creation fails", async () => {
+    const form=setlistForm();
+    expect(await createSetlistAction({ok:false,message:""},form)).toMatchObject({ok:false,message:expect.stringContaining("No changes were applied")});
+    expect(mocks.redirect).not.toHaveBeenCalled();
+    expect(mocks.revalidate).not.toHaveBeenCalled();
+  });
   it("preserves the key and avoids success revalidation when the guarded slot RPC rejects a foreign or unavailable slot", async () => {
     const form = new FormData();form.set("setlistId",targetId);form.set("slotId",memberId);form.set("assignedKey","Eb");
     mocks.rpc.mockResolvedValue({data:null,error:{code:"42501",message:"Slot unavailable"}});

@@ -1,6 +1,21 @@
 import { expect, test } from "@playwright/test";
 import { blockRemoteSupabase } from "./demo-network";
 
+test("dashboard shortcuts retain bare icons after a production build", async ({ page }) => {
+  const blockedRequests = await blockRemoteSupabase(page);
+  await page.goto("/dashboard");
+  const shortcuts = page.locator("section").filter({ has: page.getByRole("heading", { name: "Quick Access", exact: true }) });
+  await expect(shortcuts).toBeVisible();
+  const icons = shortcuts.locator("a svg");
+  expect(await icons.count()).toBeGreaterThan(0);
+  for (const icon of await icons.all()) {
+    expect(await icon.evaluate(element => getComputedStyle(element.parentElement!).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+    await icon.hover();
+    expect(await icon.evaluate(element => getComputedStyle(element.parentElement!).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+  }
+  expect(blockedRequests).toEqual([]);
+});
+
 test("Sunday Setlist branding renders across public and team screens", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   const blockedRequests = await blockRemoteSupabase(page);
@@ -15,6 +30,7 @@ test("Sunday Setlist branding renders across public and team screens", async ({ 
     await expect(page.locator("body")).not.toContainText("Anointed Worship");
     const logos = page.locator('img[src*="sunday-setlist"]:visible');
     if (path !== "/worship-remote") {
+      await expect(logos.first()).toBeVisible();
       expect(await logos.count(), `${path} should show the selected brand`).toBeGreaterThan(0);
     }
     for (const logo of await logos.all()) {
