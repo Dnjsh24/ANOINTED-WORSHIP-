@@ -15,6 +15,8 @@ const websiteRoutes = [
   "/reminders",
   "/analytics",
   "/messages",
+  "/requests",
+  "/requests/new",
   "/dance",
   "/members",
   "/members/member-alex",
@@ -39,6 +41,7 @@ const websiteRoutes = [
   "/setlists/sunday-service/add-song",
   "/setlists/sunday-service/confidence",
   "/setlists/sunday-service/stage",
+  "/setlists/sunday-service/practice",
   "/setlists/sunday-service/presenter",
   "/setlists/sunday-service/projector",
 ] as const;
@@ -73,8 +76,22 @@ test("every website page renders without server or console errors", async ({ pag
     routePage.on("response", onResponse);
 
     const response = await routePage.goto(route, { waitUntil: "domcontentloaded" });
+    if (route === "/presenter" || route.endsWith("/presenter")) {
+      await expect(routePage).toHaveURL(/\/worship-remote$/);
+      await expect(routePage.getByRole("heading", { name: "Worship Remote", exact: true })).toBeVisible();
+    }
     await expect(routePage.locator("body"), `${route} should render visible content`).not.toBeEmpty();
     expect(response?.status(), `${route} should not return an error status`).toBeLessThan(400);
+    // Presenter redirects can settle after initial HTML. Locator evaluation
+    // retries with the active document rather than a destroyed JS context.
+    await routePage.waitForLoadState("load");
+    const dimensions = await routePage.locator("html").evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      page: document.documentElement.scrollWidth,
+    }));
+    if (dimensions.page > dimensions.viewport + 1) {
+      errors.push(`page overflow: ${dimensions.page}px exceeds ${dimensions.viewport}px viewport`);
+    }
 
     routePage.off("console", onConsole);
     routePage.off("response", onResponse);

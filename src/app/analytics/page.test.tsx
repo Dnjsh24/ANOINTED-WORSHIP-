@@ -5,6 +5,7 @@ import { parseAnalyticsRange, type AnalyticsData } from "@/lib/domain/analytics"
 
 const mocks = vi.hoisted(() => ({
   getRequiredTeamContext: vi.fn(),
+  memberQuery: vi.fn(),
   hasSupabaseEnv: vi.fn(),
   loadAnalytics: vi.fn(),
   createDemoAnalytics: vi.fn(),
@@ -15,6 +16,14 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/components/app-shell", () => ({
   AppShell: ({ children }: { children: import("react").ReactNode }) => children,
+}));
+
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: async () => ({ from: () => ({ select: () => ({ eq: mocks.memberQuery }) }) }),
+}));
+
+vi.mock("@/components/member-usage-analytics", () => ({
+  MemberUsageAnalytics: ({ teamId, memberNames }: { teamId: string | null; memberNames: Record<string, string> }) => <div data-testid="member-usage">{teamId ?? "demo-usage"}:{memberNames["member-1"]}</div>,
 }));
 
 vi.mock("@/components/analytics-dashboard", () => ({
@@ -62,6 +71,7 @@ function makeAnalytics(range = analyticsRange, mode: AnalyticsData["mode"] = "li
 describe("AnalyticsPage access and data source", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.memberQuery.mockResolvedValue({ data: [{ id: "member-1", profiles: { full_name: "Alex Rivera" } }], error: null });
     mocks.getRequiredTeamContext.mockResolvedValue({
       teamId: "team-1",
       role: "owner",
@@ -83,6 +93,8 @@ describe("AnalyticsPage access and data source", () => {
     render(await AnalyticsPage({ searchParams: Promise.resolve(searchParams) }));
 
     expect(screen.getByText("live")).toBeInTheDocument();
+    expect(screen.getByTestId("member-usage")).toHaveTextContent("team-1:Alex Rivera");
+    expect(mocks.memberQuery).toHaveBeenCalledWith("team_id", "team-1");
     expect(mocks.loadAnalytics).toHaveBeenCalledWith("team-1", parseAnalyticsRange(searchParams));
     expect(mocks.createDemoAnalytics).not.toHaveBeenCalled();
   });
@@ -97,8 +109,14 @@ describe("AnalyticsPage access and data source", () => {
     await expect(AnalyticsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("redirect:/dashboard");
 
     expect(mocks.redirect).toHaveBeenCalledWith("/dashboard");
+    expect(mocks.memberQuery).not.toHaveBeenCalled();
     expect(mocks.loadAnalytics).not.toHaveBeenCalled();
     expect(mocks.createDemoAnalytics).not.toHaveBeenCalled();
+  });
+
+  it("rejects a failed member name query rather than showing incomplete usage identities", async () => {
+    mocks.memberQuery.mockResolvedValue({ data: null, error: { message: "query failed" } });
+    await expect(AnalyticsPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("Team member names could not be loaded");
   });
 
   it("uses clearly labeled demo data when Supabase is not configured", async () => {
@@ -107,6 +125,8 @@ describe("AnalyticsPage access and data source", () => {
     render(await AnalyticsPage({ searchParams: Promise.resolve({ start: "2026-10-01", end: "2026-10-07" }) }));
 
     expect(screen.getByText("demo")).toBeInTheDocument();
+    expect(screen.getByTestId("member-usage")).toHaveTextContent("demo-usage");
+    expect(mocks.memberQuery).not.toHaveBeenCalled();
     expect(mocks.createDemoAnalytics).toHaveBeenCalledWith(parseAnalyticsRange({ start: "2026-10-01", end: "2026-10-07" }));
     expect(mocks.loadAnalytics).not.toHaveBeenCalled();
   });

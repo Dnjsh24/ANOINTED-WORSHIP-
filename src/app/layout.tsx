@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 import { PwaRegister } from "@/components/pwa-register";
+import { WebsiteWebVitals } from "@/components/website-web-vitals";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
 
 const siteUrl = new URL("https://anointed-worship-app.vercel.app");
@@ -74,6 +75,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full bg-[#0d0d10] text-white">
         <PwaRegister enabled={!isDesktopRuntime()} />
+        {process.env.NEXT_PUBLIC_MEASURE_WEB_VITALS === "1" && <WebsiteWebVitals />}
         {children}
       </body>
     </html>

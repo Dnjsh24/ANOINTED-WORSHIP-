@@ -1,3 +1,4 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { AppShell } from "@/components/app-shell";
 import { SetlistForm, type SetlistFormSong } from "@/components/setlist-form";
 import { Panel } from "@/components/ui/card";
@@ -6,13 +7,14 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { EventType } from "@/lib/types";
+import { songs as sampleSongs } from "@/lib/sample-data";
 
 export default async function NewSetlistPage({ searchParams }: { searchParams: Promise<{ eventId?: string; templateId?: string }> }) {
   const { eventId, templateId } = await searchParams;
   const teamContext = await getRequiredTeamContext();
   let setlistTemplates: SetlistTemplateSummary[] = [];
   let initialEventType: EventType | undefined;
-  let songs: SetlistFormSong[] = [];
+  let songs: SetlistFormSong[] = hasSupabaseEnv() ? [] : sampleSongs.map(song => ({ id: song.id, title: song.title, original_key: song.originalKey, bpm: song.bpm ?? null }));
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
@@ -62,6 +64,9 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
             We will allow selecting a template, which passes a hidden field to SetlistForm. */}
         <SetlistTemplatePicker templates={setlistTemplates || []} />
       </div>
+      {!eventId && !canForTeam(teamContext, "events.manage") && (
+        <p className="mb-4 text-sm text-zinc-300">This setlist will be saved without an event. An authorized event leader can create and link the event later.</p>
+      )}
       <Panel>
         <SetlistForm eventId={eventId} initialEventType={initialEventType} templateId={templateId} songs={songs} />
       </Panel>

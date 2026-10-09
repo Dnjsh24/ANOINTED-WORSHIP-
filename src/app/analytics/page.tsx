@@ -1,4 +1,6 @@
 import { AnalyticsDashboard } from "@/components/analytics-dashboard";
+import { MemberUsageAnalytics } from "@/components/member-usage-analytics";
+import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/app-shell";
 import { createDemoAnalytics, loadAnalytics } from "@/lib/server/analytics";
 import { parseAnalyticsRange } from "@/lib/domain/analytics";
@@ -24,9 +26,21 @@ export default async function AnalyticsPage({
     ? await loadAnalytics(teamContext.teamId, range)
     : createDemoAnalytics(range);
 
+  const memberNames: Record<string, string> = {};
+  if (hasSupabaseEnv()) {
+    const client = await createClient();
+    const members = await client.from("team_members").select("id, profiles(full_name)").eq("team_id", teamContext.teamId);
+    if (members.error) throw new Error("Team member names could not be loaded");
+    for (const member of members.data ?? []) {
+      const profile = Array.isArray(member.profiles) ? member.profiles[0] : member.profiles;
+      memberNames[member.id] = profile?.full_name ?? "Team member";
+    }
+  }
+
   return (
     <AppShell active="Analytics" teamContext={teamContext}>
       <AnalyticsDashboard key={`${range.start}:${range.end}`} analytics={analytics} />
+      <MemberUsageAnalytics teamId={hasSupabaseEnv() ? teamContext.teamId : null} memberNames={memberNames} />
     </AppShell>
   );
 }

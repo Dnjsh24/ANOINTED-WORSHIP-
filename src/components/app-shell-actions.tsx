@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Settings } from "lucide-react";
+import { Bell, ClipboardList, Settings } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
@@ -49,8 +49,8 @@ export function AppShellActions({
           ]
         : [];
 
-    return [...pendingNotification, ...reminderNotification, ...baseNotifications];
-  }, [pendingRequestCount, unreadReminderCount]);
+    return [...pendingNotification, ...reminderNotification, ...(userId ? [] : baseNotifications)];
+  }, [pendingRequestCount, unreadReminderCount, userId]);
 
   const badgeCount = pendingRequestCount + unreadReminderCount;
 
@@ -170,6 +170,7 @@ export function AppShellActions({
   return (
     <div className="relative flex items-center gap-2 text-zinc-300">
       {desktopSync}
+      <Link href="/requests" aria-label="Edit requests" className="rounded-lg p-2 hover:bg-white/5"><ClipboardList className="size-5" /></Link>
       <button
         type="button"
         aria-label="Open notifications"
@@ -190,6 +191,7 @@ export function AppShellActions({
           aria-label="Notifications"
           className="menu-enter absolute right-10 top-11 z-50 w-80 rounded-lg border border-white/10 bg-[#18171c] p-3 shadow-2xl shadow-black/40"
         >
+          {notifications.length === 0 && <p className="px-3 py-3 text-sm text-zinc-400">No new notifications.</p>}
           {notifications.map((notification) => (
             <Link
               key={notification.title}

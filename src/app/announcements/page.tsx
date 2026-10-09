@@ -1,8 +1,8 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { AppShell } from "@/components/app-shell";
 import { NoticeComposer } from "@/components/notice-composer";
 import { Badge } from "@/components/ui/badge";
 import { AnnouncementsFeed, type AnnouncementItem } from "@/components/announcements-feed";
-import { can } from "@/lib/domain/rbac";
 import { announcements as sampleAnnouncements, members as sampleMembers } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -46,7 +46,7 @@ type EventTargetRow = {
 
 export default async function AnnouncementsPage() {
   const teamContext = await getRequiredTeamContext();
-  const canCreateNotices = can(teamContext.role, "members.manage");
+  const canCreateNotices = (teamContext.role === "owner" || teamContext.role === "admin") && canForTeam(teamContext, "members.manage");
   let announcementItems: AnnouncementItem[] = sampleAnnouncements.map((announcement) => ({
     id: announcement.id,
     title: announcement.title,

@@ -19,15 +19,19 @@ import type { JoinRequestSummary } from "@/lib/types";
 export function JoinRequestsClient({
   initialRequests,
   teamId,
+  initialError,
+  canAssignRoles = false,
 }: {
   initialRequests: JoinRequestSummary[];
   teamId: string | null;
+  initialError?: string;
+  canAssignRoles?: boolean;
 }) {
   const router = useRouter();
   const [requests, setRequests] = useState(initialRequests);
   const [previousInitialRequests, setPreviousInitialRequests] = useState(initialRequests);
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(initialError ?? "");
   const [isPending, startTransition] = useTransition();
 
   if (initialRequests !== previousInitialRequests) {
@@ -42,7 +46,10 @@ export function JoinRequestsClient({
     const supabase = createOptionalClient();
     if (!supabase) return;
     const client = supabase;
+    let active = true;
     async function refreshPendingRequests() {
+      if (document.visibilityState === "hidden") return;
+      try {
       const { data, error } = await client
         .from("join_requests")
         .select(joinRequestWithRequesterProfileSelect)
@@ -50,15 +57,24 @@ export function JoinRequestsClient({
         .eq("status", "pending")
         .order("created_at", { ascending: false });
 
+      if (!active) return;
       if (error) {
         setStatus("Pending requests could not refresh. Please try again.");
         return;
       }
 
       setRequests((data ?? []).map((request) => normalizeJoinRequest(request as RawJoinRequest)));
-      router.refresh();
+      setStatus("");
+      } catch {
+        if (active) setStatus("Pending requests could not refresh. Please try again.");
+      }
     }
 
+    void refreshPendingRequests();
+    const interval = window.setInterval(() => { void refreshPendingRequests(); }, 30_000);
+    const onFocus = () => { void refreshPendingRequests(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
     const channel = client
       .channel(`join-requests-list-${activeTeamId}`)
       .on(
@@ -71,6 +87,10 @@ export function JoinRequestsClient({
       .subscribe();
 
     return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
       client.removeChannel(channel);
     };
   }, [router, teamId]);
@@ -111,7 +131,7 @@ export function JoinRequestsClient({
         </div>
       </div>
 
-      {status && <p className="mt-4 text-sm font-bold text-emerald-300">{status}</p>}
+      {status && <p role="status" className="mt-4 text-sm font-bold text-zinc-300">{status}</p>}
 
       <Panel className="mt-7 overflow-hidden p-0">
         <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.03] px-5 py-4">
@@ -140,7 +160,8 @@ export function JoinRequestsClient({
                 <Button
                   type="button"
                   className="h-9 flex-1 rounded-lg px-3 text-xs md:flex-none"
-                  disabled={isPending}
+                  disabled={isPending || (!canAssignRoles && request.requestedRole !== "member")}
+                  title={!canAssignRoles && request.requestedRole !== "member" ? "An owner or admin must approve this role." : undefined}
                   onClick={() => reviewRequest(request.id, "approved")}
                 >
                   <Check className="size-3.5" />

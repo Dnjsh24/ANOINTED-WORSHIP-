@@ -76,6 +76,9 @@ export function getEventTimeLabel(event: EventWindow) {
 export function eventWindowsOverlap(current: EventWindow, other: EventWindow) {
   if (current.date !== other.date) return false;
 
+  // A date-only schedule cannot establish that two assignments are separated.
+  if (!current.startsAt || !other.startsAt) return true;
+
   const currentStart = timeToMinutes(current.startsAt) ?? 0;
   const otherStart = timeToMinutes(other.startsAt) ?? 0;
   const currentEnd = timeToMinutes(current.endsAt) ?? currentStart + 180;

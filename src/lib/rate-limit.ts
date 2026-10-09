@@ -20,7 +20,7 @@ function hasDistributedRateLimitEnv() {
 }
 
 function isProductionRuntime() {
-  return process.env.VERCEL_ENV === "production";
+  return process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
 }
 
 function failClosed(windowMs: number): RateLimitResult {
@@ -89,6 +89,10 @@ export async function rateLimit(key: string, max: number, windowMs: number): Pro
 
   try {
     const result = await getDistributedLimiter(max, windowMs).limit(key);
+    // Upstash returns success=true on timeout; it is not a verified allowance.
+    if (result.reason === "timeout") {
+      return isProductionRuntime() ? failClosed(windowMs) : localRateLimit(key, max, windowMs);
+    }
     return {
       allowed: result.success,
       remaining: result.remaining,
@@ -97,7 +101,7 @@ export async function rateLimit(key: string, max: number, windowMs: number): Pro
     };
   } catch (error) {
     console.error(
-      "Distributed rate limit check failed; using local fallback.",
+      "Distributed rate limit check failed.",
       safeErrorDetails(error),
     );
     return isProductionRuntime()

@@ -1,0 +1,348 @@
+{
+    "baseline":  "8df7356c1380e4de2ec05923f17cd34dc7907101",
+    "state":  "Uncommitted local implementation accepted; no hosted activation",
+    "capturedAtUtc":  "2026-10-08T12:29:37.5610199Z",
+    "files":  [
+                  {
+                      "path":  "e2e/requested-fixes.spec.ts",
+                      "sha256":  "75BE5A3EAD1E10996D4F0FBBD10432077CE4A8D0825968407C12A4C75E758648"
+                  },
+                  {
+                      "path":  "e2e/screenshot-fixes.spec.ts",
+                      "sha256":  "34CCD95E9A51953A98866B0252A0EBE1C8CFE4F5705EF11EB7B63C2961A075D0"
+                  },
+                  {
+                      "path":  "scripts/test-migration-chain-postgres.mjs",
+                      "sha256":  "EF144E8D95A34157E3719E171C68F6161656901FBA5D041B46D7DCD521D9609C"
+                  },
+                  {
+                      "path":  "src/app/actions.permissions.test.ts",
+                      "sha256":  "E32DD848D17B777712AA3708F34E00A9DEA3CB5B3E0565C321E10CAC61CA4187"
+                  },
+                  {
+                      "path":  "src/app/actions.ts",
+                      "sha256":  "A285CCBCB92C21857DD0B54274583C1CCABEE39C217BBBD5F756B70106551AB5"
+                  },
+                  {
+                      "path":  "src/app/actions.workspaces.test.ts",
+                      "sha256":  "4BD8BAA734350630B35B9A96C03E7E884EC649964F21C50AA957B1F9F46E61A4"
+                  },
+                  {
+                      "path":  "src/app/admin/settings/page.tsx",
+                      "sha256":  "55EEB34C1F3952B63CB10CFA112D6C3D12239924C359E466576DF3748465702E"
+                  },
+                  {
+                      "path":  "src/app/analytics/page.tsx",
+                      "sha256":  "EE537B0F8A1EB5A7AD3EC8D7C338750F8E5B11A7AB0B695ED67A83DF093447B0"
+                  },
+                  {
+                      "path":  "src/app/announcements/page.tsx",
+                      "sha256":  "FB81DE5B3B19D535C15A9F56CB09CE7614782371C2A1FF53A63D8E24B9C95D1B"
+                  },
+                  {
+                      "path":  "src/app/dance/[id]/edit/page.tsx",
+                      "sha256":  "883F081DE97A9CA2ABF34C3EDF6EEA21DB1C6C8791228E63D3002D8E448F7E07"
+                  },
+                  {
+                      "path":  "src/app/dance/[id]/page.tsx",
+                      "sha256":  "66D79392146B9305638A9B4E9270FC78BD4407ADA3124EAEF57130DDF681E374"
+                  },
+                  {
+                      "path":  "src/app/dance/page.tsx",
+                      "sha256":  "C9B278DCE19FAC1B5C078A0754D4C7621E3B6B5E38C036D04D41FC56F49C882C"
+                  },
+                  {
+                      "path":  "src/app/dashboard/page.tsx",
+                      "sha256":  "8B3BD5137DB1A6D01E6719DC5D312C6E81D059D3BBA68B9FB88DC1320AB29339"
+                  },
+                  {
+                      "path":  "src/app/edit-request-actions.test.ts",
+                      "sha256":  "B27D39ADD028CCD4B157C4F3A1A96FCF0D355BA9AC7363FF61F720ECC7FF3CE2"
+                  },
+                  {
+                      "path":  "src/app/edit-request-actions.ts",
+                      "sha256":  "3EEC33FE3518DBFA0249BFFF2CF21847C8918733731EEADB55A2CAD683116973"
+                  },
+                  {
+                      "path":  "src/app/events/[id]/edit/page.tsx",
+                      "sha256":  "BA942ED08FD19641AA141409A286411815FA7BFA915355B00FC1F565FAAEC168"
+                  },
+                  {
+                      "path":  "src/app/events/[id]/page.tsx",
+                      "sha256":  "FB83687A47C32DBEDFF9047420BF75E98EF2463D50D68ACD8B10D93A317BF4AD"
+                  },
+                  {
+                      "path":  "src/app/events/new/page.tsx",
+                      "sha256":  "0608BE5EEB5D9E09B7F74312AEECA5466DA13C599A6EB9DAF4977C68DB2E341F"
+                  },
+                  {
+                      "path":  "src/app/events/page.tsx",
+                      "sha256":  "CDB855BE338945884369C0B9D0F1223615D110ACFEC4F00F25D51D5E71448569"
+                  },
+                  {
+                      "path":  "src/app/globals.css",
+                      "sha256":  "3B747130A0D7B43D83E6B7EF9A6F9EC5E1584B15AFA68AB27622651D09A57FFD"
+                  },
+                  {
+                      "path":  "src/app/members/invite/page.tsx",
+                      "sha256":  "854AC473E9581EF5869B8AACF3AE0E7F20A31AF6BE43A887A3375674926CEFDC"
+                  },
+                  {
+                      "path":  "src/app/members/page.requests.test.tsx",
+                      "sha256":  "06E13AD74DB5FDBE9B004AA7DC92E467CD1427B2534A76BF1B353584024A914B"
+                  },
+                  {
+                      "path":  "src/app/members/page.tsx",
+                      "sha256":  "F5415DE3A1FEDE7D8BD5CE2ABFDD5D0AE001FFAF8E58DAD4CADA6B34BEACFBCC"
+                  },
+                  {
+                      "path":  "src/app/members/requests/page.tsx",
+                      "sha256":  "FBE687D0C739010448777A36716A3A4D1F2FC060966918DF11CACA2F06C7A793"
+                  },
+                  {
+                      "path":  "src/app/reminders/page.tsx",
+                      "sha256":  "5D396AD50F04472293FD0DA8B2587F053FDD24E2C8AF31A97D7B6A6622704661"
+                  },
+                  {
+                      "path":  "src/app/requests/page.tsx",
+                      "sha256":  "0277D3D1EFFFBCDDF1F1BC13B86F704C1BF7C0D967972BC55504E0CA0606EEE1"
+                  },
+                  {
+                      "path":  "src/app/setlists/[id]/page.tsx",
+                      "sha256":  "C3B5E655EE1C9939ECA1C198AB8C92A7F44BA64D5606F1BBFA548C2FC8C55A44"
+                  },
+                  {
+                      "path":  "src/app/setlists/[id]/practice/page.test.tsx",
+                      "sha256":  "18E303CDB1C29A4D6EDDCFC2E689DB8316018F56B210854FF07DD26BCE9956AA"
+                  },
+                  {
+                      "path":  "src/app/setlists/[id]/practice/page.tsx",
+                      "sha256":  "93CB8DDEE004AAA6B089058F21472EA97C37C10B9A904BBC39B96B1E5494B920"
+                  },
+                  {
+                      "path":  "src/app/setlists/[id]/practice/practice-mode.types.ts",
+                      "sha256":  "6F396F788562CB0019922D54C710F5192B591EE576F0EF4F4B104D75C419D9EA"
+                  },
+                  {
+                      "path":  "src/app/setlists/[id]/practice/practice-mode-client.test.tsx",
+                      "sha256":  "DE3356C2BBF00160FAFECA3526B4F271D638A7D63104148BBD064861C954F0D4"
+                  },
+                  {
+                      "path":  "src/app/setlists/[id]/practice/practice-mode-client.tsx",
+                      "sha256":  "2B88C104DB375CF90377C0A59E9F76B56C617821FDC84214C994AD5A2EC55307"
+                  },
+                  {
+                      "path":  "src/app/setlists/[id]/practice/practice-tools-panel.test.tsx",
+                      "sha256":  "27F3FC7882DFEBC55F6FBE43113C2D6B56D0EEC7C84E47FFD85D925614A7722A"
+                  },
+                  {
+                      "path":  "src/app/setlists/[id]/practice/practice-tools-panel.tsx",
+                      "sha256":  "1DD54F12AFB0E844006DBDB6EDEA0C237D87CF32C26E0FBF1B836976884336EB"
+                  },
+                  {
+                      "path":  "src/app/setlists/[id]/stage/page.test.tsx",
+                      "sha256":  "BA1AF84F7410CB21E5147A5AC3C1FD3266AD43E0A91344FFDB3F20C6D55ED6D7"
+                  },
+                  {
+                      "path":  "src/app/setlists/[id]/stage/page.tsx",
+                      "sha256":  "CF42008E93A5758D2D47806E228E8BBC9CFA8D706FA2B5E12C23DCA3B061ECEE"
+                  },
+                  {
+                      "path":  "src/app/setlists/[id]/stage/stage-mode-client.test.tsx",
+                      "sha256":  "D0FCAF0553F6427FC558B089560B22E34E43B1F3F275F3C025D051C9B82FFA3A"
+                  },
+                  {
+                      "path":  "src/app/setlists/[id]/stage/stage-mode-client.tsx",
+                      "sha256":  "AC40EE6D3A507C12D480369D36A1341A373C68D146285B0D7151CD2FE6B7C2F2"
+                  },
+                  {
+                      "path":  "src/app/setlists/new/page.tsx",
+                      "sha256":  "CDB2CF4C375FE5AB56CB467ECE2E8F08AFFC73AADBC085EF1624C9B285F99237"
+                  },
+                  {
+                      "path":  "src/app/setlists/templates/page.tsx",
+                      "sha256":  "EBC45E585DB8CA1C0CB9CEDB626376ECDCD9B6AC661F31C07A6630744F55A597"
+                  },
+                  {
+                      "path":  "src/app/songs/[id]/edit/page.tsx",
+                      "sha256":  "51A550E9F92BA2A7F0665245090ADB5963F0E5B7C0DE4E434F147FB6C1F36F36"
+                  },
+                  {
+                      "path":  "src/app/songs/new/page.tsx",
+                      "sha256":  "5AF34AE22ECA0474FE9129F5928754799F6BAEFED6BC5EFA77919EDA11C644D6"
+                  },
+                  {
+                      "path":  "src/app/songs/page.tsx",
+                      "sha256":  "E79A558B5B8AE7E207819C9FD2C8D84BAB57ABD14114998F62AAB35FC8FBE4DD"
+                  },
+                  {
+                      "path":  "src/app/songs/trash/page.tsx",
+                      "sha256":  "667DF0EB143E3D0F2F369206A445316689F8EFEDFA51DA0F69957B3532E16F84"
+                  },
+                  {
+                      "path":  "src/app/workflow-actions.ts",
+                      "sha256":  "397F81AE3A93CB4FB4597B9E854FEE83A9D048731DA0C39645124095D6540C35"
+                  },
+                  {
+                      "path":  "src/components/analytics-dashboard.tsx",
+                      "sha256":  "1409FE5E8C9C870DDFA2EE5563C66A018BB655DAA6C6DD51980A42A0FA80132C"
+                  },
+                  {
+                      "path":  "src/components/app-shell.tsx",
+                      "sha256":  "01CD2FC4DC2B344BD76029EFB5DB6EEFD9CB414B8E6B6E0721F21E7557877D05"
+                  },
+                  {
+                      "path":  "src/components/app-shell-actions.tsx",
+                      "sha256":  "085FC818CFCA709A03F831B8B981C0C4E6CDB037BF9F72E76E8378B89B92CEA0"
+                  },
+                  {
+                      "path":  "src/components/dashboard-personal-summary.tsx",
+                      "sha256":  "EAA91067C92FD4C81064659A9CE9959383B497D70933DC4EFCF395ACF67AF94B"
+                  },
+                  {
+                      "path":  "src/components/edit-request-inbox.tsx",
+                      "sha256":  "1F6F242B5DD44AAACA5B3B4D504E1B7A33355E5CEE77447E261CBA713640069E"
+                  },
+                  {
+                      "path":  "src/components/edit-requests.test.tsx",
+                      "sha256":  "A0F378EA8991DFB1E7F83D582D0C6FEE288D97187284E64561B26F2B74C1AA89"
+                  },
+                  {
+                      "path":  "src/components/invite-member-form.tsx",
+                      "sha256":  "CD30131651EB68B7C2DFA05AD3A4D2A37F79585D9B2719F980DE42DCA208C3E7"
+                  },
+                  {
+                      "path":  "src/components/join-requests-client.tsx",
+                      "sha256":  "7FBCD30A33C7F50D6D2B6DB00016D0A8F7AE8EF9F2439AAEB4EBAB7E1CF4309B"
+                  },
+                  {
+                      "path":  "src/components/join-requests-live.test.tsx",
+                      "sha256":  "4026033E71B666266F336822F69DEB2360718EB5726F853046C7ECAFC10B908C"
+                  },
+                  {
+                      "path":  "src/components/members-client.tsx",
+                      "sha256":  "9137543D20B821A66EA26AF908BAF57B8E7692174900B34878591AFB7C395450"
+                  },
+                  {
+                      "path":  "src/components/member-usage-charts.test.tsx",
+                      "sha256":  "B7819B685D066850594C486FFEDDA42B6EDB7ADA945BAD01FADCFC6AAF51353F"
+                  },
+                  {
+                      "path":  "src/components/member-usage-charts.tsx",
+                      "sha256":  "20E992FB078469E51DB637DAAD741AF85AFC923F330461901AAA41B439F0BBB1"
+                  },
+                  {
+                      "path":  "src/components/navigation-pending.tsx",
+                      "sha256":  "E83709C2FEEAF4AD351AF853F5BAE4484765C0DBBA2489E94340683EE63F5E80"
+                  },
+                  {
+                      "path":  "src/components/setlists-client.tsx",
+                      "sha256":  "A306CFB830E01598E7CA15B1DCB3D02AEC5E61283EB11CC2FE5C91D6389BB5D9"
+                  },
+                  {
+                      "path":  "src/components/settings-access.test.tsx",
+                      "sha256":  "89F563A53C194B24079D97D2FE14F299C86AD75DD94754110258A8D91DE90EAE"
+                  },
+                  {
+                      "path":  "src/components/settings-client-view.tsx",
+                      "sha256":  "CF888EC2CEEB3336AABB0E124A3E3555107E6039306F0F0112DD9B725B8F8A35"
+                  },
+                  {
+                      "path":  "src/components/settings-form.tsx",
+                      "sha256":  "E8014D07E2EEF58E4D982862D516717D57F1590A56DB215541B9CD33C4A3DE93"
+                  },
+                  {
+                      "path":  "src/components/song-form.tsx",
+                      "sha256":  "62F4F528FD32586D7597CCC1FBE1ACBC3541C668EFD75722E694A4147E3AE0BF"
+                  },
+                  {
+                      "path":  "src/components/song-viewer.test.tsx",
+                      "sha256":  "408A5A0C775A252B81F9057173A53E55F7835E7B1245581DC07023A2EEDC5701"
+                  },
+                  {
+                      "path":  "src/components/song-viewer.tsx",
+                      "sha256":  "84B1747AA1C9F53D5474590F5AAF1C9FA9F72AE4C41C29D708FDBF9C0D03EB8F"
+                  },
+                  {
+                      "path":  "src/components/team-code-actions.tsx",
+                      "sha256":  "548EBAC40A077A2852C60A69E9289D08C112D16B10DFC8D084544B12CC83CAAF"
+                  },
+                  {
+                      "path":  "src/components/team-permission-editor.tsx",
+                      "sha256":  "500D705FFDC54FA2B7DDF3072FA1C9B65161FE56DE3C3A207DBCAB45E3F2386E"
+                  },
+                  {
+                      "path":  "src/components/ui/use-accessible-dialog.test.tsx",
+                      "sha256":  "57B06B40510E6B03F1956007769410AC99BD163453FF2F8CC291896CA168E787"
+                  },
+                  {
+                      "path":  "src/components/ui/use-accessible-dialog.ts",
+                      "sha256":  "793C29964C974E000A9312734DABE24933A395F84A8F6FDB1691F7441879DB6F"
+                  },
+                  {
+                      "path":  "src/lib/domain/permission-overrides.test.ts",
+                      "sha256":  "D3D8B1232E07324A3E6E5611062F93DDF9A3B862752370C7BD4AC22E5058747E"
+                  },
+                  {
+                      "path":  "src/lib/domain/permission-overrides.ts",
+                      "sha256":  "68926393A7E450437BC8CDCDE48BE3B5A47486DA231B196EB4FF40CA325A7CB9"
+                  },
+                  {
+                      "path":  "src/lib/domain/shared-edit-requests.ts",
+                      "sha256":  "EB43B3900EE7292818EEF9243B50A4559E48484E72EFF29A3B144EB3F5AFD892"
+                  },
+                  {
+                      "path":  "src/lib/domain/song-slot-notes.test.ts",
+                      "sha256":  "E135CC854A4E19E198684C986A5A316B19E483F63512740740E1F3927E7FECC8"
+                  },
+                  {
+                      "path":  "src/lib/domain/song-slot-notes.ts",
+                      "sha256":  "FD359317238C69893E38F2E3D4CF56E555490BB0BBF51946C58064FEDD976697"
+                  },
+                  {
+                      "path":  "src/lib/server/team-permissions.ts",
+                      "sha256":  "6E104879F48092C49918E0496DA41348686B76B1007006A66E4A9F48C6B4A254"
+                  },
+                  {
+                      "path":  "src/lib/supabase/database.types.ts",
+                      "sha256":  "3B6C61C78203BB7C0D8BC4EE9936E7D1F3E9A5A5619DAE0E7127288211ABA599"
+                  },
+                  {
+                      "path":  "src/lib/supabase/team-context.test.ts",
+                      "sha256":  "AF3A10854A8AD10AFAF641D4655D848B14BC5B7E7BF55B3850F114D6D9D204B9"
+                  },
+                  {
+                      "path":  "src/lib/supabase/team-context.ts",
+                      "sha256":  "2854B8C36FEDB06BB5FD8F29C2E8D09F2541DB41C946405BA443152A3A7230C8"
+                  },
+                  {
+                      "path":  "supabase/migrations/20261008020000_owner_permission_overrides.sql",
+                      "sha256":  "1F7F5F0970667A4B88A9EC52D9D9DFAA5548B100D203CF000E125AC336E3CC19"
+                  },
+                  {
+                      "path":  "supabase/tests/owner_permission_overrides.sql",
+                      "sha256":  "8E6C069A03ED4DF5F7CEA7911B7CC558D85CE20951EB2A5F5E69382E7659C00C"
+                  },
+                  {
+                      "path":  "vitest.website.config.ts",
+                      "sha256":  "4AB0B5ACF0DEFCD7B686D8A9114F0155E375C5797DF578D355910219F4B9988C"
+                  }
+              ],
+    "databaseEvidence":  "SCREENSHOT-FIXES-DATABASE-2026-10-08.json",
+    "databaseEvidenceSha256":  "DAC7381FE505F7B5C285B2878094D97E39EBC134C26FB264A1893061D8C397FC",
+    "authorizationTest":  {
+                              "path":  "supabase/tests/owner_permission_overrides.sql",
+                              "sha256":  "8E6C069A03ED4DF5F7CEA7911B7CC558D85CE20951EB2A5F5E69382E7659C00C",
+                              "executionAttestation":  "Coordinator confirmed this exact file executed in final A85Yjq replay; raw replay artifact records migration hashes but not test-file hash."
+                          },
+    "reviews":  [
+                    "Juan gpt-6-luna max: Gold F08 accepted",
+                    "Laura gpt-6.1-sol high: Gold F08 accepted"
+                ],
+    "checks":  {
+                   "vitest":  "114 files, 561 tests passed",
+                   "browser":  "12 focused and 48 four-device checks passed",
+                   "build":  "Next 16.3.8 Node 22.23.3 webpack forced-demo production build passed",
+                   "sql":  "78 migrations, chronological/manual DDL, smoke and authorization passed"
+               }
+}

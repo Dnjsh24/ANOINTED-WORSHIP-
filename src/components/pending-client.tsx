@@ -56,16 +56,22 @@ export function PendingClient({
   const handleStatus = useCallback(
     (status: "active" | "pending" | "approved" | "rejected" | "canceled" | "none") => {
       if (status === "active" || status === "approved") {
+        // Membership changed outside this page; discard the old router cache and reload the team guard.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.href = "/dashboard";
         return;
       }
 
       if (status === "rejected") {
+        // Reload the guard after membership status changes outside this page.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.href = "/teams/join?error=rejected";
         return;
       }
 
       if (status === "canceled" || status === "none") {
+        // Reload the guard after membership status changes outside this page.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.href = "/teams";
       }
     },

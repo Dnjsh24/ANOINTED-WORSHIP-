@@ -16,13 +16,17 @@ type EventsClientProps = {
   canReviewEvents?: boolean;
   memberSubmissionMode?: boolean;
   referenceDate?: string;
+  initialQuery?: string;
+  initialView?: "all" | "upcoming" | "past" | "calendar";
+  initialMonth?: string;
+  initialSort?: "name" | "dateAsc" | "dateDesc";
 };
 
-export function EventsClient({ events, canReviewEvents = false, memberSubmissionMode = false, referenceDate }: EventsClientProps) {
+export function EventsClient({ events, canReviewEvents = false, memberSubmissionMode = false, referenceDate, initialQuery = "", initialView, initialMonth, initialSort = "dateAsc" }: EventsClientProps) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [dateFilter, setDateFilter] = useState<"all" | "upcoming" | "past" | "calendar">(
-    memberSubmissionMode ? "calendar" : "upcoming",
+    initialView ?? (memberSubmissionMode ? "calendar" : "upcoming"),
   );
   const [message, setMessage] = useState("");
   const [messageOk, setMessageOk] = useState(true);
@@ -31,17 +35,34 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
 
   // Date state for Calendar View
   const [currentDate, setCurrentDate] = useState(() => {
-    const now = referenceDate ? new Date(`${referenceDate}T00:00:00`) : new Date();
+    const now = initialMonth
+      ? new Date(initialMonth + "-01T00:00:00")
+      : referenceDate
+        ? new Date(referenceDate + "T00:00:00")
+        : new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
 
   const prevMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+    const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    setCurrentDate(nextMonth);
+    navigateMonth(nextMonth);
   };
 
   const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+    const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    setCurrentDate(nextMonth);
+    navigateMonth(nextMonth);
   };
+
+  function navigateMonth(monthDate: Date) {
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    params.set("view", "calendar");
+    params.set("month", monthDate.getFullYear() + "-" + String(monthDate.getMonth() + 1).padStart(2, "0"));
+    if (initialSort !== "dateAsc") params.set("sort", initialSort);
+    router.push("/events?" + params.toString());
+  }
 
   const calendarDays = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -181,10 +202,18 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <div className="relative w-full sm:w-64">
+          <form action="/events" method="get" className="relative flex w-full gap-2 sm:w-[28rem]">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
-            <Input className="pl-10" placeholder="Search events..." value={query} onChange={(event) => setQuery(event.target.value)} />
-          </div>
+            <Input name="q" maxLength={100} className="pl-10" placeholder="Search all events..." value={query} onChange={(event) => setQuery(event.target.value)} />
+            <input type="hidden" name="view" value={dateFilter} />
+            {dateFilter === "calendar" && <input type="hidden" name="month" value={currentDate.getFullYear() + "-" + String(currentDate.getMonth() + 1).padStart(2, "0")} />}
+            <select name="sort" aria-label="Sort events" defaultValue={initialSort} className="h-10 rounded-md border border-white/10 bg-[#111014] px-2 text-xs text-white">
+              <option value="dateAsc">Date</option>
+              <option value="dateDesc">Newest</option>
+              <option value="name">Name</option>
+            </select>
+            <Button type="submit" variant="secondary">Search</Button>
+          </form>
           <Link
             href="/events/new"
             className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-violet-500"
@@ -200,7 +229,15 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
         {(["all", "upcoming", "past", "calendar"] as const).map((filter) => (
           <button
             key={filter}
-            onClick={() => setDateFilter(filter)}
+            onClick={() => {
+              setDateFilter(filter);
+              const params = new URLSearchParams();
+              if (query.trim()) params.set("q", query.trim());
+              params.set("view", filter);
+              if (filter === "calendar") params.set("month", currentDate.getFullYear() + "-" + String(currentDate.getMonth() + 1).padStart(2, "0"));
+              if (initialSort !== "dateAsc") params.set("sort", initialSort);
+              router.push("/events?" + params.toString());
+            }}
             className={cn(
               "px-5 py-3 font-semibold transition-all border-b-2 -mb-px",
               dateFilter === filter ? "border-violet-500 text-violet-300 font-bold" : "border-transparent text-zinc-500 hover:text-white"
@@ -231,7 +268,12 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
               </button>
               <button
                 type="button"
-                onClick={() => setCurrentDate(new Date(2026, 6, 1))}
+                onClick={() => {
+                  const now = referenceDate ? new Date(referenceDate + "T00:00:00") : new Date();
+                  const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                  setCurrentDate(currentMonth);
+                  navigateMonth(currentMonth);
+                }}
                 className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition"
               >
                 Today

@@ -8,7 +8,6 @@ import {
 } from "@/lib/domain/join-requests";
 import {
   members as sampleMembers,
-  pendingRequests as samplePendingRequests,
   teamCode as sampleTeamCode,
 } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -44,12 +43,12 @@ export default async function MembersPage() {
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
     const supabase = await createClient();
 
-    const [{ data: dbPendingRequests }, { data: dbMembers }, { data: customRolesData }] = await Promise.all([
+    const [{ data: dbPendingRequests, error: requestsError }, { data: dbMembers }, { data: customRolesData }] = await Promise.all([
       supabase
         .from("join_requests")
         .select(joinRequestWithRequesterProfileSelect)
         .eq("team_id", teamContext.teamId)
-        .in("status", ["pending", "rejected"])
+        .eq("status", "pending")
         .order("created_at", { ascending: false }),
       supabase
         .from("team_members")
@@ -101,6 +100,7 @@ export default async function MembersPage() {
         <MembersClient
           members={members}
           pendingRequests={pendingRequests}
+          requestsError={requestsError ? "Pending requests could not be loaded. Retry when connected." : undefined}
           teamCode={teamContext.teamCode ?? sampleTeamCode}
           teamId={teamContext.teamId}
           currentUserRole={teamContext.role}
@@ -115,7 +115,7 @@ export default async function MembersPage() {
     <AppShell active="Team Management" teamContext={teamContext}>
       <MembersClient
         members={sampleMembers}
-        pendingRequests={samplePendingRequests}
+        pendingRequests={[]}
         teamCode={teamContext.teamCode ?? sampleTeamCode}
         teamId={null}
         currentUserRole={teamContext.role}

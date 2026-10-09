@@ -2,6 +2,7 @@
 
 import { Music2 } from "lucide-react";
 import { use } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { resolveSafePostLoginReturnPath } from "@/lib/domain/post-login";
@@ -12,11 +13,12 @@ export default function LoginPage({
   searchParams: Promise<{ sent?: string; error?: string; next?: string }>;
 }) {
   const params = use(searchParams);
+  const router = useRouter();
 
   async function handleGoogleSignIn(event: React.FormEvent) {
     event.preventDefault();
     if (!hasSupabaseEnv()) {
-      window.location.href = "/login?error=config";
+      router.replace("/login?error=config");
       return;
     }
     try {
@@ -35,10 +37,10 @@ export default function LoginPage({
         options: { redirectTo },
       });
       if (error) {
-        window.location.href = "/login?error=google";
+        router.replace("/login?error=google");
       }
     } catch {
-      window.location.href = "/login?error=google";
+      router.replace("/login?error=google");
     }
   }
 

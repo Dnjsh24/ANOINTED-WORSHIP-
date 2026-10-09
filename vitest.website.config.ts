@@ -29,6 +29,7 @@ const websiteUnitCoverageSurface = [
   "src/lib/domain/post-login.ts",
   "src/lib/domain/presentation.ts",
   "src/lib/domain/rbac.ts",
+  "src/lib/domain/permission-overrides.ts",
   "src/lib/domain/setlist-readiness.ts",
   "src/lib/domain/setlists.ts",
   "src/lib/domain/team-code.ts",
@@ -56,7 +57,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
-    exclude: ["node_modules/**", ".next/**", "e2e/**", ...desktopOnlyPatterns],
+    exclude: ["node_modules/**", ".next/**", ".worktrees/**", "e2e/**", ...desktopOnlyPatterns],
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "json-summary"],

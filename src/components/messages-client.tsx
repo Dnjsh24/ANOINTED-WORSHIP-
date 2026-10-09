@@ -1,10 +1,11 @@
 "use client";
 
-import { Download, FileText, Image as ImageIcon, Menu, MoreHorizontal, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X, Info, CalendarClock } from "lucide-react";
+import { ArrowLeft, Download, FileText, Image as ImageIcon, Menu, MoreHorizontal, Paperclip, Search, Send, Settings2, Smile, SquarePen, UserMinus, UserPlus, X, Info, CalendarClock } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { addChannelMemberAction, createChannelAction, getOrCreateDirectChannelAction, leaveChannelAction, removeChannelMemberAction, sendMessageAction, markMessagesReadAction } from "@/app/actions";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useLayoutEffect, useRef, useState, useTransition, type ComponentProps, type Dispatch, type SetStateAction } from "react";
+import { addChannelMemberAction, createChannelAction, getOrCreateDirectChannelAction, leaveChannelAction, removeChannelMemberAction, markMessagesReadAction } from "@/app/actions";
+import { loadChannelMessagesAction, searchChannelMessagesAction, sendMessageOnceAction } from "@/app/messages/message-actions";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,9 @@ export type MessagesChannel = {
   membersOnline: number;
   preview: string;
   messages: Message[];
+  messagesLoaded?: boolean;
+  hasMoreMessages?: boolean;
+  nextMessageCursor?: string | null;
   adminOnly?: boolean;
   avatarUrl?: string | null;
 };
@@ -54,14 +58,192 @@ function attachmentHref(attachment: AttachmentDetails) {
   return attachment.url || `/practice-files/${attachment.name}`;
 }
 
-export function MessagesClient({
+type MessagesProps = Omit<ComponentProps<typeof MessagesView>, "activeChannelId" | "channelList" | "setChannelList" | "memberships" | "setMemberships" | "liveStatus">;
+
+export function MessagesClient(props: MessagesProps) {
+  return <MessagesSession key={`${props.teamId}:${props.currentProfileId}`} {...props} />;
+}
+
+function MessagesSession(props: MessagesProps) {
+  const searchParams = useSearchParams();
+  const activeChannelId = searchParams.get("channel") ?? "";
+  const [channelList, setChannelList] = useState(props.channels);
+  const [memberships, setMemberships] = useState(props.allChannelMemberships ?? []);
+  const [previousChannels, setPreviousChannels] = useState(props.channels);
+  if (props.channels !== previousChannels) {
+    setPreviousChannels(props.channels);
+    setChannelList(props.channels);
+    setMemberships(props.allChannelMemberships ?? []);
+  }
+  const router = useRouter();
+  const currentMemberId = props.currentMemberId;
+  const [liveStatus, setLiveStatus] = useState("");
+  const wasConnectedRef = useRef(false);
+  // Keep a ref to teamMembers so the realtime callback always sees the latest value
+  // without needing to re-subscribe every time state changes
+  const teamMembersRef = useRef(props.teamMembers ?? []);
+  useEffect(() => { teamMembersRef.current = props.teamMembers ?? []; }, [props.teamMembers]);
+
+  const channelListRef = useRef(channelList);
+  const activeChannelRef = useRef(activeChannelId);
+  useEffect(() => { activeChannelRef.current = activeChannelId; }, [activeChannelId]);
+  useEffect(() => { channelListRef.current = channelList; }, [channelList]);
+
+  const currentMemberIdRef = useRef(currentMemberId);
+  useEffect(() => { currentMemberIdRef.current = currentMemberId; }, [currentMemberId]);
+
+  // Subscribe to real-time message inserts — runs once only (no channelList dep)
+  useEffect(() => {
+    const supabase = createOptionalClient();
+    if (!supabase) return;
+
+    let stopped = false;
+    let refreshTimer: number | null = null;
+    const requestRefresh = () => {
+      if (refreshTimer !== null) return;
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null;
+        if (!stopped) router.refresh();
+      }, 200);
+    };
+    const realtimeChannel = supabase
+      .channel("messages-realtime", { config: { broadcast: { self: false } } })
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        async (payload) => {
+          if (stopped) return;
+          const newMessage = payload.new as {
+            id: string;
+            channel_id: string;
+            sender_member_id: string;
+            body: string;
+            attachment_file_id: string | null;
+            created_at: string;
+          };
+
+          const sender = teamMembersRef.current.find(
+            (m) => m.memberId === newMessage.sender_member_id
+          );
+          const mine = newMessage.sender_member_id === currentMemberIdRef.current;
+          const authorName = mine ? "You" : sender ? sender.fullName : "Unknown Member";
+          let attachment: AttachmentDetails | undefined;
+
+          if (newMessage.attachment_file_id) {
+            try {
+            const { data: fileRecord } = await supabase
+              .from("practice_files")
+              .select("id, file_name, mime_type, size_bytes, storage_path")
+              .eq("id", newMessage.attachment_file_id)
+              .maybeSingle();
+
+            if (fileRecord) {
+              const { data: signedUrl } = await supabase.storage
+                .from("practice-files")
+                .createSignedUrl(fileRecord.storage_path, 60 * 60);
+
+              attachment = {
+                id: fileRecord.id,
+                name: fileRecord.file_name,
+                size: formatFileSize(Number(fileRecord.size_bytes)),
+                type: fileKindLabel(fileRecord.mime_type, fileRecord.file_name),
+                mimeType: fileRecord.mime_type,
+                url: signedUrl?.signedUrl ?? "",
+              };
+            }
+            } catch {
+              if (!stopped) setLiveStatus("Message received, but its attachment could not load. Reload to retry.");
+            }
+          }
+
+          if (stopped) return;
+          const formattedMessage: Message = {
+            id: newMessage.id,
+            author: authorName,
+            body: newMessage.body,
+            avatarUrl: sender?.avatarUrl ?? null,
+            createdAt: new Date(newMessage.created_at || Date.now()).toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+            }),
+            mine,
+            attachment,
+          };
+
+          const matchedChannel = channelListRef.current.some(
+            (chan) => chan.id === newMessage.channel_id
+          );
+          setChannelList((current) =>
+            current.map((chan) => {
+              if (chan.id !== newMessage.channel_id) {
+                return chan;
+              }
+
+              return {
+                ...chan,
+                preview: `${authorName}: ${newMessage.body}`,
+                messages: ((chan.messagesLoaded ?? chan.messages.length > 0) || chan.id === activeChannelRef.current)
+                  ? chan.messages.some((m) => m.id === formattedMessage.id)
+                    ? chan.messages
+                    : [...chan.messages, formattedMessage]
+                  : chan.messages,
+              };
+            })
+          );
+
+          if (!matchedChannel) {
+            requestRefresh();
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          setLiveStatus("");
+          if (wasConnectedRef.current) requestRefresh();
+          wasConnectedRef.current = true;
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setLiveStatus("Live messages disconnected. Reconnecting when the network is ready.");
+        }
+      });
+
+    const refreshWhenOnline = requestRefresh;
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") requestRefresh();
+    };
+    window.addEventListener("online", refreshWhenOnline);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      stopped = true;
+      window.removeEventListener("online", refreshWhenOnline);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+      supabase.removeChannel(realtimeChannel);
+    };
+  }, [router, setChannelList]);
+
+  return <MessagesView key={activeChannelId} {...props} activeChannelId={activeChannelId}
+    channelList={channelList} setChannelList={setChannelList} memberships={memberships} setMemberships={setMemberships} liveStatus={liveStatus} />;
+}
+
+function MessagesView({
   channels,
   teamMembers = [],
   currentMemberId,
   currentProfileId,
   teamId,
   role,
-  allChannelMemberships = [],
+  channelList,
+  setChannelList,
+  memberships,
+  setMemberships,
+  liveStatus,
+  activeChannelId,
+  channelPage = 1,
+  channelPageCount = 1,
+  previousChannelsHref,
+  nextChannelsHref,
+  initialLoadError = "",
 }: {
   channels: MessagesChannel[];
   teamMembers?: MessagesTeamMember[];
@@ -70,14 +252,48 @@ export function MessagesClient({
   teamId: string;
   role: string;
   allChannelMemberships?: MessagesChannelMembership[];
+  liveStatus: string;
+  activeChannelId: string;
+  channelList: MessagesChannel[];
+  setChannelList: Dispatch<SetStateAction<MessagesChannel[]>>;
+  memberships: MessagesChannelMembership[];
+  setMemberships: Dispatch<SetStateAction<MessagesChannelMembership[]>>;
+  channelPage?: number;
+  channelPageCount?: number;
+  previousChannelsHref?: string | null;
+  nextChannelsHref?: string | null;
+  initialLoadError?: string;
 }) {
   const router = useRouter();
-  const [activeChannelId, setActiveChannelId] = useState(channels[0]?.id || "");
+  function setActiveChannelId(channelId: string) {
+    setDraft("");
+    setSearch("");
+    setSearchResults(null);
+    setSearchMessagesLoading(false);
+    setReplyingTo(null);
+    setScheduledFor("");
+    const nextChannel = channelList.find((channel) => channel.id === channelId);
+    setMessagesLoading(Boolean(nextChannel && !nextChannel.adminOnly && !(nextChannel.messagesLoaded ?? nextChannel.messages.length > 0)));
+    clearSelectedAttachment();
+    setInfoPanelOpen(false);
+    setManagePanelOpen(false);
+    if (!channelId) {
+      window.history.replaceState(null, "", "/messages");
+      return;
+    }
+    const href = `/messages?channel=${encodeURIComponent(channelId)}`;
+    if (channelList.some(channel => channel.id === channelId)) {
+      window.history.pushState(null, "", href);
+    } else {
+      router.push(href);
+    }
+  }
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [channelList, setChannelList] = useState(channels);
-  const [previousChannels, setPreviousChannels] = useState(channels);
-  const [memberships, setMemberships] = useState<MessagesChannelMembership[]>(allChannelMemberships);
-  const [search, setSearch] = useState("");
+  const [search, setSearchValue] = useState("");
+  function setSearch(value: string) {
+    setSearchValue(value);
+    if (!value.trim()) { setSearchResults(null); setSearchMessagesLoading(false); }
+  }
   const [draft, setDraft] = useState("");
   const [scheduledFor, setScheduledFor] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -90,12 +306,24 @@ export function MessagesClient({
   const [messageOptionsOpenId, setMessageOptionsOpenId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [status, setStatus] = useState("");
+  const [messagesLoading, setMessagesLoading] = useState(() => {
+    const initiallySelected = channelList.find((channel) => channel.id === activeChannelId);
+    return Boolean(initiallySelected && !initiallySelected.adminOnly && !(initiallySelected.messagesLoaded ?? initiallySelected.messages.length > 0));
+  });
+  const [olderMessagesLoading, setOlderMessagesLoading] = useState(false);
+  const [searchMessagesLoading, setSearchMessagesLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<Message[] | null>(null);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
+  const pendingScrollPositionRef = useRef<{ height: number; top: number } | null>(null);
+  const skipAutoScrollRef = useRef(false);
+  const selectedIdRef = useRef(activeChannelId);
+  const pendingSendRef = useRef<{ nonce: string; key: string; file: File | null; attachment?: AttachmentDetails } | null>(null);
 
   const [onlineMemberIds, setOnlineMemberIds] = useState<string[]>([]);
 
@@ -116,7 +344,9 @@ export function MessagesClient({
     };
   }, [selectedAttachment]);
 
+  const isActiveChannelVisible = channels.some((channel) => channel.id === activeChannelId);
   useEffect(() => {
+    if (!activeChannelId || !isActiveChannelVisible) return;
     const supabase = createOptionalClient();
     if (!supabase) return;
     const presenceChannel = supabase.channel(`online-presence-${activeChannelId}`, {
@@ -164,143 +394,129 @@ export function MessagesClient({
     return () => {
       supabase.removeChannel(presenceChannel);
     };
-  }, [activeChannelId, currentMemberId]);
-  // Keep a ref to teamMembers so the realtime callback always sees the latest value
-  // without needing to re-subscribe every time state changes
-  const teamMembersRef = useRef(teamMembers);
-  useEffect(() => { teamMembersRef.current = teamMembers; }, [teamMembers]);
+  }, [activeChannelId, currentMemberId, isActiveChannelVisible]);
+  const selectedChannel = channelList.find((channel) => channel.id === activeChannelId);
+  const activeChannel = selectedChannel ?? { id: "", name: "No Channel", membersOnline: 0, preview: "", messages: [], messagesLoaded: true };
+  const showingList = !selectedChannel;
+  const listExpanded = sidebarExpanded || showingList;
+  const activeMessageCount = activeChannel.messages.length;
+  const selectedChannelId = selectedChannel?.id;
+  const selectedChannelLoaded = selectedChannel?.messagesLoaded ?? Boolean(selectedChannel?.messages.length);
+  const selectedChannelAdminOnly = selectedChannel?.adminOnly;
 
-  const channelListRef = useRef(channelList);
-  useEffect(() => { channelListRef.current = channelList; }, [channelList]);
-
-  const currentMemberIdRef = useRef(currentMemberId);
-  useEffect(() => { currentMemberIdRef.current = currentMemberId; }, [currentMemberId]);
-
-  // Subscribe to real-time message inserts — runs once only (no channelList dep)
   useEffect(() => {
-    const supabase = createOptionalClient();
-    if (!supabase) return;
+    if (!selectedChannelId || selectedChannelAdminOnly || selectedChannelLoaded) return;
+    let active = true;
+    loadChannelMessagesAction(selectedChannelId).then((result) => {
+      if (!active) return;
+      if (!result.ok) {
+        setStatus(result.message);
+        setMessagesLoading(false);
+        return;
+      }
+      setChannelList((current) => current.map((channel) => channel.id === selectedChannelId
+        ? { ...channel, messages: [...result.data.messages, ...channel.messages.filter(message => !result.data.messages.some(loaded => loaded.id === message.id))], messagesLoaded: true, hasMoreMessages: result.data.hasMore, nextMessageCursor: result.data.nextCursor }
+        : channel));
+      setMessagesLoading(false);
+    }).catch(() => {
+      if (active) setStatus("Messages could not be loaded. Check your connection and retry.");
+    }).finally(() => {
+      if (active) setMessagesLoading(false);
+    });
+    return () => { active = false; };
+  }, [selectedChannelAdminOnly, selectedChannelId, selectedChannelLoaded, setChannelList]);
 
-    const realtimeChannel = supabase
-      .channel("messages-realtime", { config: { broadcast: { self: false } } })
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        async (payload) => {
-          const newMessage = payload.new as {
-            id: string;
-            channel_id: string;
-            sender_member_id: string;
-            body: string;
-            attachment_file_id: string | null;
-            created_at: string;
-          };
-
-          const sender = teamMembersRef.current.find(
-            (m) => m.memberId === newMessage.sender_member_id
-          );
-          const mine = newMessage.sender_member_id === currentMemberIdRef.current;
-          const authorName = mine ? "You" : sender ? sender.fullName : "Unknown Member";
-          let attachment: AttachmentDetails | undefined;
-
-          if (newMessage.attachment_file_id) {
-            const { data: fileRecord } = await supabase
-              .from("practice_files")
-              .select("id, file_name, mime_type, size_bytes, storage_path")
-              .eq("id", newMessage.attachment_file_id)
-              .maybeSingle();
-
-            if (fileRecord) {
-              const { data: signedUrl } = await supabase.storage
-                .from("practice-files")
-                .createSignedUrl(fileRecord.storage_path, 60 * 60);
-
-              attachment = {
-                id: fileRecord.id,
-                name: fileRecord.file_name,
-                size: formatFileSize(Number(fileRecord.size_bytes)),
-                type: fileKindLabel(fileRecord.mime_type, fileRecord.file_name),
-                mimeType: fileRecord.mime_type,
-                url: signedUrl?.signedUrl ?? "",
-              };
-            }
-          }
-
-          const formattedMessage: Message = {
-            id: newMessage.id,
-            author: authorName,
-            body: newMessage.body,
-            avatarUrl: sender?.avatarUrl ?? null,
-            createdAt: new Date(newMessage.created_at || Date.now()).toLocaleTimeString("en-US", {
-              hour: "numeric",
-              minute: "2-digit",
-            }),
-            mine,
-            attachment,
-          };
-
-          const matchedChannel = channelListRef.current.some(
-            (chan) => chan.id === newMessage.channel_id
-          );
-          setChannelList((current) =>
-            current.map((chan) => {
-              if (chan.id !== newMessage.channel_id) {
-                return chan;
-              }
-
-              return {
-                ...chan,
-                preview: `${authorName}: ${newMessage.body}`,
-                messages: chan.messages.some((m) => m.id === formattedMessage.id)
-                  ? chan.messages
-                  : [...chan.messages, formattedMessage],
-              };
-            })
-          );
-
-          if (!matchedChannel) {
-            router.refresh();
-          }
-
-          // Scroll to bottom after state update
-          setTimeout(() => {
-            bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-          }, 50);
+  useEffect(() => {
+    const term = search.trim();
+    if (!activeChannel.id || !term) return;
+    let active = true;
+    const timeout = window.setTimeout(() => {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeChannel.id)) {
+        setSearchMessagesLoading(false);
+        return;
+      }
+      setSearchMessagesLoading(true);
+      searchChannelMessagesAction(activeChannel.id, term).then((result) => {
+        if (!active) return;
+        if (result.ok) {
+          setSearchResults(result.data.messages);
+        } else {
+          setSearchResults([]);
+          setStatus(result.message);
         }
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          console.log("[Realtime] Connected to messages channel");
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          setStatus("Live messages disconnected. Reconnecting when the network is ready.");
-        }
+        setSearchMessagesLoading(false);
+      }).catch(() => {
+        if (active) setStatus("Search could not finish. Check your connection and retry.");
+      }).finally(() => {
+        if (active) setSearchMessagesLoading(false);
       });
-
+    }, 250);
     return () => {
-      supabase.removeChannel(realtimeChannel);
+      active = false;
+      window.clearTimeout(timeout);
     };
-  }, [router]);
+  }, [activeChannel.id, search]);
 
-  // Adjust local state before children render when the server sends a new list.
-  if (channels !== previousChannels) {
-    setPreviousChannels(channels);
-    setChannelList(channels);
-    if (channels.length > 0 && !activeChannelId) {
-      setActiveChannelId(channels[0].id);
+  async function loadOlderMessages() {
+    const cursor = activeChannel.nextMessageCursor;
+    if (!cursor || olderMessagesLoading) return;
+    const list = messageListRef.current;
+    if (list) pendingScrollPositionRef.current = { height: list.scrollHeight, top: list.scrollTop };
+    setOlderMessagesLoading(true);
+    const requestedChannelId = activeChannel.id;
+    try {
+    const result = await loadChannelMessagesAction(activeChannel.id, cursor);
+    if (selectedIdRef.current !== requestedChannelId) { pendingScrollPositionRef.current = null; return; }
+    if (!result.ok) {
+      pendingScrollPositionRef.current = null;
+      setStatus(result.message);
+      setOlderMessagesLoading(false);
+      return;
+    }
+    setChannelList((current) => current.map((channel) => {
+      if (channel.id !== activeChannel.id) return channel;
+      const knownIds = new Set(channel.messages.map((message) => message.id));
+      const olderMessages = result.data.messages.filter((message) => !knownIds.has(message.id));
+      return {
+        ...channel,
+        messages: [...olderMessages, ...channel.messages],
+        hasMoreMessages: result.data.hasMore,
+        nextMessageCursor: result.data.nextCursor,
+      };
+    }));
+    setOlderMessagesLoading(false);
+    } catch {
+      pendingScrollPositionRef.current = null;
+      if (selectedIdRef.current === requestedChannelId) setStatus("Older messages could not be loaded. Retry when connected.");
+    } finally {
+      setOlderMessagesLoading(false);
     }
   }
 
-  const activeChannel = channelList.find((channel) => channel.id === activeChannelId) ?? channelList[0] ?? { id: "", name: "No Channel", membersOnline: 0, preview: "", messages: [] };
-  const activeMessageCount = activeChannel.messages.length;
+  useLayoutEffect(() => {
+    if (selectedIdRef.current !== activeChannelId) {
+      selectedIdRef.current = activeChannelId;
+      pendingScrollPositionRef.current = null;
+      skipAutoScrollRef.current = false;
+    }
+    const pending = pendingScrollPositionRef.current;
+    const list = messageListRef.current;
+    if (!pending || !list) return;
+    list.scrollTop = pending.top + (list.scrollHeight - pending.height);
+    skipAutoScrollRef.current = true;
+    pendingScrollPositionRef.current = null;
+  }, [activeChannelId, activeMessageCount]);
 
   // Auto-scroll to bottom when active channel or its messages change
   useEffect(() => {
+    if (skipAutoScrollRef.current) { skipAutoScrollRef.current = false; return; }
+    if (pendingScrollPositionRef.current) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [activeChannelId, activeMessageCount]);
 
   // Mark messages as read
   useEffect(() => {
-    if (!activeChannelId || activeChannel.messages.length === 0) return;
+    if (!activeChannel.id || activeChannel.messages.length === 0) return;
     const unreadMessageIds = activeChannel.messages
       .filter((msg) => !msg.mine && !msg.reads?.some((r) => r.profileId === currentProfileId))
       .map((msg) => msg.id);
@@ -331,27 +547,23 @@ export function MessagesClient({
         markMessagesReadAction(activeChannelId, []);
       });
     }
-  }, [activeChannel.messages, activeChannelId, activeMessageCount, currentProfileId]);
+  }, [activeChannel.id, activeChannel.messages, activeChannelId, activeMessageCount, currentProfileId, setChannelList]);
 
-  const activeChannelFiles = useMemo(() => {
-    const seen = new Set<string>();
-    return (activeChannel.messages || [])
-      .map((message) => message.attachment)
-      .filter((attachment): attachment is AttachmentDetails => Boolean(attachment))
-      .filter((attachment) => {
-        const key = attachment.id ?? attachment.name;
-        if (seen.has(key)) {
-          return false;
-        }
-        seen.add(key);
-        return true;
-      });
-  }, [activeChannel.messages]);
+  const seenAttachmentKeys = new Set<string>();
+  const activeChannelFiles = (activeChannel.messages || [])
+    .map((message) => message.attachment)
+    .filter((attachment): attachment is AttachmentDetails => Boolean(attachment))
+    .filter((attachment) => {
+      const key = attachment.id ?? attachment.name;
+      if (seenAttachmentKeys.has(key)) return false;
+      seenAttachmentKeys.add(key);
+      return true;
+    });
   const normalizedSearch = search.trim().toLowerCase();
   const visibleChannels = channelList.filter((channel) => `${channel.name} ${channel.preview}`.toLowerCase().includes(normalizedSearch));
-  const visibleMessages = activeChannel.messages?.filter((message) =>
+  const visibleMessages = (searchResults ?? activeChannel.messages?.filter((message) =>
     `${message.author} ${message.body} ${message.attachment?.name ?? ""}`.toLowerCase().includes(normalizedSearch),
-  ) || [];
+  )) || [];
   const visibleMembers = normalizedSearch
     ? teamMembers.filter(
         (m) =>
@@ -366,6 +578,7 @@ export function MessagesClient({
         channel.id === activeChannel.id
           ? {
               ...channel,
+              messagesLoaded: true,
               preview: `${nextMessage.author}: ${nextMessage.body}`,
               messages: channel.messages.some((message) => message.id === nextMessage.id)
                 ? channel.messages
@@ -437,7 +650,7 @@ export function MessagesClient({
     if (!supabase) {
       throw new Error("Sign in with Supabase to attach files.");
     }
-    const objectId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`;
+    const objectId = globalThis.crypto.randomUUID();
     const mimeType = inferPracticeFileMimeType(attachment.file);
     const path = storagePath(teamId, "messages", objectId, attachment.file.name);
     const { error: uploadError } = await supabase.storage
@@ -545,14 +758,21 @@ export function MessagesClient({
     if (!body) {
       return;
     }
+    const attachmentFile = pendingAttachment?.file ?? null;
+    const requestKey = [activeChannel.id, body, scheduledFor, replyingTo?.id ?? ""].join("|");
+    if (!pendingSendRef.current || pendingSendRef.current.key !== requestKey || pendingSendRef.current.file !== attachmentFile) {
+      pendingSendRef.current = { nonce: crypto.randomUUID(), key: requestKey, file: attachmentFile };
+    }
+    const pendingSend = pendingSendRef.current;
 
     startTransition(async () => {
-      let uploadedAttachment: AttachmentDetails | undefined;
+      let uploadedAttachment = pendingSend.attachment;
 
       try {
-        if (pendingAttachment) {
+        if (pendingAttachment && !uploadedAttachment) {
           setStatus("Uploading attachment...");
           uploadedAttachment = await uploadSelectedAttachment(pendingAttachment);
+          pendingSend.attachment = uploadedAttachment;
         }
       } catch (error) {
         setStatus(error instanceof Error ? error.message : "Attachment upload failed.");
@@ -563,6 +783,7 @@ export function MessagesClient({
         const formData = new FormData();
         formData.set("channelId", activeChannel.id);
         formData.set("body", body);
+        formData.set("clientNonce", pendingSend.nonce);
         if (uploadedAttachment?.id) {
           formData.set("attachmentFileId", uploadedAttachment.id);
         }
@@ -574,9 +795,10 @@ export function MessagesClient({
         }
 
         setStatus("Sending...");
-        const result = await sendMessageAction(formData);
+        const result = await sendMessageOnceAction(formData);
 
         if (result.ok) {
+          pendingSendRef.current = null;
           setDraft("");
           setScheduledFor("");
           setSelectedAttachment(null);
@@ -650,15 +872,16 @@ export function MessagesClient({
   }
 
   return (
-    <div className="relative flex w-full max-w-full h-[calc(100dvh-120px-env(safe-area-inset-bottom))] md:h-[calc(100dvh-8rem)] min-h-[400px] md:min-h-[600px] overflow-hidden rounded-lg border border-white/10 bg-[#111014]">
+    <div className="relative flex h-[calc(100dvh-120px-env(safe-area-inset-bottom))] min-h-0 w-full max-w-full overflow-hidden rounded-lg border border-white/10 bg-[#111014] md:h-[calc(100dvh-10.5rem-env(safe-area-inset-bottom))] lg:h-[calc(100dvh-8rem)]">
       <aside
         className={cn(
-          "transition-all duration-300 bg-[#201f24] flex flex-col border-r border-white/10 shrink-0 h-full overflow-y-auto absolute z-20 md:static md:translate-x-0",
-          sidebarExpanded ? "w-72 p-4 translate-x-0 shadow-2xl" : "-translate-x-full w-72 md:w-20 md:p-3 lg:w-72 lg:p-4"
+          "transition-all duration-300 bg-[#201f24] flex flex-col border-r border-white/10 shrink-0 h-full overflow-y-auto z-20 md:static md:translate-x-0",
+          showingList ? "relative w-full p-4 md:w-80" : "absolute",
+          !showingList && (sidebarExpanded ? "w-72 p-4 translate-x-0 shadow-2xl" : "-translate-x-full w-72 md:w-20 md:p-3 lg:w-72 lg:p-4")
         )}
       >
         <div className="flex items-center justify-between">
-          <h1 className={cn("text-xl font-bold transition-all", sidebarExpanded ? "block" : "hidden lg:block")}>
+          <h1 className={cn("text-xl font-bold transition-all", listExpanded ? "block" : "hidden lg:block")}>
             Messages
           </h1>
           {role !== "member" && (
@@ -667,7 +890,7 @@ export function MessagesClient({
               aria-label="Compose new message"
               className={cn(
                 "rounded-md p-2 text-violet-200 hover:bg-white/[0.06]",
-                !sidebarExpanded && "mx-auto lg:mx-0"
+                !listExpanded && "mx-auto lg:mx-0"
               )}
               onClick={() => {
                 setComposeOpen((prev) => {
@@ -693,23 +916,31 @@ export function MessagesClient({
         )}
 
         {/* Search — shows when expanded on mobile, always on desktop */}
-        <div className={cn("relative mt-4", sidebarExpanded ? "block" : "hidden lg:block")}>
+        <div className={cn("relative mt-4", listExpanded ? "block" : "hidden lg:block")}>
           <Search className="absolute left-3 top-2.5 size-4 text-zinc-400" />
-          <Input ref={searchInputRef} className="pl-10" placeholder="Search messages..." value={search} onChange={(event) => setSearch(event.target.value)} />
+          <Input ref={searchInputRef} className="pl-10" placeholder="Search messages..." value={search} onChange={(event) => {
+            const value = event.target.value;
+            setSearch(value);
+            setSearchResults(null);
+            setSearchMessagesLoading(Boolean(value.trim()));
+          }} />
         </div>
 
         {/* CHANNELS SECTION */}
-        {sidebarExpanded ? (
+        {listExpanded ? (
           <p className="mt-6 font-mono text-[10px] font-bold uppercase text-zinc-400">Channels</p>
         ) : (
           <p className="mt-4 hidden lg:block font-mono text-[10px] font-bold uppercase text-zinc-400">Channels</p>
         )}
         {/* Thin divider in collapsed mobile view */}
-        {!sidebarExpanded && (
+        {!listExpanded && (
           <div className="mt-3 mb-1 mx-auto w-8 h-px bg-white/10 lg:hidden" />
         )}
 
         <div className="mt-2 space-y-1">
+          {showingList && (initialLoadError || status || liveStatus) && <p role="status" className="rounded-lg bg-white/5 p-3 text-sm text-zinc-300">{initialLoadError || status || liveStatus}</p>}
+          {showingList && activeChannelId && <p role="status" className="p-3 text-sm text-zinc-400">This conversation is unavailable. Choose another chat.</p>}
+          {channelList.length === 0 && <p className="p-3 text-sm text-zinc-400">No chats yet. Search for a teammate to start a conversation.</p>}
           {visibleChannels.map((channel) => (
             <button
               key={channel.id}
@@ -717,7 +948,7 @@ export function MessagesClient({
               className={cn(
                 "flex items-center gap-3 rounded-md p-2 text-left w-full transition hover:bg-white/[0.04]",
                 channel.id === activeChannel.id && "bg-violet-500/20",
-                sidebarExpanded ? "justify-start px-3" : "justify-center lg:justify-start lg:px-3"
+                listExpanded ? "justify-start px-3" : "justify-center lg:justify-start lg:px-3"
               )}
               onClick={() => {
                 setActiveChannelId(channel.id);
@@ -728,24 +959,31 @@ export function MessagesClient({
               title={channel.name}
             >
               <Avatar name={channel.name} src={channel.avatarUrl} className="shrink-0" />
-              <span className={cn(sidebarExpanded ? "block" : "hidden lg:block")}>
+              <span className={cn(listExpanded ? "block" : "hidden lg:block")}>
                 <span className="block text-sm font-bold truncate max-w-36">{channel.name}</span>
                 <span className="block max-w-44 truncate text-xs text-zinc-400">{channel.preview}</span>
               </span>
             </button>
           ))}
         </div>
+        {showingList && channelPageCount > 1 && (
+          <nav aria-label="Chat list pages" className="mt-4 flex items-center justify-between border-t border-white/10 pt-3 text-xs font-semibold text-zinc-400">
+            {previousChannelsHref ? <Link href={previousChannelsHref} className="rounded px-2 py-1 hover:bg-white/10 hover:text-white">Previous chats</Link> : <span />}
+            <span>Page {channelPage} of {channelPageCount}</span>
+            {nextChannelsHref ? <Link href={nextChannelsHref} className="rounded px-2 py-1 hover:bg-white/10 hover:text-white">More chats</Link> : <span />}
+          </nav>
+        )}
 
         {/* DIRECT MESSAGES SECTION (Only shown when searching) */}
         {visibleMembers.length > 0 && (
           <>
-            {sidebarExpanded ? (
+            {listExpanded ? (
               <p className="mt-6 font-mono text-[10px] font-bold uppercase text-zinc-400">Direct Messages</p>
             ) : (
               <p className="mt-4 hidden lg:block font-mono text-[10px] font-bold uppercase text-zinc-400">Direct Messages</p>
             )}
             {/* Thin divider in collapsed mobile view */}
-            {!sidebarExpanded && (
+            {!listExpanded && (
               <div className="mt-3 mb-1 mx-auto w-8 h-px bg-white/10 lg:hidden" />
             )}
 
@@ -756,7 +994,7 @@ export function MessagesClient({
                   type="button"
                   className={cn(
                     "flex items-center gap-3 rounded-md p-2 text-left hover:bg-white/[0.04] transition w-full",
-                    sidebarExpanded ? "justify-start px-3" : "justify-center lg:justify-start lg:px-3"
+                    listExpanded ? "justify-start px-3" : "justify-center lg:justify-start lg:px-3"
                   )}
                   onClick={() => {
                     handleStartDirectMessage(member.memberId);
@@ -768,7 +1006,7 @@ export function MessagesClient({
                   title={member.fullName}
                 >
                   <Avatar name={member.fullName} src={member.avatarUrl} className="shrink-0" />
-                  <span className={cn(sidebarExpanded ? "block" : "hidden lg:block")}>
+                  <span className={cn(listExpanded ? "block" : "hidden lg:block")}>
                     <span className="block text-sm font-bold truncate max-w-36">{member.fullName}</span>
                     <span className="block text-[10px] text-zinc-400 font-semibold capitalize">{member.role}</span>
                   </span>
@@ -780,7 +1018,7 @@ export function MessagesClient({
       </aside>
 
       {/* Mobile overlay to close sidebar when clicking outside */}
-      {sidebarExpanded && (
+      {sidebarExpanded && !showingList && (
         <div 
           className="absolute inset-0 z-10 bg-black/20 md:hidden backdrop-blur-sm" 
           onClick={() => setSidebarExpanded(false)} 
@@ -788,12 +1026,20 @@ export function MessagesClient({
         />
       )}
 
-      <section aria-label={`${activeChannel.name} conversation`} className="relative z-0 flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-[#111014]">
-        <header className="flex h-16 items-center justify-between border-b border-white/10 bg-[#1d1b20] px-4 sm:px-6">
+      {showingList ? (
+        <section aria-label="Choose a conversation" className="hidden md:flex flex-1 items-center justify-center p-8 text-center text-zinc-400">
+          <p>{activeChannelId ? "This conversation is unavailable. Choose another chat." : channelList.length ? "Choose a chat to start messaging." : "No chats yet. Search for a teammate to start a conversation."}</p>
+        </section>
+      ) : (
+      <section aria-label={`${activeChannel.name} conversation`} className="relative z-0 flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#111014]">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 bg-[#1d1b20] px-3 sm:px-6">
           <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setActiveChannelId("")} aria-label="Back to chats" className="flex size-11 shrink-0 items-center justify-center rounded-md text-zinc-300 hover:bg-white/10">
+              <ArrowLeft className="size-5" />
+            </button>
             <button
               type="button"
-              className="lg:hidden rounded-md p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white transition"
+              className="flex size-11 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-white/[0.06] hover:text-white lg:hidden"
               onClick={() => setSidebarExpanded((prev) => !prev)}
               aria-label="Toggle message sidebar"
             >
@@ -811,7 +1057,7 @@ export function MessagesClient({
             <button
               type="button"
               aria-label="Focus message search"
-              className="rounded-md p-2 hover:bg-white/[0.06]"
+              className="flex size-11 items-center justify-center rounded-md hover:bg-white/[0.06]"
               onClick={() => {
                 setSidebarExpanded(true);
                 setTimeout(() => searchInputRef.current?.focus(), 0);
@@ -822,7 +1068,7 @@ export function MessagesClient({
             <button
               type="button"
               aria-label="Channel info"
-              className={cn("rounded-md p-2 hover:bg-white/[0.06] transition", infoPanelOpen ? "text-violet-400" : "")}
+              className={cn("flex size-11 items-center justify-center rounded-md transition hover:bg-white/[0.06]", infoPanelOpen ? "text-violet-400" : "")}
               onClick={() => setInfoPanelOpen((value) => !value)}
             >
               <Info className="size-5" />
@@ -879,9 +1125,9 @@ export function MessagesClient({
           </div>
         )}
 
-        <Link href="/setlists/sunday-service" className="border-b border-white/10 bg-white/[0.04] px-6 py-4 transition hover:bg-white/[0.07]">
-          <Badge>Pinned by Admin</Badge>
-          <p className="mt-2 text-sm font-semibold text-zinc-300">Current Setlist: Sunday Worship - Dec 10</p>
+        <Link href="/setlists" className="border-b border-white/10 bg-white/[0.04] px-6 py-4 transition hover:bg-white/[0.07]">
+          <Badge>Setlists</Badge>
+          <p className="mt-2 text-sm font-semibold text-zinc-300">Browse team setlists</p>
         </Link>
 
         {activeChannel.adminOnly ? (
@@ -894,7 +1140,17 @@ export function MessagesClient({
           </div>
         ) : (
           <>
-            <div className="flex-1 space-y-6 overflow-y-auto overflow-x-hidden p-6">
+            <div ref={messageListRef} className="min-h-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden p-3 sm:p-6">
+              {activeChannel.hasMoreMessages && !normalizedSearch && (
+                <div className="text-center">
+                  <Button type="button" variant="secondary" disabled={olderMessagesLoading} onClick={() => void loadOlderMessages()}>
+                    {olderMessagesLoading ? "Loading older messages..." : "Load older messages"}
+                  </Button>
+                </div>
+              )}
+              {messagesLoading && <p role="status" className="text-center text-sm text-zinc-400">Loading messages...</p>}
+              {searchMessagesLoading && <p role="status" className="text-center text-sm text-zinc-400">Searching this conversation...</p>}
+              {searchResults && searchResults.length === 0 && !searchMessagesLoading && <p role="status" className="text-center text-sm text-zinc-400">No matching messages.</p>}
               <div className="flex items-center gap-4 text-center font-mono text-[10px] font-bold text-zinc-500">
                 <span className="h-px flex-1 bg-white/10" />
                 Today
@@ -1017,12 +1273,12 @@ export function MessagesClient({
               {/* Scroll anchor — realtime messages scroll here */}
               <div ref={bottomRef} />
             </div>
-            {status && (
+            {(status || liveStatus) && (
               <p role="status" aria-live="polite" className="px-4 pb-2 text-sm font-bold text-emerald-300">
-                {status}
+                {status || liveStatus}
               </p>
             )}
-            <div className="border-t border-white/10 bg-[#111014] p-4">
+            <div className="shrink-0 border-t border-white/10 bg-[#111014] p-3 sm:p-4">
               {replyingTo && (
                 <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2">
                   <div className="flex min-w-0 flex-col">
@@ -1066,9 +1322,9 @@ export function MessagesClient({
                   </button>
                 </div>
               )}
-              <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:gap-3">
                 <div className="relative">
-                  <button type="button" aria-label="Open emoji menu" className="rounded-md p-2 text-zinc-400 hover:bg-white/[0.06]" onClick={() => setEmojiOpen((value) => !value)}>
+                  <button type="button" aria-label="Open emoji menu" className="flex size-11 items-center justify-center rounded-md text-zinc-400 hover:bg-white/[0.06]" onClick={() => setEmojiOpen((value) => !value)}>
                     <Smile className="size-5" />
                   </button>
                   {emojiOpen && (
@@ -1082,7 +1338,7 @@ export function MessagesClient({
                   )}
                 </div>
                 <div className="relative">
-                  <button type="button" aria-label="Open attachment menu" className="rounded-md p-2 text-zinc-400 hover:bg-white/[0.06]" onClick={() => setAttachmentOpen((value) => !value)}>
+                  <button type="button" aria-label="Open attachment menu" className="flex size-11 items-center justify-center rounded-md text-zinc-400 hover:bg-white/[0.06]" onClick={() => setAttachmentOpen((value) => !value)}>
                     <Paperclip className="size-5" />
                   </button>
                   {attachmentOpen && (
@@ -1123,13 +1379,13 @@ export function MessagesClient({
                   />
                 </div>
                 {(role === "owner" || role === "admin") && (
-                  <div className="relative flex items-center gap-2">
+                  <div className="relative order-last flex basis-full items-center gap-2 sm:order-none sm:basis-auto">
                     <CalendarClock className="size-5 text-zinc-400 cursor-pointer" />
                     <input
                       type="datetime-local"
                       value={scheduledFor}
                       onChange={(e) => setScheduledFor(e.target.value)}
-                      className="h-8 rounded-md bg-[#18171c] border border-white/10 px-2 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                      className="h-11 max-w-full rounded-md border border-white/10 bg-[#18171c] px-2 text-sm font-semibold text-white focus:outline-none focus:ring-1 focus:ring-violet-500 sm:h-8 sm:text-xs"
                       title="Schedule Message"
                     />
                   </div>
@@ -1137,7 +1393,7 @@ export function MessagesClient({
                 <Input
                   ref={inputRef}
                   name="body"
-                  className="flex-1 min-w-0"
+                  className="min-w-0 flex-1 basis-24 text-base sm:basis-auto sm:text-sm"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   onKeyDown={(event) => {
@@ -1148,7 +1404,7 @@ export function MessagesClient({
                   }}
                   placeholder={`Message ${activeChannel.name}...`}
                 />
-                <Button type="button" aria-label="Send message" disabled={isPending} onClick={sendCurrentMessage}>
+                <Button type="button" aria-label="Send message" className="size-11 shrink-0" disabled={isPending} onClick={sendCurrentMessage}>
                   <Send className="size-4" />
                 </Button>
               </div>
@@ -1156,9 +1412,10 @@ export function MessagesClient({
           </>
         )}
       </section>
+      )}
 
       {/* ── Details Sidebar on the right ── */}
-      <aside className={cn("w-72 flex-col bg-[#16151a]/95 backdrop-blur-md p-5 border-l border-white/10 overflow-y-auto shrink-0 animate-fade-in text-left z-20 absolute right-0 h-full md:relative md:bg-[#16151a]/85 transition-transform", infoPanelOpen ? "flex" : "hidden")}>
+      <aside className={cn("w-72 flex-col bg-[#16151a]/95 backdrop-blur-md p-5 border-l border-white/10 overflow-y-auto shrink-0 animate-fade-in text-left z-20 absolute right-0 h-full md:relative md:bg-[#16151a]/85 transition-transform", infoPanelOpen && !showingList ? "flex" : "hidden")}>
         <div className="flex flex-col items-center text-center mt-4">
           <Avatar name={activeChannel.name} src={activeChannel.avatarUrl} className="size-16 rounded-2xl text-xl shrink-0" />
           <h3 className="mt-4 text-base font-extrabold text-white">{activeChannel.name}</h3>

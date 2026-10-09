@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { can, type Permission } from "@/lib/domain/rbac";
+import { cache } from "react";
+import { PERMISSION_LABELS, type Permission } from "@/lib/domain/rbac";
 import { resolvePostLoginPath, type PostLoginPath } from "@/lib/domain/post-login";
 import { appName, teamCode } from "@/lib/sample-data";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -9,6 +10,9 @@ import { getDesktopTeamContext, saveDesktopTeamContext } from "@/lib/desktop/wor
 import type { Database } from "@/lib/supabase/database.types";
 import type { TeamRole } from "@/lib/types";
 
+import { canForTeam, type PermissionOverrides } from "@/lib/domain/permission-overrides";
+import { loadTeamPermissionOverrides } from "@/lib/server/team-permissions";
+
 export interface TeamContext {
   userId: string | null;
   teamId: string | null;
@@ -17,6 +21,7 @@ export interface TeamContext {
   teamCode: string | null;
   role: TeamRole | string;
   customPermissions?: Permission[];
+  permissionOverrides?: PermissionOverrides;
   canManageMembers: boolean;
   hasPendingJoinRequest: boolean;
 }
@@ -43,7 +48,8 @@ export const unauthenticatedTeamContext: TeamContext = {
   hasPendingJoinRequest: false,
 };
 
-export async function getCurrentTeamContext(): Promise<TeamContext> {
+// React cache deduplicates a server render only; identity is never cached across requests.
+export const getCurrentTeamContext = cache(async (): Promise<TeamContext> => {
   if (!hasSupabaseEnv()) {
     return demoTeamContext;
   }
@@ -72,7 +78,7 @@ export async function getCurrentTeamContext(): Promise<TeamContext> {
 
   const supabase = await createClient();
   return getCurrentTeamContextForClient(supabase);
-}
+});
 
 export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Database>): Promise<TeamContext> {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -80,7 +86,8 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
     return unauthenticatedTeamContext;
   }
 
-  const { data: member } = await supabase
+  const [memberResult, pendingRequestResult] = await Promise.all([
+    supabase
     .from("team_members")
     .select(`
       id,
@@ -88,6 +95,10 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
       role,
       status,
       custom_role_id,
+      custom_roles (
+        team_id,
+        permissions
+      ),
       teams (
         name,
         code
@@ -97,15 +108,17 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(1)
-    .maybeSingle();
-
-  const { data: pendingRequest } = await supabase
+    .maybeSingle(),
+    supabase
     .from("join_requests")
     .select("id")
     .eq("profile_id", user.id)
     .eq("status", "pending")
     .limit(1)
-    .maybeSingle();
+    .maybeSingle(),
+  ]);
+  const member = memberResult.data;
+  const pendingRequest = pendingRequestResult.data;
 
   if (!member) {
     return {
@@ -115,17 +128,12 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
     };
   }
 
-  let customPermissions: Permission[] = [];
-  if (member.custom_role_id) {
-    const { data: customRole } = await supabase
-      .from("custom_roles")
-      .select("permissions")
-      .eq("id", member.custom_role_id)
-      .single();
-    if (customRole) {
-      customPermissions = (customRole.permissions as Permission[]) || [];
-    }
-  }
+  const customRole = member.custom_roles;
+  const customPermissions = customRole?.team_id === member.team_id
+    ? (customRole.permissions ?? []).filter((permission): permission is Permission => Object.hasOwn(PERMISSION_LABELS, permission))
+    : [];
+
+  const permissionOverrides = await loadTeamPermissionOverrides(supabase, member.team_id, member.role, member.id);
 
   const team = Array.isArray(member.teams) ? member.teams[0] : member.teams;
 
@@ -137,7 +145,8 @@ export async function getCurrentTeamContextForClient(supabase: SupabaseClient<Da
     teamCode: team?.code ?? null,
     role: member.role,
     customPermissions,
-    canManageMembers: can(member.role, "members.manage", customPermissions),
+    permissionOverrides,
+    canManageMembers: canForTeam({ role: member.role, customPermissions, permissionOverrides }, "members.manage"),
     hasPendingJoinRequest: Boolean(pendingRequest),
   };
 }

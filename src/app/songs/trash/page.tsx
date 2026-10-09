@@ -1,9 +1,9 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { SongTrashList, type TrashedSong } from "@/components/song-trash-list";
 import { ButtonLink } from "@/components/ui/button";
-import { can } from "@/lib/domain/rbac";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
@@ -12,7 +12,7 @@ import { safeErrorDetails } from "@/lib/server/safe-error";
 export default async function SongsTrashPage() {
   const teamContext = await getRequiredTeamContext();
   
-  if (!can(teamContext.role, "songs.delete")) {
+  if (!canForTeam(teamContext, "songs.delete")) {
     notFound();
   }
 

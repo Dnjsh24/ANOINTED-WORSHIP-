@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { initialActionState } from "@/lib/action-state";
 import { teamRoles } from "@/lib/types";
 
-export function InviteMemberForm() {
+export function InviteMemberForm({ canAssignRoles = false }: { canAssignRoles?: boolean }) {
   const [state, formAction] = useActionState(inviteMemberAction, initialActionState);
 
   return (
@@ -21,7 +21,7 @@ export function InviteMemberForm() {
       <label className="block space-y-2">
         <span className="text-sm font-bold text-zinc-300">Role</span>
         <select name="role" defaultValue="member" className="h-10 w-full rounded-md border border-white/10 bg-white/[0.04] px-3 text-sm font-bold text-white">
-          {teamRoles.map((role) => (
+          {teamRoles.filter(role => canAssignRoles || role === "member").map((role) => (
             <option key={role} value={role}>
               {role.replace("_", " ")}
             </option>

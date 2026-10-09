@@ -19,7 +19,7 @@ export default async function InviteMemberPage() {
         <p className="mt-2 text-sm font-semibold text-zinc-300">Create a pending invitation for a new teammate.</p>
       </div>
       <Panel>
-        <InviteMemberForm />
+        <InviteMemberForm canAssignRoles={teamContext.role === "owner" || teamContext.role === "admin"} />
       </Panel>
     </AppShell>
   );

@@ -1,0 +1,1240 @@
+{
+  "project": "xvrndwkghxkqsvxxtqym",
+  "authorization": "User approved database migration only",
+  "counts": {
+    "teams": 2,
+    "members": 11,
+    "songs": 126,
+    "events": 5,
+    "setlists": 7,
+    "audit": 14
+  },
+  "metadata": {
+    "columns": [
+      {
+        "type": "uuid",
+        "table": "events",
+        "column": "id"
+      },
+      {
+        "type": "uuid",
+        "table": "events",
+        "column": "team_id"
+      },
+      {
+        "type": "USER-DEFINED",
+        "table": "events",
+        "column": "type"
+      },
+      {
+        "type": "text",
+        "table": "events",
+        "column": "name"
+      },
+      {
+        "type": "date",
+        "table": "events",
+        "column": "event_date"
+      },
+      {
+        "type": "time without time zone",
+        "table": "events",
+        "column": "starts_at"
+      },
+      {
+        "type": "time without time zone",
+        "table": "events",
+        "column": "ends_at"
+      },
+      {
+        "type": "text",
+        "table": "events",
+        "column": "location"
+      },
+      {
+        "type": "text",
+        "table": "events",
+        "column": "description"
+      },
+      {
+        "type": "time without time zone",
+        "table": "events",
+        "column": "call_time"
+      },
+      {
+        "type": "time without time zone",
+        "table": "events",
+        "column": "rehearsal_time"
+      },
+      {
+        "type": "uuid",
+        "table": "events",
+        "column": "created_by"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "events",
+        "column": "created_at"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "events",
+        "column": "updated_at"
+      },
+      {
+        "type": "text",
+        "table": "events",
+        "column": "approval_status"
+      },
+      {
+        "type": "time without time zone",
+        "table": "events",
+        "column": "rehearsal_end_time"
+      },
+      {
+        "type": "date",
+        "table": "events",
+        "column": "rehearsal_date"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "events",
+        "column": "deleted_at"
+      },
+      {
+        "type": "bigint",
+        "table": "events",
+        "column": "sync_revision"
+      },
+      {
+        "type": "text",
+        "table": "events",
+        "column": "recurrence_rule"
+      },
+      {
+        "type": "uuid",
+        "table": "events",
+        "column": "recurrence_parent_id"
+      },
+      {
+        "type": "text",
+        "table": "events",
+        "column": "service_type"
+      },
+      {
+        "type": "uuid",
+        "table": "messages",
+        "column": "id"
+      },
+      {
+        "type": "uuid",
+        "table": "messages",
+        "column": "channel_id"
+      },
+      {
+        "type": "uuid",
+        "table": "messages",
+        "column": "sender_member_id"
+      },
+      {
+        "type": "text",
+        "table": "messages",
+        "column": "body"
+      },
+      {
+        "type": "uuid",
+        "table": "messages",
+        "column": "attachment_file_id"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "messages",
+        "column": "created_at"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "messages",
+        "column": "updated_at"
+      },
+      {
+        "type": "uuid",
+        "table": "messages",
+        "column": "parent_message_id"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "messages",
+        "column": "scheduled_for"
+      },
+      {
+        "type": "boolean",
+        "table": "messages",
+        "column": "is_delivered"
+      },
+      {
+        "type": "uuid",
+        "table": "practice_files",
+        "column": "id"
+      },
+      {
+        "type": "uuid",
+        "table": "practice_files",
+        "column": "team_id"
+      },
+      {
+        "type": "uuid",
+        "table": "practice_files",
+        "column": "song_id"
+      },
+      {
+        "type": "uuid",
+        "table": "practice_files",
+        "column": "event_id"
+      },
+      {
+        "type": "text",
+        "table": "practice_files",
+        "column": "storage_path"
+      },
+      {
+        "type": "text",
+        "table": "practice_files",
+        "column": "file_name"
+      },
+      {
+        "type": "text",
+        "table": "practice_files",
+        "column": "mime_type"
+      },
+      {
+        "type": "bigint",
+        "table": "practice_files",
+        "column": "size_bytes"
+      },
+      {
+        "type": "uuid",
+        "table": "practice_files",
+        "column": "uploaded_by"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "practice_files",
+        "column": "created_at"
+      },
+      {
+        "type": "uuid",
+        "table": "presentation_assets",
+        "column": "id"
+      },
+      {
+        "type": "uuid",
+        "table": "presentation_assets",
+        "column": "team_id"
+      },
+      {
+        "type": "text",
+        "table": "presentation_assets",
+        "column": "storage_path"
+      },
+      {
+        "type": "text",
+        "table": "presentation_assets",
+        "column": "asset_type"
+      },
+      {
+        "type": "bigint",
+        "table": "presentation_assets",
+        "column": "byte_size"
+      },
+      {
+        "type": "text",
+        "table": "presentation_assets",
+        "column": "sha256"
+      },
+      {
+        "type": "bigint",
+        "table": "presentation_assets",
+        "column": "sync_revision"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "presentation_assets",
+        "column": "deleted_at"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "presentation_assets",
+        "column": "created_at"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "presentation_assets",
+        "column": "updated_at"
+      },
+      {
+        "type": "uuid",
+        "table": "setlist_songs",
+        "column": "id"
+      },
+      {
+        "type": "uuid",
+        "table": "setlist_songs",
+        "column": "setlist_id"
+      },
+      {
+        "type": "uuid",
+        "table": "setlist_songs",
+        "column": "song_id"
+      },
+      {
+        "type": "integer",
+        "table": "setlist_songs",
+        "column": "song_order"
+      },
+      {
+        "type": "text",
+        "table": "setlist_songs",
+        "column": "assigned_key"
+      },
+      {
+        "type": "uuid",
+        "table": "setlist_songs",
+        "column": "lead_member_id"
+      },
+      {
+        "type": "text",
+        "table": "setlist_songs",
+        "column": "notes"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "setlist_songs",
+        "column": "created_at"
+      },
+      {
+        "type": "text",
+        "table": "setlist_songs",
+        "column": "youtube_url"
+      },
+      {
+        "type": "text",
+        "table": "setlist_songs",
+        "column": "arrangement"
+      },
+      {
+        "type": "text",
+        "table": "setlist_songs",
+        "column": "band_notes"
+      },
+      {
+        "type": "jsonb",
+        "table": "setlist_songs",
+        "column": "slide_settings"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "setlist_songs",
+        "column": "deleted_at"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "setlist_songs",
+        "column": "updated_at"
+      },
+      {
+        "type": "bigint",
+        "table": "setlist_songs",
+        "column": "sync_revision"
+      },
+      {
+        "type": "jsonb",
+        "table": "setlist_songs",
+        "column": "arrangement_sections"
+      },
+      {
+        "type": "uuid",
+        "table": "setlists",
+        "column": "id"
+      },
+      {
+        "type": "uuid",
+        "table": "setlists",
+        "column": "team_id"
+      },
+      {
+        "type": "uuid",
+        "table": "setlists",
+        "column": "event_id"
+      },
+      {
+        "type": "text",
+        "table": "setlists",
+        "column": "name"
+      },
+      {
+        "type": "date",
+        "table": "setlists",
+        "column": "setlist_date"
+      },
+      {
+        "type": "text",
+        "table": "setlists",
+        "column": "location"
+      },
+      {
+        "type": "time without time zone",
+        "table": "setlists",
+        "column": "call_time"
+      },
+      {
+        "type": "time without time zone",
+        "table": "setlists",
+        "column": "rehearsal_time"
+      },
+      {
+        "type": "ARRAY",
+        "table": "setlists",
+        "column": "service_times"
+      },
+      {
+        "type": "uuid",
+        "table": "setlists",
+        "column": "leader_member_id"
+      },
+      {
+        "type": "text",
+        "table": "setlists",
+        "column": "notes"
+      },
+      {
+        "type": "uuid",
+        "table": "setlists",
+        "column": "created_by"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "setlists",
+        "column": "created_at"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "setlists",
+        "column": "updated_at"
+      },
+      {
+        "type": "jsonb",
+        "table": "setlists",
+        "column": "presentation_settings"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "setlists",
+        "column": "deleted_at"
+      },
+      {
+        "type": "bigint",
+        "table": "setlists",
+        "column": "sync_revision"
+      },
+      {
+        "type": "uuid",
+        "table": "songs",
+        "column": "id"
+      },
+      {
+        "type": "uuid",
+        "table": "songs",
+        "column": "team_id"
+      },
+      {
+        "type": "text",
+        "table": "songs",
+        "column": "title"
+      },
+      {
+        "type": "text",
+        "table": "songs",
+        "column": "artist"
+      },
+      {
+        "type": "text",
+        "table": "songs",
+        "column": "original_key"
+      },
+      {
+        "type": "integer",
+        "table": "songs",
+        "column": "bpm"
+      },
+      {
+        "type": "text",
+        "table": "songs",
+        "column": "time_signature"
+      },
+      {
+        "type": "text",
+        "table": "songs",
+        "column": "lyrics_chords"
+      },
+      {
+        "type": "text",
+        "table": "songs",
+        "column": "nashville_numbers"
+      },
+      {
+        "type": "text",
+        "table": "songs",
+        "column": "youtube_url"
+      },
+      {
+        "type": "text",
+        "table": "songs",
+        "column": "spotify_url"
+      },
+      {
+        "type": "ARRAY",
+        "table": "songs",
+        "column": "tags"
+      },
+      {
+        "type": "USER-DEFINED",
+        "table": "songs",
+        "column": "status"
+      },
+      {
+        "type": "uuid",
+        "table": "songs",
+        "column": "created_by"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "songs",
+        "column": "created_at"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "songs",
+        "column": "updated_at"
+      },
+      {
+        "type": "text",
+        "table": "songs",
+        "column": "album"
+      },
+      {
+        "type": "text",
+        "table": "songs",
+        "column": "image_url"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "songs",
+        "column": "deleted_at"
+      },
+      {
+        "type": "bigint",
+        "table": "songs",
+        "column": "sync_revision"
+      },
+      {
+        "type": "text",
+        "table": "songs",
+        "column": "seed_source"
+      },
+      {
+        "type": "uuid",
+        "table": "team_invitations",
+        "column": "id"
+      },
+      {
+        "type": "uuid",
+        "table": "team_invitations",
+        "column": "team_id"
+      },
+      {
+        "type": "text",
+        "table": "team_invitations",
+        "column": "email"
+      },
+      {
+        "type": "USER-DEFINED",
+        "table": "team_invitations",
+        "column": "role"
+      },
+      {
+        "type": "text",
+        "table": "team_invitations",
+        "column": "message"
+      },
+      {
+        "type": "text",
+        "table": "team_invitations",
+        "column": "status"
+      },
+      {
+        "type": "uuid",
+        "table": "team_invitations",
+        "column": "invited_by"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "team_invitations",
+        "column": "created_at"
+      },
+      {
+        "type": "timestamp with time zone",
+        "table": "team_invitations",
+        "column": "updated_at"
+      }
+    ],
+    "policies": [
+      {
+        "cmd": "SELECT",
+        "name": "Active members can view custom roles",
+        "check": null,
+        "table": "custom_roles",
+        "using": "private.is_approved_member(team_id)"
+      },
+      {
+        "cmd": "ALL",
+        "name": "Team admins can manage custom roles",
+        "check": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role, 'pastor'::team_role])",
+        "table": "custom_roles",
+        "using": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role, 'pastor'::team_role])"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Approved members can read visible events",
+        "check": null,
+        "table": "events",
+        "using": "(private.is_approved_member(team_id) AND ((approval_status = 'approved'::text) OR (created_by = ( SELECT auth.uid() AS uid)) OR private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role])))"
+      },
+      {
+        "cmd": "INSERT",
+        "name": "Approved members can request events",
+        "check": "(private.is_approved_member(team_id) AND (created_by = ( SELECT auth.uid() AS uid)) AND ((approval_status = 'pending'::text) OR private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role, 'pastor'::team_role, 'worship_leader'::team_role])))",
+        "table": "events",
+        "using": null
+      },
+      {
+        "cmd": "DELETE",
+        "name": "Authorized event managers can delete events",
+        "check": null,
+        "table": "events",
+        "using": "(private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role]) OR ((approval_status = 'approved'::text) AND private.has_team_role(team_id, ARRAY['pastor'::team_role, 'worship_leader'::team_role])))"
+      },
+      {
+        "cmd": "UPDATE",
+        "name": "Authorized event managers can update events",
+        "check": "(private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role]) OR ((approval_status = 'approved'::text) AND private.has_team_role(team_id, ARRAY['pastor'::team_role, 'worship_leader'::team_role])))",
+        "table": "events",
+        "using": "(private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role]) OR ((approval_status = 'approved'::text) AND private.has_team_role(team_id, ARRAY['pastor'::team_role, 'worship_leader'::team_role])))"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Owners and admins read team usage daily",
+        "check": null,
+        "table": "member_usage_daily",
+        "using": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role])"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Owners and admins read team usage state",
+        "check": null,
+        "table": "member_usage_state",
+        "using": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role])"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Members can read practice files",
+        "check": null,
+        "table": "practice_files",
+        "using": "private.is_approved_member(team_id)"
+      },
+      {
+        "cmd": "INSERT",
+        "name": "Members can upload practice files",
+        "check": "(private.is_approved_member(team_id) AND (uploaded_by = ( SELECT auth.uid() AS uid)))",
+        "table": "practice_files",
+        "using": null
+      },
+      {
+        "cmd": "INSERT",
+        "name": "Leaders can create setlist songs",
+        "check": "(EXISTS ( SELECT 1\n   FROM setlists sl\n  WHERE ((sl.id = setlist_songs.setlist_id) AND private.has_team_role(sl.team_id, ARRAY['owner'::team_role, 'admin'::team_role, 'worship_leader'::team_role, 'band_leader'::team_role]))))",
+        "table": "setlist_songs",
+        "using": null
+      },
+      {
+        "cmd": "DELETE",
+        "name": "Leaders can delete setlist songs",
+        "check": null,
+        "table": "setlist_songs",
+        "using": "(EXISTS ( SELECT 1\n   FROM setlists sl\n  WHERE ((sl.id = setlist_songs.setlist_id) AND private.has_team_role(sl.team_id, ARRAY['owner'::team_role, 'admin'::team_role, 'worship_leader'::team_role, 'band_leader'::team_role]))))"
+      },
+      {
+        "cmd": "UPDATE",
+        "name": "Leaders can update setlist songs",
+        "check": "(EXISTS ( SELECT 1\n   FROM setlists sl\n  WHERE ((sl.id = setlist_songs.setlist_id) AND private.has_team_role(sl.team_id, ARRAY['owner'::team_role, 'admin'::team_role, 'worship_leader'::team_role, 'band_leader'::team_role]))))",
+        "table": "setlist_songs",
+        "using": "(EXISTS ( SELECT 1\n   FROM setlists sl\n  WHERE ((sl.id = setlist_songs.setlist_id) AND private.has_team_role(sl.team_id, ARRAY['owner'::team_role, 'admin'::team_role, 'worship_leader'::team_role, 'band_leader'::team_role]))))"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Members can read setlist songs",
+        "check": null,
+        "table": "setlist_songs",
+        "using": "(EXISTS ( SELECT 1\n   FROM setlists sl\n  WHERE ((sl.id = setlist_songs.setlist_id) AND private.is_approved_member(sl.team_id))))"
+      },
+      {
+        "cmd": "INSERT",
+        "name": "Leaders can create setlists",
+        "check": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role, 'worship_leader'::team_role, 'band_leader'::team_role])",
+        "table": "setlists",
+        "using": null
+      },
+      {
+        "cmd": "DELETE",
+        "name": "Leaders can delete setlists",
+        "check": null,
+        "table": "setlists",
+        "using": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role, 'worship_leader'::team_role, 'band_leader'::team_role])"
+      },
+      {
+        "cmd": "UPDATE",
+        "name": "Leaders can update setlists",
+        "check": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role, 'worship_leader'::team_role, 'band_leader'::team_role])",
+        "table": "setlists",
+        "using": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role, 'worship_leader'::team_role, 'band_leader'::team_role])"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Members can read setlists",
+        "check": null,
+        "table": "setlists",
+        "using": "private.is_approved_member(team_id)"
+      },
+      {
+        "cmd": "INSERT",
+        "name": "Members can propose songs",
+        "check": "(private.is_approved_member(team_id) AND (created_by = ( SELECT auth.uid() AS uid)))",
+        "table": "songs",
+        "using": null
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Members can read songs",
+        "check": null,
+        "table": "songs",
+        "using": "(private.is_approved_member(team_id) AND (status = 'approved'::song_edit_status))"
+      },
+      {
+        "cmd": "DELETE",
+        "name": "Song managers can delete team songs",
+        "check": null,
+        "table": "songs",
+        "using": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role])"
+      },
+      {
+        "cmd": "UPDATE",
+        "name": "Song reviewers can update songs",
+        "check": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role, 'worship_leader'::team_role, 'band_leader'::team_role])",
+        "table": "songs",
+        "using": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role, 'worship_leader'::team_role, 'band_leader'::team_role])"
+      },
+      {
+        "cmd": "DELETE",
+        "name": "Authorized users can delete non-owner members",
+        "check": null,
+        "table": "team_members",
+        "using": "((role <> 'owner'::team_role) AND ((profile_id = ( SELECT auth.uid() AS uid)) OR private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role])))"
+      },
+      {
+        "cmd": "INSERT",
+        "name": "Authorized users can insert non-owner members",
+        "check": "(((role <> 'owner'::team_role) AND private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role])) OR ((profile_id = ( SELECT auth.uid() AS uid)) AND (role = 'owner'::team_role) AND (status = 'active'::member_status) AND private.is_team_owner(team_id) AND (NOT (EXISTS ( SELECT 1\n   FROM team_members existing\n  WHERE (existing.team_id = team_members.team_id))))))",
+        "table": "team_members",
+        "using": null
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Members can view team member rows",
+        "check": null,
+        "table": "team_members",
+        "using": "private.is_approved_member(team_id)"
+      },
+      {
+        "cmd": "UPDATE",
+        "name": "Owners and admins can update team members",
+        "check": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role])",
+        "table": "team_members",
+        "using": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role])"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Members can read team settings",
+        "check": null,
+        "table": "team_settings",
+        "using": "private.is_approved_member(team_id)"
+      },
+      {
+        "cmd": "ALL",
+        "name": "Owners and admins can manage team settings",
+        "check": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role])",
+        "table": "team_settings",
+        "using": "private.has_team_role(team_id, ARRAY['owner'::team_role, 'admin'::team_role])"
+      },
+      {
+        "cmd": "INSERT",
+        "name": "Authenticated users can create teams they own",
+        "check": "(( SELECT auth.uid() AS uid) = owner_id)",
+        "table": "teams",
+        "using": null
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Authenticated users can view teams to join them",
+        "check": null,
+        "table": "teams",
+        "using": "true"
+      },
+      {
+        "cmd": "UPDATE",
+        "name": "Owners and admins can update teams",
+        "check": "private.has_team_role(id, ARRAY['owner'::team_role, 'admin'::team_role])",
+        "table": "teams",
+        "using": "private.has_team_role(id, ARRAY['owner'::team_role, 'admin'::team_role])"
+      },
+      {
+        "cmd": "DELETE",
+        "name": "Owners can delete their team",
+        "check": null,
+        "table": "teams",
+        "using": "private.has_team_role(id, ARRAY['owner'::team_role])"
+      },
+      {
+        "cmd": "INSERT",
+        "name": "Active members can create worship sync receipts",
+        "check": "(EXISTS ( SELECT 1\n   FROM team_members tm\n  WHERE ((tm.team_id = worship_sync_receipts.team_id) AND (tm.profile_id = ( SELECT auth.uid() AS uid)) AND (tm.status = 'active'::member_status))))",
+        "table": "worship_sync_receipts",
+        "using": null
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Active members can read worship sync receipts",
+        "check": null,
+        "table": "worship_sync_receipts",
+        "using": "(EXISTS ( SELECT 1\n   FROM team_members tm\n  WHERE ((tm.team_id = worship_sync_receipts.team_id) AND (tm.profile_id = ( SELECT auth.uid() AS uid)) AND (tm.status = 'active'::member_status))))"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Members can read team practice objects",
+        "check": null,
+        "table": "objects",
+        "using": "((bucket_id = 'practice-files'::text) AND private.is_approved_member(((storage.foldername(name))[1])::uuid))"
+      },
+      {
+        "cmd": "INSERT",
+        "name": "Members can upload team practice objects",
+        "check": "((bucket_id = 'practice-files'::text) AND private.is_approved_member(((storage.foldername(name))[1])::uuid))",
+        "table": "objects",
+        "using": null
+      },
+      {
+        "cmd": "DELETE",
+        "name": "Team members can delete presentation media",
+        "check": null,
+        "table": "objects",
+        "using": "((bucket_id = 'presentation-media'::text) AND private.can_write_presentation_media(name))"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "Team members can read presentation media",
+        "check": null,
+        "table": "objects",
+        "using": "((bucket_id = 'presentation-media'::text) AND private.can_read_presentation_media(name))"
+      },
+      {
+        "cmd": "UPDATE",
+        "name": "Team members can update presentation media",
+        "check": "((bucket_id = 'presentation-media'::text) AND private.can_write_presentation_media(name))",
+        "table": "objects",
+        "using": "((bucket_id = 'presentation-media'::text) AND private.can_write_presentation_media(name))"
+      },
+      {
+        "cmd": "INSERT",
+        "name": "Team members can upload presentation media",
+        "check": "((bucket_id = 'presentation-media'::text) AND private.can_write_presentation_media(name))",
+        "table": "objects",
+        "using": null
+      },
+      {
+        "cmd": "DELETE",
+        "name": "Users can delete own profile avatars",
+        "check": null,
+        "table": "objects",
+        "using": "((bucket_id = 'profile-avatars'::text) AND ((storage.foldername(name))[1] = (( SELECT auth.uid() AS uid))::text))"
+      },
+      {
+        "cmd": "UPDATE",
+        "name": "Users can update own profile avatars",
+        "check": "((bucket_id = 'profile-avatars'::text) AND ((storage.foldername(name))[1] = (( SELECT auth.uid() AS uid))::text))",
+        "table": "objects",
+        "using": "((bucket_id = 'profile-avatars'::text) AND ((storage.foldername(name))[1] = (( SELECT auth.uid() AS uid))::text))"
+      },
+      {
+        "cmd": "UPDATE",
+        "name": "Users can update their own avatar",
+        "check": null,
+        "table": "objects",
+        "using": "((bucket_id = 'profile-avatars'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))"
+      },
+      {
+        "cmd": "INSERT",
+        "name": "Users can upload own profile avatars",
+        "check": "((bucket_id = 'profile-avatars'::text) AND ((storage.foldername(name))[1] = (( SELECT auth.uid() AS uid))::text))",
+        "table": "objects",
+        "using": null
+      },
+      {
+        "cmd": "INSERT",
+        "name": "Users can upload their own avatar",
+        "check": "((bucket_id = 'profile-avatars'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))",
+        "table": "objects",
+        "using": null
+      }
+    ],
+    "triggers": [
+      {
+        "table": "profiles",
+        "schema": "public",
+        "trigger": "profiles_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "teams",
+        "schema": "public",
+        "trigger": "teams_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "team_members",
+        "schema": "public",
+        "trigger": "team_members_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "join_requests",
+        "schema": "public",
+        "trigger": "join_requests_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "announcements",
+        "schema": "public",
+        "trigger": "announcements_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "events",
+        "schema": "public",
+        "trigger": "events_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "songs",
+        "schema": "public",
+        "trigger": "songs_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "song_edit_requests",
+        "schema": "public",
+        "trigger": "song_edit_requests_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "setlists",
+        "schema": "public",
+        "trigger": "setlists_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "attendance",
+        "schema": "public",
+        "trigger": "attendance_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "monthly_schedules",
+        "schema": "public",
+        "trigger": "monthly_schedules_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "dance_notes",
+        "schema": "public",
+        "trigger": "dance_notes_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "prayer_requests",
+        "schema": "public",
+        "trigger": "prayer_requests_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "message_channels",
+        "schema": "public",
+        "trigger": "message_channels_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "messages",
+        "schema": "public",
+        "trigger": "messages_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "team_settings",
+        "schema": "public",
+        "trigger": "team_settings_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "team_invitations",
+        "schema": "public",
+        "trigger": "team_invitations_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "announcement_receipts",
+        "schema": "public",
+        "trigger": "announcement_receipts_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "service_templates",
+        "schema": "public",
+        "trigger": "service_templates_touch_updated_at",
+        "function": "touch_updated_at"
+      },
+      {
+        "table": "join_requests",
+        "schema": "private",
+        "trigger": "join_requests_notify_canceled",
+        "function": "notify_join_request_canceled"
+      },
+      {
+        "table": "messages",
+        "schema": "public",
+        "trigger": "trigger_notify_new_message",
+        "function": "notify_new_message"
+      },
+      {
+        "table": "events",
+        "schema": "public",
+        "trigger": "trigger_notify_new_event",
+        "function": "notify_new_event"
+      },
+      {
+        "table": "attendance",
+        "schema": "private",
+        "trigger": "attendance_validate_team",
+        "function": "validate_attendance_team"
+      },
+      {
+        "table": "attendance",
+        "schema": "private",
+        "trigger": "attendance_notify_leaders",
+        "function": "notify_attendance_response"
+      },
+      {
+        "table": "team_members",
+        "schema": "private",
+        "trigger": "team_members_guard_owner",
+        "function": "guard_team_owner_membership"
+      },
+      {
+        "table": "join_requests",
+        "schema": "private",
+        "trigger": "join_requests_validate_transition",
+        "function": "validate_join_request_transition"
+      },
+      {
+        "table": "setlist_songs",
+        "schema": "private",
+        "trigger": "setlist_songs_validate_team",
+        "function": "validate_setlist_song_team"
+      },
+      {
+        "table": "event_assignments",
+        "schema": "private",
+        "trigger": "event_assignments_validate_team",
+        "function": "validate_event_assignment_team"
+      },
+      {
+        "table": "dance_notes",
+        "schema": "private",
+        "trigger": "dance_notes_validate_team",
+        "function": "validate_dance_note_team"
+      },
+      {
+        "table": "events",
+        "schema": "private",
+        "trigger": "sync_linked_setlist_from_event",
+        "function": "sync_linked_setlist_from_event"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "attendance_event_id_fkey",
+        "table": "attendance",
+        "definition": "FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "attendance_event_id_team_member_id_key",
+        "table": "attendance",
+        "definition": "UNIQUE (event_id, team_member_id)"
+      },
+      {
+        "name": "attendance_pkey",
+        "table": "attendance",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "attendance_team_member_id_fkey",
+        "table": "attendance",
+        "definition": "FOREIGN KEY (team_member_id) REFERENCES team_members(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "event_assignments_event_id_fkey",
+        "table": "event_assignments",
+        "definition": "FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "event_assignments_event_id_team_member_id_assignment_key",
+        "table": "event_assignments",
+        "definition": "UNIQUE (event_id, team_member_id, assignment)"
+      },
+      {
+        "name": "event_assignments_pkey",
+        "table": "event_assignments",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "event_assignments_team_member_id_fkey",
+        "table": "event_assignments",
+        "definition": "FOREIGN KEY (team_member_id) REFERENCES team_members(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "practice_files_event_id_fkey",
+        "table": "practice_files",
+        "definition": "FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "practice_files_pkey",
+        "table": "practice_files",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "practice_files_size_bytes_check",
+        "table": "practice_files",
+        "definition": "CHECK (((size_bytes > 0) AND (size_bytes <= 15728640)))"
+      },
+      {
+        "name": "practice_files_song_id_fkey",
+        "table": "practice_files",
+        "definition": "FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "practice_files_team_id_fkey",
+        "table": "practice_files",
+        "definition": "FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "practice_files_uploaded_by_fkey",
+        "table": "practice_files",
+        "definition": "FOREIGN KEY (uploaded_by) REFERENCES profiles(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "presentation_assets_pkey",
+        "table": "presentation_assets",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "presentation_assets_team_id_fkey",
+        "table": "presentation_assets",
+        "definition": "FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "presentation_assets_team_id_storage_path_key",
+        "table": "presentation_assets",
+        "definition": "UNIQUE (team_id, storage_path)"
+      },
+      {
+        "name": "setlist_songs_lead_member_id_fkey",
+        "table": "setlist_songs",
+        "definition": "FOREIGN KEY (lead_member_id) REFERENCES team_members(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "setlist_songs_pkey",
+        "table": "setlist_songs",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "setlist_songs_setlist_id_fkey",
+        "table": "setlist_songs",
+        "definition": "FOREIGN KEY (setlist_id) REFERENCES setlists(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "setlist_songs_setlist_id_song_order_key",
+        "table": "setlist_songs",
+        "definition": "UNIQUE (setlist_id, song_order)"
+      },
+      {
+        "name": "setlist_songs_song_id_fkey",
+        "table": "setlist_songs",
+        "definition": "FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE RESTRICT"
+      },
+      {
+        "name": "setlist_songs_song_order_check",
+        "table": "setlist_songs",
+        "definition": "CHECK ((song_order > 0))"
+      },
+      {
+        "name": "team_members_custom_role_id_fkey",
+        "table": "team_members",
+        "definition": "FOREIGN KEY (custom_role_id) REFERENCES custom_roles(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "team_members_pkey",
+        "table": "team_members",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "team_members_profile_id_fkey",
+        "table": "team_members",
+        "definition": "FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "team_members_team_id_fkey",
+        "table": "team_members",
+        "definition": "FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "team_members_team_id_profile_id_key",
+        "table": "team_members",
+        "definition": "UNIQUE (team_id, profile_id)"
+      }
+    ]
+  },
+  "history": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"migrations\":[{\"version\":\"20260630010000\",\"name\":\"anointed_worship_mvp\"},{\"version\":\"20260630011000\",\"name\":\"fix_team_creation_bootstrap\"},{\"version\":\"20260630023000\",\"name\":\"harden_supabase_policies\"},{\"version\":\"20260630030000\",\"name\":\"interaction_mvp_persistence\"},{\"version\":\"20260630040000\",\"name\":\"fix_profile_visibility_for_join_requests\"},{\"version\":\"20260630050000\",\"name\":\"enable_realtime_join_requests\"},{\"version\":\"20260630060000\",\"name\":\"fix_teams_select_policy_for_join\"},{\"version\":\"20260630070000\",\"name\":\"allow_admin_insert_members\"},{\"version\":\"20260701000000\",\"name\":\"add_channel_avatar\"},{\"version\":\"20260702000000\",\"name\":\"add_event_approval_status\"},{\"version\":\"20260702010000\",\"name\":\"targeted_announcements_reminders\"},{\"version\":\"20260702020000\",\"name\":\"notice_acknowledgements_recurring_reminders\"},{\"version\":\"20260702030000\",\"name\":\"service_templates_conflicts_setlist_history\"},{\"version\":\"20260703000000\",\"name\":\"fix_message_channel_membership_insert\"},{\"version\":\"20260703010000\",\"name\":\"backfill_default_team_channels\"},{\"version\":\"20260703020000\",\"name\":\"atomic_team_workspace_lifecycle\"},{\"version\":\"20260703030000\",\"name\":\"fix_create_team_workspace_template_conflict\"},{\"version\":\"20260703040000\",\"name\":\"enable_realtime_messages\"},{\"version\":\"20260704000000\",\"name\":\"profile_avatar_storage\"},{\"version\":\"20260704010000\",\"name\":\"cancel_join_requests\"},{\"version\":\"20260704020000\",\"name\":\"add_dance_details_video_url\"},{\"version\":\"20260704030000\",\"name\":\"add_service_rehearsal_event_type\"},{\"version\":\"20260704040000\",\"name\":\"feedback_reports\"},{\"version\":\"20260704050000\",\"name\":\"add_rehearsal_date\"},{\"version\":\"20260704060000\",\"name\":\"add_setlist_song_youtube_url\"},{\"version\":\"20260704070000\",\"name\":\"make_bpm_optional\"},{\"version\":\"20260707000000\",\"name\":\"allow_admin_delete_members\"},{\"version\":\"20260707095728\",\"name\":\"create_user_annotations\"},{\"version\":\"20260708115600\",\"name\":\"harden_rpc_functions\"},{\"version\":\"20260708121500\",\"name\":\"fix_public_bucket_listing\"},{\"version\":\"20260714000000\",\"name\":\"push_notifications\"},{\"version\":\"20260714180000\",\"name\":\"add_setlist_song_arrangement\"},{\"version\":\"20260714190000\",\"name\":\"add_presentation_settings\"},{\"version\":\"20260714200000\",\"name\":\"presentation_media_bucket\"},{\"version\":\"20260719000000\",\"name\":\"fix_push_notification_triggers\"},{\"version\":\"20260719010000\",\"name\":\"security_advisor_fixes\"},{\"version\":\"20260721000000\",\"name\":\"add_song_image_url\"},{\"version\":\"20260722010000\",\"name\":\"add_song_deleted_at\"},{\"version\":\"20260722020000\",\"name\":\"add_announcement_is_pinned\"},{\"version\":\"20260723000000\",\"name\":\"add_band_notes\"},{\"version\":\"20260723000001\",\"name\":\"add_message_receipts\"},{\"version\":\"20260723000002\",\"name\":\"add_ministries_array\"},{\"version\":\"20260723000003\",\"name\":\"add_activity_logs\"},{\"version\":\"20260724000000\",\"name\":\"feature_24_32_39\"},{\"version\":\"20260725000000\",\"name\":\"fix_missing_columns\"},{\"version\":\"20260726000000\",\"name\":\"desktop_offline_sync_foundation\"},{\"version\":\"20260726000001\",\"name\":\"offline_sync_rls_policies\"},{\"version\":\"20260726133308\",\"name\":\"private_worship_remote_realtime\"},{\"version\":\"20260726134512\",\"name\":\"worship_remote_pairing_sessions\"},{\"version\":\"20260726195808\",\"name\":\"harden_worship_remote_pairing_function_permissions\"},{\"version\":\"20260726200156\",\"name\":\"make_worship_remote_pairing_one_time\"},{\"version\":\"20260726201305\",\"name\":\"move_remote_policy_helper_to_private_schema\"},{\"version\":\"20260730063024\",\"name\":\"harden_website_boundaries\"},{\"version\":\"20260730063102\",\"name\":\"fix_website_remote_pairing_digest\"},{\"version\":\"20260730063114\",\"name\":\"add_profile_birthday\"},{\"version\":\"20260810172620\",\"name\":\"fix_worship_remote_realtime_authorization\"},{\"version\":\"20260811182630\",\"name\":\"move_privileged_rpcs_to_private_schema\"}]}"
+      }
+    ]
+  }
+}

@@ -31,6 +31,7 @@ test("Analytics shows its metrics, real date filtering, charts, and accessible d
 
   await expect(page.getByRole("heading", { level: 1, name: "Analytics" })).toBeVisible();
   await expect(page.getByText("Demo data")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Member app usage" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Analytics summary" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Song Usage" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Attendance Trend" })).toBeVisible();

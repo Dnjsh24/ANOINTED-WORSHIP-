@@ -1,0 +1,44 @@
+import { beforeEach, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+const actions = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), remove: vi.fn() }));
+vi.mock("@/app/actions", () => ({ createSongAction: actions.create, updateSongAction: actions.update, deleteSongAction: actions.remove }));
+vi.mock("./spotify-search", () => ({ SpotifySearch: () => null }));
+import { SongForm } from "./song-form";
+import { songs } from "@/lib/sample-data";
+beforeEach(() => { vi.clearAllMocks(); actions.update.mockResolvedValue({ ok: false, message: "Published song changed. Draft retained." }); });
+it("retains media and musical fields and request identity after a failed submission", async () => {
+  const user = userEvent.setup();
+  const song = { ...songs[0], youtubeUrl: "https://youtube.com/watch?v=example", bpm: 100, timeSignature: "3/4" };
+  const { container } = render(<SongForm song={song} isProposal revision={8} />);
+  await user.type(screen.getByRole("textbox", { name: /Reason for the edit request/ }), "Update tempo");
+  const bpm = container.querySelector<HTMLInputElement>('input[name="bpm"]')!;
+  await user.clear(bpm); await user.type(bpm, "110");
+  await user.click(screen.getByRole("button", { name: "Submit edit request" }));
+  await waitFor(() => expect(actions.update).toHaveBeenCalledTimes(1));
+  expect(bpm).toHaveValue(110);
+  expect(container.querySelector('input[name="youtubeUrl"]')).toHaveValue(song.youtubeUrl);
+  expect(container.querySelector('select[name="timeSignature"]')).toHaveValue("3/4");
+  await user.click(await screen.findByRole("button", { name: "Submit edit request" }));
+  await waitFor(() => expect(actions.update).toHaveBeenCalledTimes(2));
+  const first: FormData = actions.update.mock.calls[0][1]; const second: FormData = actions.update.mock.calls[1][1];
+  expect(first.get("requestNonce")).toBe(second.get("requestNonce"));
+  expect(second.get("revision")).toBe("8");
+  expect(second.get("bpm")).toBe("110");
+});
+it("shows deletion only when the caller has existing deletion permission", () => {
+  render(<SongForm song={songs[0]} canDelete={false} />);
+  expect(screen.queryByRole("button", { name: "Delete Song" })).not.toBeInTheDocument();
+});
+it("keeps a proposal and its nonce after a transport rejection", async () => {
+  actions.update.mockRejectedValueOnce(new Error("Connection lost"));
+  const user = userEvent.setup();
+  render(<SongForm song={songs[0]} isProposal revision={8} />);
+  await user.type(screen.getByRole("textbox", { name: /Reason for the edit request/ }), "Fix the cue");
+  await user.click(screen.getByRole("button", { name: "Submit edit request" }));
+  await screen.findByText(/The save could not be confirmed/);
+  expect(screen.getByRole("textbox", { name: /Reason for the edit request/ })).toHaveValue("Fix the cue");
+  await user.click(screen.getByRole("button", { name: "Submit edit request" }));
+  await waitFor(() => expect(actions.update).toHaveBeenCalledTimes(2));
+  expect(actions.update.mock.calls[1][1].get("requestNonce")).toBe(actions.update.mock.calls[0][1].get("requestNonce"));
+});

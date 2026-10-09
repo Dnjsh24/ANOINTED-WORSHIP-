@@ -1,3 +1,4 @@
+import { canForTeam } from "@/lib/domain/permission-overrides";
 import { CalendarDays, Clock, MapPin, Users, Edit } from "lucide-react";
 import { notFound } from "next/navigation";
 import { AttendanceToggle } from "@/components/attendance-toggle";
@@ -7,13 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Panel } from "@/components/ui/card";
 import { AttendanceRoster, type AttendanceRecord } from "@/components/attendance-roster";
-import { can } from "@/lib/domain/rbac";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import type { Event } from "@/lib/types";
 import { asEventApprovalStatus } from "@/lib/domain/database-values";
+import { ServiceWorkspace } from "@/components/service-workspace";
+import { loadServiceWorkspace } from "@/lib/supabase/workflow-data";
+import { requestServiceOrderAction } from "@/app/workflow-proposals";
 
 type EventDetailRow = Database["public"]["Tables"]["events"]["Row"] & {
   event_assignments: Array<{ assignment: string }>;
@@ -22,11 +25,7 @@ type EventDetailRow = Database["public"]["Tables"]["events"]["Row"] & {
 
 type AttendanceDetailRow = {
   status: AttendanceRecord["status"];
-  profile_id: string;
-  profiles:
-    | { id: string; full_name: string | null; avatar_url: string | null }
-    | Array<{ id: string; full_name: string | null; avatar_url: string | null }>
-    | null;
+  team_member: { profile_id: string; profiles: { full_name: string | null; avatar_url: string | null } | null };
 };
 
 type EventDetailView = Omit<Event, "roster"> & {
@@ -59,10 +58,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   };
 
   let linkedSetlistId: string | null = null;
+  let startsAt = "09:00";
+  let servicePlanning: Awaited<ReturnType<typeof loadServiceWorkspace>> | null = null;
+  let orderSongs: { id: string; title: string }[] = [];
 
   if (hasSupabaseEnv()) {
     const supabase = await createClient();
-    const { data: eventData } = await supabase
+    const { data: eventData, error: eventError } = await supabase
       .from("events")
       .select(`
         *,
@@ -76,6 +78,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       .eq("id", id)
       .eq("team_id", teamContext.teamId)
       .maybeSingle();
+    if (eventError) throw new Error("Event details are unavailable. Please retry.");
     const dbEvent = eventData as unknown as EventDetailRow | null;
 
     if (dbEvent) {
@@ -83,8 +86,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       const [attendanceResult, activeMembersResult] = await Promise.all([
         supabase
           .from("attendance")
-          .select("status, profile_id, profiles ( id, full_name, avatar_url )")
-          .eq("event_id", id),
+          .select("status, team_member:team_members!inner(profile_id, profiles(full_name, avatar_url))")
+          .eq("event_id", id).eq("team_member.team_id", teamContext.teamId).eq("team_member.status", "active"),
         supabase
           .from("team_members")
           .select("id", { count: "exact", head: true })
@@ -92,6 +95,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           .eq("status", "active"),
       ]);
 
+      if (attendanceResult.error || activeMembersResult.error) throw new Error("Event attendance is unavailable. Please retry.");
       const dbAttendance = attendanceResult.data as unknown as AttendanceDetailRow[] | null;
       const totalMembers = activeMembersResult.count;
 
@@ -120,10 +124,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       }
 
       const roster: AttendanceRecord[] = (dbAttendance ?? []).map((row) => {
-        const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+        const profile = row.team_member.profiles;
         return {
           status: row.status,
-          profileId: row.profile_id,
+          profileId: row.team_member.profile_id,
           fullName: profile?.full_name ?? "Unknown",
           avatarUrl: profile?.avatar_url ?? undefined,
         };
@@ -149,6 +153,17 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       };
 
       linkedSetlistId = dbEvent.setlists?.[0]?.id || null;
+      startsAt = dbEvent.starts_at;
+      if (event.approvalStatus === "approved") {
+        const linkedIds = dbEvent.setlists?.map(setlist => setlist.id) ?? [];
+        const [workspace, slots] = await Promise.all([
+          loadServiceWorkspace(supabase, teamContext.teamId, id),
+          linkedIds.length ? supabase.from("setlist_songs").select("id,song:songs(title)").in("setlist_id", linkedIds).is("deleted_at", null).order("song_order") : Promise.resolve({ data: [], error: null }),
+        ]);
+        servicePlanning = slots.error ? { ok: false, message: "Service songs could not be loaded. Please retry." } : workspace;
+        const rows = (slots.data ?? []) as unknown as { id: string; song: { title: string } | null }[];
+        orderSongs = rows.flatMap(slot => slot.song ? [{ id: slot.id, title: slot.song.title }] : []);
+      }
     } else {
       notFound();
     }
@@ -203,7 +218,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <ButtonLink href={`/setlists/${linkedSetlistId}`} className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-violet-500">
                 View Setlist
               </ButtonLink>
-            ) : can(teamContext.role, "setlists.manage") ? (
+            ) : canForTeam(teamContext, "setlists.manage") ? (
               <ButtonLink href={`/setlists/new?eventId=${event.id}`} className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-violet-500">
                 Create Setlist
               </ButtonLink>
@@ -261,7 +276,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           )}
           {event.roster && <AttendanceRoster roster={event.roster} totalMembers={event.totalMembers!} />}
         </Panel>
-        {can(teamContext.role, "events.manage") ? (
+        {canForTeam(teamContext, "events.manage") ? (
           <div className="mt-1 flex gap-3">
             <ButtonLink
               href={`/events/${event.id}/edit`}
@@ -274,6 +289,11 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           </div>
         ) : null}
       </section>
+      {servicePlanning && <div className="mt-6">{servicePlanning.ok ? <ServiceWorkspace
+        key={event.id} eventId={event.id} name={event.name} startsAt={startsAt} workspace={servicePlanning.data}
+        songs={orderSongs} memberId={teamContext.memberId} canManage={canForTeam(teamContext, "events.manage")}
+        proposeAction={requestServiceOrderAction.bind(null, event.id)}
+      /> : <Panel><p role="status" className="text-sm text-amber-200">{servicePlanning.message}</p></Panel>}</div>}
     </AppShell>
   );
 }
