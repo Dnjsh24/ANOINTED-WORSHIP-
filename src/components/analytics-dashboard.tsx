@@ -15,7 +15,6 @@ import {
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import {
-  addAnalyticsDays,
   ANALYTICS_MIN_DATE,
   buildAvailabilityTrend,
   type ActivityItem,
@@ -178,23 +177,6 @@ function DateRangeControls({ range }: { range: AnalyticsData["range"] }) {
         </label>
         <button className={styles.applyButton} type="submit">Apply</button>
       </form>
-      <nav className={styles.quickRanges} aria-label="Quick date ranges">
-        {[7, 30, 90].map((days) => {
-          const start = addAnalyticsDays(range.today, 1 - days);
-          const isSelected = range.start === start && range.end === range.today;
-          return (
-            <Link
-              key={days}
-              aria-current={isSelected ? "date" : undefined}
-              className={styles.quickRange}
-              href={`/analytics?start=${start}&end=${range.today}`}
-            >
-              {days} days
-            </Link>
-          );
-        })}
-        <span className={styles.timeZone}>GMT+8</span>
-      </nav>
     </div>
   );
 }

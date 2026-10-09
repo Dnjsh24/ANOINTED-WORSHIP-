@@ -40,6 +40,12 @@ test("Analytics shows its metrics, real date filtering, charts, and accessible d
   await expect(page.getByRole("heading", { name: "Website Totals" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Availability snapshot" })).toBeVisible();
   await expect(page.getByRole("list", { name: "Recent activity breakdown by area" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Quick date ranges" })).toHaveCount(0);
+  const dateSurface = await page.locator('[class*="dateControls"]').evaluate((element) => ({ background: getComputedStyle(element).backgroundColor, border: getComputedStyle(element).borderTopWidth, padding: getComputedStyle(element).paddingTop }));
+  expect(dateSurface).toEqual({ background: "rgba(0, 0, 0, 0)", border: "0px", padding: "0px" });
+  const cardSurfaces = await page.locator('[class*="metricCard"], [class*="panel_"]').evaluateAll((elements) => elements.map((element) => ({ image: getComputedStyle(element).backgroundImage, shadow: getComputedStyle(element).boxShadow })));
+  expect(cardSurfaces.length).toBeGreaterThan(3);
+  expect(cardSurfaces.every((surface) => surface.image === "none" && surface.shadow === "none")).toBe(true);
   const fonts = await page.locator("main > div").evaluate((element) => ({ page: getComputedStyle(element).fontFamily, body: getComputedStyle(document.body).fontFamily }));
   expect(fonts.page).toBe(fonts.body);
 
@@ -64,9 +70,10 @@ test("Analytics shows its metrics, real date filtering, charts, and accessible d
   await expect(page.getByLabel("To", { exact: true })).toHaveValue(end);
   await expect(topRotation.locator("p").first()).not.toHaveText(originalRotation);
 
-  await page.getByRole("link", { name: "30 days" }).click();
   const thirtyDayStart = new Date(end + "T00:00:00Z");
   thirtyDayStart.setUTCDate(thirtyDayStart.getUTCDate() - 29);
+  await page.getByLabel("From", { exact: true }).fill(thirtyDayStart.toISOString().slice(0, 10));
+  await page.getByRole("button", { name: "Apply" }).click();
   await expect(page.getByLabel("From", { exact: true })).toHaveValue(thirtyDayStart.toISOString().slice(0, 10));
   await expect(page.getByLabel("To", { exact: true })).toHaveValue(end);
 

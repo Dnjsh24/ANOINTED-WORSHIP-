@@ -179,6 +179,8 @@ describe("AnalyticsDashboard", () => {
     expect(screen.getByText("Demo data")).toBeInTheDocument();
     expect(screen.getByLabelText("From")).toHaveAttribute("min", "1970-01-01");
     expect(screen.getByLabelText("From")).toHaveAttribute("max", range.today);
-    expect(screen.getByRole("link", { name: "30 days" })).toHaveAttribute("aria-current", "date");
+    expect(screen.queryByRole("navigation", { name: "Quick date ranges" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^(7|30|90) days$/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply" })).toHaveAttribute("type", "submit");
   });
 });
