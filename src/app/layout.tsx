@@ -18,9 +18,10 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "/sunday-setlist-favicon.ico" },
-      { url: "/sunday-setlist-favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/sunday-setlist-favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/sunday-setlist-favicon-v2.ico" },
+      { url: "/sunday-setlist-favicon-v2-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/sunday-setlist-favicon-v2-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/sunday-setlist-favicon-v2.svg", sizes: "any", type: "image/svg+xml" },
     ],
     apple: [{ url: "/sunday-setlist-apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },

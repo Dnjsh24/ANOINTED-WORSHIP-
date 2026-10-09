@@ -1,4 +1,4 @@
-const CACHE_NAME = "sunday-setlist-public-v3";
+const CACHE_NAME = "sunday-setlist-public-v4";
 const ASSETS_TO_CACHE = [
   "/",
   "/login",
@@ -6,8 +6,9 @@ const ASSETS_TO_CACHE = [
   "/sunday-setlist-icon-192.png",
   "/sunday-setlist-icon-512.png",
   "/sunday-setlist-maskable-icon-512.png",
-  "/sunday-setlist-favicon-16x16.png",
-  "/sunday-setlist-favicon-32x32.png",
+  "/sunday-setlist-favicon-v2.svg",
+  "/sunday-setlist-favicon-v2-16x16.png",
+  "/sunday-setlist-favicon-v2-32x32.png",
   "/sunday-setlist-apple-touch-icon.png"
 ];
 
