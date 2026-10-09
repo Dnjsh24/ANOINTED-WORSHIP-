@@ -1,0 +1,5 @@
+# Small upward login adjustment
+
+User requested the live login group be moved slightly upward. Single source change replaces symmetric 48px vertical padding with 48px top and 112px bottom, shifting the centered logo/heading/button/footer group 32px up when the viewport is taller than the content. Internal sizes/spacing unchanged. Short screens retain safe 48px top spacing and natural scrolling.
+
+Independent Laura review approves exact one-line change and unchanged auth/assets/text; source SHA256 0b778005ac10a87800b30d703c56cfc769c659f96b2c4240ba72a2aebe79d481. Build including TypeScript, strict page lint, whitespace and dependency audit (zero vulnerabilities) pass. Browser measurements at 1920x1000, 390x844 and 320x360 confirm expected32px shift on tall screens, unchanged group height, safe short-screen top padding and no horizontal overflow. No domain/data/auth/dependency/env changes; no new tests or unrelated full suites for reversible spacing edit. Scope covered by ongoing live branding publication approval. Effective settings/usage unavailable.

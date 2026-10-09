@@ -45,7 +45,7 @@ export default function LoginPage({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#0d0c12] px-6 py-12 text-white">
+    <main className="flex min-h-screen items-center justify-center bg-[#0d0c12] px-6 pt-12 pb-28 text-white">
       <div className="w-full max-w-sm animate-fade-up">
         {/* Logo */}
         <div className="mb-10 flex flex-col items-center">
