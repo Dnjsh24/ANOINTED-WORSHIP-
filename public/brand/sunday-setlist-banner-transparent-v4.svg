@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300" fill="none">
+  <g transform="translate(0 20)">
+    <path fill="#8b5cf6" d="M172 12H100C51.4 12 12 51.4 12 100s39.4 88 88 88h40a24 24 0 0 0 0-48h-40a40 40 0 0 1 0-80h24c26.5 0 48-21.5 48-48Z"/>
+    <path fill="#a78bfa" transform="rotate(180 128 128)" d="M172 12H100C51.4 12 12 51.4 12 100s39.4 88 88 88h40a24 24 0 0 0 0-48h-40a40 40 0 0 1 0-80h24c26.5 0 48-21.5 48-48Z"/>
+  </g>
+  <text x="285" y="149" fill="#f7f4ff" font-family="Arial, Helvetica, sans-serif" font-size="100" font-weight="700" letter-spacing="-3">Sunday Setlist</text>
+  <text x="285" y="225" fill="#a78bfa" font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="700">Ministry Planning</text>
+</svg>

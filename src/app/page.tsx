@@ -1,7 +1,8 @@
-import { CalendarDays, Library, MessageSquare, Rows3 } from "lucide-react";
+import { Activity, CalendarDays, Library, MessageSquare, Monitor, Presentation, Rows3, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BrandLogo } from "@/components/brand-logo";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
 
 export default function Home() {
@@ -13,15 +14,8 @@ export default function Home() {
     <main className="min-h-screen bg-[#0d0c12] text-white overflow-x-hidden">
       {/* Nav */}
       <nav className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 animate-fade-down">
-        <Link href="/" className="flex items-center" aria-label="Anointed Worship home">
-          <Image
-            src="/brand/anointed-worship-logo-transparent.png"
-            alt="Anointed Worship"
-            width={259}
-            height={51}
-            priority
-            className="h-7 sm:h-9 w-auto object-contain"
-          />
+        <Link href="/" className="flex items-center" aria-label="Sunday Setlist home">
+          <BrandLogo className="h-7 max-w-44 sm:h-9 sm:max-w-56" />
         </Link>
         <Link
           href="/login"
@@ -35,22 +29,18 @@ export default function Home() {
       <section className="mx-auto grid max-w-7xl gap-8 lg:gap-12 px-4 sm:px-8 pb-12 sm:pb-16 pt-6 sm:pt-10 lg:grid-cols-2 lg:items-center">
         {/* Left */}
         <div className="animate-fade-up">
-          <Image
-            src="/brand/anointed-worship-logo-transparent.png"
-            alt="Anointed Worship"
-            width={648}
-            height={128}
-            priority
-            className="mb-6 sm:mb-8 h-auto w-full max-w-xs sm:max-w-md lg:max-w-xl object-contain"
-          />
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight text-white break-words">
-            Anointed Worship<br />
-            <span className="bg-gradient-to-r from-violet-400 to-purple-300 bg-clip-text text-transparent">
-              Ministry Planning
-            </span>
+          <h1 className="mb-6 sm:mb-8">
+            <Image
+              src="/brand/sunday-setlist-banner-transparent-v4.svg"
+              alt="Sunday Setlist Ministry Planning"
+              width={1000}
+              height={300}
+              priority
+              className="h-auto w-full max-w-lg object-contain"
+            />
           </h1>
           <p className="mt-4 sm:mt-6 max-w-lg text-xs sm:text-sm font-medium leading-6 sm:leading-7 text-zinc-400">
-            Plan with excellence. Lead with worship. Streamline setlists, chord charts, scheduling, and team communication in one beautiful space.
+            Plan your service. Prepare your team. Lead worship with confidence. Manage setlists, chord charts, schedules, messages, and presentations in one place.
           </p>
 
           <div className="mt-6 sm:mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -66,10 +56,6 @@ export default function Home() {
               </svg>
               Get Started with Google
             </Link>
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-500">
-              <span className="size-1.5 rounded-full bg-emerald-400 inline-block" />
-              No credit card required
-            </p>
           </div>
         </div>
 
@@ -119,29 +105,33 @@ export default function Home() {
 
       {/* Features */}
       <section className="mx-auto max-w-7xl px-4 sm:px-8 pb-16 sm:pb-20 animate-fade-up" style={{ animationDelay: "200ms" }}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { icon: Rows3, title: "Setlists", body: "Build and share service plans with your team." },
-            { icon: Library, title: "Chords", body: "Access chord charts, transpose keys, and lyrics instantly." },
-            { icon: CalendarDays, title: "Scheduling", body: "Plan rehearsals, events, and services with ease." },
-            { icon: MessageSquare, title: "Messaging", body: "Communicate in real time with your entire team." },
-          ].map((f) => (
+            { icon: Rows3, title: "Setlists", body: "Build and share service plans." },
+            { icon: Library, title: "Chords", body: "Chord charts, keys, and lyrics." },
+            { icon: CalendarDays, title: "Scheduling", body: "Plan rehearsals and services." },
+            { icon: MessageSquare, title: "Messaging", body: "Keep your team connected." },
+            { icon: Presentation, title: "Presenter", body: "Present lyrics, Scripture, and slides." },
+            { icon: Monitor, title: "Stage Display", body: "Keep your stage team in sync." },
+            { icon: Users, title: "Team Management", body: "Organize members and roles." },
+            { icon: Activity, title: "Analytics", body: "Understand songs and team activity." },
+          ].map((feature) => (
             <div
-              key={f.title}
-              className="group rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-4 sm:p-5 transition-all duration-200 hover:border-violet-400/30 hover:bg-white/[0.05]"
+              key={feature.title}
+              className="min-w-0 border-t border-white/15 py-7 first:border-t-0 sm:py-9 sm:pr-6 sm:[&:nth-child(2)]:border-t-0 sm:[&:nth-child(even)]:pr-0 lg:py-10 lg:pr-6 lg:[&:nth-child(-n+4)]:border-t-0 lg:[&:nth-child(even)]:pr-6 lg:[&:nth-child(4n)]:pr-0"
             >
-              <span className="inline-flex size-8 sm:size-9 items-center justify-center rounded-xl bg-violet-500/10 text-violet-300 transition-all duration-200 group-hover:bg-violet-500/20">
-                <f.icon className="size-3.5 sm:size-4" />
-              </span>
-              <h2 className="mt-3 sm:mt-4 text-xs sm:text-sm font-bold text-zinc-100">{f.title}</h2>
-              <p className="mt-1 sm:mt-1.5 text-[11px] font-medium leading-5 text-zinc-400">{f.body}</p>
+              <div className="flex items-center gap-3">
+                <feature.icon aria-hidden="true" className="size-6 shrink-0 text-violet-300 sm:size-7" strokeWidth={1.5} />
+                <h2 className="text-base font-bold tracking-tight text-zinc-100 sm:text-lg">{feature.title}</h2>
+              </div>
+              <p className="mt-4 text-xs leading-6 text-zinc-400 sm:text-sm">{feature.body}</p>
             </div>
           ))}
         </div>
       </section>
 
       <footer className="border-t border-white/[0.06] py-6 text-center font-mono text-[10px] font-bold text-zinc-600 px-4">
-        © 2026 Anointed Worship. All rights reserved.
+        © 2026 Sunday Setlist. All rights reserved.
       </footer>
     </main>
   );
