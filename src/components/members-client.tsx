@@ -276,10 +276,10 @@ export function MembersClient({
 
       {status && <p aria-live="polite" className="mt-4 text-sm font-bold text-zinc-300">{status}</p>}
 
-      {/* 3-Column main layout */}
-      <section className="mt-7 grid gap-6 lg:grid-cols-[300px_1fr_300px]">
+      {/* Two-column main layout */}
+      <section className="mt-7 grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
         
-        {/* COLUMN 1: Pending Requests & Team Code */}
+        {/* COLUMN 1: Requests, Team Code & Summaries */}
         <div className="flex flex-col gap-5">
           {/* Pending Requests */}
           <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
@@ -379,6 +379,40 @@ export function MembersClient({
               Copy Code
             </button>
             <p className="mt-3 text-[10px] font-semibold text-zinc-600 text-center">This code expires in 7 days.</p>
+          </div>
+
+          {/* Role Distribution */}
+          <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
+            <h2 className="text-sm font-bold text-white mb-4">Role Distribution</h2>
+            <div className="space-y-3.5">
+              {Object.entries(roleCounts).map(([role, count]) => (
+                <div key={role} className="grid grid-cols-[120px_1fr_24px] items-center gap-3 text-xs font-semibold text-zinc-400">
+                  <span className="capitalize truncate">{role.replace(/_/g, " ")}</span>
+                  <span className="h-1.5 rounded-full bg-white/[0.06]">
+                    <span className="block h-full rounded-full bg-violet-400 transition-all duration-300" style={{ width: `${(count / maxRoleCount) * 100}%` }} />
+                  </span>
+                  <span className="text-right text-white font-bold">{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Permissions Checklist */}
+          <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
+            <h2 className="text-sm font-bold text-white mb-4">Permissions Summary</h2>
+            <div className="space-y-3">
+              {[
+                "Edit Setlists",
+                "Manage Songs",
+                "Manage Files",
+                "Invite Members",
+              ].map((perm) => (
+                <div key={perm} className="flex items-center gap-2.5 text-xs font-semibold text-zinc-300">
+                  <Check className="size-4 text-emerald-400 shrink-0" />
+                  <span>{perm}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -489,43 +523,6 @@ export function MembersClient({
               View all team members →
             </Link>
           </Panel>
-        </div>
-
-        {/* COLUMN 3: Role Distribution & Permissions */}
-        <div className="flex flex-col gap-5">
-          {/* Role Distribution */}
-          <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
-            <h2 className="text-sm font-bold text-white mb-4">Role Distribution</h2>
-            <div className="space-y-3.5">
-              {Object.entries(roleCounts).map(([role, count]) => (
-                <div key={role} className="grid grid-cols-[120px_1fr_24px] items-center gap-3 text-xs font-semibold text-zinc-400">
-                  <span className="capitalize truncate">{role.replace(/_/g, " ")}</span>
-                  <span className="h-1.5 rounded-full bg-white/[0.06]">
-                    <span className="block h-full rounded-full bg-violet-400 transition-all duration-300" style={{ width: `${(count / maxRoleCount) * 100}%` }} />
-                  </span>
-                  <span className="text-right text-white font-bold">{count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Permissions Checklist */}
-          <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
-            <h2 className="text-sm font-bold text-white mb-4">Permissions Summary</h2>
-            <div className="space-y-3">
-              {[
-                "Edit Setlists",
-                "Manage Songs",
-                "Manage Files",
-                "Invite Members",
-              ].map((perm) => (
-                <div key={perm} className="flex items-center gap-2.5 text-xs font-semibold text-zinc-300">
-                  <Check className="size-4 text-emerald-400 shrink-0" />
-                  <span>{perm}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
 
       </section>

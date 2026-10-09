@@ -738,7 +738,7 @@ export default async function DashboardPage() {
             <Link
               key={item.href + item.label}
               href={item.href}
-              className="group flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-[#111014]/80 p-4 text-center transition-all duration-200 hover:border-violet-400/40 hover:bg-white/[0.07]"
+              className="group flex flex-col items-center gap-2 rounded-xl p-4 text-center transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
               style={{ animationDelay: `${260 + i * 30}ms` }}
             >
               <span className="flex size-9 items-center justify-center transition-all duration-200">

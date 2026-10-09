@@ -559,3 +559,19 @@ User requested removal of the screenshot panel. Removed DashboardPersonalSummary
 
 
 HOME-01 publication authorization: the user requested pushing this verified removal on 2026-10-08. Exact scope is three source/test files plus ticket/evidence records. Pre-push secret scan and production audit passed; full audit retains five pre-existing development-tooling findings. Source hashes and remote baseline remain unchanged. Commit/push is authorized on origin/Dn-Jsh/Fixing-things; deployment remains separate. Local implementation remains Done, 1/1.
+
+## TEAM-01 — Summary placement (2026-10-09)
+
+| ID | Task | Owner | Risk / Lane | Dependencies | Status |
+| --- | --- | --- | --- | --- | --- |
+| TEAM-01 | Move Role Distribution and Permissions Summary below Team Code on /members | Coordinator; independent Laura review | Low / Standard | None | Done |
+
+Acceptance: cards appear once below Team Code; desktop Active Team gains width; mobile follows DOM order; existing behavior preserved. Completed 1/1. Strict scoped lint, root nonincremental typecheck, 2 member unit tests, 2 desktop/mobile browser geometry checks and independent review passed. Candidate blob64dfb62b82972188b005a6db35b65afe428b495e. Next: none for local scope. No push/deployment. Unrelated notification edits preserved. Evidence: [validation](docs/TEAM-SUMMARY-PLACEMENT-2026-10-09.md).
+
+## QUICK-01 — Remove Quick Access background boxes (2026-10-09)
+
+| ID | Task | Owner | Risk / Lane | Dependencies | Status |
+| --- | --- | --- | --- | --- | --- |
+| QUICK-01 | Make /dashboard Quick Access shortcuts and icons transparent | Coordinator; independent Laura review | Low / Standard | None | Done |
+
+Acceptance passed: no link background/border or icon background at rest/hover, labels/routes/grid preserved, keyboard focus visible. Completed1/1. Strict scoped lint, nonincremental root TypeScript, 2/2 desktop/mobile browser checks, diff whitespace and independent review pass. No local blockers; no further implementation task. Earlier TEAM-01 push remains unperformed; this change is local. Evidence: [validation](docs/QUICK-ACCESS-ICONS-2026-10-09.md).
