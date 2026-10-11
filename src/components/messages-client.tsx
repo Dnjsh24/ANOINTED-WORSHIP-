@@ -872,7 +872,7 @@ function MessagesView({
   }
 
   return (
-    <div className="relative flex h-[calc(100dvh-144px-env(safe-area-inset-bottom))] min-h-0 w-full max-w-full overflow-hidden rounded-lg border border-white/10 bg-[#111014] md:h-[calc(100dvh-10.5rem-env(safe-area-inset-bottom))] lg:h-[calc(100dvh-8rem)]">
+    <div className="relative flex h-[calc(100dvh-160px-env(safe-area-inset-bottom))] min-h-0 w-full max-w-full overflow-hidden rounded-lg border border-white/10 bg-[#111014] md:h-[calc(100dvh-10.5rem-env(safe-area-inset-bottom))] lg:h-[calc(100dvh-8rem)]">
       <aside
         className={cn(
           "transition-all duration-300 bg-[#201f24] flex flex-col border-r border-white/10 shrink-0 h-full overflow-y-auto z-20 md:static md:translate-x-0",

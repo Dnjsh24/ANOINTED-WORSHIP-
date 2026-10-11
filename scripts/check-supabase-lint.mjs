@@ -45,6 +45,16 @@ export function classifyWebsiteSupabaseLint(payload) {
   return { blocking, excluded };
 }
 
+export function parseWebsiteSupabaseLintOutput(stdout, stderr) {
+  const output = stdout.trim();
+  // CLI 2.111 emits this exact stderr line, without JSON, for a clean schema.
+  // Never let that marker override nonempty output or a failed CLI process.
+  if (!output && stderr.split(/\r?\n/).some((line) => line.trim() === "No schema errors found")) {
+    return [];
+  }
+  return JSON.parse(output);
+}
+
 function formatIssue({ functionName, issue }) {
   const level = typeof issue?.level === "string" ? issue.level : "unknown";
   const sqlState = typeof issue?.sqlState === "string" ? issue.sqlState : "unknown";
@@ -84,7 +94,7 @@ function runCli() {
 
   let payload;
   try {
-    payload = JSON.parse(result.stdout.trim());
+    payload = parseWebsiteSupabaseLintOutput(result.stdout, result.stderr);
   } catch {
     console.error("Supabase lint returned non-JSON output and cannot be trusted as a release gate.");
     process.exitCode = 1;
