@@ -51,7 +51,7 @@ export function SongTrashList({ songs }: { songs: TrashedSong[] }) {
             </div>
 
             <div className="flex items-center gap-2">
-              <form action={restoreSongAction}>
+              <form data-wooly-target="song-trash-actions" action={restoreSongAction}>
                 <input type="hidden" name="songId" value={song.id} />
                 <button
                   type="submit"

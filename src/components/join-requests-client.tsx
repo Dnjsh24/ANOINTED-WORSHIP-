@@ -127,13 +127,13 @@ export function JoinRequestsClient({
         </div>
         <div className="relative w-full md:w-80">
           <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
-          <Input className="pl-10" placeholder="Search requests..." value={query} onChange={(event) => setQuery(event.target.value)} />
+          <Input data-wooly-target="join-request-search" className="pl-10" placeholder="Search requests..." value={query} onChange={(event) => setQuery(event.target.value)} />
         </div>
       </div>
 
       {status && <p role="status" className="mt-4 text-sm font-bold text-zinc-300">{status}</p>}
 
-      <Panel className="mt-7 overflow-hidden p-0">
+      <Panel data-wooly-target="join-request-list" className="mt-7 overflow-hidden p-0">
         <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.03] px-5 py-4">
           <h2 className="flex items-center gap-2 text-sm font-bold text-white">
             <UserCheck className="size-4 text-violet-300" />

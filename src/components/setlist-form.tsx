@@ -162,7 +162,7 @@ export function SetlistForm({
   return (
     <DndContext id="setlist-form-dnd" sensors={sensors} collisionDetection={args => args.pointerCoordinates ? pointerWithin(args) : rectIntersection(args)} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={() => setActiveSong(null)}>
       <div className="animate-fade-in">
-        <form onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); startSave(() => formAction(data)); }} className="space-y-6">
+        <form data-wooly-target="setlist-details" onSubmit={event => { event.preventDefault(); const data = new FormData(event.currentTarget); startSave(() => formAction(data)); }} className="space-y-6">
           <input type="hidden" name="revision" value={revision} />
           {eventRevision !== undefined && <input type="hidden" name="eventRevision" value={eventRevision} />}
           {setlist && <input type="hidden" name="setlistId" value={setlist.id} />}
@@ -176,11 +176,11 @@ export function SetlistForm({
 
           {/* Dynamic layout based on songs presence */}
           <div className={songs && songs.length > 0 ? "grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-6" : "max-w-2xl mx-auto"}>
-            
+
             {/* Left Column: Form */}
             <div className="space-y-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 text-left h-fit">
               <h3 className="text-sm font-bold text-white mb-2 pb-2 border-b border-white/[0.04]">Setlist Information</h3>
-              
+
               <label className="block space-y-1.5">
                 <span className="text-xs font-bold text-zinc-300">Setlist Name *</span>
                 <Input name="title" value={serviceTitle} onChange={(event) => setServiceTitle(event.target.value)} placeholder="e.g., Sunday Service" required />
@@ -213,7 +213,7 @@ export function SetlistForm({
               <div className="rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 text-left h-[600px] flex flex-col">
                 <div className="mb-4 space-y-3 border-b border-white/[0.04] pb-4">
                   <h3 className="text-sm font-bold text-white">Song Library</h3>
-                  <Input 
+                  <Input data-wooly-target="setlist-song-search"
                     type="search"
                     placeholder="Search songs..."
                     value={searchQuery}
@@ -242,7 +242,7 @@ export function SetlistForm({
             <ButtonLink href={setlist ? `/setlists/${setlist.id}` : "/setlists"} variant="secondary" className="rounded-xl px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]">
               Cancel
             </ButtonLink>
-            <Button type="submit" disabled={pendingSave} className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
+            <Button data-wooly-target="setlist-save" type="submit" disabled={pendingSave} className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
               {setlist ? "Save Changes" : "Create Setlist"}
             </Button>
           </div>

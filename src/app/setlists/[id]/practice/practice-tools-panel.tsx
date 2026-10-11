@@ -59,8 +59,8 @@ export function PracticeToolsPanel({
   }));
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+    <div data-wooly-target="practice-controls" className="space-y-5">
+      <section data-wooly-target="practice-songs" className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-violet-200">{setlist.name}</p>
         <div className="mt-3 flex items-center justify-between gap-3">
           <div>

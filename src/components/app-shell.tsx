@@ -1,3 +1,4 @@
+import { WoolyTeamScreen } from "@/components/wooly/wooly-team-screen";
 import { canForTeam } from "@/lib/domain/permission-overrides";
 import {
   CalendarDays,
@@ -62,6 +63,7 @@ export async function AppShell({
   return (
     <div className="min-h-screen bg-[#0d0d10] text-white">
       {context.userId && context.teamId && !isDesktopRuntime() && <MemberUsageTracker teamId={context.teamId} />}
+      <WoolyTeamScreen context={context} />
       <header className="sticky top-0 z-30 hidden border-b border-white/10 bg-[#111014]/95 backdrop-blur md:block animate-fade-down">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
@@ -74,7 +76,7 @@ export async function AppShell({
             {navigation.map((item) => (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.href} data-wooly-target={`nav-${item.id}`}
                 aria-current={active === item.label ? "page" : undefined}
                 className={cn("nav-link relative whitespace-nowrap text-sm font-semibold text-zinc-300 transition-colors duration-200 hover:text-white", active === item.label && "text-violet-200 active")}
               >
@@ -107,7 +109,7 @@ export async function AppShell({
           <UnreadMessageBadge count={unreadMessageCount} className="absolute -top-1 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm ring-2 ring-[#0f0e14]" />
         </Suspense>
       } />
-      <main className="mx-auto max-w-7xl px-4 py-6 pb-[calc(80px+env(safe-area-inset-bottom))] md:px-6 md:pb-[calc(80px+env(safe-area-inset-bottom))] lg:pb-8">{children}</main>
+      <main data-wooly-target="page-content" className="mx-auto max-w-7xl px-4 py-6 pb-[calc(80px+env(safe-area-inset-bottom))] md:px-6 md:pb-[calc(80px+env(safe-area-inset-bottom))] lg:pb-8">{process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <section data-wooly-target={navItems.find((item) => item.label === active)?.id ?? active.toLowerCase()}>{children}</section> : children}</main>
       <QuickReportButton />
     </div>
   );

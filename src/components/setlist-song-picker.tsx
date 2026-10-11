@@ -86,7 +86,7 @@ export function SetlistSongPicker({
       <div className="flex gap-3 shrink-0">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
-          <Input placeholder="Search library to add..." value={query} onChange={(event) => setQuery(event.target.value)} className="pl-10" />
+          <Input data-wooly-target="song-picker" placeholder="Search library to add..." value={query} onChange={(event) => setQuery(event.target.value)} className="pl-10" />
         </div>
         <button
           type="button"
@@ -160,7 +160,7 @@ export function SetlistSongPicker({
       </div>
 
       {/* Staging Area ("Bottom Box") */}
-      <div className="shrink-0 pt-4 pb-2">
+      <div data-wooly-target="song-picker-form" className="shrink-0 pt-4 pb-2">
         <h3 className="text-xs font-bold uppercase tracking-wider text-violet-300 mb-3 flex items-center gap-2">
           Staging Box <span className="px-2 py-0.5 rounded-full bg-violet-500/20 text-[10px]">{stagedSongs.length}</span>
         </h3>

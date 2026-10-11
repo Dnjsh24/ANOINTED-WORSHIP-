@@ -1,4 +1,5 @@
 "use client";
+import { WoolyPublicScreen } from "@/components/wooly/wooly-public-screen";
 
 import { use } from "react";
 import { useRouter } from "next/navigation";
@@ -46,6 +47,7 @@ export default function LoginPage({
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#0d0c12] px-6 pt-12 pb-28 text-white">
+      <WoolyPublicScreen />
       <div className="w-full max-w-sm animate-fade-up">
         {/* Logo */}
         <div className="mb-10 flex flex-col items-center">
@@ -65,7 +67,7 @@ export default function LoginPage({
             <p className="mt-3 text-base text-zinc-400">Sign in to continue</p>
           </div>
           {/* Google */}
-          <form onSubmit={handleGoogleSignIn}>
+          <form data-wooly-target="login-form" onSubmit={handleGoogleSignIn}>
             <button
               type="submit"
               className="flex min-h-12 w-full items-center justify-center gap-3 rounded-xl bg-white px-4 py-3 text-base font-semibold text-zinc-950 transition-colors hover:bg-zinc-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-400"

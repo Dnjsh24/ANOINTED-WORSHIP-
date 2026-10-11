@@ -1,3 +1,4 @@
+import { WoolyTeamScreen } from "@/components/wooly/wooly-team-screen";
 import { notFound } from "next/navigation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -28,7 +29,14 @@ export default async function ConfidenceMonitorPage({ params }: { params: Promis
   if (isDesktopRuntime() && teamContext.teamId) {
     const setlist = getDesktopSetlist(teamContext.teamId, id);
     if (setlist) {
-      return <ConfidenceClient initialLiveState={getDesktopPresenterLiveState(id)} setlist={{
+      return process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <><WoolyTeamScreen context={teamContext} /><ConfidenceClient initialLiveState={getDesktopPresenterLiveState(id)} setlist={{
+        id: setlist.id,
+        songs: setlist.songs.map((item) => ({
+          id: item.id,
+          notes: item.bandNotes || item.lead || "",
+          song: { id: item.song.id, title: item.song.title, lyricsChords: item.song.rawLyricsChords || "" },
+        })),
+      }} /></> : <ConfidenceClient initialLiveState={getDesktopPresenterLiveState(id)} setlist={{
         id: setlist.id,
         songs: setlist.songs.map((item) => ({
           id: item.id,
@@ -79,7 +87,7 @@ export default async function ConfidenceMonitorPage({ params }: { params: Promis
           : []),
       };
 
-      return <ConfidenceClient setlist={formattedSetlist} />;
+      return process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <><WoolyTeamScreen context={teamContext} /><ConfidenceClient setlist={formattedSetlist} /></> : <ConfidenceClient setlist={formattedSetlist} />;
     }
   }
 

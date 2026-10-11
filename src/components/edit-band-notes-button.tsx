@@ -40,7 +40,7 @@ export function EditBandNotesButton({
             className="fixed inset-0 bg-black/60 backdrop-blur-sm" 
             onClick={() => setOpen(false)} 
           />
-          <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="band-notes-title" tabIndex={-1} className="relative w-full max-w-md rounded-2xl bg-[#0f0e14] border border-white/10 p-6 shadow-2xl">
+          <div ref={dialogRef} role="dialog" data-wooly-surface="band-notes" data-wooly-target="band-notes-form" aria-modal="true" aria-labelledby="band-notes-title" tabIndex={-1} className="relative w-full max-w-md rounded-2xl bg-[#0f0e14] border border-white/10 p-6 shadow-2xl">
             <h2 id="band-notes-title" className="text-xl font-bold text-white mb-4">Band Notes</h2>
             <form action={handleSave} className="flex flex-col gap-4">
               <input type="hidden" name="setlistId" value={setlistId} />

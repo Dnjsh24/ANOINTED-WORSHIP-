@@ -918,7 +918,7 @@ function MessagesView({
         {/* Search — shows when expanded on mobile, always on desktop */}
         <div className={cn("relative mt-4", listExpanded ? "block" : "hidden lg:block")}>
           <Search className="absolute left-3 top-2.5 size-4 text-zinc-400" />
-          <Input ref={searchInputRef} className="pl-10" placeholder="Search messages..." value={search} onChange={(event) => {
+          <Input data-wooly-target="message-search" ref={searchInputRef} className="pl-10" placeholder="Search messages..." value={search} onChange={(event) => {
             const value = event.target.value;
             setSearch(value);
             setSearchResults(null);
@@ -1031,7 +1031,7 @@ function MessagesView({
           <p>{activeChannelId ? "This conversation is unavailable. Choose another chat." : channelList.length ? "Choose a chat to start messaging." : "No chats yet. Search for a teammate to start a conversation."}</p>
         </section>
       ) : (
-      <section aria-label={`${activeChannel.name} conversation`} className="relative z-0 flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#111014]">
+      <section data-wooly-target="message-conversation" aria-label={`${activeChannel.name} conversation`} className="relative z-0 flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#111014]">
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 bg-[#1d1b20] px-3 sm:px-6">
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => setActiveChannelId("")} aria-label="Back to chats" className="flex size-11 shrink-0 items-center justify-center rounded-md text-zinc-300 hover:bg-white/10">
@@ -1390,7 +1390,7 @@ function MessagesView({
                     />
                   </div>
                 )}
-                <Input
+                <Input data-wooly-target="message-compose"
                   ref={inputRef}
                   name="body"
                   className="min-w-0 flex-1 basis-24 text-base sm:basis-auto sm:text-sm"

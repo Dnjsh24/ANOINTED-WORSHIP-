@@ -44,7 +44,7 @@ export default async function TeamsPage() {
           To get started, create a new team or join an existing one.
         </p>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-2">
+        <div data-wooly-target="team-choice" className="mt-10 grid gap-5 md:grid-cols-2">
           {/* Create a Team */}
           <div className="group flex min-h-[440px] flex-col rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-8 text-left transition-all duration-200 hover:border-violet-400/30 hover:bg-white/[0.05]">
             <div className="flex size-12 items-center justify-center rounded-2xl bg-violet-500/15 border border-violet-400/20 transition-all duration-200 group-hover:bg-violet-500/25">

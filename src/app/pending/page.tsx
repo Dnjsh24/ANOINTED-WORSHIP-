@@ -3,11 +3,12 @@ import { PendingClient } from "@/components/pending-client";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { appName } from "@/lib/sample-data";
+import { WoolyScreen } from "@/components/wooly/wooly-screen";
 
 export default async function PendingPage() {
   // If Supabase is not configured, render demo/static page
   if (!hasSupabaseEnv()) {
-    return <PendingClient userId="demo-user" requestId="demo-request" initialTeamName={appName} />;
+    return <><WoolyScreen audience={{ userId: "demo-user", hasTeam: false, canManageMembers: false, session: "demo" }} /><PendingClient userId="demo-user" requestId="demo-request" initialTeamName={appName} /></>;
   }
 
   const supabase = await createClient();
@@ -66,6 +67,8 @@ export default async function PendingPage() {
   const teamName = team?.name ?? appName;
 
   return (
+    <>
+    <WoolyScreen audience={{ userId: user.id, hasTeam: false, canManageMembers: false }} />
     <PendingClient
       userId={user.id}
       requestId={request.id}
@@ -74,5 +77,6 @@ export default async function PendingPage() {
       requestedAt={request.created_at}
       teamCode={team?.code ?? null}
     />
+    </>
   );
 }
