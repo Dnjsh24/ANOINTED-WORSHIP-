@@ -9,15 +9,23 @@ const WEBSITE_SCOPE_EXCLUSIONS = new Map([
 ]);
 
 function lintIssues(payload) {
-  if (!payload || !Array.isArray(payload.results)) {
+  // The installed CLI's default output is a JSON array; also retain the
+  // results envelope used by earlier callers. Reject malformed output closed.
+  const results = Array.isArray(payload) ? payload : payload?.results;
+  if (!Array.isArray(results) || results.some((result) =>
+    typeof result?.function !== "string" || !result.function.trim() ||
+    !Array.isArray(result.issues) || result.issues.some((issue) =>
+      !issue || ["level", "message", "sqlState"].some((field) =>
+        typeof issue[field] !== "string" || !issue[field].trim(),
+      ),
+    ),
+  )) {
     throw new Error("Supabase lint did not return the expected JSON result shape.");
   }
 
-  return payload.results.flatMap((result) => {
-    const functionName = typeof result?.function === "string" ? result.function : "unknown";
-    const issues = Array.isArray(result?.issues) ? result.issues : [];
-    return issues.map((issue) => ({ functionName, issue }));
-  });
+  return results.flatMap((result) =>
+    result.issues.map((issue) => ({ functionName: result.function, issue })),
+  );
 }
 
 export function classifyWebsiteSupabaseLint(payload) {

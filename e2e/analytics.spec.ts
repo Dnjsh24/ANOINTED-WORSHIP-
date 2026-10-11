@@ -44,14 +44,14 @@ test("Analytics shows its metrics, real date filtering, charts, and accessible d
   await expect(page.getByRole("navigation", { name: "Quick date ranges" })).toHaveCount(0);
   const dateSurface = await page.locator('[class*="dateControls"]').evaluate((element) => ({ background: getComputedStyle(element).backgroundColor, border: getComputedStyle(element).borderTopWidth, padding: getComputedStyle(element).paddingTop }));
   expect(dateSurface).toEqual({ background: "rgba(0, 0, 0, 0)", border: "0px", padding: "0px" });
-  const cardSurfaces = await page.locator('[class*="metricCard"], [class*="panel_"]').evaluateAll((elements) => elements.map((element) => ({ image: getComputedStyle(element).backgroundImage, shadow: getComputedStyle(element).boxShadow })));
-  expect(cardSurfaces.length).toBeGreaterThan(3);
+  const cardSurfaces = await page.locator('article[class*="metricCard"], section[aria-labelledby]').evaluateAll((elements) => elements.map((element) => ({ image: getComputedStyle(element).backgroundImage, shadow: getComputedStyle(element).boxShadow })));
+  expect(cardSurfaces.length).toBe(11);
   expect(cardSurfaces.every((surface) => surface.image === "none" && surface.shadow === "none")).toBe(true);
   const fonts = await page.locator("main > div").evaluate((element) => ({ page: getComputedStyle(element).fontFamily, body: getComputedStyle(document.body).fontFamily }));
   expect(fonts.page).toBe(fonts.body);
 
   await testInfo.attach("analytics-desktop.png", {
-    body: await page.screenshot({ fullPage: true, animations: "disabled", path: testInfo.outputPath("analytics-enhanced.png") }),
+    body: await page.screenshot({ fullPage: true, animations: "disabled", caret: "initial", path: testInfo.outputPath("analytics-enhanced.png") }),
     contentType: "image/png",
   });
 
@@ -115,7 +115,7 @@ test("Analytics stays within mobile viewports and respects keyboard and reduced-
     expect(measurements.scrollWidth, `analytics page should not create viewport-wide horizontal overflow at ${width}px`)
       .toBeLessThanOrEqual(measurements.clientWidth);
     await testInfo.attach(`analytics-${width}px.png`, {
-      body: await page.screenshot({ fullPage: true, animations: "disabled", path: testInfo.outputPath("analytics-enhanced.png") }),
+      body: await page.screenshot({ fullPage: true, animations: "disabled", caret: "initial", path: testInfo.outputPath("analytics-enhanced.png") }),
       contentType: "image/png",
     });
   }

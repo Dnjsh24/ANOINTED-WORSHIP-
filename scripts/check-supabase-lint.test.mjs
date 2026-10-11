@@ -43,7 +43,22 @@ describe("classifyWebsiteSupabaseLint", () => {
     expect(result.excluded).toEqual([]);
   });
 
-  it("rejects an unexpected result shape", () => {
-    expect(() => classifyWebsiteSupabaseLint({})).toThrow(/expected JSON result shape/i);
+  it("accepts the CLI array without hiding website issues", () => {
+    expect(classifyWebsiteSupabaseLint([])).toEqual({ blocking: [], excluded: [] });
+    const result = classifyWebsiteSupabaseLint([
+      issue("public.apply_worship_mutation", "42804"),
+      issue("public.claim_worship_remote_pairing", "42501"),
+    ]);
+    expect(result.excluded).toHaveLength(1);
+    expect(result.blocking).toHaveLength(1);
+    expect(result.blocking[0].functionName).toBe("public.claim_worship_remote_pairing");
+  });
+
+  it.each([{}, null, [null], [{ function: "public.example" }],
+    [{ function: "", issues: [] }],
+    [{ function: "public.example", issues: [null] }],
+    [{ function: "public.example", issues: [{ message: "problem" }] }],
+  ])("rejects malformed output instead of silently passing: %j", (payload) => {
+    expect(() => classifyWebsiteSupabaseLint(payload)).toThrow(/expected JSON result shape/i);
   });
 });
