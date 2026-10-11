@@ -75,6 +75,9 @@ jobs:
       - run: npx supabase db reset
       - run: npm run lint:database:website
       - run: npm run test:supabase:website
+      - run: docker exec -i supabase_db_anointed-worship-setlist psql -U postgres -d postgres -f - < supabase/tests/website_function_lint.sql
+      - run: node scripts/test-wooly-security.mjs
+      - run: node scripts/test-wooly-support-security.mjs
       - run: docker exec -i supabase_db_anointed-worship-setlist psql -U postgres -d postgres -f - < supabase/tests/website_security_regression.sql
       - if: always()
         run: npx supabase stop --no-backup
