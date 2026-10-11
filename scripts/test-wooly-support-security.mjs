@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
+import { buildLocalTeamFixtureCleanupSql } from "./local-team-fixture-cleanup.mjs";
 
 // Local disposable users only. Never applies migrations or accepts a remote URL.
 const status = JSON.parse(execFileSync(process.platform === "win32" ? "npx.cmd" : "npx", ["supabase", "status", "-o", "json"], { encoding: "utf8", shell: process.platform === "win32" }));
@@ -14,6 +15,7 @@ const createdTeams = [];
 const createdArticles = [];
 const run = crypto.randomUUID();
 const password = `Wooly-support-${run}!Aa1`;
+let primaryError;
 async function allowed(operation) { const result = await operation; assert.equal(result.error, null, result.error?.message); return result.data; }
 async function denied(operation) { const result = await operation; assert(result.error || (Array.isArray(result.data) && result.data.length === 0), "Unauthorized operation succeeded"); }
 try {
@@ -76,18 +78,33 @@ try {
     const code = `WY-${String(parseInt(run.slice(0, 8), 16) % 10_000).padStart(4, "0")}${index}`;
     const workspace = await allowed(client.rpc("create_team_workspace", { p_name: `Wooly local ${index}`, p_code: code, p_default_service_location: "Local", p_default_call_time: "08:00", p_default_rehearsal_time: "08:30" }).single());
     createdTeams.push(workspace.team_id);
-    await allowed(admin.from("songs").insert({ team_id: workspace.team_id, title: `Private team ${index}`, artist: "Local test", original_key: "C", bpm: 72, lyrics_chords: "Test only", created_by: createdUsers[index] }));
+    await allowed(client.from("songs").insert({ team_id: workspace.team_id, title: `Private team ${index}`, artist: "Local test", original_key: "C", bpm: 72, lyrics_chords: "Test only", created_by: createdUsers[index] }));
+  }
+  for (const [index, client] of [a, b].entries()) {
+    const songs = await allowed(client.from("songs").select("id,title").eq("team_id", createdTeams[index]));
+    assert.equal(songs.length, 1, "Team owner cannot read their own fixture song");
   }
   for (const client of [b, support, anonymous]) await denied(client.from("songs").select("id,title").eq("team_id", createdTeams[0]));
   await denied(a.from("songs").select("id,title").eq("team_id", createdTeams[1]));
   assert.equal(await allowed(a.rpc("is_wooly_support")), false, "Team owner gained support role");
   await denied(a.rpc("create_wooly_support_request", { ...submission, p_id: crypto.randomUUID(), p_team_id: createdTeams[1] }));
   console.log("Wooly support isolation passed: anonymous, pre-team, two teams, role escalation, retries, private/published help, unread races and follow-ups.");
+} catch (error) {
+  primaryError = error;
+  throw error;
 } finally {
   const errors = [];
   // Delete only IDs created in this run. Preserve all existing local fixtures.
-  for (const id of createdArticles) { const result = await admin.from("wooly_help_articles").delete().eq("id", id); if (result.error) errors.push(result.error.message); }
-  for (const id of createdTeams) { const result = await admin.from("teams").delete().eq("id", id); if (result.error) errors.push(result.error.message); }
-  for (const id of createdUsers) { const result = await admin.auth.admin.deleteUser(id); if (result.error) errors.push(result.error.message); }
-  if (errors.length) throw new Error(`Local cleanup failed: ${errors.join("; ")}`);
+  for (const id of createdArticles) { const result = await admin.from("wooly_help_articles").delete().eq("id", id); if (result.error) errors.push(result.error); }
+  try {
+    const sql = buildLocalTeamFixtureCleanupSql(createdTeams);
+    if (sql) execFileSync("docker", ["exec", "-i", "supabase_db_anointed-worship-setlist",
+      "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-f", "-"],
+    { input: sql, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+  } catch (error) {
+    errors.push(error);
+  }
+  for (const id of createdUsers) { const result = await admin.auth.admin.deleteUser(id); if (result.error) errors.push(result.error); }
+  if (errors.length) throw new AggregateError(primaryError ? [primaryError, ...errors] : errors,
+    primaryError ? "Wooly support check and local cleanup failed" : "Local cleanup failed");
 }
