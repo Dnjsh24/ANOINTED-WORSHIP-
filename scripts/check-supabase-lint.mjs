@@ -9,11 +9,12 @@ const WEBSITE_SCOPE_EXCLUSIONS = new Map([
 ]);
 
 function lintIssues(payload) {
-  if (!payload || !Array.isArray(payload.results)) {
+  const results = Array.isArray(payload) ? payload : payload?.results;
+  if (!Array.isArray(results)) {
     throw new Error("Supabase lint did not return the expected JSON result shape.");
   }
 
-  return payload.results.flatMap((result) => {
+  return results.flatMap((result) => {
     const functionName = typeof result?.function === "string" ? result.function : "unknown";
     const issues = Array.isArray(result?.issues) ? result.issues : [];
     return issues.map((issue) => ({ functionName, issue }));
@@ -76,7 +77,9 @@ function runCli() {
 
   let payload;
   try {
-    payload = JSON.parse(result.stdout.trim());
+    payload = result.stdout.trim() === "" && result.stderr.includes("No schema errors found")
+      ? []
+      : JSON.parse(result.stdout.trim());
   } catch {
     console.error("Supabase lint returned non-JSON output and cannot be trusted as a release gate.");
     process.exitCode = 1;

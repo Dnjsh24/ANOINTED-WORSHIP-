@@ -43,6 +43,16 @@ describe("classifyWebsiteSupabaseLint", () => {
     expect(result.excluded).toEqual([]);
   });
 
+  it("accepts the Supabase CLI array format without hiding website errors", () => {
+    expect(classifyWebsiteSupabaseLint([])).toEqual({ blocking: [], excluded: [] });
+    const result = classifyWebsiteSupabaseLint([
+      issue("public.apply_worship_mutation", "42804"),
+      issue("public.save_setlist_workspace", "42501"),
+    ]);
+    expect(result.excluded).toHaveLength(1);
+    expect(result.blocking).toHaveLength(1);
+    expect(result.blocking[0].functionName).toBe("public.save_setlist_workspace");
+  });
   it("rejects an unexpected result shape", () => {
     expect(() => classifyWebsiteSupabaseLint({})).toThrow(/expected JSON result shape/i);
   });
