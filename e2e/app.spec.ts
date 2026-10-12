@@ -144,15 +144,18 @@ test("song forms and add-song picker controls respond", async ({ page }) => {
   await page.getByRole("button", { name: "Cancel" }).click();
 });
 
-test("member management shows approval controls", async ({ page }) => {
+test("member management shows the real empty request state and requests navigation", async ({ page }) => {
   await page.goto("/members");
   await expect(page.getByRole("heading", { name: "Team Management" })).toBeVisible();
-  await expect(page.getByLabel("Approve Casey Lee")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pending Requests (0)" })).toBeVisible();
+  await expect(page.getByText("No pending join requests.")).toBeVisible();
+  await expect(page.getByLabel("Approve Casey Lee")).toHaveCount(0);
   await expect(page.getByText("DM-10001")).toBeVisible();
   await page.getByRole("link", { name: /View all requests/i }).click();
   await expect(page).toHaveURL(/\/members\/requests$/);
   await expect(page.getByRole("heading", { level: 1, name: "Pending Requests" })).toBeVisible();
-  await expect(page.getByText("casey@example.com")).toBeVisible();
+  await expect(page.getByText("No pending join requests.")).toBeVisible();
+  await expect(page.getByText("casey@example.com")).toHaveCount(0);
 });
 
 test("global shell opens notifications and settings", async ({ page, isMobile }) => {
@@ -213,8 +216,12 @@ test("events filters and detail actions work", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Prayer Meeting", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Sunday Morning Worship", exact: true })).toHaveCount(0);
 
+  await expect(page).toHaveURL(/q=Prayer/);
   await page.getByPlaceholder("Search all events...").fill("");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page).not.toHaveURL(/q=Prayer/);
   await page.getByRole("button", { name: "All Events" }).click();
+  await expect(page).toHaveURL(/view=all/);
   await expect(page.getByRole("link", { name: /Midweek Band Rehearsal/i })).toBeVisible();
   await page.getByRole("button", { name: "Calendar View" }).click();
   await expect(page.getByRole("heading", { name: "July 2026" })).toBeVisible();
