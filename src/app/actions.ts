@@ -820,7 +820,7 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
   if (parsed.data.worshipLeader && !z.uuid().safeParse(parsed.data.worshipLeader).success) return { ok: false, message: "Choose a valid team leader." };
   const { data: setlistId, error } = await context.supabase.rpc("save_setlist_workspace", {
     p_team_id: context.teamId, p_setlist_id: null, p_event_id: input.data.eventId,
-    p_details: { ...buildSetlistDetails(parsed.data, serviceTimes), ...(input.data.eventId ? { update_event: false } : {}) }, p_song_ids: input.data.songIds, p_template_id: input.data.templateId,
+    p_details: { ...buildSetlistDetails(parsed.data, serviceTimes), update_event: false }, p_song_ids: input.data.songIds, p_template_id: input.data.templateId,
   });
   if (error || !setlistId) return { ok: false, message: "Setlist could not be saved. No changes were applied. Please retry." };
 
@@ -953,7 +953,7 @@ export async function updateSetlistAction(_previous: ActionState, formData: Form
   if (parsed.data.worshipLeader && !z.uuid().safeParse(parsed.data.worshipLeader).success) return { ok: false, message: "Choose a valid team leader." };
   const { error } = await context.supabase.rpc("save_setlist_workspace", {
     p_team_id: context.teamId, p_setlist_id: input.data.id, p_event_id: null,
-    p_details: { ...buildSetlistDetails(parsed.data, serviceTimes), event_revision: optionalFormString(formData, "eventRevision") ?? null }, p_song_ids: input.data.songIds, p_template_id: null,
+    p_details: { ...buildSetlistDetails(parsed.data, serviceTimes), update_event: false, event_revision: optionalFormString(formData, "eventRevision") ?? null }, p_song_ids: input.data.songIds, p_template_id: null,
     p_expected_revision: revision.data,
   });
   if (error) return { ok: false, message: error.code === "40001" ? "Setlist changed. Reload before saving; keep your draft." : "Setlist changes could not be saved. No changes were applied. Please retry." };

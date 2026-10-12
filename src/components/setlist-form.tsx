@@ -180,6 +180,11 @@ export function SetlistForm({
             {/* Left Column: Form */}
             <div className="space-y-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 text-left h-fit">
               <h3 className="text-sm font-bold text-white mb-2 pb-2 border-b border-white/[0.04]">Setlist Information</h3>
+              <p className="text-xs text-zinc-400">
+                {eventId || setlist?.eventId
+                  ? "This setlist is linked to a Timeline event. Its schedule is managed in Timeline."
+                  : "This is a standalone setlist. To schedule it, create or edit an event or rehearsal in Timeline and select this setlist under Setlist (optional)."}
+              </p>
               
               <label className="block space-y-1.5">
                 <span className="text-xs font-bold text-zinc-300">Setlist Name *</span>
@@ -202,7 +207,7 @@ export function SetlistForm({
                 <textarea
                   name="notes"
                   defaultValue={setlist?.notes ?? ""}
-                  placeholder="Add any notes about this event..."
+                  placeholder="Add any notes about this setlist..."
                   className="min-h-24 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-xs text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400"
                 />
               </label>

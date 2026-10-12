@@ -7,6 +7,24 @@ vi.mock("@/app/actions", () => ({ createSetlistAction: vi.fn(), updateSetlistAct
 const song = { id: "extra-song", title: "Extra Song", original_key: "C", bpm: 100 };
 
 describe("Setlist song selection", () => {
+  it("creates standalone setlists without submitting a Timeline event link", () => {
+    const view = render(<SetlistForm />);
+    const form = view.container.querySelector("form")!;
+
+    expect(new FormData(form).has("eventId")).toBe(false);
+    expect(screen.getByText(/This is a standalone setlist/)).toHaveTextContent("Setlist (optional)");
+  });
+
+  it("submits the explicit event link when creation starts from Timeline", () => {
+    const view = render(<SetlistForm eventId="rehearsal-1" initialEventType="rehearsal" />);
+    const form = view.container.querySelector("form")!;
+
+    expect(new FormData(form).get("eventId")).toBe("rehearsal-1");
+    expect(screen.getByText(/This setlist is linked to a Timeline event/)).toBeInTheDocument();
+    expect(screen.queryByText(/This is a standalone setlist/)).not.toBeInTheDocument();
+  });
+
+
   it("supports accessible adding, duplicate prevention, removal and submission IDs", () => {
     const view = render(<SetlistForm songs={[song]} />);
     expect(screen.getByRole("button", { name: "Drag Extra Song" })).toHaveClass("touch-none");
