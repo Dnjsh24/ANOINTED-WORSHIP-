@@ -9,8 +9,6 @@ vi.mock("@/components/app-shell",()=>({AppShell:({children}:{children:ReactNode}
 vi.mock("@/components/attendance-toggle",()=>({AttendanceToggle:(props:unknown)=>{mocks.attendance(props);return null;}}));
 vi.mock("@/components/share-button",()=>({ShareButton:()=>null}));
 vi.mock("@/components/setlist-song-order",()=>({SetlistSongOrder:()=>null}));
-vi.mock("@/lib/supabase/workflow-data",()=>({loadPreparationWorkspace:async()=>({ok:false,message:"Shared planning unavailable"})}));
-vi.mock("@/components/shared-preparation",()=>({SharedPreparation:()=>null}));
 import SetlistDetailPage from "./[id]/page";
 function client(linked=true,failure?:string){
   const filters:Array<[string,string,unknown]>=[];
@@ -26,6 +24,13 @@ function client(linked=true,failure?:string){
 }
 beforeEach(()=>vi.clearAllMocks());
 describe("setlist event readiness",()=>{
+  it("links to the separate rehearsal plan without rendering preparation inline",async()=>{
+    client(false);
+    const html=renderToStaticMarkup(await SetlistDetailPage({params:Promise.resolve({id:"setlist"})}));
+    expect(html).toContain('href="/setlists/setlist/rehearsal"');
+    expect(html).toContain("Team rehearsal plan");
+    expect(html).not.toContain("Shared rehearsal preparation");
+  });
   it("keeps standalone setlists free of invented attendance and conflict clearance",async()=>{
     client(false);const html=renderToStaticMarkup(await SetlistDetailPage({params:Promise.resolve({id:"setlist"})}));
     expect(html).toContain("Attendance opens when an event is linked");expect(html).toContain("Link an event to check member assignments");expect(html).not.toContain("No overlapping member assignments found");expect(mocks.attendance).not.toHaveBeenCalled();

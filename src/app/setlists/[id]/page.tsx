@@ -27,9 +27,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { EventType, SetlistChangeLog } from "@/lib/types";
 import type { Database } from "@/lib/supabase/database.types";
-import { SharedPreparation } from "@/components/shared-preparation";
-import { loadPreparationWorkspace } from "@/lib/supabase/workflow-data";
-import { requestRehearsalPlanAction } from "@/app/workflow-proposals";
 
 type DetailSetlistSong = OrderedSetlistSong & { youtubeUrl: string | null };
 type DetailSetlist = {
@@ -430,9 +427,6 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
       })
     : "Sunday, July 12, 2026";
   const setlistTypeLabel = getSetlistTypeLabel(setlist);
-  const preparation = hasSupabaseEnv()
-    ? await loadPreparationWorkspace(await createClient(), teamContext.teamId, setlist.id, setlist.eventId, setlist.songs.map(song => song.id))
-    : null;
 
   return (
     <AppShell active="Setlists" teamContext={teamContext}>
@@ -453,19 +447,15 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           <ButtonLink href={`/setlists/${setlist.id}/practice`} variant="secondary">
             Practice
           </ButtonLink>
+          <ButtonLink href={`/setlists/${setlist.id}/rehearsal`} variant="secondary">
+            Team rehearsal plan
+          </ButtonLink>
           <ButtonLink href={`/setlists/${setlist.id}/edit`} variant="secondary">
             Edit Details
           </ButtonLink>
           <ShareButton path={`/setlists/${setlist.id}`} />
         </div>
       </div>
-
-      {preparation && <div className="mt-6">{preparation.ok ? <SharedPreparation
-        key={setlist.id} setlistId={setlist.id} name={setlist.name}
-        songs={setlist.songs.map(slot => ({ id: slot.id, title: slot.song.title, assignedKey: slot.assignedKey, bpm: slot.song.bpm, lead: slot.lead, arrangement: slot.arrangement }))}
-        workspace={preparation.data} memberId={teamContext.memberId} canManage={canManageSetlist}
-        proposeAction={requestRehearsalPlanAction.bind(null, setlist.id)}
-      /> : <Panel><p role="status" className="text-sm text-amber-200">{preparation.message}</p></Panel>}</div>}
 
       <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_340px] animate-fade-up" style={{ animationDelay: "100ms" }}>
         <div className="min-w-0 space-y-6">

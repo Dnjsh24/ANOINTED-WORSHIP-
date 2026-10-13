@@ -18,6 +18,13 @@ beforeEach(()=>{
   mocks.rpc.mockResolvedValue({data:1,error:null});
 });
 describe("workflow server action boundaries",()=>{
+  it("refreshes the dedicated rehearsal page after saving a plan or assigned check",async()=>{
+    await saveRehearsalPlanAction(plan);
+    expect(mocks.revalidate).toHaveBeenCalledWith(`/setlists/${plan.setlistId}/rehearsal`);
+    mocks.revalidate.mockClear();
+    await respondPreparationTaskAction({setlistId:plan.setlistId,taskKey:plan.tasks[0].key,completed:true});
+    expect(mocks.revalidate).toHaveBeenCalledWith(`/setlists/${plan.setlistId}/rehearsal`);
+  });
   it("sends only validated document/revision fields, with no caller actor/team identity",async()=>{
     expect((await saveRehearsalPlanAction(plan)).ok).toBe(true);
     expect(mocks.rpc).toHaveBeenCalledWith("save_rehearsal_plan",{p_setlist_id:id(1),p_expected_revision:0,p_allocations:[],p_tasks:plan.tasks});

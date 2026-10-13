@@ -32,6 +32,7 @@ export async function saveRehearsalPlanAction(input: unknown): Promise<ActionSta
     const { data, error } = await client.rpc("save_rehearsal_plan", { p_setlist_id: parsed.data.setlistId, p_expected_revision: parsed.data.revision, p_allocations: parsed.data.allocations, p_tasks: parsed.data.tasks });
     if (error || data === null) return failure(error);
     revalidatePath(`/setlists/${parsed.data.setlistId}`);
+    revalidatePath(`/setlists/${parsed.data.setlistId}/rehearsal`);
     revalidatePath("/dashboard");
     return { ok: true, message: "Shared rehearsal plan saved.", data: { revision: data } };
   } catch { return failure(); }
@@ -59,6 +60,7 @@ export async function respondPreparationTaskAction(input: unknown): Promise<Acti
     const { error } = await client.rpc("respond_preparation_task", { p_setlist_id: parsed.data.setlistId, p_task_key: parsed.data.taskKey, p_completed: parsed.data.completed });
     if (error) return failure(error);
     revalidatePath(`/setlists/${parsed.data.setlistId}`);
+    revalidatePath(`/setlists/${parsed.data.setlistId}/rehearsal`);
     revalidatePath("/dashboard");
     return { ok: true, message: "Your preparation check was saved." };
   } catch { return failure(); }
