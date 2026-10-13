@@ -9,7 +9,8 @@ describe("service preparation", () => {
     Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     render(<ServicePreparation name="Sunday" songs={[{ id: "a", title: "Song A", assignedKey: "D", bpm: 80 }]} />);
-    fireEvent.click(screen.getByText("Open preparation tools"));
+    expect(screen.queryByText("Open preparation tools")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Focus for Song A")).toBeVisible();
     fireEvent.change(screen.getByLabelText("Minutes for Song A"), { target: { value: "12" } });
     fireEvent.change(screen.getByLabelText("Focus for Song A"), { target: { value: "Opening cue" } });
     fireEvent.click(screen.getByLabelText("Tune instruments and check cables"));
@@ -21,7 +22,6 @@ describe("service preparation", () => {
   });
   it("keeps preparation available for an empty setlist", () => {
     render(<ServicePreparation name="Empty" songs={[]} />);
-    fireEvent.click(screen.getByText("Open preparation tools"));
     expect(screen.getByText("Add songs to plan your rehearsal order.")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("0 planned rehearsal minutes");
   });

@@ -51,7 +51,7 @@ test("Practice reuses Stage controls and keeps preparation, progress, meter and 
   await expect(page.getByLabel("Song", { exact: true })).not.toHaveValue(first);
   await page.getByLabel("Song", { exact: true }).selectOption(first);
   await expect(page.getByRole("button", { name: "Practiced", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await page.getByText("Open preparation tools", { exact: true }).click();
+  await expect(page.getByText("Open preparation tools", { exact: true })).toHaveCount(0);
   const prep = page.getByRole("region", { name: "Rehearsal and service preparation" });
   const minutes = prep.getByRole("spinbutton").first();
   await minutes.fill("12");
@@ -73,7 +73,7 @@ test("Practice reuses Stage controls and keeps preparation, progress, meter and 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.goto("/setlists/midweek-prayer/practice");
   await page.getByRole("button", { name: "Practice & edit" }).click();
-  await page.getByText("Open preparation tools", { exact: true }).click();
+  await expect(page.getByText("Open preparation tools", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Tune instruments and check cables")).not.toBeChecked();
   await expect(page.getByRole("progressbar", { name: "Setlist practice progress" })).toHaveAttribute("value", "0");
 });

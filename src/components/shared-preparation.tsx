@@ -4,7 +4,9 @@ import { useState } from "react";
 import { saveRehearsalPlanAction, respondPreparationTaskAction, reloadPreparationAction } from "@/app/workflow-actions";
 import type { ActionState } from "@/lib/action-state";
 import { Button } from "@/components/ui/button";
-import { buildRehearsalPlan, type RehearsalSong } from "@/lib/domain/rehearsal-plan";
+import { RehearsalRunThrough } from "@/components/rehearsal-run-through";
+import { RehearsalSongFields } from "@/components/rehearsal-song-fields";
+import { buildRehearsalPlan, rehearsalMinutes, type RehearsalSong } from "@/lib/domain/rehearsal-plan";
 import { defaultPreparationTasks, type PreparationTask, type RehearsalAllocationRow } from "@/lib/domain/team-workflows";
 import type { PreparationWorkspace } from "@/lib/supabase/workflow-data";
 
@@ -78,13 +80,15 @@ export function SharedPreparation({ setlistId, name, songs, workspace, memberId,
     <h2 className="text-lg font-bold">Team rehearsal plan</h2>
     <p className="text-sm text-zinc-400">Shared plan and assigned checks are saved for your team. Practice progress remains separate.</p>
     <p className="text-sm text-violet-200">{totalMinutes} rehearsal minutes · {complete} of 10 checks complete · Version {revision}</p>
+    <RehearsalRunThrough songs={songs} allocations={Object.fromEntries(allocations.map(row => [row.slot_id, { minutes: row.minutes, focus: row.focus }]))} />
     {songs.map((song, index) => {
       const row = allocations.find(allocation => allocation.slot_id === song.id);
-      return <fieldset key={song.id} className="grid gap-3 rounded-lg border border-white/10 p-3 sm:grid-cols-[minmax(0,1fr)_110px]">
-        <legend className="px-1 font-semibold">{index + 1}. {song.title} · Key {song.assignedKey}</legend>
-        <label className="grid gap-1 text-xs text-zinc-300">Focus for {song.title}<input disabled={!editable || pending} maxLength={500} value={row?.focus ?? ""} onChange={event => editAllocation(song.id, { focus: event.target.value })} className={field} /></label>
-        <label className="grid gap-1 text-xs text-zinc-300">Minutes for {song.title}<input type="number" min={0} max={120} step={1} disabled={!editable || pending} value={row?.minutes ?? 5} onChange={event => editAllocation(song.id, { minutes: Math.max(0, Math.min(120, Math.round(Number(event.target.value) || 0))) })} className={field} /></label>
-      </fieldset>;
+      return <RehearsalSongFields
+        key={song.id} song={song} index={index} disabled={!editable || pending}
+        focus={row?.focus ?? ""} minutes={row?.minutes ?? 5}
+        onFocusChange={focus => editAllocation(song.id, { focus })}
+        onMinutesChange={value => editAllocation(song.id, { minutes: rehearsalMinutes(value) })}
+      />;
     })}
     <div className="grid gap-3 md:grid-cols-2">
       {tasks.map(task => {
