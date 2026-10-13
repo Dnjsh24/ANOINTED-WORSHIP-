@@ -38,7 +38,18 @@ describe("atomic workspace action outcomes", () => {
     const form=setlistForm();
     mocks.rpc.mockResolvedValue({data:targetId,error:null});
     await createSetlistAction({ok:false,message:""},form);
-    expect(mocks.rpc).toHaveBeenCalledWith("save_setlist_workspace",expect.objectContaining({p_team_id:teamId,p_setlist_id:null,p_song_ids:[targetId]}));
+    expect(mocks.rpc).toHaveBeenCalledWith("save_setlist_workspace",expect.objectContaining({p_team_id:teamId,p_setlist_id:null,p_event_id:null,p_details:expect.objectContaining({update_event:false}),p_song_ids:[targetId]}));
+    expect(mocks.redirect).toHaveBeenCalledWith(`/setlists/${targetId}`);
+  });
+  it("links an explicitly selected rehearsal without changing Timeline details", async () => {
+    const form = setlistForm();
+    form.set("eventId", memberId);
+    form.set("eventType", "rehearsal");
+    mocks.rpc.mockResolvedValue({ data: targetId, error: null });
+    await createSetlistAction({ ok: false, message: "" }, form);
+    expect(mocks.rpc).toHaveBeenCalledWith("save_setlist_workspace", expect.objectContaining({
+      p_event_id: memberId, p_details: expect.objectContaining({ update_event: false }),
+    }));
     expect(mocks.redirect).toHaveBeenCalledWith(`/setlists/${targetId}`);
   });
   it("preserves a setlist draft when creation fails", async () => {
@@ -79,7 +90,7 @@ describe("atomic workspace action outcomes", () => {
   it("returns setlist transaction failures without deleting slots from the action", async () => {
     const form = new FormData();Object.entries({revision:"1",setlistId:targetId,title:"Songs",eventType:"service",serviceType:"Sunday",serviceDate:"2026-10-11",location:"Hall",callTime:"08:00",rehearsalTime:"08:30",worshipLeader:memberId}).forEach(([key,value])=>form.set(key,value));form.append("songIds",targetId);
     expect(await updateSetlistAction({ok:false,message:""},form)).toMatchObject({ok:false});
-    expect(mocks.rpc).toHaveBeenCalledWith("save_setlist_workspace",expect.objectContaining({p_song_ids:[targetId],p_details:expect.objectContaining({leader_member_id:memberId})}));
+    expect(mocks.rpc).toHaveBeenCalledWith("save_setlist_workspace",expect.objectContaining({p_song_ids:[targetId],p_details:expect.objectContaining({leader_member_id:memberId,update_event:false})}));
     expect(mocks.from.mock.calls.every(([table])=>table==="team_members")).toBe(true);expect(mocks.revalidate).not.toHaveBeenCalled();
   });
   it("reviews through the approval transaction and reports its failure", async () => {
