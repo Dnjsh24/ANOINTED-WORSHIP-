@@ -28,6 +28,7 @@ import { EditArrangementButton } from "@/components/edit-arrangement-button";
 import { EditBandNotesButton } from "@/components/edit-band-notes-button";
 import { DeleteSongButton } from "@/components/delete-song-button";
 import { bulkReorderSetlistSongsAction } from "@/app/actions";
+import { RehearsalNote } from "@/components/rehearsal-note";
 
 export type OrderedSetlistSong = {
   id: string;
@@ -36,6 +37,7 @@ export type OrderedSetlistSong = {
   lead?: string;
   arrangement?: string | null;
   bandNotes?: string | null;
+  rehearsalNotes?: string;
   song: {
     id: string;
     title: string;
@@ -49,6 +51,7 @@ function SortableSongItem({
   item,
   setlistId,
   canManageSetlist,
+  demoMode = false,
   canMoveUp = false,
   canMoveDown = false,
   isReorderPending = false,
@@ -57,6 +60,7 @@ function SortableSongItem({
   item: OrderedSetlistSong;
   setlistId: string;
   canManageSetlist: boolean;
+  demoMode?: boolean;
   canMoveUp?: boolean;
   canMoveDown?: boolean;
   isReorderPending?: boolean;
@@ -119,6 +123,7 @@ function SortableSongItem({
               Notes: {item.bandNotes}
             </p>
           )}
+          <RehearsalNote setlistId={setlistId} slotId={item.id} note={item.rehearsalNotes} demoMode={demoMode} />
         </Link>
         <div className="col-span-2 sm:col-span-1 flex flex-wrap items-center gap-3">
           <div className="flex gap-2">
@@ -187,11 +192,13 @@ function SortableSongItem({
 export function SetlistSongOrder({ 
   setlistId, 
   initialSongs, 
-  canManageSetlist 
+  canManageSetlist,
+  demoMode = false,
 }: { 
   setlistId: string; 
   initialSongs: OrderedSetlistSong[];
-  canManageSetlist: boolean 
+  canManageSetlist: boolean;
+  demoMode?: boolean;
 }) {
   const [songs, setSongs] = useState(initialSongs);
   const [previousInitialSongs, setPreviousInitialSongs] = useState(initialSongs);
@@ -291,7 +298,7 @@ export function SetlistSongOrder({
     return (
       <div role="list" aria-label="Setlist songs" className="space-y-3">
         {songs.map((item) => (
-          <SortableSongItem key={item.id} item={item} setlistId={setlistId} canManageSetlist={false} />
+          <SortableSongItem key={item.id} item={item} setlistId={setlistId} canManageSetlist={false} demoMode={demoMode} />
         ))}
       </div>
     );
@@ -314,6 +321,7 @@ export function SetlistSongOrder({
           <div role="list" aria-label="Setlist songs" aria-busy={isReorderPending} className={`space-y-3 ${isReorderPending ? "opacity-80" : ""}`}>
             {songs.map((item, index) => (
               <SortableSongItem
+                demoMode={demoMode}
                 key={item.id}
                 item={item}
                 setlistId={setlistId}

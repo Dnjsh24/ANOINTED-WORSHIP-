@@ -21,6 +21,8 @@ describe("workflow server action boundaries",()=>{
   it("refreshes the dedicated rehearsal page after saving a plan or assigned check",async()=>{
     await saveRehearsalPlanAction(plan);
     expect(mocks.revalidate).toHaveBeenCalledWith(`/setlists/${plan.setlistId}/rehearsal`);
+    expect(mocks.revalidate).toHaveBeenCalledWith(`/setlists/${plan.setlistId}/stage`);
+    expect(mocks.revalidate).toHaveBeenCalledWith(`/setlists/${plan.setlistId}/practice`);
     mocks.revalidate.mockClear();
     await respondPreparationTaskAction({setlistId:plan.setlistId,taskKey:plan.tasks[0].key,completed:true});
     expect(mocks.revalidate).toHaveBeenCalledWith(`/setlists/${plan.setlistId}/rehearsal`);

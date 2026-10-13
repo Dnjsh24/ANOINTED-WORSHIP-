@@ -6,13 +6,13 @@ import type { ActionState } from "@/lib/action-state";
 import { Button } from "@/components/ui/button";
 import { RehearsalRunThrough } from "@/components/rehearsal-run-through";
 import { RehearsalSongFields } from "@/components/rehearsal-song-fields";
-import { buildRehearsalPlan, rehearsalMinutes, type RehearsalSong } from "@/lib/domain/rehearsal-plan";
+import { rehearsalMinutes, type RehearsalSong } from "@/lib/domain/rehearsal-plan";
 import { defaultPreparationTasks, type PreparationTask, type RehearsalAllocationRow } from "@/lib/domain/team-workflows";
 import type { PreparationWorkspace } from "@/lib/supabase/workflow-data";
 
 export type PreparationProposalAction = (input: { revision: number; allocations: RehearsalAllocationRow[]; tasks: PreparationTask[]; reason: string; requestNonce: string }) => Promise<ActionState>;
 const field = "min-h-11 w-full min-w-0 rounded border border-white/20 bg-zinc-900 px-3 text-sm text-white disabled:opacity-60";
-export function SharedPreparation({ setlistId, name, songs, workspace, memberId, canManage, proposeAction }: {
+export function SharedPreparation({ setlistId, songs, workspace, memberId, canManage, proposeAction }: {
   setlistId: string; name: string; songs: RehearsalSong[]; workspace: PreparationWorkspace; memberId: string; canManage: boolean; proposeAction?: PreparationProposalAction;
 }) {
   const [revision, setRevision] = useState(workspace.plan?.revision ?? 0);
@@ -68,17 +68,9 @@ export function SharedPreparation({ setlistId, name, songs, workspace, memberId,
     } catch { setStatus("Latest plan could not be loaded. Your draft is unchanged."); }
     finally { setPending(false); }
   }
-  function download() {
-    const checked = new Set(checks.filter(row => row.completed && tasks.some(task => task.key === row.task_key && task.assignee_member_id === row.team_member_id)).map(row => row.task_key));
-    const values = Object.fromEntries(allocations.map(row => [row.slot_id, { minutes: row.minutes, focus: row.focus }]));
-    const text = buildRehearsalPlan(name, songs, values, checked).replace("Checklist progress is local to this open session.", "Shared checks reflect the loaded team plan; unsaved allocations are a draft snapshot.");
-    const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
-    const link = document.createElement("a"); link.href = url; link.download = "team-rehearsal-plan.txt"; link.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
-  }
   return <section aria-label="Shared rehearsal preparation" className="space-y-4 rounded-2xl border border-white/10 bg-[#111014]/80 p-5">
     <h2 className="text-lg font-bold">Team rehearsal plan</h2>
-    <p className="text-sm text-zinc-400">Shared plan and assigned checks are saved for your team. Practice progress remains separate.</p>
+    <p className="text-sm text-zinc-400">Save this shared plan to show each song’s rehearsal notes in the setlist and Stage mode. Assigned checks are saved for your team.</p>
     <p className="text-sm text-violet-200">{totalMinutes} rehearsal minutes · {complete} of 10 checks complete · Version {revision}</p>
     <RehearsalRunThrough songs={songs} allocations={Object.fromEntries(allocations.map(row => [row.slot_id, { minutes: row.minutes, focus: row.focus }]))} />
     {songs.map((song, index) => {
@@ -108,7 +100,6 @@ export function SharedPreparation({ setlistId, name, songs, workspace, memberId,
     {!canManage && proposeAction && <label className="grid gap-1 text-sm">Reason for requested changes<textarea maxLength={1000} value={reason} onChange={event => { setReason(event.target.value); setRequestNonce(null); }} className={`${field} py-2`} /></label>}
     <div className="flex flex-wrap gap-2">
       {editable && <Button type="button" disabled={pending || (!canManage && !reason.trim())} onClick={() => void save()}>{pending ? "Saving…" : canManage ? "Save shared plan" : "Request plan changes"}</Button>}
-      <Button type="button" variant="secondary" onClick={download}>Download rehearsal plan</Button>
       <Button type="button" variant="secondary" disabled={pending} onClick={() => void reload()}>Reload latest plan (replace draft)</Button>
     </div>
     <p role="status" aria-live="polite" className="text-sm text-violet-200">{status}</p>

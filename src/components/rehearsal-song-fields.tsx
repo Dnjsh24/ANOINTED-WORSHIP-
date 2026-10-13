@@ -20,9 +20,9 @@ export function RehearsalSongFields({ song, index, focus, minutes, disabled = fa
       </legend>
       <div className="grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_120px]">
         <label className="grid min-w-0 gap-1 text-xs text-zinc-300">
-          Focus
+          Rehearsal notes
           <input
-            aria-label={`Focus for ${song.title}`} type="text" maxLength={500}
+            aria-label={`Rehearsal notes for ${song.title}`} type="text" maxLength={500}
             value={focus} disabled={disabled} onChange={event => onFocusChange(event.target.value)}
             placeholder="Intro, harmonies, transitions…" className={field}
           />

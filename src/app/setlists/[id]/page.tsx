@@ -27,6 +27,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { EventType, SetlistChangeLog } from "@/lib/types";
 import type { Database } from "@/lib/supabase/database.types";
+import { loadRehearsalNotes } from "@/lib/supabase/workflow-data";
 
 type DetailSetlistSong = OrderedSetlistSong & { youtubeUrl: string | null };
 type DetailSetlist = {
@@ -427,6 +428,9 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
       })
     : "Sunday, July 12, 2026";
   const setlistTypeLabel = getSetlistTypeLabel(setlist);
+  const rehearsalNotes = hasSupabaseEnv()
+    ? await loadRehearsalNotes(await createClient(), teamContext.teamId, setlist.id, setlist.songs.map(slot => slot.id))
+    : null;
 
   return (
     <AppShell active="Setlists" teamContext={teamContext}>
@@ -459,6 +463,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
 
       <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_340px] animate-fade-up" style={{ animationDelay: "100ms" }}>
         <div className="min-w-0 space-y-6">
+          {rehearsalNotes && !rehearsalNotes.ok && <Panel><p role="status" className="text-sm text-amber-200">Rehearsal notes: {rehearsalNotes.message}</p></Panel>}
           <div className="grid gap-5 md:grid-cols-2">
             <Panel className="card-hover">
               <MapPin className="size-6 text-violet-200" />
@@ -504,7 +509,8 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             <div className="mt-4">
               <SetlistSongOrder 
                 setlistId={setlist.id} 
-                initialSongs={setlist.songs} 
+                  initialSongs={setlist.songs.map(slot => ({ ...slot, rehearsalNotes: rehearsalNotes?.ok ? rehearsalNotes.data[slot.id] : undefined }))}
+                  demoMode={!hasSupabaseEnv()}
                 canManageSetlist={canManageSetlist} 
               />
             </div>

@@ -108,8 +108,9 @@ describe("team rehearsal page", () => {
   it("provides a clearly local demo and rejects unknown demo IDs", async () => {
     mocks.env.mockReturnValue(false);
     const html = renderToStaticMarkup(await renderPage("sunday-service"));
-    expect(html).toContain("Demo plan: changes stay in this session");
-    expect(html).toContain("Download rehearsal plan");
+    expect(html).toContain("Demo plan: saved notes stay on this device");
+    expect(html).toContain("Save rehearsal notes");
+    expect(html).not.toContain("Download rehearsal plan");
     expect(mocks.client).not.toHaveBeenCalled();
     await expect(renderPage("missing")).rejects.toThrow("NOT_FOUND");
   });

@@ -73,7 +73,10 @@ export default async function TeamRehearsalPage({ params }: { params: Promise<{ 
           <p className="font-mono text-xs font-bold uppercase text-violet-200">Setlist · {name}</p>
           <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Team rehearsal plan</h1>
         </div>
-        <ButtonLink href={`/setlists/${id}`} variant="secondary">Back to setlist</ButtonLink>
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href={`/setlists/${id}/stage`} variant="secondary">Open Stage mode</ButtonLink>
+          <ButtonLink href={`/setlists/${id}`} variant="secondary">Back to setlist</ButtonLink>
+        </div>
       </div>
       <div className="mt-6 min-w-0">
         {preparation ? preparation.ok ? (
@@ -87,8 +90,8 @@ export default async function TeamRehearsalPage({ params }: { params: Promise<{ 
           <Panel><p role="status" className="text-sm text-amber-200">{preparation.message}</p></Panel>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-zinc-400">Demo plan: changes stay in this session. Sign in with a connected team to save a shared plan.</p>
-            <ServicePreparation name={name} songs={songs} />
+            <p className="text-sm text-zinc-400">Demo plan: saved notes stay on this device. Sign in with a connected team to share your plan.</p>
+            <ServicePreparation setlistId={id} name={name} songs={songs} />
           </div>
         )}
       </div>

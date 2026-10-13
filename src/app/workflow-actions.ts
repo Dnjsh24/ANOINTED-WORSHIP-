@@ -33,6 +33,8 @@ export async function saveRehearsalPlanAction(input: unknown): Promise<ActionSta
     if (error || data === null) return failure(error);
     revalidatePath(`/setlists/${parsed.data.setlistId}`);
     revalidatePath(`/setlists/${parsed.data.setlistId}/rehearsal`);
+    revalidatePath(`/setlists/${parsed.data.setlistId}/stage`);
+    revalidatePath(`/setlists/${parsed.data.setlistId}/practice`);
     revalidatePath("/dashboard");
     return { ok: true, message: "Shared rehearsal plan saved.", data: { revision: data } };
   } catch { return failure(); }
