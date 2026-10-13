@@ -31,14 +31,15 @@ test("setlist toolbar has no sorting dropdown", async ({ page }) => {
   await expect(page.getByRole("option", { name: "Newest first" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Search", exact: true })).toBeVisible();
 });
-test("analytics icons are bare and settings history has no canned rows", async ({ page }) => {
+test("analytics preserves its current summary icons and settings history has no canned rows", async ({ page }) => {
   await page.goto("/analytics");
-  await expect(page.getByRole("heading", { name: "Team engagement" })).toBeVisible();
-  const icons = page.getByRole("region", { name: "Engagement summary" }).locator("svg");
+  await expect(page.getByRole("heading", { name: "Analytics", exact: true })).toBeVisible();
+  const icons = page.getByRole("region", { name: "Analytics summary" }).locator("svg");
   await expect(icons).toHaveCount(3);
   for (const icon of await icons.all()) {
-    await expect(icon).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-    expect(await icon.evaluate(element => getComputedStyle(element.parentElement!).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+    await expect(icon).toHaveCSS("width", "36px");
+    await expect(icon).toHaveCSS("border-radius", "11px");
+    expect(await icon.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
   }
   await page.goto("/admin/settings");
   await page.getByRole("button", { name: "Activity Log", exact: true }).click();
