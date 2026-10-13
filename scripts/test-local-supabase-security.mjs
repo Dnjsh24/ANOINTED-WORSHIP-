@@ -179,38 +179,44 @@ try {
   if (teamBMemberError || !requesterTeamBMember) throw teamBMemberError ?? new Error("Team B member failed");
 
   phase = "attendance boundaries";
-  const { data: eventB, error: eventError } = await sessions.owner
-    .from("events")
-    .insert({
-      team_id: teamB,
-      type: "service",
-      name: "Local security event",
-      event_date: "2026-08-03",
-      starts_at: "09:00",
-      approval_status: "approved",
-      created_by: users.owner.id,
-    })
-    .select("id")
-    .single();
-  if (eventError || !eventB) throw eventError ?? new Error("Event B failed");
+  // Current workspace contracts intentionally deny authenticated raw writes.
+  const { data: eventBId, error: eventError } = await sessions.owner.rpc("save_event_workspace", {
+    p_team_id: teamB,
+    p_event_id: null,
+    p_details: {
+      type: "service", name: "Local security event", event_date: "2026-08-03",
+      starts_at: "09:00", recurrence_rule: "none",
+    },
+    p_assignments: [],
+    p_linked_setlist_id: null,
+    p_expected_revision: null,
+  });
+  if (eventError || !eventBId) throw eventError ?? new Error("Event B failed");
+  await expectDenied(
+    () => sessions.owner.from("events").insert({
+      team_id: teamB, type: "service", name: "Raw write must fail",
+      event_date: "2026-08-03", starts_at: "09:00", created_by: users.owner.id,
+    }),
+    "Raw event writes bypassed the workspace contract",
+  );
 
   await expectDenied(
     () => sessions.requester.from("attendance").insert({
-      event_id: eventB.id,
+      event_id: eventBId,
       team_member_id: requesterTeamAMember.id,
       status: "available",
     }),
     "Cross-team attendance was accepted",
   );
   const validAttendance = await sessions.requester.from("attendance").insert({
-    event_id: eventB.id,
+    event_id: eventBId,
     team_member_id: requesterTeamBMember.id,
     status: "available",
   });
   if (validAttendance.error) throw validAttendance.error;
 
   phase = "setlist relationship boundaries";
-  const [{ data: songA, error: songAError }, { data: songB, error: songBError }, { data: setlistA, error: setlistError }] = await Promise.all([
+  const [{ data: songA, error: songAError }, { data: songB, error: songBError }, { data: setlistAId, error: setlistError }] = await Promise.all([
     sessions.owner.from("songs").insert({
       team_id: teamA, title: "Song A", artist: "Local", original_key: "C",
       time_signature: "4/4", lyrics_chords: "C", status: "approved", created_by: users.owner.id,
@@ -219,35 +225,53 @@ try {
       team_id: teamB, title: "Song B", artist: "Local", original_key: "D",
       time_signature: "4/4", lyrics_chords: "D", status: "approved", created_by: users.owner.id,
     }).select("id").single(),
-    sessions.owner.from("setlists").insert({
-      team_id: teamA, name: "Local security setlist", setlist_date: "2026-08-03",
-      created_by: users.owner.id,
-    }).select("id").single(),
+    sessions.owner.rpc("save_setlist_workspace", {
+      p_team_id: teamA, p_setlist_id: null, p_event_id: null,
+      p_details: {
+        name: "Local security setlist", setlist_date: "2026-08-03",
+        service_times: [], update_event: false,
+      },
+      p_song_ids: [], p_template_id: null, p_expected_revision: null,
+    }),
   ]);
-  if (songAError || songBError || setlistError || !songA || !songB || !setlistA) {
+  if (songAError || songBError || setlistError || !songA || !songB || !setlistAId) {
     throw songAError ?? songBError ?? setlistError ?? new Error("Setlist fixtures failed");
   }
 
   await expectDenied(
+    () => sessions.owner.from("setlists").insert({
+      team_id: teamA, name: "Raw write must fail", setlist_date: "2026-08-03",
+      created_by: users.owner.id,
+    }),
+    "Raw setlist writes bypassed the workspace contract",
+  );
+  await expectDenied(
     () => sessions.admin.from("setlist_songs").insert({
-      setlist_id: setlistA.id,
-      song_id: songB.id,
-      song_order: 1,
-      assigned_key: "D",
+      setlist_id: setlistAId, song_id: songA.id, song_order: 1, assigned_key: "C",
+    }),
+    "Raw setlist song writes bypassed the workspace contract",
+  );
+  await expectDenied(
+    () => sessions.admin.rpc("add_setlist_songs", {
+      p_setlist_id: setlistAId,
+      p_songs: [{ song_id: songB.id, assigned_key: "D", type: "None" }],
     }),
     "Cross-team setlist song was accepted",
   );
-  const validSetlistSong = await sessions.admin.from("setlist_songs").insert({
-    setlist_id: setlistA.id,
-    song_id: songA.id,
-    song_order: 1,
-    assigned_key: "C",
+  const validSetlistSong = await sessions.admin.rpc("add_setlist_songs", {
+    p_setlist_id: setlistAId,
+    p_songs: [{ song_id: songA.id, assigned_key: "C", type: "None" }],
   });
   if (validSetlistSong.error) throw validSetlistSong.error;
+  assert(validSetlistSong.data === 1, "Same-team song was not inserted exactly once");
+  const savedSongs = await sessions.admin.from("setlist_songs").select("song_id").eq("setlist_id", setlistAId);
+  if (savedSongs.error) throw savedSongs.error;
+  assert(savedSongs.data?.length === 1 && savedSongs.data[0].song_id === songA.id,
+    "Setlist contains an unexpected or cross-team song");
 
   phase = "Worship Remote pairing boundaries";
   const { data: pairing, error: pairingError } = await sessions.requester
-    .rpc("create_worship_remote_pairing", { p_setlist_id: setlistA.id })
+    .rpc("create_worship_remote_pairing", { p_setlist_id: setlistAId })
     .single();
   if (pairingError || !pairing) throw pairingError ?? new Error("Member Remote pairing creation failed");
   assert(/^\d{6}$/.test(pairing.pin_code), "Remote pairing did not return a six-digit PIN");
@@ -295,7 +319,7 @@ try {
   if (revokeError || revoked !== true) throw revokeError ?? new Error("Presenter creator could not revoke the Remote session");
 
   const { data: qrPairing, error: qrPairingError } = await sessions.requester
-    .rpc("create_worship_remote_pairing", { p_setlist_id: setlistA.id })
+    .rpc("create_worship_remote_pairing", { p_setlist_id: setlistAId })
     .single();
   if (qrPairingError || !qrPairing) throw qrPairingError ?? new Error("QR Remote pairing creation failed");
 
@@ -326,6 +350,7 @@ try {
       "join review atomic",
       "cross-team attendance denied",
       "same-team attendance accepted",
+      "raw workspace writes denied",
       "cross-team setlist song denied",
       "same-team setlist song accepted",
       "all-role Remote pairing creation accepted",

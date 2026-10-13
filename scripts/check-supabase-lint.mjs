@@ -9,15 +9,23 @@ const WEBSITE_SCOPE_EXCLUSIONS = new Map([
 ]);
 
 function lintIssues(payload) {
-  if (!payload || !Array.isArray(payload.results)) {
+  // The installed CLI's default output is a JSON array; also retain the
+  // results envelope used by earlier callers. Reject malformed output closed.
+  const results = Array.isArray(payload) ? payload : payload?.results;
+  if (!Array.isArray(results) || results.some((result) =>
+    typeof result?.function !== "string" || !result.function.trim() ||
+    !Array.isArray(result.issues) || result.issues.some((issue) =>
+      !issue || ["level", "message", "sqlState"].some((field) =>
+        typeof issue[field] !== "string" || !issue[field].trim(),
+      ),
+    ),
+  )) {
     throw new Error("Supabase lint did not return the expected JSON result shape.");
   }
 
-  return payload.results.flatMap((result) => {
-    const functionName = typeof result?.function === "string" ? result.function : "unknown";
-    const issues = Array.isArray(result?.issues) ? result.issues : [];
-    return issues.map((issue) => ({ functionName, issue }));
-  });
+  return results.flatMap((result) =>
+    result.issues.map((issue) => ({ functionName: result.function, issue })),
+  );
 }
 
 export function classifyWebsiteSupabaseLint(payload) {
@@ -35,6 +43,16 @@ export function classifyWebsiteSupabaseLint(payload) {
   }
 
   return { blocking, excluded };
+}
+
+export function parseWebsiteSupabaseLintOutput(stdout, stderr) {
+  const output = stdout.trim();
+  // CLI 2.111 emits this exact stderr line, without JSON, for a clean schema.
+  // Never let that marker override nonempty output or a failed CLI process.
+  if (!output && stderr.split(/\r?\n/).some((line) => line.trim() === "No schema errors found")) {
+    return [];
+  }
+  return JSON.parse(output);
 }
 
 function formatIssue({ functionName, issue }) {
@@ -76,7 +94,7 @@ function runCli() {
 
   let payload;
   try {
-    payload = JSON.parse(result.stdout.trim());
+    payload = parseWebsiteSupabaseLintOutput(result.stdout, result.stderr);
   } catch {
     console.error("Supabase lint returned non-JSON output and cannot be trusted as a release gate.");
     process.exitCode = 1;
