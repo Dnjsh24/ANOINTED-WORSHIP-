@@ -1,8 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { blockRemoteSupabase } from "./demo-network";
 
-test("header request popup supports keyboard dismissal and view all", async ({ page, isMobile }) => {
-  test.skip(isMobile, "The existing header actions are desktop-only.");
+test("header request popup supports keyboard dismissal and view all", async ({ page }) => {
   const blocked = await blockRemoteSupabase(page);
   await page.goto("/dashboard");
   const trigger = page.getByRole("button", { name: "Edit requests", exact: true });
@@ -22,13 +21,12 @@ test("header request popup supports keyboard dismissal and view all", async ({ p
   expect(blocked).toEqual([]);
 });
 
-test("request popup closes outside and switches cleanly with notifications", async ({ page, isMobile }) => {
-  test.skip(isMobile, "The existing header actions are desktop-only.");
+test("request popup closes outside and switches cleanly with notifications", async ({ page }) => {
   const blocked = await blockRemoteSupabase(page);
   await page.goto("/dashboard");
   const trigger = page.getByRole("button", { name: "Edit requests", exact: true });
   await trigger.click();
-  await page.getByRole("heading", { name: "Home", exact: true }).click();
+  await page.getByRole("heading", { name: "Quick Access", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Edit requests" })).toBeHidden();
   await page.getByRole("button", { name: "Open notifications" }).click();
   await expect(page.getByRole("menu", { name: "Notifications" })).toBeVisible();

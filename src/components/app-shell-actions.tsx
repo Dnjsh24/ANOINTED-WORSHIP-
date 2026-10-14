@@ -182,7 +182,7 @@ export function AppShellActions({
         type="button"
         aria-label="Open notifications"
         aria-expanded={open}
-        className="relative rounded-md p-2 transition-all duration-200 hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-violet-300"
+        className="relative inline-flex size-11 items-center justify-center rounded-md transition-all duration-200 hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-violet-300 md:size-9"
         onClick={() => { setRequestsOpen(false); setOpen((value) => !value); }}
       >
         <Bell className={cn("size-5 transition-transform duration-200", open && "text-violet-300 rotate-12")} />
@@ -196,7 +196,7 @@ export function AppShellActions({
         <div
           role="menu"
           aria-label="Notifications"
-          className="menu-enter absolute right-10 top-11 z-50 w-80 rounded-lg border border-white/10 bg-[#18171c] p-3 shadow-2xl shadow-black/40"
+          className="menu-enter absolute right-0 top-11 z-50 max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-white/10 bg-[#18171c] p-3 shadow-2xl shadow-black/40 lg:right-10 lg:max-h-none lg:overflow-visible"
         >
           {notifications.length === 0 && <p className="px-3 py-3 text-sm text-zinc-400">No new notifications.</p>}
           {notifications.map((notification) => (
@@ -223,7 +223,7 @@ export function AppShellActions({
         <Link
           href="/admin/settings"
           aria-label="Open settings"
-          className="inline-flex size-9 items-center justify-center rounded-md text-zinc-300 transition hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-violet-300"
+          className="inline-flex size-11 items-center justify-center rounded-md text-zinc-300 transition hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-violet-300 md:size-9"
         >
           <Settings className="size-5" />
         </Link>

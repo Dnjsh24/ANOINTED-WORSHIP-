@@ -261,7 +261,7 @@ export function SetlistForm({
 
             {/* Right Column: Song Library */}
             {songs && songs.length > 0 && (
-              <div className="rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 text-left h-[600px] flex flex-col">
+              <div className="rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 text-left h-[70dvh] max-h-[600px] lg:h-[600px] flex flex-col">
                 <div className="mb-4 space-y-3 border-b border-white/[0.04] pb-4">
                   <h3 className="text-sm font-bold text-white">Song Library</h3>
                   <Input data-wooly-target="setlist-song-search"
@@ -324,7 +324,7 @@ export function SetlistForm({
       </div>
       {typeof document !== "undefined" ? createPortal(<DragOverlay dropAnimation={null}>
         {activeSong ? (
-          <div className="p-3 border border-violet-500/50 rounded-xl bg-[#1f1e24] shadow-2xl shadow-black/50 cursor-grabbing w-[310px] m-0">
+          <div className="p-3 border border-violet-500/50 rounded-xl bg-[#1f1e24] shadow-2xl shadow-black/50 cursor-grabbing w-[calc(100vw-2rem)] max-w-[310px] lg:w-[310px] m-0">
             <div className="text-sm font-bold text-white truncate">{activeSong.title}</div>
             <div className="text-xs text-zinc-400 mt-1">{activeSong.original_key} • {activeSong.bpm} BPM</div>
           </div>
