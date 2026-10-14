@@ -324,7 +324,7 @@ export function SongViewer({
   }
 
   return (
-    <div className="space-y-6 text-left animate-fade-in">
+    <div data-wooly-target="song-chart" className="space-y-6 text-left animate-fade-in">
       {/* Top Header Card */}
       <div className="flex flex-col md:flex-row items-start justify-between gap-6">
         <div className="flex items-start gap-4">
@@ -336,7 +336,7 @@ export function SongViewer({
             </div>
           )}
           <div className="pt-1">
-            <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">{song.title}</h1>
+            <h1 data-wooly-target="song-heading" className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">{song.title}</h1>
             <p className="mt-2 text-base font-semibold text-zinc-400">
               {song.artist}
               {song.album && <span className="text-zinc-500 font-normal italic ml-2">({song.album})</span>}
@@ -695,7 +695,7 @@ export function SongViewer({
             {/* Auto Scroll Control block */}
             <div className="space-y-3 pt-3 border-t border-white/[0.04]">
               <div className="flex items-center justify-between">
-                <div>
+                <div data-wooly-target="song-controls">
                   <p className="text-[11px] font-bold text-white">Auto-Scroll</p>
                   <p className="text-[9px] text-zinc-500 font-semibold">Hands-free sheet</p>
                 </div>

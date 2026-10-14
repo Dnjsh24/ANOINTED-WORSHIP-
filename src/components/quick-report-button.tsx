@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useActionState } from "react";
 import { usePathname } from "next/navigation";
 import { Bug, Lightbulb, X } from "lucide-react";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { ActionState } from "@/lib/action-state";
 import { submitFeedbackAction } from "@/app/actions";
+import { useWoolyReportRegistration } from "@/components/wooly/wooly-provider";
 
 const initialState: ActionState = { ok: false, message: "" };
 
@@ -27,6 +28,16 @@ export function QuickReportButton() {
   const [state, formAction] = useActionState(submitFeedbackAction, initialState);
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef<(() => void) | null>(null);
+  const registerWithWooly = useWoolyReportRegistration();
+  const openReport = useCallback((restoreFocus = () => triggerRef.current?.focus()) => {
+    restoreFocusRef.current = restoreFocus;
+    window.dispatchEvent(new Event("wooly:external-dialog"));
+    setPageUrl(window.location.href);
+    setOpen(true);
+  }, []);
+
+  useEffect(() => registerWithWooly?.(openReport), [openReport, registerWithWooly]);
 
   useEffect(() => {
     if (state.ok) {
@@ -39,14 +50,18 @@ export function QuickReportButton() {
 
   useEffect(() => {
     if (!open) return;
-    const trigger = triggerRef.current;
-    dialogRef.current?.focus();
+    const restoreFocus = restoreFocusRef.current;
+    const previousOverflow = document.body.style.overflow;
+    dialogRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
       if (event.key === "Tab" && dialogRef.current) {
         const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href]',
-        )].filter((element) => element.offsetParent !== null);
+          'button:not([disabled]), input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), a[href]',
+        )].filter((element) => {
+          const style = window.getComputedStyle(element);
+          return !element.closest("[hidden], [inert]") && style.display !== "none" && style.visibility !== "hidden";
+        });
         if (!focusable.length) return;
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
@@ -62,29 +77,26 @@ export function QuickReportButton() {
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
-      trigger?.focus();
+      restoreFocus?.();
     };
   }, [open]);
 
   return (
     <>
-      <button
+      {!registerWithWooly && <button
         type="button"
         ref={triggerRef}
         aria-label="Report a bug or suggest improvement"
-        onClick={() => {
-          setPageUrl(window.location.href);
-          setOpen(true);
-        }}
+        onClick={() => openReport()}
         className={cn(
           "fixed bottom-24 left-4 z-20 size-12 items-center justify-center rounded-full bg-violet-500 text-white transition-all duration-200 hover:bg-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-300 md:bottom-6 md:left-auto md:right-6 md:z-40",
           pathname === "/messages" ? "hidden md:flex" : "flex",
         )}
       >
         <Bug className="size-5" />
-      </button>
+      </button>}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">

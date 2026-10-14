@@ -61,7 +61,7 @@ export function SongLibraryGrid({
       <form action="/songs" method="get" className="mt-8 flex flex-col gap-3 rounded-xl border border-white/10 bg-[#17161b] p-4 sm:flex-row sm:items-end">
         <label className="flex-1 space-y-1.5">
           <span className="text-xs font-semibold text-zinc-400">Search the full song library</span>
-          <Input name="q" defaultValue={searchTerm} maxLength={100} placeholder="Title, artist, or tag" />
+          <Input data-wooly-target="song-search" name="q" defaultValue={searchTerm} maxLength={100} placeholder="Title, artist, or tag" />
         </label>
         <label className="space-y-1.5">
           <span className="text-xs font-semibold text-zinc-400">Sort results</span>
@@ -78,7 +78,7 @@ export function SongLibraryGrid({
       </form>
       {status && <p role="status" className={statusOk ? "mt-4 text-sm font-bold text-emerald-300" : "mt-4 text-sm font-bold text-amber-200"}>{status}</p>}
       <div className="mt-4 flex justify-end">
-        <Button type="button" aria-label="Toggle song filters" variant="secondary" onClick={() => setFiltersOpen((value) => !value)}>
+        <Button data-wooly-target="song-filters" type="button" aria-label="Toggle song filters" variant="secondary" onClick={() => setFiltersOpen((value) => !value)}>
           <SlidersHorizontal className="size-4 text-violet-300" /> {filtersOpen ? "Hide filters" : "Filters"}
         </Button>
       </div>
@@ -88,7 +88,7 @@ export function SongLibraryGrid({
         </p>
       )}
       {songs.length ? (
-        <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div data-wooly-target="song-list" className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {songs.map((song) => (
             <Card key={song.id} className="p-5">
               <div className="flex items-start justify-between gap-3">

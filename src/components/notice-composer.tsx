@@ -9,6 +9,7 @@ import { ActionMessage, SubmitButton } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { initialActionState } from "@/lib/action-state";
+import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
 import { teamRoles, type NoticeEventTarget, type NoticeMemberTarget, type ReminderRecurrence, type TeamRole } from "@/lib/types";
 
 type NoticeKind = "announcement" | "reminder";
@@ -26,6 +27,7 @@ export function NoticeComposer({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const dialogRef = useAccessibleDialog({ open, onClose: () => setOpen(false) });
   const [targetType, setTargetType] = useState<"all" | "role" | "person">("all");
   const [recurrence, setRecurrence] = useState<ReminderRecurrence>("none");
   const action = kind === "announcement" ? createAnnouncementAction : createReminderAction;
@@ -47,7 +49,9 @@ export function NoticeComposer({
   const modal = open ? (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-6 backdrop-blur-sm sm:items-center">
       <div
-        role="dialog"
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog" data-wooly-surface={kind} data-wooly-target="notice-form"
         aria-modal="true"
         aria-label={title}
         className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg border border-white/10 bg-[#151419] shadow-2xl shadow-black/50"
@@ -245,7 +249,7 @@ export function NoticeComposer({
 
   return (
     <>
-      <Button type="button" className="h-10 rounded-lg px-4 text-sm" onClick={() => setOpen(true)}>
+      <Button data-wooly-target="notice-create" type="button" className="h-10 rounded-lg px-4 text-sm" onClick={() => setOpen(true)}>
         <Plus className="size-4" />
         {title}
       </Button>

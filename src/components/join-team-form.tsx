@@ -103,6 +103,7 @@ export function JoinTeamForm() {
               <div className="relative">
                 <input
                   name="code"
+                  data-wooly-target="join-code"
                   value={code}
                   onChange={(event) => handleCodeChange(event.target.value)}
                   placeholder="e.g. DM-10001"
@@ -124,7 +125,7 @@ export function JoinTeamForm() {
             </div>
 
             {codeValid && teamPreview ? (
-              <div className="mx-auto flex w-full max-w-md animate-fade-in items-center gap-4 rounded-xl border border-white/[0.08] bg-[#17161b] p-4 text-left">
+              <div data-wooly-target="join-preview" className="mx-auto flex w-full max-w-md animate-fade-in items-center gap-4 rounded-xl border border-white/[0.08] bg-[#17161b] p-4 text-left">
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-violet-400/20 bg-violet-500/15">
                   <Music2 className="size-5 text-violet-300" />
                 </div>
@@ -149,6 +150,7 @@ export function JoinTeamForm() {
               <div className="relative">
                 <select
                   name="role"
+                  data-wooly-target="join-role"
                   required
                   className="w-full appearance-none rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-semibold text-white transition-all focus:border-violet-400/50 focus:outline-none focus:ring-1 focus:ring-violet-400/30"
                 >
@@ -164,6 +166,7 @@ export function JoinTeamForm() {
 
             <button
               type="submit"
+              data-wooly-target="join-request"
               className="w-full rounded-xl bg-violet-600 py-3.5 text-sm font-extrabold text-white transition-all duration-200 hover:bg-violet-500 active:scale-[0.98]"
             >
               Request to Join Team

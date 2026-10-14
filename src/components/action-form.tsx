@@ -10,15 +10,17 @@ export function SubmitButton({
   children,
   className,
   variant = "primary",
+  "data-wooly-target": woolyTarget,
 }: {
   children: ReactNode;
   className?: string;
   variant?: "primary" | "secondary" | "ghost" | "danger";
+  "data-wooly-target"?: string;
 }) {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={pending} variant={variant} className={className}>
+    <Button data-wooly-target={woolyTarget} type="submit" disabled={pending} variant={variant} className={className}>
       {pending ? "Saving..." : children}
     </Button>
   );

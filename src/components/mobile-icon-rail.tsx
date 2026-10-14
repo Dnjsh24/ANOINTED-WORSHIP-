@@ -180,7 +180,7 @@ export function MobileIconRail({
         {defaultTabs.map((tab) => {
           const isActive = isTabActive(tab) && !showMoreMenu;
           return (
-            <Link
+            <Link data-wooly-target={`nav-${tab.id}`}
               key={tab.id}
               href={tab.href}
               aria-current={isActive ? "page" : undefined}
@@ -209,7 +209,7 @@ export function MobileIconRail({
         {(() => {
           const isActive = isTabActive(fourthTab) && !showMoreMenu;
           return (
-            <Link
+            <Link data-wooly-target={`nav-${fourthTab.id}`}
               href={fourthTab.href}
               aria-current={isActive ? "page" : undefined}
               onClick={() => setShowMoreMenu(false)}
@@ -231,7 +231,7 @@ export function MobileIconRail({
         {(() => {
           const isActive = showMoreMenu || moreTabActive;
           return (
-            <button
+            <button data-wooly-target="nav-more"
               ref={moreButtonRef}
               onClick={toggleMoreMenu}
               aria-label="Expand navigation"
@@ -299,7 +299,7 @@ export function MobileIconRail({
               (link.href === "/requests" && activeLabel === "requests") ||
               (link.href === "/admin/settings" && ["settings", "team settings"].includes(activeLabel));
             return (
-              <Link
+              <Link data-wooly-target={`nav-${link.href.slice(1)}`}
                 key={link.href}
                 href={link.href}
                 onClick={() => setShowMoreMenu(false)}

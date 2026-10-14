@@ -114,7 +114,7 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
             ) : null}
 
             {step === 0 && (
-              <div className="animate-fade-in">
+              <div data-wooly-target="create-details" className="animate-fade-in">
                 <h1 className="text-2xl font-extrabold text-white">Create Your Ministry Workspace</h1>
                 <p className="mt-1.5 text-sm font-semibold text-zinc-400">Set up your team details to get started.</p>
 
@@ -204,7 +204,7 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
             )}
 
             {step === 1 && (
-              <div className="animate-fade-in">
+              <div data-wooly-target="create-invites" className="animate-fade-in">
                 <h1 className="text-2xl font-extrabold text-white">Invite Your Team Members</h1>
                 <p className="mt-1.5 text-sm font-semibold text-zinc-400">Add the email addresses of your musicians, vocalists, and media techs.</p>
 
@@ -271,7 +271,7 @@ export default function NewTeamPage({ searchParams }: NewTeamPageProps) {
             )}
 
             {step === 2 && (
-              <div className="animate-fade-in">
+              <div data-wooly-target="create-review" className="animate-fade-in">
                 <h1 className="text-2xl font-extrabold text-white">Review & Create Workspace</h1>
                 <p className="mt-1.5 text-sm font-semibold text-zinc-400">Double check your details before launching.</p>
 

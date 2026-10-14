@@ -139,7 +139,7 @@ export function PendingClient({
   }
 
   return (
-    <main className="min-h-screen bg-[#0d0c12] text-white relative overflow-hidden">
+    <main data-wooly-target="pending-status" className="min-h-screen bg-[#0d0c12] text-white relative overflow-hidden">
       <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 h-96 w-96 rounded-full bg-amber-500/5 blur-[120px]" />
 
       <nav className="flex items-center gap-2.5 px-4 sm:px-8 py-4 sm:py-5 relative z-10">

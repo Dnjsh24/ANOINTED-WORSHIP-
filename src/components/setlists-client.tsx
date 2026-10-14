@@ -94,9 +94,9 @@ export function SetlistsClient({
           <p className="mt-1.5 text-sm font-semibold text-zinc-400">Manage and plan your upcoming setlists and linked events.</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <form action="/setlists" method="get" className="relative flex w-full gap-2 sm:w-80">
+          <form data-wooly-target="setlist-views" action="/setlists" method="get" className="relative flex w-full gap-2 sm:w-80">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
-            <Input name="q" maxLength={100} className="pl-10" placeholder="Search setlists and songs..." value={query} onChange={(event) => setQuery(event.target.value)} />
+            <Input data-wooly-target="setlist-search" name="q" maxLength={100} className="pl-10" placeholder="Search setlists and songs..." value={query} onChange={(event) => setQuery(event.target.value)} />
             <input type="hidden" name="date" value={dateFilter === "all" ? "" : dateFilter} />
             <input type="hidden" name="leader" value={leader} />
             <input type="hidden" name="type" value={serviceType} />

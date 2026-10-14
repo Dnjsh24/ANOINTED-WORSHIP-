@@ -646,3 +646,16 @@ Criteria: preserve GET date filtering, remove 7/30/90 presets and enclosing date
 ANALYTICS-03 final settlement: completed 1/1; no blockers. Strict scoped lint, fresh typecheck, 31 targeted tests, production-demo build and 4/4 desktop/mobile E2E pass. Laura independently approved the same final candidate and passed 23 tests; coordinator visually inspected desktop render. Evidence: docs/ANALYTICS-SIMPLIFICATION-2026-10-09.md. Next: user review of local preview at http://127.0.0.1:3232/analytics. No push/deploy performed.
 
 ANALYTICS-03 main delivery: user authorized push to main on 2026-10-09. Integrated origin/main 8425211, retaining team-scoped member usage and all existing main features. Final checks pass: 52 tests/8 files, strict scoped lint, fresh typecheck, production-demo build (Next.js 16.3.8), 4/4 desktop/mobile E2E, production audit zero findings and secret scan clean. Completed 1/1; next action is normal push to origin/main. No source blocker; final source review approved. Evidence: docs/ANALYTICS-SIMPLIFICATION-2026-10-09.md.
+
+## WOOLY-23 — Publish Wooly without replacing the live website (2026-10-12)
+
+| ID | Criteria | Owner | Risk / lane | Status | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| WOOLY-23 | Push isolated Wooly feature branch from current main; preserve Analytics and purple favicon; retain permissions and flag-off website behavior; no activation or remote migrations | Coordinator; Laura independent review | Integration / standard | Testing | docs/WOOLY-PUSH.md; docs/WOOLY-PUSH-REVIEW.md |
+
+Base: c39f90b480c8599fca387ad42c1de9cfdf44acbb. Branch: codex/wooly-help-20261012. Unrelated root work remains untouched. Native Laura configured role gpt-6.1-sol/medium; effective runtime telemetry unverified. Coordinator settings/usage unavailable. Source integration and focused verification complete; full coverage/build and publication pending. Completed 2/4 delivery steps. Production acceptance remains pending browser and live local-Supabase checks. No remote support activation, migrations, main merge or deployment authorized by this ticket.
+
+Correction history: initial port needed current-main Supabase schema placement, current permission-overrides adapter and updated labels/targets; corrected and 468 Wooly tests pass. Independent review found one missing authenticated projector registration, fixed with regression. First broad suite found wrapper-structure compatibility differences (1,079 tests passed, three failed); conditional flag-off wrappers corrected and 11 affected tests pass. No unresolved source finding at this checkpoint. Do not treat the still-unavailable production gates as passed.
+
+
+WOOLY-23 final publication checkpoint: 3/4 delivery steps complete; normal push pending. Final product tree 029b1e640002f7efe32bbc67d8aba0f9e96c620c independently source-approved. Full website 1,082 tests /145 files and all coverage thresholds pass; local enabled-Wooly production build/TypeScript pass; website lint and final changed-file lint pass; secrets/audit have zero findings. Thirty protected Analytics/favicon/PWA files identical to main. Production acceptance stays Review because browser and live local database checks are unavailable. Evidence: docs/WOOLY-PUSH.md and docs/WOOLY-PUSH-REVIEW.md.

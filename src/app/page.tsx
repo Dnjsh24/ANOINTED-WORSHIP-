@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
+import { WoolyPublicScreen } from "@/components/wooly/wooly-public-screen";
 
 export default function Home() {
   if (isDesktopRuntime()) {
@@ -12,6 +13,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#0d0c12] text-white overflow-x-hidden">
+      <WoolyPublicScreen />
       {/* Nav */}
       <nav className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 animate-fade-down">
         <Link href="/" className="flex items-center" aria-label="Sunday Setlist home">
@@ -29,7 +31,7 @@ export default function Home() {
       <section className="mx-auto grid max-w-7xl gap-8 lg:gap-12 px-4 sm:px-8 pb-12 sm:pb-16 pt-6 sm:pt-10 lg:grid-cols-2 lg:items-center">
         {/* Left */}
         <div className="animate-fade-up">
-          <h1 className="mb-6 sm:mb-8">
+          <h1 data-wooly-target="welcome-intro" className="mb-6 sm:mb-8">
             <Image
               src="/brand/sunday-setlist-banner-transparent-v4.svg"
               alt="Sunday Setlist Ministry Planning"
@@ -46,6 +48,7 @@ export default function Home() {
           <div className="mt-6 sm:mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
               href="/login"
+              data-wooly-target="welcome-start"
               className="group inline-flex items-center justify-center gap-2.5 rounded-xl bg-violet-600 px-5 sm:px-6 py-3 sm:py-3.5 text-xs sm:text-sm font-bold text-white transition-all duration-200 hover:bg-violet-500 w-full sm:w-auto text-center"
             >
               <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="none">

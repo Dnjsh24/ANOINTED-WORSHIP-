@@ -50,6 +50,7 @@ export function DanceLibraryList({
       <div className="relative">
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
         <Input
+          data-wooly-target="dance-search"
           placeholder="Search dance charts by title, song, or artist..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -58,7 +59,7 @@ export function DanceLibraryList({
       </div>
 
       {/* Grid of box-shaped cards */}
-      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+      <div data-wooly-target="dance-list" className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         {filteredCharts.length > 0 ? (
           filteredCharts.map((chart) => {
             const videoUrl = safeVideoUrl(chart.videoUrl);

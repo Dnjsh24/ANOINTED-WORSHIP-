@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   }),
 }));
 
+vi.mock("@/components/wooly/wooly-team-screen", () => ({ WoolyTeamScreen: () => null }));
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
 vi.mock("@/lib/supabase/team-guard", () => ({ getRequiredTeamContext: mocks.getRequiredTeamContext }));

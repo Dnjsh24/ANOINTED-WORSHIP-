@@ -1,0 +1,60 @@
+.wooly-mascot {
+  --wooly-size: 72px;
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: var(--wooly-size);
+  justify-items: center;
+}
+
+.wooly-mascot-art {
+  position: relative;
+  display: block;
+  width: var(--wooly-size);
+  height: var(--wooly-size);
+  overflow: hidden;
+  contain: paint;
+}
+
+.wooly-mascot .wooly-mascot-still {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.wooly-mascot-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  visibility: hidden;
+}
+.wooly-mascot .wooly-mascot-source {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.wooly-mascot[data-animated="true"] .wooly-mascot-still { visibility: hidden; }
+.wooly-mascot[data-animated="true"] .wooly-mascot-canvas { visibility: visible; }
+
+.wooly-mascot .wooly-motion-toggle {
+  min-width: 52px;
+  min-height: 28px;
+  padding: 2px 8px;
+  border: 1px solid #51475e;
+  border-radius: 999px;
+  background: #24202c;
+  color: #e4d6ff;
+  font: 600 11px/1.3 system-ui, sans-serif;
+  cursor: pointer;
+}
+.wooly-motion-toggle:hover { background: #372d49; }
+.wooly-motion-toggle:focus-visible { outline: 3px solid #a78bfa; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wooly-mascot[data-animated="true"] .wooly-mascot-canvas { visibility: hidden; }
+  .wooly-mascot[data-animated="true"] .wooly-mascot-still { visibility: visible; }
+  .wooly-motion-toggle { display: none; }
+}
