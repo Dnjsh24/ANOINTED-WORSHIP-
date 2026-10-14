@@ -184,7 +184,7 @@ export default async function AnnouncementsPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="font-mono text-xs font-bold uppercase tracking-widest text-violet-300">Team Updates</p>
-            <h1 className="mt-2 text-4xl font-extrabold tracking-tight">Announcements</h1>
+            <h1 className="mt-2 text-4xl font-extrabold tracking-tight [overflow-wrap:anywhere] sm:[overflow-wrap:normal]">Announcements</h1>
             <p className="mt-2 max-w-2xl text-sm font-semibold text-zinc-400">
               Latest team notices, service updates, and ministry-wide information.
             </p>

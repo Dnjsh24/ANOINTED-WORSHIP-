@@ -1278,7 +1278,7 @@ function MessagesView({
                 {status || liveStatus}
               </p>
             )}
-            <div className="shrink-0 border-t border-white/10 bg-[#111014] p-3 sm:p-4">
+            <div data-wooly-layout="message-composer" className="shrink-0 border-t border-white/10 bg-[#111014] p-3 sm:p-4">
               {replyingTo && (
                 <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2">
                   <div className="flex min-w-0 flex-col">

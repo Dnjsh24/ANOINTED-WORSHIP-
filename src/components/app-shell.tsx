@@ -64,11 +64,11 @@ export async function AppShell({
     <div className="min-h-screen bg-[#0d0d10] text-white">
       {context.userId && context.teamId && !isDesktopRuntime() && <MemberUsageTracker teamId={context.teamId} />}
       <WoolyTeamScreen context={context} />
-      <header className="sticky top-0 z-30 hidden border-b border-white/10 bg-[#111014]/95 backdrop-blur md:block animate-fade-down">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#111014] md:bg-[#111014]/95 md:backdrop-blur animate-fade-down">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:h-16 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <Link href="/dashboard" aria-label="Sunday Setlist home" className="flex shrink-0 items-center">
-              <BrandLogo compact className="h-9 w-9" />
+              <BrandLogo compact className="h-8 w-8 md:h-9 md:w-9" />
             </Link>
             <span className="max-w-40 truncate text-sm font-bold text-white">{context.teamName || appName}</span>
           </div>
@@ -97,12 +97,6 @@ export async function AppShell({
             />
           </div>
         </div>
-      </header>
-      <header className="flex h-14 items-center gap-3 border-b border-white/10 bg-[#111014] px-4 md:hidden">
-        <Link href="/dashboard" aria-label="Sunday Setlist home" className="flex shrink-0 items-center">
-          <BrandLogo compact className="h-8 w-8" />
-        </Link>
-        <span className="min-w-0 truncate text-sm font-bold text-white">{context.teamName || appName}</span>
       </header>
       <MobileIconRail active={active} items={mobileNavigation} canManageTeam={context.canManageMembers || canForTeam(context, "team.manage")} messageBadge={
         <Suspense fallback={null}>

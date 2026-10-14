@@ -14,6 +14,7 @@ import { useWoolyQuestions } from "./use-wooly-questions";
 import { useWoolyGreeting } from "./use-wooly-greeting";
 import { WoolyHelpViews } from "./wooly-help-views";
 import { WoolyTaskList } from "./wooly-task-list";
+import { useWoolyLauncherPosition } from "./use-wooly-launcher-position";
 import { findWoolyDialogSurface } from "@/lib/domain/wooly-surfaces";
 import { readTutorialProgressAction, saveTutorialProgressAction } from "@/app/wooly-actions";
 import { canUseWoolyTour, bindWoolyGuideRoute, getWoolyGuide, getWoolyHelpTopics, getWoolyPageGuideId, getWoolyTourSteps, woolyTours, WOOLY_TOUR_VERSION, type TutorialCheckpoint, type TutorialProgress, type TutorialStatus, type WoolyAudience, type WoolyHelpTopic, type WoolyTourId } from "@/lib/domain/wooly";
@@ -35,7 +36,7 @@ type WoolyScreenProps = { audience: WoolyAudience };
 
 const WoolyContext = createContext<WoolyContextValue | null>(null);
 const tourIds: readonly WoolyTourId[] = ["joining", "creating", "essentials"];
-const allowedRoutes = { has: (route: string) => getWoolyPageGuideId(route) !== null };
+const allowedRoutes = { has: (route: string) => route !== "/" && route !== "/login" && getWoolyPageGuideId(route) !== null };
 const subscribeToMount = () => () => undefined;
 const getClientMounted = () => true;
 const getServerMounted = () => false;
@@ -88,6 +89,7 @@ export function WoolyProvider({ children, enabled = true }: { children: ReactNod
   const [selectedTopic, setSelectedTopic] = useState<WoolyHelpTopic | null>(null);
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const [messageComposerLauncherBottom, setMessageComposerLauncherBottom] = useState<number | null>(null);
   const [screenGeneration, setScreenGeneration] = useState(0);
   const mounted = useSyncExternalStore(subscribeToMount, getClientMounted, getServerMounted);
   const greetingVisible = useWoolyGreeting(enabled);
@@ -96,6 +98,7 @@ export function WoolyProvider({ children, enabled = true }: { children: ReactNod
   const [recordTask, setRecordTask] = useState<WoolyTourId | null>(null);
   const [openQuickReport, setOpenQuickReport] = useState<QuickReportHandler | null>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
+  const launcherPosition = useWoolyLauncherPosition(launcherRef, panel === "closed" && greetingVisible);
   const focusReturn = useRef<HTMLElement | null>(null);
   const requestId = useRef(0);
   const expectedRoute = useRef<string | null>(null);
@@ -143,9 +146,61 @@ export function WoolyProvider({ children, enabled = true }: { children: ReactNod
     currentPath.current = pathname;
   }, [pathname]);
 
+  useEffect(() => {
+    if (!mounted || !enabled || !pathname?.startsWith("/messages")) return;
+
+    let observedFooter: HTMLElement | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+
+    const updatePosition = () => {
+      if (window.innerWidth >= 1024) {
+        setMessageComposerLauncherBottom(null);
+        return;
+      }
+
+      const footer = document.querySelector<HTMLElement>('[data-wooly-layout="message-composer"]');
+      if (footer !== observedFooter) {
+        resizeObserver?.disconnect();
+        observedFooter = footer;
+        if (footer && typeof ResizeObserver !== "undefined") {
+          resizeObserver = new ResizeObserver(updatePosition);
+          resizeObserver.observe(footer);
+        }
+      }
+
+      if (!footer) {
+        setMessageComposerLauncherBottom(null);
+        return;
+      }
+
+      const footerTop = footer.getBoundingClientRect().top;
+      const clearance = window.innerHeight - footerTop + 8;
+      const maxBottom = Math.max(8, window.innerHeight - 112);
+      const nextBottom = Math.min(Math.max(8, clearance), maxBottom);
+      setMessageComposerLauncherBottom((current) => current === nextBottom ? current : nextBottom);
+    };
+
+    const mutationObserver = new MutationObserver(updatePosition);
+    mutationObserver.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    window.visualViewport?.addEventListener("resize", updatePosition);
+    window.visualViewport?.addEventListener("scroll", updatePosition);
+    updatePosition();
+
+    return () => {
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+      window.visualViewport?.removeEventListener("resize", updatePosition);
+      window.visualViewport?.removeEventListener("scroll", updatePosition);
+    };
+  }, [enabled, mounted, pathname]);
+
   const register = useCallback((nextAudience: WoolyAudience, owner: object) => {
     const route = currentPath.current;
-    if (!enabled || !route || !allowedRoutes.has(route) || !nextAudience.userId.trim()) {
+    if (!enabled || !route || !allowedRoutes.has(route) || nextAudience.session === "guest" || !nextAudience.userId.trim()) {
       clearRegistration();
       return;
     }
@@ -507,14 +562,34 @@ export function WoolyProvider({ children, enabled = true }: { children: ReactNod
     const left = targetRect.right + width + 24 <= window.innerWidth ? targetRect.right + 16 : targetRect.left - width - 16;
     return { left: Math.max(16, Math.min(window.innerWidth - width - 16, left)), top: Math.max(16, Math.min(window.innerHeight - height - 16, targetRect.top)) };
   })() : undefined;
+  const launcherBottom = pathname?.startsWith("/messages") ? messageComposerLauncherBottom : null;
+  const launcherStyle = launcherPosition.style ?? (launcherBottom === null ? undefined : { bottom: `${launcherBottom}px` });
   const tourContent = panel === "tour" && activeTour && currentStep && <div className="wooly-content"><p className="wooly-step-count">Step {currentStepIndex + 1} of {activeSteps.length}</p><h2>{currentStep.title}</h2><WoolyInstructions key={`${activeTour.tourId}:${currentStep.id}`} text={currentStep.body} announcement={`Step ${currentStepIndex + 1} of ${activeSteps.length}: ${currentStep.title}`} />{!targetRect && !dialogSurface && <p className="wooly-fallback">This part of the page is not available right now. Follow the step’s instructions to reveal it, or choose Next to keep reading.</p>}{failedCheckpoints[activeTour.tourId] && <p role="alert" className="wooly-error">Your progress did not sync ({checkpointLabels[failedCheckpoints[activeTour.tourId]!.status]}). The tour is still available. <button type="button" onClick={() => retryCheckpoint(activeTour.tourId)}>Retry</button></p>}<p className="wooly-tour-hint">Use the page’s own buttons to save or submit. Next continues this tutorial.</p><div className="wooly-actions"><button type="button" onClick={() => moveStep(-1)} disabled={currentStepIndex === 0}><ArrowLeft size={16} /> Back</button><button type="button" onClick={() => moveStep(1)} className="wooly-primary">{currentStepIndex + 1 === activeSteps.length ? "Finish" : "Next"}<ArrowRight size={16} /></button><button type="button" onClick={skipTour}>Skip</button></div></div>;
   if (!enabled) return <>{children}</>;
 
   return <WoolyContext.Provider value={contextValue}>
     {children}
-    {mounted && audience && (!isOutputPage || outputGuideRequested) && createPortal(<>
-      {!externalDialogOpen && (!isOutputPage || outputGuideRequested) && <button ref={launcherRef} className="wooly-launcher" type="button" aria-label="Wooly" aria-describedby={questions.unread ? "wooly-unread" : undefined} title="Open Wooly" onClick={openHelp}>
-        {panel === "closed" && greetingVisible && <span className="wooly-greeting" aria-hidden="true">
+    {mounted && audience && audience.session !== "guest" && pathname && allowedRoutes.has(pathname) && (!isOutputPage || outputGuideRequested) && createPortal(<>
+      {!externalDialogOpen && (!isOutputPage || outputGuideRequested) && <button
+        ref={launcherRef}
+        style={launcherStyle}
+        data-greeting-side={launcherPosition.greetingSide}
+        data-greeting-vertical={launcherPosition.greetingVertical}
+        className="wooly-launcher"
+        type="button"
+        aria-label="Wooly"
+        aria-describedby={questions.unread ? "wooly-unread wooly-move-instructions" : "wooly-move-instructions"}
+        title="Open Wooly"
+        onPointerDown={launcherPosition.onPointerDown}
+        onPointerMove={launcherPosition.onPointerMove}
+        onPointerUp={launcherPosition.onPointerUp}
+        onPointerCancel={launcherPosition.onPointerCancel}
+        onLostPointerCapture={launcherPosition.onLostPointerCapture}
+        onClickCapture={launcherPosition.onClickCapture}
+        onKeyDown={launcherPosition.onKeyDown}
+        onClick={openHelp}
+      >
+        {panel === "closed" && greetingVisible && <span className="wooly-greeting" style={launcherPosition.greetingStyle} aria-hidden="true">
           <svg viewBox="0 0 164 116" focusable="false"><path d="M32 20C38 6 61 4 70 18C85 3 110 10 114 27C135 19 157 33 150 51C161 66 143 85 124 78C112 92 89 89 81 78C66 93 43 87 38 75C18 84 3 69 11 53C1 39 13 20 32 20Z" /><circle cx="128" cy="93" r="5" /><circle cx="137" cy="105" r="3" /></svg>
           <span>Need help?</span>
         </span>}
@@ -522,6 +597,7 @@ export function WoolyProvider({ children, enabled = true }: { children: ReactNod
         {questions.unread > 0 && <span className="wooly-reply-badge" aria-hidden="true">{questions.unread}</span>}
         {questions.unread > 0 && <span className="wooly-sr-only" id="wooly-unread">{questions.unread} unread support replies.</span>}
       </button>}
+      <span id="wooly-move-instructions" className="wooly-sr-only">Drag to move Wooly. Use arrow keys to move it, or open Help with Wooly and use the Move Wooly buttons. Press Home to reset its position.</span>
       {panel !== "closed" && !dialogSurface && <div ref={panelRef} style={panelStyle} className="wooly-panel" role={panelIsModal ? "dialog" : "region"} aria-modal={panelIsModal || undefined} aria-label={panel === "tour" ? "Wooly guided tour" : "Help with Wooly"} tabIndex={panelIsModal ? -1 : undefined} onKeyDown={(event) => { if (event.key !== "Tab" && event.key !== "Escape") event.stopPropagation(); }}>
         <div className="wooly-companion"><WoolyMascot pose={currentStep?.pose ?? (panel === "help" && chat.view === "chat" && !chat.speakingId ? "listening" : "standing-talking")} pointingDirection={targetRect && panelStyle && panelStyle.left < targetRect.left ? "right" : "left"} /></div>
         <div className="wooly-dialogue"><div className="wooly-dialogue-scroll">
@@ -547,6 +623,16 @@ export function WoolyProvider({ children, enabled = true }: { children: ReactNod
             return <div key={id}><span>{woolyTours[id].title}</span>{nextStep ? <><button type="button" aria-label={`Resume ${woolyTours[id].title}`} onClick={() => beginTour(id, nextStep)}>Resume</button><button type="button" aria-label={`Restart ${woolyTours[id].title}`} onClick={() => beginTour(id)}>Restart</button></> : <button type="button" aria-label={`Start or replay ${woolyTours[id].title}`} onClick={() => beginTour(id)}>{saved ? "Replay" : "Start"} <RotateCcw size={14} /></button>}</div>;
           })}</div>
           </WoolyHelpViews>
+          <section className="wooly-move-controls" aria-label="Move Wooly">
+            <strong>Move Wooly</strong>
+            <div className="wooly-actions">
+              <button type="button" aria-label="Move Wooly up" onClick={() => launcherPosition.moveBy("up")}>Up</button>
+              <button type="button" aria-label="Move Wooly left" onClick={() => launcherPosition.moveBy("left")}>Left</button>
+              <button type="button" aria-label="Move Wooly down" onClick={() => launcherPosition.moveBy("down")}>Down</button>
+              <button type="button" aria-label="Move Wooly right" onClick={() => launcherPosition.moveBy("right")}>Right</button>
+              <button type="button" aria-label="Reset Wooly position" onClick={launcherPosition.reset}>Reset</button>
+            </div>
+          </section>
         </div>}
         {tourContent}
         </div></div>

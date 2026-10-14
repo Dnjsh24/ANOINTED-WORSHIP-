@@ -225,7 +225,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
       </div>
 
       {/* Tabs */}
-      <div className="mt-6 flex border-b border-white/[0.08] text-sm">
+      <div className="mt-6 grid grid-cols-2 border-b border-white/[0.08] text-sm sm:flex">
         {(["all", "upcoming", "past", "calendar"] as const).map((filter) => (
           <button
             key={filter}
@@ -239,7 +239,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
               router.push("/events?" + params.toString());
             }}
             className={cn(
-              "px-5 py-3 font-semibold transition-all border-b-2 -mb-px",
+              "min-w-0 px-3 py-3 font-semibold transition-all border-b-2 -mb-px sm:px-5",
               dateFilter === filter ? "border-violet-500 text-violet-300 font-bold" : "border-transparent text-zinc-500 hover:text-white"
             )}
           >

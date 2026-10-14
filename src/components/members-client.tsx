@@ -277,10 +277,10 @@ export function MembersClient({
       {status && <p aria-live="polite" className="mt-4 text-sm font-bold text-zinc-300">{status}</p>}
 
       {/* Two-column main layout */}
-      <section className="mt-7 grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <section className="mt-7 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
         
         {/* COLUMN 1: Requests, Team Code & Summaries */}
-        <div className="flex flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-5">
           {/* Pending Requests */}
           <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
             <div className="flex items-center justify-between mb-4">
@@ -417,8 +417,8 @@ export function MembersClient({
         </div>
 
         {/* COLUMN 2: Active Team Table */}
-        <div className="flex flex-col gap-5">
-          <Panel className="bg-[#111014]/80 p-5">
+        <div className="flex min-w-0 flex-col gap-5">
+          <Panel className="min-w-0 bg-[#111014]/80 p-5">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-lg font-bold text-white">Active Team ({filteredMembers.length})</h2>
               <div className="flex gap-2 max-w-sm flex-1">
@@ -439,7 +439,8 @@ export function MembersClient({
               </div>
             </div>
 
-            <div className="mt-5 overflow-hidden rounded-xl border border-white/[0.08]">
+            <div role="region" aria-label="Team members table" tabIndex={0} className="mt-5 overflow-x-auto rounded-xl border border-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 lg:overflow-hidden">
+              <div className="min-w-[720px] lg:min-w-0">
               <div className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_32px] bg-white/[0.04] px-4 py-3 font-mono text-[9px] font-bold uppercase text-zinc-500 tracking-wider">
                 <span>Member</span>
                 <span>Role</span>
@@ -517,6 +518,7 @@ export function MembersClient({
                     </div>
                   );
                 })}
+              </div>
               </div>
             </div>
             <Link href="/members" className="mt-4 block text-center text-xs font-bold text-violet-400 hover:text-violet-300 transition-colors">

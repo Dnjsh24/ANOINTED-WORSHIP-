@@ -3,6 +3,56 @@ import { blockRemoteSupabase } from "./demo-network";
 
 test.beforeEach(async ({ page }) => { await blockRemoteSupabase(page); });
 
+test("existing header actions and panels fit narrow and short screens", async ({ page }) => {
+  for (const viewport of [{ width: 320, height: 780 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/dashboard");
+    for (const name of ["Edit requests", "Open notifications"]) {
+      const trigger = page.getByRole("button", { name, exact: true });
+      await expect(trigger).toHaveCount(1);
+      await expect(trigger).toBeVisible();
+      await trigger.click();
+      const panel = name === "Edit requests" ? page.getByRole("dialog", { name, exact: true }) : page.getByRole("menu", { name: "Notifications", exact: true });
+      await expect(panel).toBeVisible();
+      const bounds = await panel.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height - 60);
+      const maximumHeight = await panel.evaluate(element => Number.parseFloat(getComputedStyle(element).maxHeight));
+      // Check the upper bound as well as the empty-demo height: a full request list must fit.
+      expect(Number.isFinite(maximumHeight)).toBe(true);
+      expect(bounds!.y + maximumHeight).toBeLessThanOrEqual(viewport.height - 60);
+      if (name === "Edit requests") await page.keyboard.press("Escape");
+      else await trigger.click();
+      await expect(panel).toBeHidden();
+    }
+    const settings = page.getByRole("link", { name: "Open settings", exact: true });
+    await expect(settings).toHaveCount(1);
+    await settings.click();
+    await expect(page).toHaveURL(/\/admin\/settings$/);
+  }
+});
+
+test("member columns and narrow form toolbars remain reachable without page overflow", async ({ page }) => {
+  test.setTimeout(180_000);
+  for (const width of [320, 360, 390, 430, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const route of ["/members", "/songs/new", "/songs/opening-song/edit", "/events", "/announcements"]) {
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      await expect(page.locator("main h1")).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${route} at ${width}px`).toBe(true);
+      if (route === "/members") {
+        const table = page.getByRole("region", { name: "Team members table" });
+        await table.focus();
+        await expect(table).toBeFocused();
+        const dimensions = await table.evaluate(element => ({ client: element.clientWidth, scroll: element.scrollWidth }));
+        if (width < 1024) expect(dimensions.scroll).toBeGreaterThan(dimensions.client);
+      }
+    }
+  }
+});
+
 test("navigation fits phone, tablet, landscape and laptop widths", async ({ page }) => {
   test.setTimeout(120_000);
   for (const width of [320, 393, 768, 820, 1024, 1280, 1440]) {
