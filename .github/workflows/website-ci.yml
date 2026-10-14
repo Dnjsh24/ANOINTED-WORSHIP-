@@ -58,6 +58,11 @@ jobs:
       - run: npm run test:e2e -- --reporter=line
         env:
           E2E_FORCE_DEMO: "1"
+      - name: Verify Wooly launcher on current website routes
+        run: npm run test:e2e -- e2e/wooly-availability.spec.ts --reporter=line
+        env:
+          E2E_FORCE_DEMO: "1"
+          WOOLY_TUTORIAL_ENABLED: "1"
 
   local-database:
     runs-on: ubuntu-latest
@@ -75,6 +80,8 @@ jobs:
       - run: npx supabase db reset
       - run: npm run lint:database:website
       - run: npm run test:supabase:website
+      - run: node scripts/test-wooly-security.mjs
+      - run: node scripts/test-wooly-support-security.mjs
       - run: docker exec -i supabase_db_anointed-worship-setlist psql -U postgres -d postgres -f - < supabase/tests/website_security_regression.sql
       - run: docker exec -i supabase_db_anointed-worship-setlist psql -U postgres -d postgres -f - < supabase/tests/website_function_lint.sql
       - if: always()

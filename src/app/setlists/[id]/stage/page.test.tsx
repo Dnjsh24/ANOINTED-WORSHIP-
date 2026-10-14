@@ -3,6 +3,7 @@ import StagePage from "./page";
 
 const mocks = vi.hoisted(() => ({ connected: false, client: vi.fn(), notes: vi.fn() }));
 vi.mock("@/lib/supabase/workflow-data", () => ({ loadRehearsalNotes: mocks.notes }));
+vi.mock("@/components/wooly/wooly-team-screen", () => ({ WoolyTeamScreen: () => null }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NOT_FOUND"); } }));
 vi.mock("@/lib/supabase/env", () => ({ hasSupabaseEnv: () => mocks.connected }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.client }));

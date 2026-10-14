@@ -24,6 +24,7 @@ export function SetlistTemplatePicker({ templates }: { templates: SetlistTemplat
   return (
     <>
       <Button 
+        data-wooly-target="template-picker-open"
         variant="secondary" 
         onClick={() => setIsOpen(true)}
         className="rounded-xl px-4 py-2 text-xs font-bold"
@@ -34,7 +35,7 @@ export function SetlistTemplatePicker({ templates }: { templates: SetlistTemplat
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="template-picker-title" tabIndex={-1} className="w-full max-w-md rounded-2xl border border-white/10 bg-[#16151a] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div ref={dialogRef} role="dialog" data-wooly-surface="template-picker" data-wooly-target="template-picker-form" aria-modal="true" aria-labelledby="template-picker-title" tabIndex={-1} className="w-full max-w-md rounded-2xl border border-white/10 bg-[#16151a] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-4">
               <h2 id="template-picker-title" className="text-xl font-bold text-white">Choose a Template</h2>
               <button 

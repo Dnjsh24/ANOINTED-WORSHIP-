@@ -195,7 +195,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
     <div className="animate-fade-up">
       {/* Header row */}
       <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+        <div data-wooly-target="event-calendar">
           <h1 className="text-4xl font-extrabold tracking-tight">Events & Rehearsals</h1>
           <p className="mt-1.5 text-sm font-semibold text-zinc-400">
             {memberSubmissionMode ? "View the team calendar and request new gatherings." : "Manage gatherings, rehearsals, and special events."}
@@ -204,7 +204,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
         <div className="flex flex-wrap gap-3">
           <form action="/events" method="get" className="relative flex w-full gap-2 sm:w-[28rem]">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-zinc-500" />
-            <Input name="q" maxLength={100} className="pl-10" placeholder="Search all events..." value={query} onChange={(event) => setQuery(event.target.value)} />
+            <Input data-wooly-target="event-search" name="q" maxLength={100} className="pl-10" placeholder="Search all events..." value={query} onChange={(event) => setQuery(event.target.value)} />
             <input type="hidden" name="view" value={dateFilter} />
             {dateFilter === "calendar" && <input type="hidden" name="month" value={currentDate.getFullYear() + "-" + String(currentDate.getMonth() + 1).padStart(2, "0")} />}
             <select name="sort" aria-label="Sort events" defaultValue={initialSort} className="h-10 rounded-md border border-white/10 bg-[#111014] px-2 text-xs text-white">
@@ -462,7 +462,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
           <aside className="flex flex-col gap-5">
             {canReviewEvents && pendingReviewEvents.length > 0 ? (
               <Panel className="border-t-4 border-t-amber-400 bg-[#111014]/80">
-                <div className="flex items-center justify-between gap-3">
+                <div data-wooly-target="event-requests" className="flex items-center justify-between gap-3">
                   <h2 className="text-sm font-bold text-white">Event Requests</h2>
                   <span className="rounded bg-amber-500/10 px-2 py-1 font-mono text-[9px] font-bold uppercase text-amber-200">
                     {pendingReviewEvents.length} Pending
@@ -540,7 +540,7 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
                   <p className="text-xl font-extrabold text-emerald-400">{availabilityCounts.available}</p>
                   <p className="mt-0.5 text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Going</p>
                 </div>
-                <div className="rounded-xl border border-amber-500/10 bg-amber-500/5 p-3 text-center">
+                <div data-wooly-target="event-availability" className="rounded-xl border border-amber-500/10 bg-amber-500/5 p-3 text-center">
                   <p className="text-xl font-extrabold text-amber-400">{availabilityCounts.maybe}</p>
                   <p className="mt-0.5 text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Maybe</p>
                 </div>

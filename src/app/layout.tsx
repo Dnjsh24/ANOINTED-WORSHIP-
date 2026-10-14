@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { WoolyProvider } from "@/components/wooly/wooly-provider";
 import { headers } from "next/headers";
 import "./globals.css";
 import { PwaRegister } from "@/components/pwa-register";
@@ -77,7 +78,9 @@ export default async function RootLayout({
       <body className="min-h-full bg-[#0d0d10] text-white">
         <PwaRegister enabled={!isDesktopRuntime()} />
         {process.env.NEXT_PUBLIC_MEASURE_WEB_VITALS === "1" && <WebsiteWebVitals />}
-        {children}
+        <WoolyProvider enabled={process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime()}>
+          {children}
+        </WoolyProvider>
       </body>
     </html>
   );

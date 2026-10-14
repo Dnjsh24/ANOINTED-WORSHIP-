@@ -49,6 +49,23 @@ const websiteRoutes = [
 test("every website page renders without server or console errors", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
 
+  // Keep one client alive while route tabs open and close. Document load does
+  // not await PwaRegister's asynchronous service-worker installation.
+  const bootstrapErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") bootstrapErrors.push(message.text());
+  });
+  const bootstrapRequests = await blockRemoteSupabase(page);
+  await page.route("https://fonts.googleapis.com/**", (route) => route.fulfill({ status: 200, contentType: "text/css", body: "" }));
+  await page.goto("/");
+  await expect.poll(() => page.evaluate(async () => {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    return registrations.some((registration) => registration.active?.scriptURL === `${location.origin}/sw.js`);
+  }), { message: "The real website service worker must activate before route tabs close" }).toBe(true);
+  const workerResponse = await page.request.get("/sw.js");
+  expect(workerResponse.status()).toBe(200);
+  expect(workerResponse.headers()["content-type"]).toMatch(/javascript/);
+
   for (const route of websiteRoutes) {
     // Isolate routes so a fullscreen/presenter listener from one page cannot
     // affect the navigation lifecycle of the next page.
@@ -111,6 +128,8 @@ test("every website page renders without server or console errors", async ({ pag
     }
     expect(errors, `${route} emitted runtime errors`).toEqual([]);
   }
+  expect(bootstrapRequests).toEqual([]);
+  expect(bootstrapErrors).toEqual([]);
 });
 
 test("demo health endpoint reports ready", async ({ request }) => {

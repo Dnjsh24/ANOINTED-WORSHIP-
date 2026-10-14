@@ -1,3 +1,4 @@
+import { WoolyTeamScreen } from "@/components/wooly/wooly-team-screen";
 import { notFound } from "next/navigation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -50,14 +51,17 @@ export default async function ProjectorPage({ params }: { params: Promise<{ id: 
 
     if (dbSetlist) {
       return (
-        <ProjectorClient
+        process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <><WoolyTeamScreen context={teamContext} /><ProjectorClient
+          setlistId={id}
+          initialSettings={nestedPresentationSettings(dbSetlist.presentation_settings)}
+        /></> : <ProjectorClient
           setlistId={id}
           initialSettings={nestedPresentationSettings(dbSetlist.presentation_settings)}
         />
       );
     }
   } else if (sampleSetlists.some((setlist) => setlist.id === id)) {
-    return <ProjectorClient setlistId={id} />;
+    return process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <><WoolyTeamScreen context={teamContext} /><ProjectorClient setlistId={id} /></> : <ProjectorClient setlistId={id} />;
   }
 
   notFound();

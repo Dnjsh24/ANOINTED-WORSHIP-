@@ -587,10 +587,10 @@ export default function StageModeClient({
   if (!currentSong) return null;
 
   return (
-    <div className={cn("fixed inset-0 h-[100dvh] bg-black text-white flex flex-col font-sans overflow-hidden transition-shadow duration-300 z-50", metronomePlaying && currentBeat === 1 ? "shadow-[inset_0_0_100px_rgba(255,255,255,0.1)]" : "")}>
+    <div data-wooly-target="stage-chart" className={cn("fixed inset-0 h-[100dvh] bg-black text-white flex flex-col font-sans overflow-hidden transition-shadow duration-300 z-50", metronomePlaying && currentBeat === 1 ? "shadow-[inset_0_0_100px_rgba(255,255,255,0.1)]" : "")}>
       
       {/* Top Bar - Tools */}
-      <div className="flex items-center justify-between px-2 md:px-6 py-3 md:py-4 bg-zinc-950 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar gap-4 md:gap-8">
+      <div data-wooly-target="stage-controls" className="flex items-center justify-between px-2 md:px-6 py-3 md:py-4 bg-zinc-950 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar gap-4 md:gap-8">
         <div className="flex items-center gap-2 md:gap-6 shrink-0">
           <Link href={`/setlists/${setlist.id}`} className="p-2 rounded-full hover:bg-white/10 transition">
             <X className="size-5 md:size-6 text-zinc-400" />
@@ -787,7 +787,7 @@ export default function StageModeClient({
       <RehearsalNote setlistId={setlist.id} slotId={currentSetlistSong.id} note={currentSetlistSong.rehearsalNotes} demoMode={demoMode} stage />
       <div className="flex-1 flex overflow-hidden">
         {/* Chord Chart Area */}
-        <div 
+        <div data-wooly-target="practice-chart"
           ref={scrollRef} 
           style={{ "--user-font-scale": fontScale } as FontScaleStyle}
           className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-10 pb-64 relative"

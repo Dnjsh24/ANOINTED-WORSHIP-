@@ -1,3 +1,5 @@
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
+import { WoolyTeamScreen } from "@/components/wooly/wooly-team-screen";
 import { parseSongSlotNotes } from "@/lib/domain/song-slot-notes";
 import { notFound } from "next/navigation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
@@ -37,7 +39,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
   if (!hasSupabaseEnv()) {
     const sample = sampleSetlists.find(setlist => setlist.id === id);
     if (!sample) notFound();
-    return <StageModeClient demoMode setlist={{
+    const content = <StageModeClient demoMode setlist={{
       id: sample.id,
       date: sample.date,
       type: sample.eventType ?? "service",
@@ -51,6 +53,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
         song: { id: slot.song.id, title: slot.song.title, bpm: slot.song.bpm ?? 70, originalKey: slot.song.originalKey, timeSignature: slot.song.timeSignature ?? "4/4", lyricsChords: formatSongToText(slot.song) },
       })),
     }} />;
+    return process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <><WoolyTeamScreen context={teamContext} />{content}</> : content;
   }
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
@@ -122,7 +125,8 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
         songs: songsList,
       };
 
-      return <StageModeClient setlist={setlist} rehearsalNotesMessage={rehearsalNotes.ok ? undefined : rehearsalNotes.message} />;
+      const content = <StageModeClient setlist={setlist} rehearsalNotesMessage={rehearsalNotes.ok ? undefined : rehearsalNotes.message} />;
+      return process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <><WoolyTeamScreen context={teamContext} />{content}</> : content;
     }
   }
 

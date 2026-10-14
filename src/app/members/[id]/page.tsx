@@ -142,7 +142,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
           </div>
         </Card>
         <Panel>
-          <h2 className="text-2xl font-bold">Member Details</h2>
+          <h2 data-wooly-target="member-detail" className="text-2xl font-bold">Member Details</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="rounded-md border border-white/10 bg-white/[0.04] p-4">
               <p className="flex items-center gap-2 text-sm font-bold text-zinc-300">

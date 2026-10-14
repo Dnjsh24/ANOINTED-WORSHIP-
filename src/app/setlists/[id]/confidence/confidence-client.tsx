@@ -213,7 +213,7 @@ export default function ConfidenceClient({
   }
 
   return (
-    <div className="fixed inset-0 bg-black text-white p-8 sm:p-12 overflow-hidden flex flex-col font-sans">
+    <div data-wooly-target="confidence-output" className="fixed inset-0 bg-black text-white p-8 sm:p-12 overflow-hidden flex flex-col font-sans">
       {!isConnected && (
         <div className="absolute top-4 right-4 bg-red-600 px-3 py-1 rounded text-xs font-bold uppercase z-50">
           Offline

@@ -123,7 +123,7 @@ export default function WorshipRemoteClient({ initialError }: { initialError?: s
             </div>
           </div>
 
-          <form onSubmit={submitPin} className="mt-5">
+          <form data-wooly-target="remote-pin" onSubmit={submitPin} className="mt-5">
             <label htmlFor="worship-remote-pin" className="sr-only">Six-digit pairing code</label>
             <input
               id="worship-remote-pin"
@@ -169,6 +169,7 @@ export default function WorshipRemoteClient({ initialError }: { initialError?: s
               setStatus("idle");
               setScannerOpen(true);
             }}
+            data-wooly-target="remote-scan"
             disabled={status === "connecting"}
             className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 text-sm font-black transition hover:border-white/20 hover:bg-white/[0.09] disabled:opacity-40"
           >
