@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, Play, SlidersHorizontal } from "lucide-react";
+import { Heart, Play, Search, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useTransition } from "react";
@@ -58,35 +58,35 @@ export function SongLibraryGrid({
 
   return (
     <>
-      <form action="/songs" method="get" className="mt-8 flex flex-col gap-3 rounded-xl border border-white/10 bg-[#17161b] p-4 sm:flex-row sm:items-end">
-        <label className="flex-1 space-y-1.5">
-          <span className="text-xs font-semibold text-zinc-400">Search the full song library</span>
-          <Input data-wooly-target="song-search" name="q" defaultValue={searchTerm} maxLength={100} placeholder="Title, artist, or tag" />
-        </label>
-        <label className="space-y-1.5">
-          <span className="text-xs font-semibold text-zinc-400">Sort results</span>
-          <select name="sort" defaultValue={sortBy} className="h-10 rounded-md border border-white/10 bg-[#111014] px-3 text-sm text-white">
-            <option value="title">Title A–Z</option>
-            <option value="playCount">Most played</option>
-          </select>
-        </label>
-        <label className="flex min-h-10 items-center gap-2 text-sm font-semibold text-zinc-300">
-          <input type="checkbox" name="favorites" value="true" defaultChecked={favoritesOnly} className="size-4 accent-violet-500" />
-          Favorites only
-        </label>
-        <Button type="submit" className="shrink-0"><SlidersHorizontal className="size-4" /> Apply</Button>
+      <form action="/songs" method="get" className="mt-6 sm:mt-8">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="relative min-w-0 flex-1 sm:max-w-xs">
+            <button type="submit" aria-label="Search songs" className="absolute inset-y-0 left-0 flex w-10 items-center justify-center rounded-l-md text-zinc-500 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300">
+              <Search aria-hidden="true" className="size-4" />
+            </button>
+            <Input data-wooly-target="song-search" aria-label="Search by title, artist, or tag" name="q" defaultValue={searchTerm} maxLength={100} placeholder="Search songs..." className="pl-10 text-xs sm:text-sm" />
+          </div>
+          <Button data-wooly-target="song-filters" type="button" aria-label="Toggle song filters" aria-expanded={filtersOpen} aria-controls="song-filter-options" variant="secondary" className="h-10 shrink-0 px-3 text-xs sm:px-4 sm:text-sm" onClick={() => setFiltersOpen((value) => !value)}>
+            <SlidersHorizontal aria-hidden="true" className="size-4 text-violet-300" />
+            Filters
+          </Button>
+        </div>
+        <div id="song-filter-options" hidden={!filtersOpen} className="mt-4 flex flex-wrap items-end gap-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-4">
+          <label className="space-y-1.5">
+            <span className="block text-xs font-semibold text-zinc-400">Sort results</span>
+            <select name="sort" defaultValue={sortBy} className="h-10 rounded-md border border-white/10 bg-[#111014] px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300">
+              <option value="title">Title A–Z</option>
+              <option value="playCount">Most played</option>
+            </select>
+          </label>
+          <label className="flex min-h-10 items-center gap-2 text-sm font-semibold text-zinc-300">
+            <input type="checkbox" name="favorites" value="true" defaultChecked={favoritesOnly} className="size-4 accent-violet-500" />
+            Favorites only
+          </label>
+          <Button type="submit" className="h-10">Apply filters</Button>
+        </div>
       </form>
       {status && <p role="status" className={statusOk ? "mt-4 text-sm font-bold text-emerald-300" : "mt-4 text-sm font-bold text-amber-200"}>{status}</p>}
-      <div className="mt-4 flex justify-end">
-        <Button data-wooly-target="song-filters" type="button" aria-label="Toggle song filters" variant="secondary" onClick={() => setFiltersOpen((value) => !value)}>
-          <SlidersHorizontal className="size-4 text-violet-300" /> {filtersOpen ? "Hide filters" : "Filters"}
-        </Button>
-      </div>
-      {filtersOpen && (
-        <p className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs text-zinc-400">
-          Search, favorites, and title order apply before pages are loaded. Global play-count sorting is not available yet.
-        </p>
-      )}
       {songs.length ? (
         <div data-wooly-target="song-list" className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {songs.map((song) => (

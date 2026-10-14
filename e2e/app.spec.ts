@@ -270,12 +270,14 @@ test("team/profile/song/settings controls are interactive", async ({ page }) => 
   await expect(page.getByText(/Password reset needs a Supabase email reset flow/i)).toBeVisible();
 
   await page.goto("/songs");
-  await page.getByPlaceholder("Title, artist, or tag").fill("Opening");
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await page.getByPlaceholder("Search songs...").fill("Opening");
+  await page.getByPlaceholder("Search songs...").press("Enter");
   await expect(page.getByRole("link", { name: /Opening Song/i })).toBeVisible();
+  await page.getByRole("button", { name: "Toggle song filters" }).click();
   await page.getByRole("checkbox", { name: "Favorites only" }).check();
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await page.getByRole("button", { name: "Apply filters", exact: true }).click();
   await expect(page).toHaveURL(/favorites=true/);
+  await page.getByRole("button", { name: "Toggle song filters" }).click();
   await expect(page.getByRole("checkbox", { name: "Favorites only" })).toBeChecked();
 
   await page.goto("/admin/settings");

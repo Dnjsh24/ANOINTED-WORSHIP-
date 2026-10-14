@@ -17,7 +17,7 @@ export function RegenerateTeamCodeButton() {
       <Button
         type="button"
         disabled={isPending}
-        className="mt-5"
+        className="mt-5 w-full"
         variant="secondary"
         onClick={() => {
           if (!window.confirm("Regenerate the team code? Existing copied codes will stop working.")) {
