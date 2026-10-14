@@ -40,6 +40,7 @@ describe("atomic workspace action outcomes", () => {
     await createSetlistAction({ok:false,message:""},form);
     expect(mocks.rpc).toHaveBeenCalledWith("save_setlist_workspace",expect.objectContaining({p_team_id:teamId,p_setlist_id:null,p_event_id:null,p_details:expect.objectContaining({update_event:false}),p_song_ids:[targetId]}));
     expect(mocks.redirect).toHaveBeenCalledWith(`/setlists/${targetId}`);
+    expect(mocks.revalidate).not.toHaveBeenCalledWith("/events");
   });
   it("links an explicitly selected rehearsal without changing Timeline details", async () => {
     const form = setlistForm();
@@ -51,6 +52,9 @@ describe("atomic workspace action outcomes", () => {
       p_event_id: memberId, p_details: expect.objectContaining({ update_event: false }),
     }));
     expect(mocks.redirect).toHaveBeenCalledWith(`/setlists/${targetId}`);
+    expect(mocks.revalidate).toHaveBeenCalledWith("/events");
+    expect(mocks.revalidate).toHaveBeenCalledWith(`/events/${memberId}`);
+    expect(mocks.revalidate).toHaveBeenCalledWith("/dashboard");
   });
   it("preserves a setlist draft when creation fails", async () => {
     const form=setlistForm();

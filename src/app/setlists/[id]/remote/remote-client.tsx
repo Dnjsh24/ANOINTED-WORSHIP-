@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
@@ -65,12 +66,14 @@ export default function RemoteClient({
   cloudTopic,
   cloudPrivate = false,
   cloudExpiresAt,
+  woolyHelpEnabled = false,
 }: {
   setlist: RemoteSetlist;
   desktopMode?: boolean;
   cloudTopic?: string;
   cloudPrivate?: boolean;
   cloudExpiresAt?: string;
+  woolyHelpEnabled?: boolean;
 }) {
   const [songIndex, setSongIndex] = useState(0);
   const [activeSourcePanel, setActiveSourcePanel] = useState<RemoteSourcePanel>("lineup");
@@ -356,7 +359,7 @@ export default function RemoteClient({
     stageFlashStyle: flashStyle,
   });
 
-  return <main className="min-h-[100dvh] bg-[#101010] text-zinc-100">
+  return <main data-wooly-target="remote-controls" className="min-h-[100dvh] bg-[#101010] text-zinc-100">
     <header className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-[#171717] px-4 py-3">
       <div className="flex items-center gap-2">
         <Music className="size-4 text-violet-300" />
@@ -368,6 +371,7 @@ export default function RemoteClient({
       <span className={`rounded px-2 py-1 text-[10px] font-bold ${connected ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"}`}>
         {pairingExpired ? "Pairing expired" : controllerReady ? "Presenter connected" : connectionError ? "Connection blocked" : connected ? "Waiting for Presenter" : "Presenter not connected"}
       </span>
+      {cloudTopic && woolyHelpEnabled && <Link href="?wooly=1" className="inline-flex min-h-11 items-center rounded-lg border border-violet-300/30 px-3 text-xs font-bold text-violet-200">Help with Wooly</Link>}
     </header>
 
     {live?.controller === "desktop" && <div className="border-b border-amber-400/30 bg-amber-400/10 px-4 py-2 text-center text-xs font-semibold text-amber-200">
@@ -537,7 +541,7 @@ export default function RemoteClient({
         </>}
       </section>
 
-      <aside className="space-y-3">
+      <aside data-wooly-target="remote-navigation" className="space-y-3">
         <section className="rounded border border-white/10 bg-white/[.03] p-3">
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Navigation</p>
           <div className="grid grid-cols-4 gap-1">

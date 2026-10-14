@@ -1,3 +1,5 @@
+import { isDesktopRuntime } from "@/lib/desktop/runtime";
+import { WoolyTeamScreen } from "@/components/wooly/wooly-team-screen";
 import { notFound } from "next/navigation";
 import { parseLyricsAndChords } from "@/lib/domain/chords";
 import { setlists as sampleSetlists } from "@/lib/sample-data";
@@ -167,5 +169,6 @@ export default async function PracticeSetlistPage({ params }: { params: Promise<
 
   if (!setlist) notFound();
 
-  return <PracticeModeClient key={setlist.id} setlist={setlist} preparation={preparation} memberId={teamContext.memberId} canManage={canForTeam(teamContext, "setlists.manage")} proposeAction={requestRehearsalPlanAction.bind(null, setlist.id)} />;
+  const content = <PracticeModeClient key={setlist.id} setlist={setlist} preparation={preparation} memberId={teamContext.memberId} canManage={canForTeam(teamContext, "setlists.manage")} proposeAction={requestRehearsalPlanAction.bind(null, setlist.id)} demoMode={!hasSupabaseEnv()} />;
+  return process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <><WoolyTeamScreen context={teamContext} />{content}</> : content;
 }

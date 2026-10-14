@@ -160,7 +160,7 @@ export function EventForm({
 
   return (
     <div className="animate-fade-in">
-      <form className="space-y-6" onSubmit={(event) => {
+      <form data-wooly-target="event-details" className="space-y-6" onSubmit={(event) => {
         event.preventDefault();
         if (checkingConflicts || (conflicts.length > 0 && acknowledgedSchedule !== schedule)) return;
         const data = new FormData(event.currentTarget);
@@ -319,7 +319,7 @@ export function EventForm({
             )}
 
             
-            <h3 className="text-sm font-bold text-white mt-6 mb-2 pb-2 border-b border-white/[0.04]">Team Assignments</h3>
+            <h3 data-wooly-target="event-assignments" className="text-sm font-bold text-white mt-6 mb-2 pb-2 border-b border-white/[0.04]">Team Assignments</h3>
 
             <RoleSelect
               name="worshipLeader"
@@ -442,7 +442,7 @@ export function EventForm({
           <ButtonLink href="/events" variant="secondary" className="rounded-xl px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]">
             Cancel
           </ButtonLink>
-          <Button type="submit" disabled={pendingSave} className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
+          <Button data-wooly-target="event-save" type="submit" disabled={pendingSave} className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
             {pendingSave ? "Saving…" : initialEvent ? "Save Changes" : requiresApproval ? "Request Event" : "Create Event"}
           </Button>
         </div>

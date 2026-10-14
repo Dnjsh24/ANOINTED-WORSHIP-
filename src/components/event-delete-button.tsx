@@ -13,6 +13,7 @@ export function EventDeleteButton({ eventId }: { eventId: string }) {
   return (
     <>
       <button
+        data-wooly-target="event-delete-open"
         type="button"
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-bold text-red-200 transition hover:bg-red-500/20 hover:border-red-400/50"
@@ -29,6 +30,8 @@ export function EventDeleteButton({ eventId }: { eventId: string }) {
           <div
             ref={dialogRef}
             role="dialog"
+            data-wooly-surface="event-delete"
+            data-wooly-target="event-delete-dialog"
             aria-modal="true"
             aria-labelledby="delete-event-title"
             tabIndex={-1}

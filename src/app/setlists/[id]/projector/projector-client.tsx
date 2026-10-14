@@ -298,7 +298,7 @@ function SlideRenderer({
 }) {
   if (slide.mediaKind === "pdf-page" && slide.mediaUrl && slide.pdfPage) {
     return (
-      <div className={cn("fixed inset-0 overflow-hidden", transitionClass)} style={{ animationDuration: "0.5s" }}>
+      <div data-wooly-target="projector-output" className={cn("fixed inset-0 overflow-hidden", transitionClass)} style={{ animationDuration: "0.5s" }}>
         <PdfPageCanvas url={slide.mediaUrl} pageNumber={slide.pdfPage} label={`${slide.sectionLabel || "PDF"} page ${slide.pdfPage}`} />
       </div>
     );
@@ -306,7 +306,7 @@ function SlideRenderer({
   // Handle PDF/Image slides if they are passed as 'media'
   if (slide.mediaUrl) {
     return (
-       <div className={cn("fixed inset-0 flex items-center justify-center overflow-hidden bg-black transition-colors duration-300", transitionClass)} style={{ animationDuration: '0.5s' }}>
+       <div data-wooly-target="projector-output" className={cn("fixed inset-0 flex items-center justify-center overflow-hidden bg-black transition-colors duration-300", transitionClass)} style={{ animationDuration: '0.5s' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img 
              src={slide.mediaUrl} 
@@ -324,6 +324,7 @@ function SlideRenderer({
   return (
     <div 
       className={cn("fixed inset-0 flex flex-col justify-center p-8 sm:p-16 overflow-hidden transition-colors duration-300", transitionClass)} 
+      data-wooly-target="projector-output"
       style={containerStyle}
     >
       {lookLayout.showSceneLayers && ((slide.sceneLayers || []) as SceneLayer[]).filter((layer) => !layer.hidden).map((layer, index) => {

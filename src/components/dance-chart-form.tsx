@@ -39,7 +39,7 @@ export function DanceChartForm({
   const [state, formAction] = useActionState(action, initialActionState);
 
   return (
-    <form action={formAction} className="space-y-5 rounded-xl border border-white/10 bg-[#111014]/80 p-5">
+    <form data-wooly-target="dance-form" action={formAction} className="space-y-5 rounded-xl border border-white/10 bg-[#111014]/80 p-5">
       {chart && <input type="hidden" name="chartId" value={chart.id} />}
       
       <div>
@@ -163,7 +163,7 @@ export function DanceChartForm({
         >
           Cancel
         </Link>
-        <SubmitButton>{chart ? "Save Changes" : "Save Dance Chart"}</SubmitButton>
+        <SubmitButton data-wooly-target="dance-save">{chart ? "Save Changes" : "Save Dance Chart"}</SubmitButton>
       </div>
     </form>
   );

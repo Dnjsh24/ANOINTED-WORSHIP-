@@ -27,9 +27,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
 import type { EventType, SetlistChangeLog } from "@/lib/types";
 import type { Database } from "@/lib/supabase/database.types";
-import { SharedPreparation } from "@/components/shared-preparation";
-import { loadPreparationWorkspace } from "@/lib/supabase/workflow-data";
-import { requestRehearsalPlanAction } from "@/app/workflow-proposals";
+import { loadRehearsalNotes } from "@/lib/supabase/workflow-data";
 
 type DetailSetlistSong = OrderedSetlistSong & { youtubeUrl: string | null };
 type DetailSetlist = {
@@ -430,8 +428,8 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
       })
     : "Sunday, July 12, 2026";
   const setlistTypeLabel = getSetlistTypeLabel(setlist);
-  const preparation = hasSupabaseEnv()
-    ? await loadPreparationWorkspace(await createClient(), teamContext.teamId, setlist.id, setlist.eventId, setlist.songs.map(song => song.id))
+  const rehearsalNotes = hasSupabaseEnv()
+    ? await loadRehearsalNotes(await createClient(), teamContext.teamId, setlist.id, setlist.songs.map(slot => slot.id))
     : null;
 
   return (
@@ -446,12 +444,15 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           </p>
           <p className="mt-2 text-sm font-semibold text-violet-300">{setlistTypeLabel}</p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div data-wooly-target="setlist-actions" className="flex flex-wrap gap-3">
           <ButtonLink href={`/setlists/${setlist.id}/stage`} className="bg-violet-600 hover:bg-violet-500 text-white border-transparent">
             Stage
           </ButtonLink>
           <ButtonLink href={`/setlists/${setlist.id}/practice`} variant="secondary">
             Practice
+          </ButtonLink>
+          <ButtonLink href={`/setlists/${setlist.id}/rehearsal`} variant="secondary">
+            Team rehearsal plan
           </ButtonLink>
           <ButtonLink href={`/setlists/${setlist.id}/edit`} variant="secondary">
             Edit Details
@@ -460,15 +461,9 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      {preparation && <div className="mt-6">{preparation.ok ? <SharedPreparation
-        key={setlist.id} setlistId={setlist.id} name={setlist.name}
-        songs={setlist.songs.map(slot => ({ id: slot.id, title: slot.song.title, assignedKey: slot.assignedKey, bpm: slot.song.bpm, lead: slot.lead, arrangement: slot.arrangement }))}
-        workspace={preparation.data} memberId={teamContext.memberId} canManage={canManageSetlist}
-        proposeAction={requestRehearsalPlanAction.bind(null, setlist.id)}
-      /> : <Panel><p role="status" className="text-sm text-amber-200">{preparation.message}</p></Panel>}</div>}
-
       <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_340px] animate-fade-up" style={{ animationDelay: "100ms" }}>
         <div className="min-w-0 space-y-6">
+          {rehearsalNotes && !rehearsalNotes.ok && <Panel><p role="status" className="text-sm text-amber-200">Rehearsal notes: {rehearsalNotes.message}</p></Panel>}
           <div className="grid gap-5 md:grid-cols-2">
             <Panel className="card-hover">
               <MapPin className="size-6 text-violet-200" />
@@ -504,8 +499,8 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             </> : <p className="mt-3 text-sm text-zinc-300">Attendance opens when an event is linked to this setlist.</p>}
           </Panel>
 
-          <div>
-            <div className="flex items-center justify-between">
+          <div data-wooly-target="setlist-order">
+            <div data-wooly-target="setlist-songs" className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Song Order</h2>
               <ButtonLink href={`/setlists/${setlist.id}/add-song`} variant="ghost" className="hover:text-violet-200">
                 + Add Song
@@ -514,7 +509,8 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
             <div className="mt-4">
               <SetlistSongOrder 
                 setlistId={setlist.id} 
-                initialSongs={setlist.songs} 
+                  initialSongs={setlist.songs.map(slot => ({ ...slot, rehearsalNotes: rehearsalNotes?.ok ? rehearsalNotes.data[slot.id] : undefined }))}
+                  demoMode={!hasSupabaseEnv()}
                 canManageSetlist={canManageSetlist} 
               />
             </div>
@@ -553,7 +549,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
 
           {setlist.songs.filter(hasYoutubeUrl).length > 0 && (
             <Panel className="card-hover h-fit">
-              <h2 className="text-lg font-bold">Practice Tools</h2>
+              <h2 data-wooly-target="setlist-practice-tools" className="text-lg font-bold">Practice Tools</h2>
               <div className="mt-4 space-y-4">
                 {setlist.songs.filter(hasYoutubeUrl).map((item) => (
                   <div key={item.id}>
@@ -575,7 +571,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           )}
 
           <Panel className="card-hover h-fit">
-            <h2 className="text-2xl font-bold text-violet-100">Team</h2>
+            <h2 data-wooly-target="setlist-team" className="text-2xl font-bold text-violet-100">Team</h2>
             {teamAssignmentsList.length === 0 ? (
               <p className="mt-4 text-sm font-semibold text-zinc-400">No members assigned to this service yet.</p>
             ) : (
@@ -616,7 +612,7 @@ export default async function SetlistDetailPage({ params }: { params: Promise<{ 
           <Panel className="card-hover h-fit">
             <div className="flex items-center gap-3">
               <History className="size-5 text-violet-200" />
-              <h2 className="text-lg font-bold">Version History</h2>
+              <h2 data-wooly-target="setlist-history" className="text-lg font-bold">Version History</h2>
             </div>
             {versionHistory.length === 0 ? (
               <p className="mt-3 text-sm font-semibold text-zinc-400">Changes will appear after this setlist is saved.</p>

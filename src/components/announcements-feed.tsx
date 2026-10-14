@@ -37,7 +37,7 @@ export function AnnouncementsFeed({ announcements, canManage }: { announcements:
   );
 
   return (
-    <section className="mt-7 grid gap-3">
+    <section data-wooly-target="notice-feed" className="mt-7 grid gap-3">
       {categories.length > 1 && (
         <div className="flex flex-wrap gap-2 mb-2">
           {categories.map((cat) => (

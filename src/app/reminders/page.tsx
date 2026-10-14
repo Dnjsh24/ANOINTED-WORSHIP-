@@ -281,7 +281,7 @@ export default async function RemindersPage() {
         </div>
       </section>
 
-      <section className="mt-7 grid gap-3">
+      <section data-wooly-target="reminder-feed" className="mt-7 grid gap-3">
         {reminders.length > 0 ? (
           reminders.map((reminder, index) => {
             const visual = getReminderVisual(reminder.title);

@@ -1,0 +1,44 @@
+.wooly-panel[role="dialog"] { bottom: 24px; }
+.wooly-views { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.wooly-views button,.wooly-chat-composer>button,.wooly-thread button,.wooly-support-page button { border: 1px solid #655277; border-radius: .6rem; background: #231c31; color: #f7f4ff; padding: .55rem .75rem; min-height: 44px; cursor: pointer; }
+.wooly-views button[aria-pressed="true"],.wooly-chat-composer>button,.wooly-support-page .wooly-primary { background: #7c3aed; }
+.wooly-chat-messages { list-style: none; margin: 0; padding: 0; display: grid; gap: .9rem; }
+.wooly-chat-question { display: grid; gap: .25rem; border-left: 3px solid #a78bfa; padding-left: .65rem; overflow-wrap: anywhere; }
+.wooly-chat-reply { padding: .7rem; background: #231c31; border-radius: .7rem; overflow-wrap: anywhere; }
+.wooly-chat-reply .wooly-typed-text { min-height: 0; white-space: pre-wrap; }
+.wooly-message-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.wooly-actions a,.wooly-support-link,.wooly-thread>a { color: #ddd1ff; text-decoration: underline; text-underline-offset: 3px; }
+.wooly-chat-composer { margin-top: 1rem; display: grid; gap: .5rem; }
+.wooly-panel label,.wooly-support-page label { display: grid; gap: .35rem; margin: .65rem 0; }
+.wooly-panel textarea,.wooly-support-page textarea,.wooly-support-page input,.wooly-support-page select { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #655277; border-radius: .55rem; background: #111014; color: #f7f4ff; padding: .65rem; font: inherit; resize: vertical; }
+.wooly-panel textarea:focus-visible,.wooly-panel a:focus-visible,.wooly-support-page :is(button,a,input,textarea,select):focus-visible { outline: 3px solid #a78bfa; outline-offset: 2px; }
+.wooly-panel button:disabled,.wooly-support-page button:disabled { opacity: .55; cursor: not-allowed; }
+.wooly-support-status { display: block; color: #c4b5cf; font-size: .8rem; text-transform: capitalize; }
+.wooly-support-link { display: block; margin-top: 1rem; }
+.wooly-reply-badge { position: absolute; top: 0; right: 0; background: #7c3aed; color: white; border: 2px solid #f7f3ff; border-radius: 1rem; min-width: 24px; padding: 2px; font: 700 .8rem system-ui; }
+.wooly-support-page { max-width: 1100px; margin: auto; padding: 1.5rem; color: #f7f4ff; }
+.wooly-support-layout { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(0, 2fr); gap: 1.5rem; margin-top: 1rem; }
+.wooly-support-card { border: 1px solid #655277; border-radius: 1rem; background: #18171c; padding: 1rem; }
+.wooly-support-page h1 { font-size: 1.7rem; font-weight: 700; }.wooly-support-page h2 { font-size: 1.2rem; font-weight: 700; margin: 1rem 0 .5rem; }
+.wooly-support-page .wooly-topic-list button { width: 100%; text-align: left; overflow-wrap: anywhere; }
+.wooly-article-editor { margin-top: 1.5rem; }.wooly-article-preview { white-space: pre-wrap; padding: 1rem; border: 1px dashed #a78bfa; border-radius: .6rem; }
+@media (max-width: 767px) {
+  .wooly-launcher { --wooly-launcher-size: 80px; right: .85rem; bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .wooly-panel[role="dialog"] { bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .wooly-support-layout { grid-template-columns: minmax(0, 1fr); }
+  .wooly-support-page { padding: 1rem; }
+}
+@media (min-width: 641px) and (max-width: 767px) { .wooly-panel[role="dialog"] { --wooly-companion-size: 144px; width: calc(100vw - 2rem); } }
+.wooly-answer-steps{margin-block:.75rem;padding:.6rem;border:1px solid #655277;border-radius:.6rem}
+.wooly-answer-steps summary{cursor:pointer;min-height:44px;display:list-item;padding:.5rem}
+.wooly-answer-steps ol{list-style:decimal;padding-left:1.5rem}.wooly-answer-steps li{margin-block:.6rem}
+.wooly-task-list{max-height:18rem;overflow:auto;overscroll-behavior:contain;margin-bottom:1rem}
+.wooly-task-list small{color:#c4b5fd}
+.wooly-inline-guide{position:relative;z-index:1;margin:1rem;border:1px solid #a78bfa;border-radius:1rem;background:#18171c;color:#f7f4ff;font:400 .9rem/1.5 system-ui,sans-serif;overflow-wrap:anywhere}
+.wooly-inline-header{display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem;border-bottom:1px solid #393640}
+.wooly-inline-header button{min-width:44px;min-height:44px;background:transparent;color:inherit;border:0;font-size:1.5rem}
+.wooly-inline-guide .wooly-content{max-height:36dvh;overflow:auto;overscroll-behavior:contain}
+.wooly-inline-guide .wooly-typed-text{min-height:0}
+.wooly-inline-guide :focus-visible,.wooly-answer-steps summary:focus-visible{outline:2px solid #c4b5fd;outline-offset:3px}
+[data-wooly-highlight="true"]{outline:2px solid #c4b5fd;outline-offset:4px}
+.wooly-inline-guide{flex:0 1 auto;min-height:0;max-height:44dvh;overflow:auto}

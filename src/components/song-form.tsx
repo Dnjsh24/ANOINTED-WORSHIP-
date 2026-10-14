@@ -279,7 +279,7 @@ export function SongForm({
   }, []);
 
   return (
-    <form onSubmit={event => {
+    <form data-wooly-target="song-details" onSubmit={event => {
       event.preventDefault();
       const data = new FormData(event.currentTarget);
       startSaveTransition(() => formAction(data));
@@ -483,7 +483,7 @@ export function SongForm({
 
           {/* Textarea */}
           <div className="flex-1 min-h-[220px]">
-            <textarea
+            <textarea data-wooly-target="song-chart-input"
               ref={lyricsRef}
               name="lyrics"
               aria-label="Lyrics and chords"
@@ -508,7 +508,7 @@ export function SongForm({
         <div>
           {song && canDelete && (
             <>
-              <button
+              <button data-wooly-target="song-delete-open"
                 type="button"
                 onClick={() => setDeleteModalOpen(true)}
                 className="flex items-center gap-1.5 text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
@@ -522,7 +522,7 @@ export function SongForm({
                   className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
                   onClick={() => setDeleteModalOpen(false)}
                 >
-                  <div
+                  <div data-wooly-surface="song-delete" data-wooly-target="song-delete-dialog"
                     ref={deleteDialogRef}
                     role="dialog"
                     aria-modal="true"
@@ -579,7 +579,7 @@ export function SongForm({
           <ButtonLink href={cancelHref ?? (song ? `/songs/${song.id}` : "/songs")} variant="secondary" className="rounded-xl px-6 py-2.5 text-xs font-bold text-zinc-300 hover:bg-white/[0.08]">
             Cancel
           </ButtonLink>
-          <Button type="submit" disabled={pendingSave} className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
+          <Button data-wooly-target="song-save" type="submit" disabled={pendingSave} className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
             {pendingSave ? "Saving…" : song ? isProposal ? "Submit edit request" : "Save Song" : "Create Song"}
           </Button>
         </div>

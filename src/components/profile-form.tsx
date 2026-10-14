@@ -76,7 +76,7 @@ export function ProfileForm({
   }
 
   return (
-    <form action={formAction} className="space-y-6 animate-fade-in">
+    <form data-wooly-target="profile-details" action={formAction} className="space-y-6 animate-fade-in">
       <ActionMessage state={state} />
       {profileStatus ? (
         <p aria-live="polite" className="rounded-md border border-violet-400/30 bg-violet-400/10 px-3 py-2 text-sm font-semibold text-violet-100">
@@ -234,7 +234,7 @@ export function ProfileForm({
       {/* Buttons */}
       <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <SubmitButton className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
+          <SubmitButton data-wooly-target="profile-save" className="rounded-xl bg-violet-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-violet-500">
             Save Changes
           </SubmitButton>
           <button

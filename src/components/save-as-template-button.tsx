@@ -33,6 +33,7 @@ export function SaveAsTemplateButton({ setlistId }: { setlistId: string }) {
   return (
     <>
       <Button 
+        data-wooly-target="save-template-open"
         variant="secondary" 
         onClick={() => setIsOpen(true)}
         className="rounded-xl px-4 py-2 text-xs font-bold"
@@ -43,7 +44,7 @@ export function SaveAsTemplateButton({ setlistId }: { setlistId: string }) {
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="save-template-title" tabIndex={-1} className="w-full max-w-md rounded-2xl border border-white/10 bg-[#16151a] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div ref={dialogRef} role="dialog" data-wooly-surface="save-template" data-wooly-target="template-form" aria-modal="true" aria-labelledby="save-template-title" tabIndex={-1} className="w-full max-w-md rounded-2xl border border-white/10 bg-[#16151a] p-6 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between mb-4">
               <h2 id="save-template-title" className="text-xl font-bold text-white">Save as Template</h2>
               <button 

@@ -193,7 +193,7 @@ export function ArrangementEditor({
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4 sm:p-0">
       <div
         ref={dialogRef}
-        role="dialog"
+        role="dialog" data-wooly-surface="arrangement" data-wooly-target="arrangement-form"
         aria-modal="true"
         aria-labelledby="arrangement-editor-title"
         tabIndex={-1}

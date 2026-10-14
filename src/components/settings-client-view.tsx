@@ -136,7 +136,7 @@ export function SettingsClientView({
   return (
     <div className="mt-7 grid gap-6 lg:grid-cols-[240px_1fr] animate-fade-up">
       {/* Sidebar Tabs */}
-      <aside className="flex flex-col gap-1">
+      <aside data-wooly-target="settings-tabs" className="flex flex-col gap-1">
         {TABS.map((tab) => {
           const TabIcon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -162,7 +162,7 @@ export function SettingsClientView({
       </aside>
 
       {/* Main Settings Content Area */}
-      <div className="space-y-6">
+      <div data-wooly-target="settings-content" className="space-y-6">
         {settingsStatus ? (
           <p
             aria-live="polite"
