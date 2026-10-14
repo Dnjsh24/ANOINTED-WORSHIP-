@@ -230,5 +230,6 @@ export function getWoolyPageGuideId(pathname: string): WoolyPageTourId | null {
 // These pages render redirects on the website; the destination owns the guide.
 // This private operations page uses a dedicated support role, not team-tour access.
 // Shared edit requests are explicitly outside this catalog until their guides are verified.
-export const woolyOperationalRoutes = ["/support/wooly", "/requests", "/requests/new"] as const;
+// The new rehearsal plan also needs verified instructions and persisted checkpoints.
+export const woolyOperationalRoutes = ["/support/wooly", "/requests", "/requests/new", "/setlists/[id]/rehearsal"] as const;
 export const woolyRedirectRoutes = ["/presenter", "/setlists/[id]/presenter", "/setlists/[id]/remote"] as const;
