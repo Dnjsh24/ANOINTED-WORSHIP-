@@ -419,28 +419,28 @@ export default async function DashboardPage() {
     <AppShell active="Home" teamContext={teamContext}>
       {/* ── Header row ─────────────────────────────── */}
       <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between animate-fade-down">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-4xl font-extrabold tracking-tight">Home</h1>
-          <p className="mt-1 text-sm font-semibold text-zinc-400">
+          <p className="mt-1 break-words text-sm font-semibold text-zinc-400">
             Welcome back, <span className="text-violet-300">{firstName}</span>. Ready for {teamContext.teamName ?? "Sunday Setlist"} this week.
           </p>
         </div>
         {nextEvent && (
           <Link
             href={`/events/${nextEvent.id}`}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-zinc-200 transition-all duration-200 hover:border-violet-400/50 hover:bg-white/[0.09] hover:text-white"
+            className="inline-flex min-w-0 max-w-full flex-wrap items-center gap-2 break-words rounded-lg border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-semibold text-zinc-200 transition-all duration-200 hover:border-violet-400/50 hover:bg-white/[0.09] hover:text-white"
           >
-            <CalendarDays className="size-4 text-violet-400" />
-            Next up: {nextEvent.name}
+            <CalendarDays className="size-4 shrink-0 text-violet-400" />
+            <span className="min-w-0 [overflow-wrap:anywhere]">Next up: {nextEvent.name}</span>
           </Link>
         )}
       </section>
 
       {/* ── Main grid ─────────────────────────────── */}
-      <div className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+      <div className="mt-7 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
 
         {/* ── LEFT COLUMN: Hero + Setlist Preview ─── */}
-        <div className="flex h-full flex-col gap-5">
+        <div className="flex h-full min-w-0 flex-col gap-5">
           {/* Hero card */}
           <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0f0e14] animate-fade-up" style={{ minHeight: 260 }}>
             {nextSetlist && <OfflinePreloader setlistId={nextSetlist.id} songIds={setlistSongsList.map((song) => song.song.id)} />}
@@ -462,27 +462,27 @@ export default async function DashboardPage() {
                 <p className="mb-2 flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-widest text-violet-400">
                   <CalendarDays className="size-3" /> Next Service
                 </p>
-                <h2 className="text-3xl font-extrabold text-white leading-tight">{nextSetlist?.name ?? "No Service Scheduled"}</h2>
+                <h2 className="break-words text-3xl font-extrabold leading-tight text-white">{nextSetlist?.name ?? "No Service Scheduled"}</h2>
                 <p className="mt-1 text-sm font-semibold text-violet-300">
                   {nextDateLabel}
                   {nextSetlistTypeLabel ? ` - ${nextSetlistTypeLabel}` : ""}
                 </p>
 
                 <div className="mt-5 flex flex-wrap gap-5 text-sm text-zinc-300">
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="size-3.5 text-violet-400" />
-                    <span className="font-mono text-[10px] uppercase text-zinc-500 mr-1">Location</span>
-                    {nextSetlist?.location ?? "Set a location"}
+                  <span className="flex min-w-0 flex-wrap items-center gap-1.5 break-words">
+                    <MapPin className="size-3.5 shrink-0 text-violet-400" />
+                    <span className="mr-1 shrink-0 font-mono text-[10px] uppercase text-zinc-500">Location</span>
+                    <span className="min-w-0 [overflow-wrap:anywhere]">{nextSetlist?.location ?? "Set a location"}</span>
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="size-3.5 text-violet-400" />
-                    <span className="font-mono text-[10px] uppercase text-zinc-500 mr-1">Call Time</span>
-                    {nextSetlist?.callTime ?? "--:--"}
+                  <span className="flex min-w-0 flex-wrap items-center gap-1.5 break-words">
+                    <Clock className="size-3.5 shrink-0 text-violet-400" />
+                    <span className="mr-1 shrink-0 font-mono text-[10px] uppercase text-zinc-500">Call Time</span>
+                    <span className="min-w-0 [overflow-wrap:anywhere]">{nextSetlist?.callTime ?? "--:--"}</span>
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <User className="size-3.5 text-violet-400" />
-                    <span className="font-mono text-[10px] uppercase text-zinc-500 mr-1">Leader</span>
-                    {nextSetlist?.leader ?? "Unassigned"}
+                  <span className="flex min-w-0 flex-wrap items-center gap-1.5 break-words">
+                    <User className="size-3.5 shrink-0 text-violet-400" />
+                    <span className="mr-1 shrink-0 font-mono text-[10px] uppercase text-zinc-500">Leader</span>
+                    <span className="min-w-0 [overflow-wrap:anywhere]">{nextSetlist?.leader ?? "Unassigned"}</span>
                   </span>
                 </div>
               </div>
@@ -536,7 +536,7 @@ export default async function DashboardPage() {
                   style={{ animationDelay: `${idx * 40}ms` }}
                 >
                   <span className="w-5 shrink-0 text-right font-mono text-[11px] text-zinc-500">{idx + 1}</span>
-                  <span className="flex-1 font-semibold text-zinc-200 group-hover:text-white transition-colors">{item.song.title}</span>
+                  <span className="min-w-0 flex-1 break-words font-semibold text-zinc-200 transition-colors group-hover:text-white">{item.song.title}</span>
                   <span className="rounded px-2 py-0.5 font-mono text-[11px] font-bold bg-violet-500/15 text-violet-300">{item.assignedKey}</span>
                   <span className="rounded px-2 py-0.5 font-mono text-[11px] font-bold bg-white/[0.06] text-zinc-400">{item.song.bpm} BPM</span>
                 </Link>
@@ -553,7 +553,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* ── RIGHT COLUMN: Stats (3-col row) + Announcements + Reminders ── */}
-        <div className="flex h-full flex-col gap-5">
+        <div className="flex h-full min-w-0 flex-col gap-5">
 
           {/* 3 stat cards in a horizontal row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -616,7 +616,7 @@ export default async function DashboardPage() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-1">
-                          <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight">{a.title}</p>
+                          <p className="min-w-0 flex-1 break-words text-xs font-bold leading-tight text-white transition-colors group-hover:text-violet-100">{a.title}</p>
                           <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold ${a.badgeColor}`}>{a.badge}</span>
                         </div>
                         <p className="mt-0.5 text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2">{a.body}</p>
@@ -650,7 +650,7 @@ export default async function DashboardPage() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-1">
-                          <p className="text-xs font-bold text-white group-hover:text-violet-100 transition-colors leading-tight">{r.title}</p>
+                          <p className="min-w-0 flex-1 break-words text-xs font-bold leading-tight text-white transition-colors group-hover:text-violet-100">{r.title}</p>
                           <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[9px] font-bold ${r.dueColor}`}>{r.due}</span>
                         </div>
                         <p className="mt-0.5 text-[11px] font-semibold text-zinc-400 leading-snug line-clamp-2">{r.body}</p>
@@ -712,12 +712,12 @@ export default async function DashboardPage() {
               </div>
               <div className="space-y-3">
                 {upcomingCelebrations.map((c, i) => (
-                  <div key={i} className="flex justify-between items-center bg-white/[0.03] p-3 rounded-xl border border-white/[0.04]">
-                    <div>
-                      <p className="text-sm font-bold text-white">{c.name}</p>
+                  <div key={i} className="flex items-center justify-between gap-3 bg-white/[0.03] p-3 rounded-xl border border-white/[0.04]">
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-sm font-bold text-white">{c.name}</p>
                       <p className="text-[10px] uppercase font-bold tracking-widest text-pink-400/80">{c.type}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="shrink-0 text-right">
                       <p className="text-sm font-semibold text-white">{c.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
                       <p className="text-[10px] text-zinc-400">{c.daysAway === 0 ? "Today!" : `In ${c.daysAway} days`}</p>
                     </div>
