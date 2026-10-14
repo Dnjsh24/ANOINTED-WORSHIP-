@@ -79,6 +79,7 @@ docs/WOOLY-SUPABASE-SETUP.md
 docs/WOOLY-TUTORIAL.md
 docs/WOOLY-WHOLE-CHARACTER-FRAMES.md
 docs/testing/wooly-recovery-2026-10-14.md
+e2e/website-smoke.spec.ts
 e2e/wooly-availability.spec.ts
 public/brand/wooly/four-leg-reference-v1.png
 public/brand/wooly/whole-frames-v2.json
@@ -240,3 +241,12 @@ Local Docker SQL runtime is unavailable. Previous CI establishes positive securi
 Final full coverage rerun on the amended application: **153 files / 1,175 tests passed**, exit0,167.32seconds. Coverage statements87.63%,branches84.08%,functions92.68%,lines90.62% passes all80% thresholds. Actual mobile navigation interaction also passed: opening More hides Wooly; closing the mounted drawer restores Wooly. Desktop/mobile launcher assertions pass on the final production build. Unsupported rehearsal guide is explicit metadata only and has no runtime guide/checkpoint effect.
 
 Clean scoped CLI passed for candidateedc93e8 with all177 frozen paths and current main ancestrye719b24. Final evidence/ticket commit reruns the same gate below; product source approvals/hashes remain unchanged. Coordinator accepted Laura's final application approval. Local preparation3/3 complete; statusReview until authorized protected publication/database CI and live activation succeed. Original work, protected-main settings and production resources are preserved. Final source diff/secrets checks pass. No remaining local source blocker. Stop point: await explicit publication and activation authorization, then run the existing protected checks and verify actual deployed main identity and authenticated launcher.
+## Authorized publication — 2026-10-14
+
+User explicitly approved branch push/main merge and subsequently approved enabling Wooly in production after the merge. Published candidate96de5f9 normally to existing branch codex/wooly-help-20261012 and updated PR11. Existing owner CLI identity was selected only for authorized mutations; original Dn-Jsh selection restored. No stored credential changes or secret values written. Fresh secret scan0/findings, productionaudit0 and exact177-path gatePASS.
+
+CI38506208943 passed quality and local-database, including both Wooly security scripts and previously failing cleanup. Browser123passed/1flaky/5skipped/1failed; iPhone route smoke logged service-worker script load errors at the streaming Presenter redirect. No console assertion was relaxed. Local unchanged production iPhone smoke2/2passed. Local Turbopack diagnosis could not run through the dependency junction; webpack development reproduction crossed Presenter without worker errors but exceeded the unchanged120second cold-compilation total at a later route. These development checks do not establish a product regression.
+
+First CI repair is test-only: retain a bootstrap browser page, verify the real service worker becomes active with expected scriptURL before repeatedly opening/closing route tabs, and assert worker HTTP200/JavaScript MIME. Keep all existing route console/server/network/overflow/redirect assertions and add bootstrap console/network checks. This removes the known test race of closing clients without awaiting asynchronous worker installation; exact CI failure cause remains provisional until rerun. Production Chromium+iPhone route checks4/4passed and full typecheck/scopedlint passed. Ownership expands by exactly e2e/website-smoke.spec.ts to178paths; PWA, proxy and public sources remain unchanged. No protection bypass. Independent amendment review and fresh exact-head CI required before merge.
+
+Production activation remains after protected merge. The new user approval covers WOOLY_TUTORIAL_ENABLED=1 and the rebuild required to make it live. No hosted SQL/support grants are authorized or executed. Read-only Supabase inspection attempted during release returns permission denied from the connector; earlier five-table/RLS metadata is partial evidence. Verify live feature responses after activation and report any schema limitation; never run first-time setup against existing tables.
