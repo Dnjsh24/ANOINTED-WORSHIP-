@@ -360,9 +360,9 @@ export function SongViewer({
       </div>
 
       {/* Controls Panel */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5 grid gap-4 sm:grid-cols-2 md:grid-cols-4 items-center">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 items-center">
         {/* Key Selector */}
-        <div className="flex flex-col border-r border-white/[0.06] pr-4 md:pr-6 justify-center gap-2">
+        <div className="flex flex-col border-r-0 border-white/[0.06] pr-0 md:border-r md:pr-6 justify-center gap-2">
           <div className="flex items-center justify-between w-full">
             <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Key</span>
             <div className="flex items-center gap-2">
@@ -388,7 +388,7 @@ export function SongViewer({
         </div>
 
         {/* Transpose Selector */}
-        <div className="flex items-center justify-between border-r border-white/[0.06] px-4 md:px-6">
+        <div className="flex items-center justify-between border-r-0 border-white/[0.06] px-0 md:border-r md:px-6">
           <span className="text-xs font-bold text-zinc-500 uppercase tracking-wide">Transpose</span>
           <div className="flex items-center gap-2">
             <button aria-label="Transpose down" onClick={() => changeTranspose(-1)} className="flex size-11 items-center justify-center rounded-lg bg-white/[0.04] text-sm font-bold hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400">-</button>
@@ -398,13 +398,13 @@ export function SongViewer({
         </div>
 
         {/* BPM Display (Original, not changeable here) */}
-        <div className="flex items-center justify-between border-r border-white/[0.06] px-4 md:px-6">
+        <div className="flex items-center justify-between border-r-0 border-white/[0.06] px-0 md:border-r md:px-6">
           <span className="text-xs font-bold text-zinc-500 tracking-wide uppercase">BPM</span>
           <span className="font-mono text-base font-extrabold text-white mr-4">{song.bpm ?? '--'}</span>
         </div>
 
         {/* Time Signature */}
-        <div className="flex items-center justify-between pl-4 md:pl-6">
+        <div className="flex items-center justify-between pl-0 md:pl-6">
           <span className="text-xs font-bold text-zinc-500 tracking-wide uppercase">Time Sig</span>
           <select aria-label="Practice time signature" value={meter.label} onChange={event => { setPracticeTimeSignature(event.target.value); setCurrentBeat(1); }} className="h-11 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-xs font-bold text-white outline-none focus:border-violet-400">
             {!["4/4", "3/4", "6/8"].includes(meter.label) && <option value={meter.label}>{meter.label}</option>}
@@ -498,7 +498,7 @@ export function SongViewer({
       {/* Main Grid split */}
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr] items-start">
         {/* Left Column: Chord Chart Area */}
-        <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/60 p-6 min-h-[400px]">
+        <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/60 p-4 sm:p-6 min-h-[400px]">
           <div className="space-y-6">
             {song.sections.map((section, sectionIndex) => {
               const lower = section.label.toLowerCase();

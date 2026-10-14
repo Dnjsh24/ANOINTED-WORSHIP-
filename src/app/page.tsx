@@ -4,7 +4,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
 import { isDesktopRuntime } from "@/lib/desktop/runtime";
-import { WoolyPublicScreen } from "@/components/wooly/wooly-public-screen";
 
 export default function Home() {
   if (isDesktopRuntime()) {
@@ -13,7 +12,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#0d0c12] text-white overflow-x-hidden">
-      <WoolyPublicScreen />
       {/* Nav */}
       <nav className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 animate-fade-down">
         <Link href="/" className="flex items-center" aria-label="Sunday Setlist home">

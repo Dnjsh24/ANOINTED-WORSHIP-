@@ -436,17 +436,24 @@ describe("WoolyProvider", () => {
     await waitFor(() => expect(actions.save).toHaveBeenCalledWith(expect.objectContaining({ tourId: "page-song-detail", nextStep: "step-3", status: "completed" })));
   });
 
-  it("gives guests a page tutorial without reading or saving account progress", async () => {
-    navigation.pathname = "/login";
-    const user = userEvent.setup();
-    renderWooly({ ...newMember, userId: "public", session: "guest" }, "login-form");
-    await user.click(await screen.findByRole("button", { name: "Wooly" }));
-    await user.click(screen.getByRole("button", { name: "Tutorials" }));
-    await user.click(screen.getByRole("button", { name: "Show me this page" }));
-    expect(screen.getByRole("heading", { name: "Use your Google account" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Skip" }));
+  it.each(["/", "/login", "/dashboard"])("hides Wooly for a guest on %s without reading or saving progress", (path) => {
+    navigation.pathname = path;
+    renderWooly({ ...newMember, userId: "public", session: "guest" });
+    expect(screen.queryByRole("button", { name: "Wooly" })).not.toBeInTheDocument();
     expect(actions.read).not.toHaveBeenCalled();
     expect(actions.save).not.toHaveBeenCalled();
+  });
+
+  it("removes open help immediately when navigating from an account page to login", async () => {
+    navigation.pathname = "/dashboard";
+    const view = renderWooly({ ...teammate, session: "account" });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Wooly" }));
+    expect(screen.getByRole("dialog", { name: "Help with Wooly" })).toBeVisible();
+    navigation.pathname = "/login";
+    view.rerender(<WoolyProvider><WoolyScreen audience={{ ...teammate, session: "account" }} /></WoolyProvider>);
+    expect(screen.queryByRole("button", { name: "Wooly" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Help with Wooly" })).not.toBeInTheDocument();
   });
 
   it("scrolls phone targets to the top so the tutorial sheet can sit below them", async () => {

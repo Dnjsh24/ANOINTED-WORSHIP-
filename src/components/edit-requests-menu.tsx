@@ -114,7 +114,7 @@ export function EditRequestsMenu({ userId, teamId, open, onOpenChange }: {
       </span>}
     </button>
     {open && <div ref={panelRef} id={panelId} role="dialog" aria-label="Edit requests"
-      className="menu-enter absolute right-0 top-12 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-white/10 bg-[#18171c] p-3 shadow-2xl shadow-black/40">
+      className="menu-enter fixed inset-x-4 top-16 z-50 max-h-[calc(100dvh-9rem-env(safe-area-inset-bottom))] overflow-y-auto rounded-lg border border-white/10 bg-[#18171c] p-3 shadow-2xl shadow-black/40 md:top-20 lg:absolute lg:inset-x-auto lg:right-0 lg:top-12 lg:max-h-none lg:w-80 lg:max-w-[calc(100vw-2rem)] lg:overflow-visible">
       <h2 className="px-3 py-2 text-sm font-bold text-white">Edit requests</h2>
       <div className="max-h-80 overflow-y-auto">
         {!available ? <p className="px-3 py-3 text-sm text-zinc-400">{userId ? "Saved edit requests are unavailable." : "Sign in to see your team's edit requests."}</p>

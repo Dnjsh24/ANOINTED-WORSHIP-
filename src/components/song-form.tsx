@@ -295,23 +295,23 @@ export function SongForm({
       ) : null}
 
       {/* 2-Column Split Layout */}
-      <div className="grid gap-6 md:grid-cols-[1fr_1.2fr]">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-[1fr_1.2fr]">
         
         {/* Left Column: Details */}
-        <div className="space-y-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5">
+        <div className="min-w-0 space-y-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5">
           <h3 className="text-sm font-bold text-white mb-2 pb-2 border-b border-white/[0.04]">Song Details</h3>
 
-          <div className="mb-4">
+          <div className="mb-4 min-w-0">
             <SpotifySearch onSelect={handleSpotifySelect} />
           </div>
 
-          <div className="flex gap-2 mb-4">
+          <div className="mb-4 flex min-w-0 gap-2">
             <Input 
+              className="h-9 min-w-0 flex-1 text-xs"
               value={importUrl}
               aria-label="Song import URL"
               onChange={e => setImportUrl(e.target.value)} 
               placeholder="Paste WorshipChords / Ultimate Guitar URL to auto-import..." 
-              className="h-9 text-xs"
             />
             <button
               type="button"
@@ -342,8 +342,8 @@ export function SongForm({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block space-y-1.5">
               <span className="text-xs font-bold text-zinc-300">Default Key *</span>
-              <div className="relative flex items-center gap-2">
-                <div className="relative flex-1">
+              <div className="relative flex min-w-0 items-center gap-2">
+                <div className="relative min-w-0 flex-1">
                   <select
                     name="originalKey"
                     ref={originalKeyRef}
@@ -442,9 +442,9 @@ export function SongForm({
         </div>
 
         {/* Right Column: Edit Sheet */}
-        <div className="space-y-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 flex flex-col min-h-[380px]">
+        <div className="min-w-0 space-y-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 flex flex-col min-h-[380px]">
           {/* Tab selector */}
-          <div className="flex border-b border-white/[0.08] text-xs justify-between items-end">
+          <div className="flex flex-wrap items-end justify-between border-b border-white/[0.08] text-xs sm:flex-nowrap">
             <div className="flex">
               <button
                 type="button"

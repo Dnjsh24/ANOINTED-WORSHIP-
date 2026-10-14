@@ -46,12 +46,12 @@ export default defineConfig({
     {
       name: "tablet",
       use: { ...devices["Desktop Chrome"], viewport: { width: 820, height: 1180 }, hasTouch: true },
-      testMatch: /(?:responsive|website-smoke|security-accessibility)\.spec\.ts/,
+      testMatch: /(?:responsive|website-smoke|security-accessibility|wooly-movement)\.spec\.ts/,
     },
     {
       name: "iphone",
       use: { ...devices["iPhone 13"] },
-      testMatch: /(?:responsive|website-smoke|security-accessibility)\.spec\.ts/,
+      testMatch: /(?:responsive|website-smoke|security-accessibility|wooly-movement)\.spec\.ts/,
     },
   ],
 });
