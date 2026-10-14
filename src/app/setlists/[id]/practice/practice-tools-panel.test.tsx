@@ -1,9 +1,12 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { updateSetlistSongNotesAction, updateSongSlotArrangementAction } from "@/app/actions";
+import { reloadPreparationAction, saveRehearsalPlanAction } from "@/app/workflow-actions";
+import { defaultPreparationTasks } from "@/lib/domain/team-workflows";
 import { PracticeToolsPanel } from "./practice-tools-panel";
 import type { PracticeSetlist } from "./practice-mode.types";
 import type { StageSetlistSong } from "../stage/stage-mode-client";
+import type { PreparationWorkspace, WorkspaceResult } from "@/lib/supabase/workflow-data";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/app/actions", () => ({
@@ -11,7 +14,7 @@ vi.mock("@/app/actions", () => ({
   updateSongSlotArrangementAction: vi.fn(),
 }));
 vi.mock("@/components/service-preparation", () => ({ ServicePreparation: () => <div>Service preparation</div> }));
-vi.mock("@/components/shared-preparation", () => ({ SharedPreparation: () => <div>Shared preparation</div> }));
+vi.mock("@/app/workflow-actions", () => ({ saveRehearsalPlanAction: vi.fn(), reloadPreparationAction: vi.fn(), respondPreparationTaskAction: vi.fn() }));
 vi.mock("@/components/saved-song-readiness", () => ({ SavedSongReadiness: () => <div>Song readiness</div> }));
 vi.mock("@/components/song-form", () => ({ SongForm: () => <div>Song editor</div> }));
 
@@ -96,4 +99,60 @@ describe("PracticeToolsPanel", () => {
     fireEvent.click(screen.getByText("Edit song, lyrics, and chords"));
     expect(await screen.findByText("Song editor")).toBeInTheDocument();
   });
+
+  it("shows active song allocation from the shared team plan", () => {
+    const preparation = { ok: true, data: { plan: { allocations: [{ slot_id: "slot-1", minutes: 12, focus: "Bridge" }] }, readiness: [], members: [], assignedMemberIds: [], checks: [] } } as unknown as WorkspaceResult<PreparationWorkspace>;
+    render(<PracticeToolsPanel setlist={setlist} stageSong={stageSong} preparation={preparation} memberId="member-1" canManage isPracticed={false} practicedCount={0} onTogglePracticed={vi.fn()} practiceTimeSignature="4/4" onPracticeTimeSignatureChange={vi.fn()} onSelectSong={vi.fn()} onClose={vi.fn()} />);
+
+    expect(screen.getByText("12 allocated minutes for Opening Song")).toBeInTheDocument();
+  });
+
+  it("updates the timer after reloading the latest saved allocation", async () => {
+    const secondSlot = { ...setlist.songs[0], slotId: "slot-2", song: { ...song, id: "song-2", title: "Second Song" } };
+    const rehearsalSetlist = { ...setlist, songs: [setlist.songs[0], secondSlot] };
+    const secondStageSong = { ...stageSong, id: "slot-2", song: { ...stageSong.song, id: "song-2", title: "Second Song" } };
+    const latest = makePreparation(9);
+    latest.data.plan = { ...latest.data.plan!, allocations: [{ slot_id: "slot-1", minutes: 9, focus: "Bridge" }, { slot_id: "slot-2", minutes: 6, focus: "Verse" }] };
+    vi.mocked(reloadPreparationAction).mockResolvedValue({ ok: true, data: latest.data });
+    const props = { setlist: rehearsalSetlist, preparation: makePreparation(7), memberId: "member-1", canManage: true, isPracticed: false, practicedCount: 0, onTogglePracticed: vi.fn(), practiceTimeSignature: "4/4", onPracticeTimeSignatureChange: vi.fn(), onSelectSong: vi.fn(), onClose: vi.fn() };
+    const { rerender } = render(<PracticeToolsPanel {...props} stageSong={stageSong} />);
+
+    expect(screen.getByText("7 allocated minutes for Opening Song")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reload latest plan (replace draft)" }));
+    expect(await screen.findByText("9 allocated minutes for Opening Song")).toBeInTheDocument();
+    rerender(<PracticeToolsPanel {...props} stageSong={secondStageSong} />);
+    expect(screen.getByText("6 allocated minutes for Second Song")).toBeInTheDocument();
+    rerender(<PracticeToolsPanel {...props} stageSong={stageSong} />);
+    expect(screen.getByText("9 allocated minutes for Opening Song")).toBeInTheDocument();
+  });
+
+  it("keeps the current timer allocation when reloading fails", async () => {
+    vi.mocked(reloadPreparationAction).mockResolvedValue({ ok: false, message: "Offline" });
+    render(<PracticeToolsPanel setlist={setlist} stageSong={stageSong} preparation={makePreparation(7)} memberId="member-1" canManage isPracticed={false} practicedCount={0} onTogglePracticed={vi.fn()} practiceTimeSignature="4/4" onPracticeTimeSignatureChange={vi.fn()} onSelectSong={vi.fn()} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reload latest plan (replace draft)" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Offline");
+    expect(screen.getByText("7 allocated minutes for Opening Song")).toBeInTheDocument();
+  });
+
+  it("clears the timer when a successful reload returns no saved plan", async () => {
+    vi.mocked(reloadPreparationAction).mockResolvedValue({ ok: true, data: { ...makePreparation(7).data, plan: null } });
+    render(<PracticeToolsPanel setlist={setlist} stageSong={stageSong} preparation={makePreparation(7)} memberId="member-1" canManage isPracticed={false} practicedCount={0} onTogglePracticed={vi.fn()} practiceTimeSignature="4/4" onPracticeTimeSignatureChange={vi.fn()} onSelectSong={vi.fn()} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reload latest plan (replace draft)" }));
+    await waitFor(() => expect(screen.queryByLabelText("Opening Song rehearsal timer")).not.toBeInTheDocument());
+  });
+
+  it("updates the timer after a successful shared plan save", async () => {
+    vi.mocked(saveRehearsalPlanAction).mockResolvedValue({ ok: true, message: "Saved", data: { revision: 2 } });
+    render(<PracticeToolsPanel setlist={setlist} stageSong={stageSong} preparation={makePreparation(7)} memberId="member-1" canManage isPracticed={false} practicedCount={0} onTogglePracticed={vi.fn()} practiceTimeSignature="4/4" onPracticeTimeSignatureChange={vi.fn()} onSelectSong={vi.fn()} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Minutes for Opening Song"), { target: { value: "9" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save shared plan" }));
+    expect(await screen.findByText("9 allocated minutes for Opening Song")).toBeInTheDocument();
+  });
 });
+
+function makePreparation(minutes: number): Extract<WorkspaceResult<PreparationWorkspace>, { ok: true }> {
+  return { ok: true, data: { plan: { setlist_id: "setlist-1", team_id: "team-1", revision: 1, allocations: [{ slot_id: "slot-1", minutes, focus: "Bridge" }], tasks: defaultPreparationTasks(), updated_by: "member-1", updated_at: "2026-10-14" }, readiness: [], members: [], assignedMemberIds: [], checks: [] } };
+}

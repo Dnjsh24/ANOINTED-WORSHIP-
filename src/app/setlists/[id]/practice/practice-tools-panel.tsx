@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
 import { updateSetlistSongNotesAction, updateSongSlotArrangementAction } from "@/app/actions";
 import { SavedSongReadiness } from "@/components/saved-song-readiness";
+import { PracticeSongTimer } from "@/components/practice-song-timer";
 import { ServicePreparation } from "@/components/service-preparation";
 import { SharedPreparation, type PreparationProposalAction } from "@/components/shared-preparation";
 import { Button } from "@/components/ui/button";
+import { useDemoRehearsalPlan } from "@/lib/use-demo-rehearsal-plan";
+import type { RehearsalAllocationRow } from "@/lib/domain/team-workflows";
 import type { PreparationWorkspace, WorkspaceResult } from "@/lib/supabase/workflow-data";
 import type { PracticeSetlist, PracticeSetlistSong } from "./practice-mode.types";
 import type { StageSetlistSong } from "../stage/stage-mode-client";
@@ -20,6 +23,7 @@ export function PracticeToolsPanel({
   setlist,
   stageSong,
   preparation,
+  demoMode = false,
   memberId,
   canManage,
   proposeAction,
@@ -34,6 +38,7 @@ export function PracticeToolsPanel({
   setlist: PracticeSetlist;
   stageSong: StageSetlistSong;
   preparation?: WorkspaceResult<PreparationWorkspace>;
+  demoMode?: boolean;
   memberId: string;
   canManage: boolean;
   proposeAction?: PreparationProposalAction;
@@ -46,6 +51,8 @@ export function PracticeToolsPanel({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const demoPlan = useDemoRehearsalPlan(demoMode ? setlist.id : undefined);
+  const [savedAllocations, setSavedAllocations] = useState<{ source: PreparationWorkspace; rows: RehearsalAllocationRow[] } | null>(null);
   const slot = setlist.songs.find((song) => song.slotId === stageSong.id);
   if (!slot) return <p role="alert" className="text-sm text-red-200">This song is no longer in the setlist. Reload the page to continue.</p>;
 
@@ -57,6 +64,11 @@ export function PracticeToolsPanel({
     lead: item.lead,
     arrangement: item.arrangement,
   }));
+  const sharedWorkspace = preparation?.ok ? preparation.data : undefined;
+  const currentSavedAllocations = savedAllocations && savedAllocations.source === sharedWorkspace ? savedAllocations.rows : undefined;
+  const plannedMinutes = sharedWorkspace
+    ? (currentSavedAllocations ?? sharedWorkspace.plan?.allocations)?.find((allocation) => allocation.slot_id === slot.slotId)?.minutes
+    : demoMode ? demoPlan.allocations[slot.slotId]?.minutes ?? 5 : undefined;
 
   return (
     <div data-wooly-target="practice-controls" className="space-y-5">
@@ -95,6 +107,9 @@ export function PracticeToolsPanel({
           canManage={canManage}
           proposeAction={proposeAction}
           songs={practiceSongs}
+          onAllocationsChange={(rows) => {
+            if (sharedWorkspace) setSavedAllocations({ source: sharedWorkspace, rows });
+          }}
         />
       ) : (
         <section className="space-y-3">
@@ -122,7 +137,7 @@ export function PracticeToolsPanel({
         {slot.lead && <PracticeNote label="Lead vocal" value={slot.lead} />}
         {slot.notes && <PracticeNote label="Setlist note" value={slot.notes} />}
         {canManage ? (
-          <SetlistNotesEditor setlistId={setlist.id} slot={slot} onSaved={() => router.refresh()} />
+          <SetlistNotesEditor key={slot.slotId} setlistId={setlist.id} slot={slot} onSaved={() => router.refresh()} />
         ) : slot.bandNotes ? (
           <PracticeNote label="Band notes" value={slot.bandNotes} />
         ) : (
@@ -135,7 +150,7 @@ export function PracticeToolsPanel({
               <h4 className="text-sm font-semibold text-white">Arrangement</h4>
               <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-300">{slot.arrangement || "No arrangement set."}</p>
             </div>
-            {canManage && <ArrangementEditorControl setlistId={setlist.id} slot={slot} onSaved={() => router.refresh()} />}
+            {canManage && <ArrangementEditorControl key={slot.slotId} setlistId={setlist.id} slot={slot} onSaved={() => router.refresh()} />}
           </div>
         </div>
       </section>
@@ -161,6 +176,8 @@ export function PracticeToolsPanel({
           />
         </details>
       )}
+
+      {plannedMinutes !== undefined && <PracticeSongTimer key={`${slot.slotId}:${plannedMinutes}`} songTitle={slot.song.title} minutes={plannedMinutes} />}
 
       <Button type="button" variant="secondary" className="w-full" onClick={onClose}>Return to stage</Button>
     </div>

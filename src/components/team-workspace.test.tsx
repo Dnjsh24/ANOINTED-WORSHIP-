@@ -36,11 +36,27 @@ describe("saved team preparation",()=>{
     expect(actions.savePlan).not.toHaveBeenCalled();
   });
   it("reloads only on an explicit draft-replacement click",async()=>{
-    const user=userEvent.setup();actions.reloadPlan.mockResolvedValue({ok:true,data:{...preparation,plan:{...preparation.plan,revision:4,allocations:[{slot_id:id(1),minutes:10,focus:"Latest focus"}]}}});
-    render(<SharedPreparation setlistId={id(2)} name="Sunday" songs={songs} workspace={preparation} memberId={id(4)} canManage/>);
+    const user=userEvent.setup();const onAllocationsChange=vi.fn();actions.reloadPlan.mockResolvedValue({ok:true,data:{...preparation,plan:{...preparation.plan,revision:4,allocations:[{slot_id:id(1),minutes:10,focus:"Latest focus"}]}}});
+    render(<SharedPreparation setlistId={id(2)} name="Sunday" songs={songs} workspace={preparation} memberId={id(4)} canManage onAllocationsChange={onAllocationsChange}/>);
     await user.click(screen.getByRole("button",{name:"Reload latest plan (replace draft)"}));
     await waitFor(()=>expect(screen.getByRole("textbox",{name:"Rehearsal notes for Opening"})).toHaveValue("Latest focus"));
-    expect(screen.getByText(/Version 4/)).toBeInTheDocument();
+    expect(screen.getByText(/Version 4/)).toBeInTheDocument();expect(onAllocationsChange).toHaveBeenCalledWith([{slot_id:id(1),minutes:10,focus:"Latest focus"}]);
+  });
+  it("does not publish allocations from a failed reload or a proposed change",async()=>{
+    const user=userEvent.setup();const onAllocationsChange=vi.fn();actions.reloadPlan.mockResolvedValue({ok:false,message:"Offline"});
+    const {unmount}=render(<SharedPreparation setlistId={id(2)} name="Sunday" songs={songs} workspace={preparation} memberId={id(4)} canManage onAllocationsChange={onAllocationsChange}/>);
+    await user.click(screen.getByRole("button",{name:"Reload latest plan (replace draft)"}));
+    await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("Offline"));expect(onAllocationsChange).not.toHaveBeenCalled();unmount();
+    const proposeAction=vi.fn().mockResolvedValue({ok:true,message:"Requested"});
+    render(<SharedPreparation setlistId={id(2)} name="Sunday" songs={songs} workspace={preparation} memberId={id(6)} canManage={false} proposeAction={proposeAction} onAllocationsChange={onAllocationsChange}/>);
+    await user.type(screen.getByRole("textbox",{name:"Reason for requested changes"}),"More harmony time");await user.click(screen.getByRole("button",{name:"Request plan changes"}));
+    await waitFor(()=>expect(proposeAction).toHaveBeenCalled());expect(onAllocationsChange).not.toHaveBeenCalled();
+  });
+  it("publishes allocations after a successful manager save",async()=>{
+    const user=userEvent.setup();const onAllocationsChange=vi.fn();actions.savePlan.mockResolvedValue({ok:true,message:"Saved",data:{revision:2}});
+    render(<SharedPreparation setlistId={id(2)} name="Sunday" songs={songs} workspace={preparation} memberId={id(4)} canManage onAllocationsChange={onAllocationsChange}/>);
+    await user.clear(screen.getByLabelText("Minutes for Opening"));await user.type(screen.getByLabelText("Minutes for Opening"),"9");await user.click(screen.getByRole("button",{name:"Save shared plan"}));
+    await waitFor(()=>expect(onAllocationsChange).toHaveBeenCalledWith([{slot_id:id(1),minutes:9,focus:"Intro"}]));
   });
 });
 describe("service order and assignment responses",()=>{
