@@ -1,6 +1,6 @@
 # Wooly disappearance investigation and recovery — WOOLY-26
 
-Status: Testing. Local recovery only; live publication and activation remain separate approvals.
+Status: Review. Local preparation complete, 3/3. Live publication, CI database acceptance and activation remain pending approval.
 
 ## Confirmed cause
 
@@ -237,3 +237,6 @@ tickets.md
 - Unchanged main comparisons: Analytics, all public assets outside Wooly, actions/standalone regressions, new rehearsal implementation apart from Wooly registrations/targets, release guard, dependency manifests and lock are preserved. Original dirty workspace is untouched apart from this task's appended ticket record.
 
 Local Docker SQL runtime is unavailable. Previous CI establishes positive security assertions, and the corrected cleanup has contract/source review evidence; a new successful protected local-database check remains required before merge. Hosted authenticated visual acceptance is pending authorized publication/activation. No live writes, push, remote merge or deployment occurred. Final full coverage and clean exact-path CLI result follow below.
+Final full coverage rerun on the amended application: **153 files / 1,175 tests passed**, exit0,167.32seconds. Coverage statements87.63%,branches84.08%,functions92.68%,lines90.62% passes all80% thresholds. Actual mobile navigation interaction also passed: opening More hides Wooly; closing the mounted drawer restores Wooly. Desktop/mobile launcher assertions pass on the final production build. Unsupported rehearsal guide is explicit metadata only and has no runtime guide/checkpoint effect.
+
+Clean scoped CLI passed for candidateedc93e8 with all177 frozen paths and current main ancestrye719b24. Final evidence/ticket commit reruns the same gate below; product source approvals/hashes remain unchanged. Coordinator accepted Laura's final application approval. Local preparation3/3 complete; statusReview until authorized protected publication/database CI and live activation succeed. Original work, protected-main settings and production resources are preserved. Final source diff/secrets checks pass. No remaining local source blocker. Stop point: await explicit publication and activation authorization, then run the existing protected checks and verify actual deployed main identity and authenticated launcher.
