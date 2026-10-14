@@ -846,6 +846,11 @@ export async function createSetlistAction(_previous: ActionState, formData: Form
   }
 
   revalidatePath("/setlists");
+  if (input.data.eventId) {
+    revalidatePath("/events");
+    revalidatePath(`/events/${input.data.eventId}`);
+    revalidatePath("/dashboard");
+  }
   redirect(`/setlists/${setlistId}`);
 }
 
