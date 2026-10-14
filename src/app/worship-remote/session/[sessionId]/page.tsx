@@ -43,7 +43,7 @@ function normalizePresentationSettings(value: unknown): RemotePresentationSettin
 
 function SessionEnded() {
   return (
-    <main className="flex min-h-[100dvh] items-center justify-center bg-[#0d0c12] p-6 text-white">
+    <main data-wooly-target="remote-controls" className="flex min-h-[100dvh] items-center justify-center bg-[#0d0c12] p-6 text-white">
       <section className="w-full max-w-md rounded-2xl border border-white/10 bg-[#17161b] p-7 text-center shadow-2xl">
         <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-amber-400/10 text-amber-200">
           <Radio className="size-5" aria-hidden="true" />
@@ -112,6 +112,7 @@ export default async function WorshipRemoteSessionPage({
       cloudTopic={pairing.channelTopic}
       cloudPrivate={pairing.privateChannel}
       cloudExpiresAt={pairing.expiresAt}
+      woolyHelpEnabled={process.env.WOOLY_TUTORIAL_ENABLED === "1"}
     />
   );
 }

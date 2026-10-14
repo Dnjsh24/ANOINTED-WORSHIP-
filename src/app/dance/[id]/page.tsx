@@ -149,7 +149,7 @@ export default async function DanceChartDetailPage({ params }: { params: Promise
             <Card className="p-6 border-white/[0.08] bg-[#111014]/60">
               <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
                 <Footprints className="size-5 text-violet-400" />
-                <h3 className="text-lg font-bold text-white">Dance / Tambourine Steps</h3>
+                <h3 data-wooly-target="dance-steps" className="text-lg font-bold text-white">Dance / Tambourine Steps</h3>
               </div>
               <p className="whitespace-pre-wrap text-sm font-semibold leading-relaxed text-zinc-200">
                 {chart.choreographyNotes}
@@ -161,7 +161,7 @@ export default async function DanceChartDetailPage({ params }: { params: Promise
               <Card className="p-6 border-white/[0.08] bg-[#111014]/60">
                 <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
                   <Video className="size-5 text-violet-400" />
-                  <h3 className="text-lg font-bold text-white">Video Reference</h3>
+                  <h3 data-wooly-target="dance-reference" className="text-lg font-bold text-white">Video Reference</h3>
                 </div>
                 {embedUrl ? (
                   <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 shadow-lg">
@@ -209,7 +209,7 @@ export default async function DanceChartDetailPage({ params }: { params: Promise
               <Card className="p-6 border-white/[0.08] bg-[#111014]/60">
                 <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
                   <Sparkles className="size-5 text-violet-400" />
-                  <h3 className="text-lg font-bold text-white">Outfit / Props</h3>
+                  <h3 data-wooly-target="dance-outfit" className="text-lg font-bold text-white">Outfit / Props</h3>
                 </div>
                 <p className="whitespace-pre-wrap text-sm font-semibold leading-relaxed text-zinc-300">
                   {chart.outfitNotes}

@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import StagePage from "./page";
 
-const mocks = vi.hoisted(() => ({ connected: false, client: vi.fn() }));
+const mocks = vi.hoisted(() => ({ connected: false, client: vi.fn(), notes: vi.fn() }));
+vi.mock("@/lib/supabase/workflow-data", () => ({ loadRehearsalNotes: mocks.notes }));
+vi.mock("@/components/wooly/wooly-team-screen", () => ({ WoolyTeamScreen: () => null }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NOT_FOUND"); } }));
 vi.mock("@/lib/supabase/env", () => ({ hasSupabaseEnv: () => mocks.connected }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.client }));
@@ -9,9 +11,10 @@ vi.mock("@/lib/supabase/team-guard", () => ({ getRequiredTeamContext: async () =
 vi.mock("./stage-mode-client", () => ({ default: () => null }));
 
 describe("Stage mode route", () => {
-  beforeEach(() => { mocks.connected = false; mocks.client.mockReset(); });
+  beforeEach(() => { mocks.connected = false; mocks.client.mockReset(); mocks.notes.mockReset(); mocks.notes.mockResolvedValue({ ok: true, data: {} }); });
   it("opens the correct demo setlist and retains its assigned key", async () => {
     const page = await StagePage({ params: Promise.resolve({ id: "sunday-service" }) });
+    expect(page.props.demoMode).toBe(true);
     expect(page.props.setlist.id).toBe("sunday-service");
     expect(page.props.setlist.songs.length).toBeGreaterThan(0);
     expect(page.props.setlist.songs[0].assignedKey).toBe("B");
@@ -27,9 +30,12 @@ describe("Stage mode route", () => {
     const query = { select, eq: vi.fn(() => query), maybeSingle: vi.fn().mockResolvedValue({ data: { id: "set", setlist_songs: [{ id: "slot", song: { id: "song", title: "Waltz", time_signature: "3/4" } }] }, error: null }) };
     select.mockReturnValue(query);
     mocks.client.mockResolvedValue({ from: () => query });
+    mocks.notes.mockResolvedValue({ ok: true, data: { slot: "Quiet ending" } });
     const page = await StagePage({ params: Promise.resolve({ id: "set" }) });
     expect(query.select.mock.calls[0][0]).toContain("time_signature");
     expect(page.props.setlist.songs[0].song.timeSignature).toBe("3/4");
+    expect(page.props.setlist.songs[0].rehearsalNotes).toBe("Quiet ending");
+    expect(mocks.notes).toHaveBeenCalledWith(expect.anything(), "team", "set", ["slot"]);
   });
   it("scopes connected lookups and distinguishes query failure from missing sets", async () => {
     mocks.connected = true;

@@ -172,7 +172,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   return (
     <AppShell active="Timeline" teamContext={teamContext}>
       {/* Hero card details block matching Dashboard design */}
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0f0e14] animate-fade-up">
+      <div data-wooly-target="event-summary" className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0f0e14] animate-fade-up">
         {/* Background gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-violet-900/60 via-purple-900/30 to-[#0f0e14]/80 pointer-events-none" />
         {/* Cross silhouette glow */}
@@ -269,7 +269,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               <p className="mt-2 text-sm font-semibold text-zinc-300">
                 {event.confirmed} Confirmed, {event.pending} Pending
               </p>
-              <div className="mt-5">
+              <div data-wooly-target="event-team" className="mt-5">
                 <AttendanceToggle eventId={event.id} />
               </div>
             </>

@@ -12,7 +12,7 @@ export function InviteMemberForm({ canAssignRoles = false }: { canAssignRoles?: 
   const [state, formAction] = useActionState(inviteMemberAction, initialActionState);
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form data-wooly-target="member-invite-form" action={formAction} className="space-y-5">
       <ActionMessage state={state} />
       <label className="block space-y-2">
         <span className="text-sm font-bold text-zinc-300">Email</span>
@@ -36,7 +36,7 @@ export function InviteMemberForm({ canAssignRoles = false }: { canAssignRoles?: 
         />
       </label>
       <div className="flex flex-wrap gap-3">
-        <SubmitButton>Send Invite</SubmitButton>
+        <SubmitButton data-wooly-target="member-invite-save">Send Invite</SubmitButton>
         <ButtonLink href="/members" variant="secondary">
           Cancel
         </ButtonLink>

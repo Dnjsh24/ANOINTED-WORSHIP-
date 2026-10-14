@@ -310,7 +310,7 @@ export function MembersClient({
                 </button>
               </div>
             )}
-            <div className="space-y-3">
+            <div data-wooly-target="member-requests" className="space-y-3">
               {requestPreview.map((request) => (
                 <div key={request.id} className="flex items-center justify-between rounded-xl bg-white/[0.02] border border-white/[0.06] p-3">
                   <div className="flex items-center gap-3">
@@ -361,7 +361,7 @@ export function MembersClient({
 
           {/* Team Code */}
           <div className="rounded-2xl border border-white/[0.08] bg-[#111014]/80 p-5">
-            <div className="flex items-center justify-between">
+            <div data-wooly-target="member-team-code" className="flex items-center justify-between">
               <h2 className="text-sm font-bold text-white">Team Code</h2>
               <button type="button" aria-label="Regenerate team code" className="rounded-md p-1 text-zinc-500 hover:text-white transition" onClick={regenerate}>
                 <RefreshCw className="size-3.5" />
@@ -422,7 +422,7 @@ export function MembersClient({
             <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="text-lg font-bold text-white">Active Team ({filteredMembers.length})</h2>
               <div className="flex gap-2 max-w-sm flex-1">
-                <Input placeholder="Search members..." value={query} onChange={(event) => setQuery(event.target.value)} className="h-9 text-xs" />
+                <Input data-wooly-target="member-search" placeholder="Search members..." value={query} onChange={(event) => setQuery(event.target.value)} className="h-9 text-xs" />
                 <select
                   aria-label="Role filter"
                   value={roleFilter}
@@ -536,7 +536,7 @@ export function MembersClient({
       {selectedMember && (
         <div className="fixed inset-0 z-[100] flex justify-end">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedMember(null)} />
-          <div
+          <div data-wooly-surface="member" data-wooly-target="member-drawer"
             ref={memberDialogRef}
             role="dialog"
             aria-modal="true"

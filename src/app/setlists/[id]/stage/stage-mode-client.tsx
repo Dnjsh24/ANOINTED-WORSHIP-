@@ -11,6 +11,7 @@ import { createOptionalClient } from "@/lib/supabase/client";
 import { updateSetlistSongKeyAction } from "@/app/actions";
 import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
 import type { ReactNode } from "react";
+import { RehearsalNote } from "@/components/rehearsal-note";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MINOR_KEYS = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
@@ -67,6 +68,7 @@ export type StageSetlist = {
     lead: string;
     youtubeUrl: string | null;
     arrangement: string | null;
+    rehearsalNotes?: string;
     song: {
       id: string | undefined;
       title: string;
@@ -96,10 +98,14 @@ export default function StageModeClient({
   setlist,
   renderPracticeTools,
   canManageSetlist = false,
+  demoMode = false,
+  rehearsalNotesMessage,
 }: {
   setlist: StageSetlist;
   renderPracticeTools?: PracticeToolsRenderer;
   canManageSetlist?: boolean;
+  demoMode?: boolean;
+  rehearsalNotesMessage?: string;
 }) {
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [practiceToolsOpen, setPracticeToolsOpen] = useState(false);
@@ -581,10 +587,10 @@ export default function StageModeClient({
   if (!currentSong) return null;
 
   return (
-    <div className={cn("fixed inset-0 h-[100dvh] bg-black text-white flex flex-col font-sans overflow-hidden transition-shadow duration-300 z-50", metronomePlaying && currentBeat === 1 ? "shadow-[inset_0_0_100px_rgba(255,255,255,0.1)]" : "")}>
+    <div data-wooly-target="stage-chart" className={cn("fixed inset-0 h-[100dvh] bg-black text-white flex flex-col font-sans overflow-hidden transition-shadow duration-300 z-50", metronomePlaying && currentBeat === 1 ? "shadow-[inset_0_0_100px_rgba(255,255,255,0.1)]" : "")}>
       
       {/* Top Bar - Tools */}
-      <div className="flex items-center justify-between px-2 md:px-6 py-3 md:py-4 bg-zinc-950 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar gap-4 md:gap-8">
+      <div data-wooly-target="stage-controls" className="flex items-center justify-between px-2 md:px-6 py-3 md:py-4 bg-zinc-950 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar gap-4 md:gap-8">
         <div className="flex items-center gap-2 md:gap-6 shrink-0">
           <Link href={`/setlists/${setlist.id}`} className="p-2 rounded-full hover:bg-white/10 transition">
             <X className="size-5 md:size-6 text-zinc-400" />
@@ -777,9 +783,11 @@ export default function StageModeClient({
         })}
       </div>
 
+      {rehearsalNotesMessage && <p role="status" className="shrink-0 px-4 py-2 text-sm text-amber-200">Rehearsal notes: {rehearsalNotesMessage}</p>}
+      <RehearsalNote setlistId={setlist.id} slotId={currentSetlistSong.id} note={currentSetlistSong.rehearsalNotes} demoMode={demoMode} stage />
       <div className="flex-1 flex overflow-hidden">
         {/* Chord Chart Area */}
-        <div 
+        <div data-wooly-target="practice-chart"
           ref={scrollRef} 
           style={{ "--user-font-scale": fontScale } as FontScaleStyle}
           className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-10 pb-64 relative"

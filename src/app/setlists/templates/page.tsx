@@ -51,7 +51,7 @@ export default async function TemplatesPage() {
         <p className="mt-2 text-sm font-semibold text-zinc-300">Manage your saved setlist templates.</p>
       </div>
       
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div data-wooly-target="template-list" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {templates && templates.length > 0 ? templates.map((t) => (
           <div key={t.id} className="rounded-xl border border-white/[0.04] bg-[#16151a] p-6 shadow-xl relative group">
             <h3 className="text-lg font-bold text-white">{t.name}</h3>

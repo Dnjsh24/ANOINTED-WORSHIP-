@@ -16,12 +16,14 @@ export default function PracticeModeClient({
   memberId = "",
   canManage = false,
   proposeAction,
+  demoMode = false,
 }: {
   setlist: PracticeSetlist;
   preparation?: WorkspaceResult<PreparationWorkspace>;
   memberId?: string;
   canManage?: boolean;
   proposeAction?: PreparationProposalAction;
+  demoMode?: boolean;
 }) {
   const [practicedSongIds, setPracticedSongIds] = useState<Set<string>>(() => new Set());
   const [practiceTimeSignatures, setPracticeTimeSignatures] = useState<Record<string, string>>({});
@@ -57,6 +59,7 @@ export default function PracticeModeClient({
       lead: slot.lead ?? "",
       youtubeUrl: slot.song.youtubeUrl ?? null,
       arrangement: slot.arrangement,
+      rehearsalNotes: preparation?.ok ? preparation.data.plan?.allocations.find(row => row.slot_id === slot.slotId)?.focus : undefined,
       song: {
         id: slot.song.id,
         title: slot.song.title,
@@ -70,6 +73,7 @@ export default function PracticeModeClient({
 
   return (
     <StageModeClient
+      demoMode={demoMode}
       setlist={stageSetlist}
       canManageSetlist={canManage}
       renderPracticeTools={(stageSong, close, selectSong) => {

@@ -34,6 +34,43 @@ export type Database = {
   }
   public: {
     Tables: {
+      wooly_support_accounts: {
+        Row: { profile_id: string; created_at: string }
+        Insert: { profile_id: string; created_at?: string }
+        Update: { profile_id?: string; created_at?: string }
+        Relationships: [{ foreignKeyName: "wooly_support_accounts_profile_id_fkey"; columns: ["profile_id"]; isOneToOne: true; referencedRelation: "profiles"; referencedColumns: ["id"] }]
+      }
+      wooly_support_requests: {
+        Row: { id: string; profile_id: string; team_id: string | null; question: string; details: string; page_path: string; status: "open" | "answered" | "closed"; created_at: string; updated_at: string; requester_read_at: string; support_updated_at: string | null }
+        Insert: { id: string; profile_id: string; team_id?: string | null; question: string; details?: string; page_path: string; status?: string; created_at?: string; updated_at?: string; requester_read_at?: string; support_updated_at?: string | null }
+        Update: { status?: string; requester_read_at?: string; updated_at?: string; support_updated_at?: string | null }
+        Relationships: [
+          { foreignKeyName: "wooly_support_requests_profile_id_fkey"; columns: ["profile_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+          { foreignKeyName: "wooly_support_requests_team_id_fkey"; columns: ["team_id"]; isOneToOne: false; referencedRelation: "teams"; referencedColumns: ["id"] },
+        ]
+      }
+      wooly_support_messages: {
+        Row: { id: string; request_id: string; author_id: string; author_kind: "requester" | "support"; body: string; created_at: string }
+        Insert: { id: string; request_id: string; author_id: string; author_kind: string; body: string; created_at?: string }
+        Update: { body?: string }
+        Relationships: [
+          { foreignKeyName: "wooly_support_messages_request_id_fkey"; columns: ["request_id"]; isOneToOne: false; referencedRelation: "wooly_support_requests"; referencedColumns: ["id"] },
+          { foreignKeyName: "wooly_support_messages_author_id_fkey"; columns: ["author_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ]
+      }
+      wooly_help_articles: {
+        Row: { id: string; title: string; keywords: string; answer: string; audience: "everyone" | "before-team" | "team" | "managers"; route: string | null; published: boolean; created_by: string; updated_at: string }
+        Insert: { id: string; title: string; keywords: string; answer: string; audience: string; route?: string | null; published?: boolean; created_by: string; updated_at?: string }
+        Update: { title?: string; keywords?: string; answer?: string; audience?: string; route?: string | null; published?: boolean; updated_at?: string }
+        Relationships: [{ foreignKeyName: "wooly_help_articles_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }]
+      }
+      wooly_tutorial_progress: {
+        Row: { profile_id: string; tour_id: string; version: number; status: string; next_step: string; updated_at: string }
+        Insert: { profile_id: string; tour_id: string; version: number; status: string; next_step: string; updated_at?: string }
+        Update: { profile_id?: string; tour_id?: string; version?: number; status?: string; next_step?: string; updated_at?: string }
+        Relationships: [{ foreignKeyName: "wooly_tutorial_progress_profile_id_fkey"; columns: ["profile_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }]
+      }
+
       team_permission_overrides: {
         Row: { id: string; team_id: string; role: Database["public"]["Enums"]["team_role"] | null; member_id: string | null; permission: string; allowed: boolean; created_at: string }
         Insert: { id?: string; team_id: string; role?: Database["public"]["Enums"]["team_role"] | null; member_id?: string | null; permission: string; allowed: boolean; created_at?: string }
@@ -2278,6 +2315,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      is_wooly_support: { Args: Record<string, never>; Returns: boolean }
+      wooly_unread_count: { Args: Record<string, never>; Returns: number }
+      create_wooly_support_request: { Args: { p_id: string; p_question: string; p_details: string; p_page_path: string; p_team_id?: string | null }; Returns: string }
+      reply_wooly_support: { Args: { p_request_id: string; p_id: string; p_body: string; p_as_support?: boolean }; Returns: string }
+      set_wooly_support_status: { Args: { p_id: string; p_status: string }; Returns: undefined }
+      read_wooly_support_request: { Args: { p_id: string; p_read_until: string }; Returns: undefined }
+      save_wooly_help_article: { Args: { p_id: string; p_title: string; p_keywords: string; p_answer: string; p_audience: string; p_route: string | null; p_published: boolean }; Returns: string }
+
       set_team_permission_override: {
         Args: { p_team_id: string; p_role: string | null; p_member_id: string | null; p_permission: string; p_allowed: boolean | null }
         Returns: undefined
