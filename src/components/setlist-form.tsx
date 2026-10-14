@@ -10,6 +10,7 @@ import { initialActionState } from "@/lib/action-state";
 import {
   DEFAULT_SERVICE_TYPE,
   getPrimaryServiceType,
+  getEventTypeLabel,
   resolveSetlistEventType,
 } from "@/lib/domain/event-types";
 import type { EventType, Setlist } from "@/lib/types";
@@ -21,6 +22,13 @@ export type SetlistFormSong = {
   title: string;
   original_key: string;
   bpm: number | null;
+};
+
+export type SetlistFormEvent = {
+  id: string;
+  name: string;
+  type: EventType;
+  event_date: string;
 };
 
 function isSetlistFormSong(value: unknown): value is SetlistFormSong {
@@ -99,6 +107,8 @@ export function SetlistForm({
   songs,
   revision = 0,
   eventRevision,
+  events = [],
+  eventsUnavailable = false,
   }: {
   setlist?: Setlist;
   eventId?: string;
@@ -107,6 +117,8 @@ export function SetlistForm({
   songs?: SetlistFormSong[];
   revision?: number;
   eventRevision?: number;
+  events?: SetlistFormEvent[];
+  eventsUnavailable?: boolean;
   }) {
   const action = setlist ? updateSetlistAction : createSetlistAction;
   const [, startSave] = useTransition();
@@ -115,6 +127,8 @@ export function SetlistForm({
     catch { return { ok: false, message: "The save could not be confirmed. Your draft is retained. Retry when connected." }; }
   }, initialActionState);
   const [serviceTitle, setServiceTitle] = useState(setlist?.name ?? "");
+  const [selectedEventId, setSelectedEventId] = useState(eventId ?? "");
+  const selectedEvent = events.find(event => event.id === selectedEventId);
   const [eventType] = useState(() => resolveSetlistEventType(setlist?.eventType ?? initialEventType, setlist?.serviceTimes));
   const [serviceType] = useState(() => getPrimaryServiceType(setlist?.serviceTimes) || DEFAULT_SERVICE_TYPE);
   const [location] = useState(setlist?.location ?? "Main Sanctuary");
@@ -166,7 +180,7 @@ export function SetlistForm({
           <input type="hidden" name="revision" value={revision} />
           {eventRevision !== undefined && <input type="hidden" name="eventRevision" value={eventRevision} />}
           {setlist && <input type="hidden" name="setlistId" value={setlist.id} />}
-          {eventId && <input type="hidden" name="eventId" value={eventId} />}
+          {!setlist && selectedEvent && <input type="hidden" name="eventId" value={selectedEvent.id} />}
           {templateId && <input type="hidden" name="templateId" value={templateId} />}
           <ActionMessage state={state} />
 
@@ -181,9 +195,11 @@ export function SetlistForm({
             <div className="space-y-4 rounded-xl border border-white/[0.08] bg-[#111014]/60 p-5 text-left h-fit">
               <h3 className="text-sm font-bold text-white mb-2 pb-2 border-b border-white/[0.04]">Setlist Information</h3>
               <p className="text-xs text-zinc-400">
-                {eventId || setlist?.eventId
+                {selectedEvent || setlist?.eventId
                   ? "This setlist is linked to a Timeline event. Its schedule is managed in Timeline."
-                  : "This is a standalone setlist. To schedule it, create or edit an event or rehearsal in Timeline and select this setlist under Setlist (optional)."}
+                  : setlist
+                    ? "This is a standalone setlist. To schedule it, choose this setlist when editing an event in Timeline."
+                    : "This is a standalone setlist. You can link it to a Timeline event below or schedule it later in Timeline."}
               </p>
               
               <label className="block space-y-1.5">
@@ -191,8 +207,8 @@ export function SetlistForm({
                 <Input name="title" value={serviceTitle} onChange={(event) => setServiceTitle(event.target.value)} placeholder="e.g., Sunday Service" required />
               </label>
 
-              <input type="hidden" name="serviceDate" value={setlist?.date ?? new Date().toISOString().split("T")[0]} />
-              <input type="hidden" name="eventType" value={eventType} />
+              <input type="hidden" name="serviceDate" value={selectedEvent?.event_date ?? setlist?.date ?? new Date().toISOString().split("T")[0]} />
+              <input type="hidden" name="eventType" value={selectedEvent?.type ?? eventType} />
               <input type="hidden" name="serviceType" value={serviceType} />
               <input type="hidden" name="location" value={location} />
               <input type="hidden" name="callTime" value={callTime} />
@@ -211,6 +227,36 @@ export function SetlistForm({
                   className="min-h-24 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-xs text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-400"
                 />
               </label>
+              {!setlist && (
+                <div className="space-y-1.5">
+                  <label htmlFor="setlist-timeline-event" className="block text-xs font-bold text-zinc-300">
+                    Timeline event (Optional)
+                  </label>
+                  <select
+                    id="setlist-timeline-event"
+                    value={selectedEvent?.id ?? ""}
+                    onChange={event => setSelectedEventId(event.target.value)}
+                    aria-describedby="setlist-timeline-help"
+                    className="min-h-11 w-full rounded-md border border-white/10 bg-[#1f1e24] px-3 text-sm text-white outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20"
+                  >
+                    <option value="">Standalone setlist</option>
+                    {events.map(event => (
+                      <option key={event.id} value={event.id}>
+                        {event.name} — {event.event_date} · {getEventTypeLabel(event.type)}
+                      </option>
+                    ))}
+                  </select>
+                  <p id="setlist-timeline-help" className="text-xs text-zinc-400" aria-live="polite">
+                    {eventsUnavailable
+                      ? "Timeline events could not be loaded. You can save a standalone setlist or reload to try again."
+                      : selectedEvent
+                        ? "Saving will add this setlist to the selected event. Its schedule stays in Timeline."
+                        : events.length > 0
+                          ? "Choose an event to add this setlist to Timeline, or keep it standalone."
+                          : "No available Timeline events. Keep this setlist standalone, or create an event in Timeline first."}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Right Column: Song Library */}

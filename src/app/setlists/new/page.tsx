@@ -1,19 +1,20 @@
-import { canForTeam } from "@/lib/domain/permission-overrides";
 import { AppShell } from "@/components/app-shell";
-import { SetlistForm, type SetlistFormSong } from "@/components/setlist-form";
+import { SetlistForm, type SetlistFormEvent, type SetlistFormSong } from "@/components/setlist-form";
 import { Panel } from "@/components/ui/card";
 import { SetlistTemplatePicker, type SetlistTemplateSummary } from "@/components/setlist-template-picker";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getRequiredTeamContext } from "@/lib/supabase/team-guard";
-import type { EventType } from "@/lib/types";
-import { songs as sampleSongs } from "@/lib/sample-data";
+import { events as sampleEvents, setlists as sampleSetlists, songs as sampleSongs } from "@/lib/sample-data";
 
 export default async function NewSetlistPage({ searchParams }: { searchParams: Promise<{ eventId?: string; templateId?: string }> }) {
   const { eventId, templateId } = await searchParams;
   const teamContext = await getRequiredTeamContext();
   let setlistTemplates: SetlistTemplateSummary[] = [];
-  let initialEventType: EventType | undefined;
+  let events: SetlistFormEvent[] = hasSupabaseEnv() ? [] : sampleEvents
+    .filter(event => !sampleSetlists.some(setlist => setlist.eventId === event.id))
+    .map(event => ({ id: event.id, name: event.name, type: event.type, event_date: event.date }));
+  let eventsUnavailable = false;
   let songs: SetlistFormSong[] = hasSupabaseEnv() ? [] : sampleSongs.map(song => ({ id: song.id, title: song.title, original_key: song.originalKey, bpm: song.bpm ?? null }));
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
@@ -29,16 +30,19 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
       setlistTemplates = data;
     }
 
-    if (eventId) {
-      const { data: linkedEvent } = await supabase
-        .from("events")
-        .select("type")
-        .eq("id", eventId)
-        .eq("team_id", teamContext.teamId)
-        .maybeSingle();
-
-      initialEventType = linkedEvent?.type as EventType | undefined;
-    }
+    const { data: availableEvents, error: eventsError } = await supabase
+      .from("events")
+      .select("id, name, type, event_date, setlists ( id )")
+      .eq("team_id", teamContext.teamId)
+      .eq("approval_status", "approved")
+      .is("deleted_at", null)
+      .is("setlists.deleted_at", null)
+      .order("event_date", { ascending: true })
+      .order("starts_at", { ascending: true });
+    eventsUnavailable = Boolean(eventsError);
+    events = eventsError ? [] : (availableEvents ?? [])
+      .filter(event => event.setlists.length === 0)
+      .map(({ id, name, type, event_date }) => ({ id, name, type, event_date }));
 
     // Fetch songs for the team
     const { data: dbSongs } = await supabase
@@ -51,24 +55,23 @@ export default async function NewSetlistPage({ searchParams }: { searchParams: P
     }
   }
 
+  const selectedEvent = events.find(event => event.id === eventId);
+
   return (
     <AppShell active="Setlists" teamContext={teamContext}>
       <div className="mb-6 flex items-start justify-between">
         <div>
           <p className="font-mono text-xs font-bold uppercase text-violet-200">Setlists</p>
           <h1 className="mt-2 text-4xl font-bold">New Setlist</h1>
-          <p className="mt-2 text-sm font-semibold text-zinc-300">Create event details, scheduling, team assignments, and song order.</p>
+          <p className="mt-2 text-sm font-semibold text-zinc-300">Arrange songs and keep this setlist standalone or link it to a Timeline event.</p>
         </div>
         
         {/* We pass the templates here but currently SetlistForm creates the Setlist first.
             We will allow selecting a template, which passes a hidden field to SetlistForm. */}
         <SetlistTemplatePicker templates={setlistTemplates || []} />
       </div>
-      {!eventId && !canForTeam(teamContext, "events.manage") && (
-        <p className="mb-4 text-sm text-zinc-300">This setlist will be saved without an event. An authorized event leader can create and link the event later.</p>
-      )}
       <Panel>
-        <SetlistForm eventId={eventId} initialEventType={initialEventType} templateId={templateId} songs={songs} />
+        <SetlistForm eventId={selectedEvent?.id} initialEventType={selectedEvent?.type} events={events} eventsUnavailable={eventsUnavailable} templateId={templateId} songs={songs} />
       </Panel>
     </AppShell>
   );
