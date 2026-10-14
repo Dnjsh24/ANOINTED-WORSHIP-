@@ -1,10 +1,11 @@
 "use client";
 
-import { Bell, ClipboardList, Settings } from "lucide-react";
+import { Bell, Settings } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { createOptionalClient } from "@/lib/supabase/client";
+import { EditRequestsMenu } from "@/components/edit-requests-menu";
 
 const baseNotifications = [
   { title: "Upcoming event", body: "Sunday Morning Worship is coming up.", href: "/events/event-sunday" },
@@ -24,6 +25,11 @@ export function AppShellActions({
   desktopSync?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [requestsOpen, setRequestsOpen] = useState(false);
+  const handleRequestsOpenChange = useCallback((value: boolean) => {
+    setRequestsOpen(value);
+    if (value) setOpen(false);
+  }, []);
   const [pendingRequestCount, setPendingRequestCount] = useState(0);
   const [unreadReminderCount, setUnreadReminderCount] = useState(0);
 
@@ -170,13 +176,14 @@ export function AppShellActions({
   return (
     <div className="relative flex items-center gap-2 text-zinc-300">
       {desktopSync}
-      <Link href="/requests" aria-label="Edit requests" className="rounded-lg p-2 hover:bg-white/5"><ClipboardList className="size-5" /></Link>
+      <EditRequestsMenu key={`${teamId}-${userId}`} userId={userId} teamId={teamId} open={requestsOpen}
+        onOpenChange={handleRequestsOpenChange} />
       <button
         type="button"
         aria-label="Open notifications"
         aria-expanded={open}
         className="relative rounded-md p-2 transition-all duration-200 hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-violet-300"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => { setRequestsOpen(false); setOpen((value) => !value); }}
       >
         <Bell className={cn("size-5 transition-transform duration-200", open && "text-violet-300 rotate-12")} />
         {badgeCount > 0 ? (
