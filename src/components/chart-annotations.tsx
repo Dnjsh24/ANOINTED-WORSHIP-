@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from "react";
-import { chartAnnotationKeys, noteFonts, parseChartNotes, type ChartNote } from "@/lib/domain/chart-annotations";
+import { PenLine, Eraser, Type, Bold, Italic, Underline, Strikethrough, Trash2, Check } from "lucide-react";
+import { annotationColors, chartAnnotationKeys, noteFonts, parseChartNotes, type ChartNote } from "@/lib/domain/chart-annotations";
 
 type Props = {
   setlistId: string;
@@ -14,7 +15,20 @@ type Props = {
 const subscribeHydration = () => () => {};
 const clientSnapshot = () => true;
 const serverSnapshot = () => false;
-const controlClass = "min-h-11 rounded border border-white/20 bg-zinc-900 px-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300";
+const controlClass = "min-h-11 rounded-lg border border-white/10 bg-white/5 px-2 text-sm text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300";
+const iconClass = "flex size-11 shrink-0 items-center justify-center rounded-xl text-zinc-400 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 disabled:opacity-40 aria-pressed:bg-white/10 aria-pressed:text-white";
+
+function AnnotationColorPicker({ label, value, onChange }: { label: string; value: string; onChange: (color: string) => void }) {
+  return <div role="group" aria-label={label} className="flex flex-wrap items-center gap-1">
+    {annotationColors.map(color => <button key={color.value} type="button" title={color.name} aria-label={`${label}: ${color.name}`} aria-pressed={value.toLowerCase() === color.value} onClick={() => onChange(color.value)} className="flex size-11 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300">
+      <span className={`size-5 rounded-full border border-white/20 ${value.toLowerCase() === color.value ? "ring-2 ring-white/80 ring-offset-4 ring-offset-zinc-900" : ""}`} style={{ backgroundColor: color.value }} />
+    </button>)}
+    <label className="relative flex size-11 cursor-pointer items-center justify-center rounded-lg border border-white/10" title={`Custom ${label.toLowerCase()}`}>
+      <span className="size-5 rounded-full border border-white/30" style={{ background: "conic-gradient(#fb7185, #facc15, #6ee7b7, #38bdf8, #c4b5fd, #fb7185)" }} />
+      <input aria-label={`Custom ${label.toLowerCase()}`} type="color" value={value} onChange={event => onChange(event.target.value)} className="absolute inset-0 size-full cursor-pointer opacity-0 focus-visible:opacity-100" />
+    </label>
+  </div>;
+}
 
 export function ChartAnnotations(props: Props) {
   const hydrated = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
@@ -29,6 +43,7 @@ function LoadedAnnotations({ setlistId, slotId, songId, editable, containerRef, 
   const [selectedId, setSelectedId] = useState<string>();
   const [tool, setTool] = useState<"pen" | "eraser" | null>(null);
   const [penSize, setPenSize] = useState(4);
+  const [penColor, setPenColor] = useState<string>("#facc15");
   const [saveError, setSaveError] = useState("");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
@@ -115,7 +130,7 @@ function LoadedAnnotations({ setlistId, slotId, songId, editable, containerRef, 
     if (notes.length >= 100) return;
     const note: ChartNote = {
       id: crypto.randomUUID(), text: "", x: 24, y: (containerRef.current?.scrollTop ?? 0) + 100,
-      font: "sans", fontSize: 24, bold: false, italic: false, underline: false, strike: false,
+      font: "sans", fontSize: 24, color: "#facc15", bold: false, italic: false, underline: false, strike: false,
     };
     setTool(null);
     setSelectedId(note.id);
@@ -129,25 +144,40 @@ function LoadedAnnotations({ setlistId, slotId, songId, editable, containerRef, 
   }
 
   return <>
-    {editable && <div data-chart-annotation className="fixed bottom-4 left-4 right-20 z-40 flex max-w-3xl flex-wrap items-center gap-2 rounded-xl border border-white/15 bg-zinc-950/95 p-2 shadow-xl" aria-label="Practice annotations" role="group">
-      <button type="button" className={controlClass} aria-label="Apple Pencil Annotations" aria-pressed={tool === "pen"} onClick={() => { setSelectedId(undefined); setTool(tool === "pen" ? null : "pen"); }}>Pen</button>
-      <button type="button" className={controlClass} aria-pressed={tool === "eraser"} onClick={() => { setSelectedId(undefined); setTool(tool === "eraser" ? null : "eraser"); }}>Eraser</button>
-      {tool && <label className="text-xs text-zinc-300">Pen size <input aria-label="Pen size" className="w-20 accent-violet-400" type="range" min="2" max="50" value={penSize} onChange={event => setPenSize(Number(event.target.value))} /></label>}
-      <button type="button" className={controlClass} disabled={notes.length >= 100} onClick={addNote}>Add text note</button>
-      <span className="text-xs text-zinc-400">Saved on this device · visible in Stage</span>
-      {tool && <p className="w-full text-xs text-zinc-300">Turn the pen or eraser off to scroll the chart.</p>}
-      {saveError && <p role="alert" className="w-full text-sm text-amber-200">{saveError}</p>}
-      {selectedNote && <div className="flex w-full flex-wrap items-center gap-2 border-t border-white/10 pt-2">
+    {editable && <div data-chart-annotation className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[55] -translate-x-1/2" aria-label="Practice annotations" role="group">
+      {(tool || selectedNote || saveError) && <div className="absolute bottom-full left-1/2 mb-3 max-h-[55dvh] -translate-x-1/2 overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900/95 p-3 shadow-2xl backdrop-blur-xl" style={{ width: "min(34rem, calc(100vw - 2rem))" }}>
+      {tool && <div className="flex items-center gap-3 px-1 text-xs text-zinc-300">
+        <span>{tool === "pen" ? "Pen" : "Eraser"}</span>
+        <input aria-label="Pen size" className="h-11 min-w-0 flex-1 accent-zinc-200" type="range" min="2" max="50" value={penSize} onChange={event => setPenSize(Number(event.target.value))} />
+        <span className="w-8 text-right tabular-nums">{penSize}px</span>
+      </div>}
+      {tool === "pen" && <AnnotationColorPicker label="Pen color" value={penColor} onChange={setPenColor} />}
+      {tool && <p className="mt-2 px-1 text-xs text-zinc-400">Tap the active tool to scroll again.</p>}
+      {saveError && <p role="alert" className="text-sm text-amber-200">{saveError}</p>}
+      {selectedNote && <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
         <label className="text-xs text-zinc-300">Font <select aria-label="Note font" className={controlClass} value={selectedNote.font} onChange={event => updateNote(selectedNote.id, { font: event.target.value as ChartNote["font"] })}>
           <option value="sans">Arial</option><option value="serif">Georgia</option><option value="mono">Monospace</option>
         </select></label>
         <label className="text-xs text-zinc-300">Size <select aria-label="Note font size" className={controlClass} value={selectedNote.fontSize} onChange={event => updateNote(selectedNote.id, { fontSize: Number(event.target.value) })}>
           {[12, 16, 18, 24, 32, 48, 64, 72].map(size => <option key={size} value={size}>{size}px</option>)}
         </select></label>
-        {([['bold', 'Bold'], ['italic', 'Italic'], ['underline', 'Underline'], ['strike', 'Strikethrough']] as const).map(([property, label]) => <button type="button" key={property} className={controlClass} aria-pressed={selectedNote[property]} onClick={() => updateNote(selectedNote.id, { [property]: !selectedNote[property] })}>{label}</button>)}
-        <button type="button" className={controlClass} onClick={() => { saveNotes(notes.filter(note => note.id !== selectedNote.id)); setSelectedId(undefined); }}>Delete note</button>
-        <button type="button" className={controlClass} onClick={() => setSelectedId(undefined)}>Done editing</button>
+        </div>
+        <div className="flex flex-wrap items-center gap-1">
+        {([['bold', 'Bold', Bold], ['italic', 'Italic', Italic], ['underline', 'Underline', Underline], ['strike', 'Strikethrough', Strikethrough]] as const).map(([property, label, Icon]) => <button type="button" key={property} title={label} aria-label={label} className={iconClass} aria-pressed={selectedNote[property]} onClick={() => updateNote(selectedNote.id, { [property]: !selectedNote[property] })}><Icon className="size-4" aria-hidden="true" /></button>)}
+        <div className="mx-1 h-5 w-px bg-white/10" />
+        <button type="button" title="Delete note" aria-label="Delete note" className={iconClass} onClick={() => { saveNotes(notes.filter(note => note.id !== selectedNote.id)); setSelectedId(undefined); }}><Trash2 className="size-4" aria-hidden="true" /></button>
+        <button type="button" title="Done editing" aria-label="Done editing" className={iconClass} onClick={() => setSelectedId(undefined)}><Check className="size-4" aria-hidden="true" /></button>
+        </div>
+        <AnnotationColorPicker label="Text color" value={selectedNote.color} onChange={color => updateNote(selectedNote.id, { color })} />
       </div>}
+      </div>}
+      <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-zinc-900/90 p-1.5 shadow-xl backdrop-blur-xl">
+        <button type="button" className={iconClass} title="Pen" aria-label="Apple Pencil Annotations" aria-pressed={tool === "pen"} onClick={() => { setSelectedId(undefined); setTool(tool === "pen" ? null : "pen"); }}><PenLine className="size-5" aria-hidden="true" /></button>
+        <button type="button" className={iconClass} title="Eraser" aria-label="Eraser" aria-pressed={tool === "eraser"} onClick={() => { setSelectedId(undefined); setTool(tool === "eraser" ? null : "eraser"); }}><Eraser className="size-5" aria-hidden="true" /></button>
+        <div className="mx-1 h-5 w-px bg-white/10" />
+        <button type="button" className={iconClass} title="Add text note" aria-label="Add text note" aria-pressed={Boolean(selectedNote)} disabled={notes.length >= 100} onClick={addNote}><Type className="size-5" aria-hidden="true" /></button>
+      </div>
     </div>}
     <canvas ref={canvasRef} data-chart-annotation aria-label="Saved chart drawing" className={`absolute left-0 top-0 z-20 ${editable && tool ? "cursor-crosshair" : "pointer-events-none"}`} style={{ touchAction: tool ? "none" : "auto" }}
       onPointerDown={event => {
@@ -165,7 +195,7 @@ function LoadedAnnotations({ setlistId, slotId, songId, editable, containerRef, 
         if (!context) return;
         const rect = event.currentTarget.getBoundingClientRect();
         context.lineTo(event.clientX - rect.left, event.clientY - rect.top);
-        context.strokeStyle = "rgba(250, 204, 21, 0.8)";
+        context.strokeStyle = penColor;
         context.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
         context.lineWidth = tool === "eraser" ? penSize * 4 : penSize;
         context.lineCap = "round";
@@ -175,11 +205,12 @@ function LoadedAnnotations({ setlistId, slotId, songId, editable, containerRef, 
       const selected = editable && selectedId === note.id;
       const style: CSSProperties = {
         left: `clamp(0px, ${note.x}px, calc(100% - 80px))`, top: note.y, fontFamily: noteFonts[note.font], fontSize: note.fontSize,
+        color: note.color,
         fontWeight: note.bold ? "bold" : "normal", fontStyle: note.italic ? "italic" : "normal",
         textDecoration: [note.underline && "underline", note.strike && "line-through"].filter(Boolean).join(" "),
         maxWidth: `max(80px, calc(100% - ${note.x}px))`,
       };
-      return <div key={note.id} data-chart-annotation className={`absolute z-30 w-64 whitespace-pre-wrap break-words rounded text-yellow-300 ${editable ? "border border-yellow-300/30 bg-zinc-950/90 p-2" : "pointer-events-none"}`} style={style}>
+      return <div key={note.id} data-chart-annotation className={`absolute z-30 w-64 whitespace-pre-wrap break-words rounded ${editable ? "border border-white/15 bg-zinc-950/90 p-2" : "pointer-events-none"}`} style={style}>
         {editable && <button type="button" className="mb-1 block min-h-11 w-full cursor-move rounded bg-white/10 px-2 text-left font-sans text-xs text-zinc-200 focus-visible:ring-2 focus-visible:ring-violet-300" style={{ touchAction: "none" }} aria-label={`Move text note ${index + 1}`} onClick={() => { setSelectedId(note.id); setTool(null); }}
           onKeyDown={event => {
             const offsets: Record<string, [number, number]> = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] };

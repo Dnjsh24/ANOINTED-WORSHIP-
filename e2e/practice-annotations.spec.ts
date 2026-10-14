@@ -22,11 +22,19 @@ test("Practice saves movable formatted text and drawings for read-only Stage", a
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.goto("/setlists/sunday-service/practice");
+  await expect(page.getByRole("button", { name: "Add text note", exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("minimal-annotation-dock.png") });
   await page.getByRole("button", { name: "Add text note" }).click();
   await page.getByRole("textbox", { name: "Text note 1" }).fill("Quiet intro · watch the leader");
   await page.getByLabel("Note font", { exact: true }).selectOption("serif");
   await page.getByLabel("Note font size", { exact: true }).selectOption("32");
+  await page.getByRole("button", { name: "Text color: Sky", exact: true }).click();
+  expect(await page.getByLabel("Custom text color").evaluate(element => {
+    const box = element.getBoundingClientRect();
+    return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) === element;
+  })).toBe(true);
   for (const name of ["Bold", "Italic", "Underline", "Strikethrough"]) await page.getByRole("button", { name, exact: true }).click();
+  await page.screenshot({ path: testInfo.outputPath("text-color-controls.png") });
   const handle = page.getByRole("button", { name: "Move text note 1", exact: true });
   await handle.focus();
   await page.keyboard.press("ArrowDown");
@@ -42,6 +50,8 @@ test("Practice saves movable formatted text and drawings for read-only Stage", a
     await page.getByRole("button", { name: "Done editing" }).click();
   }
   await page.getByRole("button", { name: "Apple Pencil Annotations" }).click();
+  await page.getByRole("button", { name: "Pen color: Mint", exact: true }).click();
+  await page.screenshot({ path: testInfo.outputPath("pen-color-controls.png") });
   const canvas = page.getByLabel("Saved chart drawing");
   const bounds = await canvas.boundingBox();
   const strokeX = Math.min(bounds!.width - 120, 400);
@@ -50,6 +60,11 @@ test("Practice saves movable formatted text and drawings for read-only Stage", a
   const originalViewport = page.viewportSize()!;
   await page.setViewportSize({ width: 320, height: 700 });
   await expect(page.locator('[data-wooly-target="practice-chart"]')).toHaveJSProperty("clientWidth", 256);
+  await expect(page.getByLabel("Custom pen color")).toBeInViewport();
+  expect(await page.getByLabel("Custom pen color").evaluate(element => {
+    const box = element.getBoundingClientRect();
+    return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) === element;
+  })).toBe(true);
   await page.setViewportSize(originalViewport);
   await expect.poll(() => canvas.evaluate((element, x) => {
     const context = (element as HTMLCanvasElement).getContext("2d")!;
@@ -65,9 +80,11 @@ test("Practice saves movable formatted text and drawings for read-only Stage", a
   await expect(note.locator("..")).toHaveCSS("font-size", "32px");
   await expect(note.locator("..")).toHaveCSS("font-style", "italic");
   await expect(note.locator("..")).toHaveCSS("font-weight", "700");
+  await expect(note.locator("..")).toHaveCSS("color", "rgb(56, 189, 248)");
   await expect.poll(() => canvas.evaluate((element, x) => {
     const context = (element as HTMLCanvasElement).getContext("2d")!;
-    return Array.from(context.getImageData(x, 55, 120, 40).data).some((value, index) => index % 4 === 3 && value > 0);
+    const pixels = context.getImageData(x, 55, 120, 40).data;
+    return pixels.some((value, index) => index % 4 === 3 && value > 0 && pixels[index - 2] > pixels[index - 3] && pixels[index - 2] > pixels[index - 1]);
   }, strokeX)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("stage-saved-annotations.png") });
   await page.getByRole("button", { name: "Next song", exact: true }).click();

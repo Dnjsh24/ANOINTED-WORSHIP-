@@ -1,6 +1,11 @@
 import { z } from "zod";
 
 export const noteFonts = { sans: "Arial, sans-serif", serif: "Georgia, serif", mono: "monospace" } as const;
+export const annotationColors = [
+  { name: "Yellow", value: "#facc15" }, { name: "White", value: "#ffffff" },
+  { name: "Coral", value: "#fb7185" }, { name: "Sky", value: "#38bdf8" },
+  { name: "Mint", value: "#6ee7b7" }, { name: "Lavender", value: "#c4b5fd" },
+] as const;
 const chartNoteSchema = z.object({
   id: z.string().max(100),
   text: z.string().max(4000),
@@ -8,6 +13,7 @@ const chartNoteSchema = z.object({
   y: z.number().finite().min(0),
   font: z.enum(["sans", "serif", "mono"]),
   fontSize: z.number().int().min(12).max(72),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#facc15"),
   bold: z.boolean(),
   italic: z.boolean(),
   underline: z.boolean(),
