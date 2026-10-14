@@ -169,5 +169,6 @@ export default async function PracticeSetlistPage({ params }: { params: Promise<
 
   if (!setlist) notFound();
 
-  return process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <><WoolyTeamScreen context={teamContext} /><PracticeModeClient key={setlist.id} setlist={setlist} preparation={preparation} memberId={teamContext.memberId} canManage={canForTeam(teamContext, "setlists.manage")} proposeAction={requestRehearsalPlanAction.bind(null, setlist.id)} /></> : <PracticeModeClient key={setlist.id} setlist={setlist} preparation={preparation} memberId={teamContext.memberId} canManage={canForTeam(teamContext, "setlists.manage")} proposeAction={requestRehearsalPlanAction.bind(null, setlist.id)} />;
+  const content = <PracticeModeClient key={setlist.id} setlist={setlist} preparation={preparation} memberId={teamContext.memberId} canManage={canForTeam(teamContext, "setlists.manage")} proposeAction={requestRehearsalPlanAction.bind(null, setlist.id)} demoMode={!hasSupabaseEnv()} />;
+  return process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <><WoolyTeamScreen context={teamContext} />{content}</> : content;
 }

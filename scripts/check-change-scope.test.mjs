@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { checkChangeScope } from "./check-change-scope.mjs";
@@ -32,6 +32,16 @@ describe("release change scope", () => {
   it("accepts a focused committed fix and preserves current analytics", () => {
     commitFile("fix.txt", "new fix");
     expect(checkChangeScope(directory, ["fix.txt"]).changedFiles).toEqual(["fix.txt"]);
+  });
+  it.each(["[id]", "[...slug]", "[[...slug]]"])("accepts literal Next.js route segment %s", (segment) => {
+    const path = `src/app/setlists/${segment}/page.tsx`;
+    mkdirSync(join(directory, "src/app/setlists", segment), { recursive: true });
+    commitFile(path, "export default function Page() {}");
+    expect(checkChangeScope(directory, [path]).changedFiles).toEqual([path]);
+  });
+  it("does not treat a bracket declaration as a filename pattern", () => {
+    commitFile("fix.txt", "new fix");
+    expect(() => checkChangeScope(directory, ["[f]ix.txt"])).toThrow("Files outside the declared task");
   });
   it("blocks the stale branch that would replace newer main work", () => {
     commitFile("fix.txt", "new fix");

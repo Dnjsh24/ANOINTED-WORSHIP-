@@ -10,6 +10,7 @@ import type { Viewport } from "next";
 import type { Database } from "@/lib/supabase/database.types";
 import { setlists as sampleSetlists } from "@/lib/sample-data";
 import { formatSongToText } from "@/lib/domain/chords";
+import { loadRehearsalNotes } from "@/lib/supabase/workflow-data";
 
 type StageSetlistSongRow = Pick<
   Database["public"]["Tables"]["setlist_songs"]["Row"],
@@ -38,20 +39,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
   if (!hasSupabaseEnv()) {
     const sample = sampleSetlists.find(setlist => setlist.id === id);
     if (!sample) notFound();
-    return process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <><WoolyTeamScreen context={teamContext} /><StageModeClient setlist={{
-      id: sample.id,
-      date: sample.date,
-      type: sample.eventType ?? "service",
-      songs: [...sample.songs].sort((a, b) => a.order - b.order).map(slot => ({
-        id: slot.id,
-        order: slot.order,
-        assignedKey: slot.assignedKey,
-        lead: slot.lead ?? "",
-        youtubeUrl: slot.song.youtubeUrl ?? null,
-        arrangement: slot.arrangement ?? null,
-        song: { id: slot.song.id, title: slot.song.title, bpm: slot.song.bpm ?? 70, originalKey: slot.song.originalKey, timeSignature: slot.song.timeSignature ?? "4/4", lyricsChords: formatSongToText(slot.song) },
-      })),
-    }} /></> : <StageModeClient setlist={{
+    const content = <StageModeClient demoMode setlist={{
       id: sample.id,
       date: sample.date,
       type: sample.eventType ?? "service",
@@ -65,6 +53,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
         song: { id: slot.song.id, title: slot.song.title, bpm: slot.song.bpm ?? 70, originalKey: slot.song.originalKey, timeSignature: slot.song.timeSignature ?? "4/4", lyricsChords: formatSongToText(slot.song) },
       })),
     }} />;
+    return process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <><WoolyTeamScreen context={teamContext} />{content}</> : content;
   }
 
   if (hasSupabaseEnv() && teamContext.teamId && teamContext.userId) {
@@ -102,6 +91,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
 
     if (dbSetlist) {
       const dbSetlistSongs = dbSetlist.setlist_songs || [];
+      const rehearsalNotes = await loadRehearsalNotes(supabase, teamContext.teamId, dbSetlist.id, dbSetlistSongs.map(slot => slot.id));
 
       // Sort by song_order
       dbSetlistSongs.sort((a, b) => (a.song_order ?? 0) - (b.song_order ?? 0));
@@ -116,6 +106,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
           lead: leadVocal,
           youtubeUrl: ss.song?.youtube_url || null,
           arrangement: ss.arrangement || null,
+          rehearsalNotes: rehearsalNotes.ok ? rehearsalNotes.data[ss.id] : undefined,
           song: {
             id: ss.song?.id,
             title: ss.song?.title || "Unknown Song",
@@ -134,7 +125,8 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
         songs: songsList,
       };
 
-      return process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <><WoolyTeamScreen context={teamContext} /><StageModeClient setlist={setlist} /></> : <StageModeClient setlist={setlist} />;
+      const content = <StageModeClient setlist={setlist} rehearsalNotesMessage={rehearsalNotes.ok ? undefined : rehearsalNotes.message} />;
+      return process.env.WOOLY_TUTORIAL_ENABLED === "1" && !isDesktopRuntime() ? <><WoolyTeamScreen context={teamContext} />{content}</> : content;
     }
   }
 

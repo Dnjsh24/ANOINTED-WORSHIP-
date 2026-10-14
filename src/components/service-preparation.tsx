@@ -2,46 +2,47 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { buildRehearsalPlan, preparationGroups, rehearsalMinutes, type RehearsalAllocation, type RehearsalSong } from "@/lib/domain/rehearsal-plan";
+import { RehearsalRunThrough } from "@/components/rehearsal-run-through";
+import { RehearsalSongFields } from "@/components/rehearsal-song-fields";
+import { preparationGroups, rehearsalMinutes, type RehearsalAllocation, type RehearsalSong } from "@/lib/domain/rehearsal-plan";
+import { useDemoRehearsalPlan } from "@/lib/use-demo-rehearsal-plan";
 
-export function ServicePreparation({ name, songs }: { name: string; songs: RehearsalSong[] }) {
+export function ServicePreparation({ songs, setlistId }: { name: string; songs: RehearsalSong[]; setlistId?: string }) {
   const [checked, setChecked] = useState<Set<string>>(() => new Set());
-  const [allocations, setAllocations] = useState<Record<string, RehearsalAllocation>>({});
+  const [draft, setDraft] = useState<Record<string, RehearsalAllocation>>({});
+  const [status, setStatus] = useState("");
+  const demo = useDemoRehearsalPlan(setlistId);
+  const allocations = { ...demo.allocations, ...draft };
   const totalTasks = preparationGroups.reduce((sum, group) => sum + group.tasks.length, 0);
   const totalMinutes = songs.reduce((sum, song) => sum + (allocations[song.id]?.minutes ?? 5), 0);
 
   function updateAllocation(id: string, patch: Partial<RehearsalAllocation>) {
-    setAllocations(current => ({ ...current, [id]: { ...(current[id] ?? { minutes: 5, focus: "" }), ...patch } }));
+    setDraft(current => ({ ...current, [id]: { ...(current[id] ?? demo.allocations[id] ?? { minutes: 5, focus: "" }), ...patch } }));
+    setStatus("");
   }
 
-  function downloadPlan() {
-    const url = URL.createObjectURL(new Blob([buildRehearsalPlan(name, songs, allocations, checked)], { type: "text/plain;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "rehearsal-plan.txt";
-    link.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  function saveNotes() {
+    try {
+      demo.save(Object.fromEntries(songs.map(song => [song.id, allocations[song.id] ?? { minutes: 5, focus: "" }])));
+      setDraft({});
+      setStatus("Demo rehearsal notes saved on this device. They are available in the setlist and Stage mode.");
+    } catch { setStatus("Notes could not be saved on this device. Keep this page open and retry; your draft is unchanged."); }
   }
 
   return <section aria-label="Rehearsal and service preparation" className="rounded-2xl border border-white/10 bg-[#111014]/80 p-5">
     <h2 className="text-lg font-bold">Rehearsal &amp; service preparation</h2>
-    <p className="mt-2 text-sm text-zinc-400">Plan practice time and focus, then download a copy for your team. Edits and checks last while this page stays open.</p>
+    <p className="mt-2 text-sm text-zinc-400">{setlistId ? "Save your rehearsal notes to show them with each song in the demo setlist and Stage mode. Checklist progress lasts while this page stays open." : "Plan rehearsal time and notes. Connect your team to save notes for the setlist and Stage mode."}</p>
     <p role="status" className="mt-3 text-sm text-violet-200">{totalMinutes} planned rehearsal minutes · {checked.size} of {totalTasks} preparation checks</p>
-    <details className="mt-4">
-      <summary className="min-h-11 cursor-pointer py-3 font-semibold text-violet-300">Open preparation tools</summary>
+    <div className="mt-4 space-y-4">
+      <RehearsalRunThrough songs={songs} allocations={allocations} />
       <div className="mt-4 space-y-3">
         {songs.length === 0 && <p className="text-sm text-zinc-400">Add songs to plan your rehearsal order.</p>}
-        {songs.map((song, index) => <div key={song.id} className="grid gap-3 rounded-lg border border-white/10 p-3 sm:grid-cols-[minmax(0,1fr)_110px]">
-          <div className="min-w-0">
-            <h3 className="break-words font-semibold">{index + 1}. {song.title} <span className="text-sm text-zinc-400">· Key {song.assignedKey}</span></h3>
-            <label className="mt-2 grid gap-1 text-xs text-zinc-300">Focus for {song.title}
-              <input type="text" maxLength={500} value={allocations[song.id]?.focus ?? ""} onChange={event => updateAllocation(song.id, { focus: event.target.value })} placeholder="Intro, harmonies, transitions…" className="min-h-11 w-full min-w-0 rounded border border-white/20 bg-zinc-900 px-3 text-sm text-white" />
-            </label>
-          </div>
-          <label className="grid content-start gap-1 text-xs text-zinc-300">Minutes for {song.title}
-            <input type="number" min={0} max={120} step={1} value={allocations[song.id]?.minutes ?? 5} onChange={event => updateAllocation(song.id, { minutes: rehearsalMinutes(event.target.value) })} className="min-h-11 w-full min-w-0 rounded border border-white/20 bg-zinc-900 px-3 text-sm text-white" />
-          </label>
-        </div>)}
+        {songs.map((song, index) => <RehearsalSongFields
+          key={song.id} song={song} index={index}
+          focus={allocations[song.id]?.focus ?? ""} minutes={allocations[song.id]?.minutes ?? 5}
+          onFocusChange={focus => updateAllocation(song.id, { focus })}
+          onMinutesChange={value => updateAllocation(song.id, { minutes: rehearsalMinutes(value) })}
+        />)}
       </div>
       <div className="mt-5 grid gap-4 md:grid-cols-3">
         {preparationGroups.map(group => <fieldset key={group.name} className="rounded-lg border border-white/10 p-3">
@@ -52,7 +53,8 @@ export function ServicePreparation({ name, songs }: { name: string; songs: Rehea
           </label>)}
         </fieldset>)}
       </div>
-      <Button type="button" onClick={downloadPlan} className="mt-5">Download rehearsal plan</Button>
-    </details>
+      {setlistId && <Button type="button" onClick={saveNotes} className="mt-5">Save rehearsal notes</Button>}
+      <p aria-live="polite" className="text-sm text-violet-200">{status}</p>
+    </div>
   </section>;
 }
