@@ -12,8 +12,9 @@ import type { PreparationWorkspace } from "@/lib/supabase/workflow-data";
 
 export type PreparationProposalAction = (input: { revision: number; allocations: RehearsalAllocationRow[]; tasks: PreparationTask[]; reason: string; requestNonce: string }) => Promise<ActionState>;
 const field = "min-h-11 w-full min-w-0 rounded border border-white/20 bg-zinc-900 px-3 text-sm text-white disabled:opacity-60";
-export function SharedPreparation({ setlistId, songs, workspace, memberId, canManage, proposeAction }: {
+export function SharedPreparation({ setlistId, songs, workspace, memberId, canManage, proposeAction, onAllocationsChange }: {
   setlistId: string; name: string; songs: RehearsalSong[]; workspace: PreparationWorkspace; memberId: string; canManage: boolean; proposeAction?: PreparationProposalAction;
+  onAllocationsChange?: (allocations: RehearsalAllocationRow[]) => void;
 }) {
   const [revision, setRevision] = useState(workspace.plan?.revision ?? 0);
   const [allocations, setAllocations] = useState<RehearsalAllocationRow[]>(() => songs.map(song => workspace.plan?.allocations.find(row => row.slot_id === song.id) ?? { slot_id: song.id, minutes: 5, focus: "" }));
@@ -42,7 +43,11 @@ export function SharedPreparation({ setlistId, songs, workspace, memberId, canMa
         : await proposeAction?.({ revision, allocations, tasks, reason, requestNonce: nonce });
       if (!result) return;
       setStatus(result.message);
-      if (result.ok && canManage && typeof result.data?.revision === "number") { setRevision(result.data.revision); setSavedTasks(tasks); }
+      if (result.ok && canManage) {
+        onAllocationsChange?.(allocations);
+        if (typeof result.data?.revision === "number") setRevision(result.data.revision);
+        setSavedTasks(tasks);
+      }
     } catch { setStatus("Could not save. Your draft is unchanged. Retry when connected."); }
     finally { setPending(false); }
   }
@@ -62,7 +67,9 @@ export function SharedPreparation({ setlistId, songs, workspace, memberId, canMa
       if (!result.ok) { setStatus(result.message); return; }
       const plan = result.data.plan;
       setRevision(plan?.revision ?? 0);
-      setAllocations(songs.map(song => plan?.allocations.find(row => row.slot_id === song.id) ?? { slot_id: song.id, minutes: 5, focus: "" }));
+      const latestAllocations = songs.map(song => plan?.allocations.find(row => row.slot_id === song.id) ?? { slot_id: song.id, minutes: 5, focus: "" });
+      setAllocations(latestAllocations);
+      onAllocationsChange?.(plan?.allocations ?? []);
       setTasks(plan?.tasks ?? defaultPreparationTasks()); setSavedTasks(plan?.tasks ?? defaultPreparationTasks()); setChecks(result.data.checks); setRequestNonce(null);
       setStatus("Latest shared plan loaded. Draft replaced.");
     } catch { setStatus("Latest plan could not be loaded. Your draft is unchanged."); }

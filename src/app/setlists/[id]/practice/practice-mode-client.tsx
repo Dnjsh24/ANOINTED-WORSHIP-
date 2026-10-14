@@ -82,10 +82,10 @@ export default function PracticeModeClient({
 
         return (
           <PracticeToolsPanel
-            key={practiceSong.slotId}
             setlist={setlist}
             stageSong={stageSong}
             preparation={preparation}
+            demoMode={demoMode}
             memberId={memberId}
             canManage={canManage}
             proposeAction={proposeAction}

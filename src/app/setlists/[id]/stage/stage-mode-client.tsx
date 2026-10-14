@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import type { CSSProperties } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, PenTool, Radio, Eraser, Guitar, ChevronsDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Minus, Plus, Play, Square, Radio, Guitar, ChevronsDown } from "lucide-react";
 import { parseLyricsAndChords, transposeProgression, transposeTokens } from "@/lib/domain/chords";
 import { cn } from "@/lib/utils";
 import { createOptionalClient } from "@/lib/supabase/client";
@@ -12,6 +12,7 @@ import { updateSetlistSongKeyAction } from "@/app/actions";
 import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
 import type { ReactNode } from "react";
 import { RehearsalNote } from "@/components/rehearsal-note";
+import { ChartAnnotations } from "@/components/chart-annotations";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MINOR_KEYS = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
@@ -109,12 +110,14 @@ export default function StageModeClient({
 }) {
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [practiceToolsOpen, setPracticeToolsOpen] = useState(false);
+  const [practiceToolsMounted, setPracticeToolsMounted] = useState(false);
   const [keySaveStatus, setKeySaveStatus] = useState("");
   const [keySaveError, setKeySaveError] = useState("");
   const [isSavingKey, setIsSavingKey] = useState(false);
   const closePracticeTools = useCallback(() => setPracticeToolsOpen(false), []);
   const practiceToolsRef = useAccessibleDialog({ open: practiceToolsOpen, onClose: closePracticeTools });
   const scrollRef = useRef<HTMLDivElement>(null);
+  const chartContentRef = useRef<HTMLDivElement>(null);
   const [isScrolling, setIsScrolling] = useState(false);
   const [scrollSpeed, setScrollSpeedState] = useState(1.0);
   const scrollSpeedRef = useRef(1.0);
@@ -190,171 +193,6 @@ export default function StageModeClient({
       if (channel.current) void supabase.removeChannel(channel.current);
     };
   }, [setlist.id, isBroadcasting, setSyncedSongIndex, supabase]);
-
-  // --- Phase 4: Scribbles (Canvas) ---
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [drawMode, setDrawMode] = useState(false);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [penTool, setPenTool] = useState<"pen" | "eraser">("pen");
-  const [penSize, setPenSize] = useState(4);
-
-  // Load scribbles on song change
-  useEffect(() => {
-    if (!currentSong?.id || !canvasRef.current) return;
-    const ctx = canvasRef.current.getContext("2d");
-    if (!ctx) return;
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    
-    // Load from local storage (Free alternative to DB)
-    const saved = localStorage.getItem(`scribbles_${setlist.id}_${currentSong.id}`);
-    if (saved) {
-      const img = new Image();
-      img.onload = () => {
-        if (canvasRef.current) {
-          // Adjust canvas size to match scroll height before drawing
-          canvasRef.current.width = scrollRef.current?.scrollWidth || 1000;
-          canvasRef.current.height = scrollRef.current?.scrollHeight || 2000;
-          ctx.drawImage(img, 0, 0);
-        }
-      };
-      img.src = saved;
-    } else {
-      // Setup canvas size anyway
-      if (scrollRef.current) {
-        canvasRef.current.width = scrollRef.current.scrollWidth;
-        canvasRef.current.height = scrollRef.current.scrollHeight;
-      }
-    }
-  }, [currentSong?.id, setlist.id]);
-
-  // Handle Resize of canvas
-  useEffect(() => {
-    const handleResize = () => {
-      if (canvasRef.current && scrollRef.current) {
-         const current = canvasRef.current.toDataURL();
-         // Match the exact scroll dimensions of the lyrics content
-         canvasRef.current.width = scrollRef.current.scrollWidth;
-         canvasRef.current.height = scrollRef.current.scrollHeight;
-         // Restore drawing after resize
-         const img = new Image();
-         img.onload = () => canvasRef.current?.getContext("2d")?.drawImage(img, 0, 0);
-         img.src = current;
-      }
-    };
-
-    // Need a tiny timeout to allow the DOM (lyrics) to finish rendering so scrollHeight is accurate
-    const timer = setTimeout(handleResize, 100);
-    window.addEventListener("resize", handleResize);
-    
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [currentSongIndex, fontScale, drawMode]);
-
-  const saveScribbles = useCallback(() => {
-    if (canvasRef.current && currentSong?.id) {
-      localStorage.setItem(`scribbles_${setlist.id}_${currentSong.id}`, canvasRef.current.toDataURL());
-    }
-  }, [currentSong, setlist.id]);
-
-  const startDrawing = (e: React.PointerEvent) => {
-    if (!drawMode || !canvasRef.current) return;
-    setIsDrawing(true);
-    const ctx = canvasRef.current.getContext("2d");
-    if (!ctx) return;
-    ctx.beginPath();
-    const rect = canvasRef.current.getBoundingClientRect();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-  };
-
-  const draw = (e: React.PointerEvent) => {
-    if (!isDrawing || !drawMode || !canvasRef.current) return;
-    const ctx = canvasRef.current.getContext("2d");
-    if (!ctx) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-    ctx.strokeStyle = penTool === "pen" ? "rgba(250, 204, 21, 0.8)" : "rgba(0,0,0,1)";
-    ctx.globalCompositeOperation = penTool === "eraser" ? "destination-out" : "source-over";
-    // Make the eraser 4x larger than the pen size automatically for easier erasing
-    ctx.lineWidth = penTool === "eraser" ? penSize * 4 : penSize;
-    ctx.lineCap = "round";
-    ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
-    saveScribbles();
-  };
-
-  const drawState = useRef({ isDrawing: false, tool: penTool, size: penSize });
-  const saveScribblesRef = useRef(saveScribbles);
-  
-  // Sync refs so native events get latest state
-  useEffect(() => {
-    drawState.current = { isDrawing, tool: penTool, size: penSize };
-    saveScribblesRef.current = saveScribbles;
-  }, [isDrawing, penTool, penSize, saveScribbles]);
-
-  // Touch logic: 1-finger draw, 2-finger scroll/zoom
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      if (drawMode && e.touches.length === 1) {
-        e.preventDefault(); // Stop scrolling for 1-finger drawing
-        setIsDrawing(true);
-        drawState.current.isDrawing = true;
-        
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        ctx.beginPath();
-        const rect = canvas.getBoundingClientRect();
-        ctx.moveTo(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
-      }
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (drawMode && e.touches.length === 1 && drawState.current.isDrawing) {
-        e.preventDefault();
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        const rect = canvas.getBoundingClientRect();
-        ctx.lineTo(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
-        
-        const { tool, size } = drawState.current;
-        ctx.strokeStyle = tool === "pen" ? "rgba(250, 204, 21, 0.8)" : "rgba(0,0,0,1)";
-        ctx.globalCompositeOperation = tool === "eraser" ? "destination-out" : "source-over";
-        ctx.lineWidth = tool === "eraser" ? size * 4 : size;
-        ctx.lineCap = "round";
-        ctx.stroke();
-      }
-    };
-
-    const handleTouchEnd = () => {
-      if (drawState.current.isDrawing) {
-        setIsDrawing(false);
-        drawState.current.isDrawing = false;
-        saveScribblesRef.current();
-      }
-    };
-
-    canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
-    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
-    canvas.addEventListener("touchend", handleTouchEnd);
-    canvas.addEventListener("touchcancel", handleTouchEnd);
-
-    return () => {
-      canvas.removeEventListener("touchstart", handleTouchStart);
-      canvas.removeEventListener("touchmove", handleTouchMove);
-      canvas.removeEventListener("touchend", handleTouchEnd);
-      canvas.removeEventListener("touchcancel", handleTouchEnd);
-    };
-  }, [drawMode]);
 
   const handleJumpToSection = (idx: number) => {
     const el = document.getElementById(`section-${idx}`);
@@ -536,8 +374,8 @@ export default function StageModeClient({
   // Foot pedal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (practiceToolsOpen) return;
-      if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") return;
+      if (practiceToolsOpen || e.defaultPrevented) return;
+      if (document.activeElement?.closest("input, textarea, select, [data-chart-annotation]")) return;
       if (e.key === " ") { e.preventDefault(); toggleAutoScroll(); return; }
       if (e.key === "ArrowRight" || e.key === "PageDown") {
         e.preventDefault();
@@ -552,6 +390,7 @@ export default function StageModeClient({
   }, [currentSongIndex, setlist.songs.length, setSyncedSongIndex, toggleAutoScroll, practiceToolsOpen]);
 
   const onTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest("[data-chart-annotation]")) { setTouchStartX(null); return; }
     setTouchEndX(null);
     setTouchStartX(e.targetTouches[0].clientX);
     setTouchStartTime(Date.now());
@@ -683,53 +522,6 @@ export default function StageModeClient({
              <Radio className="size-5" />
            </button>
            
-           {/* Draw Mode */}
-           <div className="flex items-center gap-2">
-             {drawMode && (
-               <div className="flex items-center gap-1 bg-white/5 rounded-lg border border-white/10 p-1 mr-2 animate-in fade-in slide-in-from-right-4 duration-300">
-                 <button 
-                   onClick={() => setPenTool("pen")}
-                   className={cn("p-2 rounded transition", penTool === "pen" ? "bg-emerald-500/20 text-emerald-400" : "text-zinc-400 hover:text-white")}
-                 >
-                   <PenTool className="size-4" />
-                 </button>
-                 <button 
-                   onClick={() => setPenTool("eraser")}
-                   className={cn("p-2 rounded transition", penTool === "eraser" ? "bg-emerald-500/20 text-emerald-400" : "text-zinc-400 hover:text-white")}
-                 >
-                   <Eraser className="size-4" />
-                 </button>
-                 <div className="w-px h-4 bg-white/10 mx-1" />
-                 <input 
-                   type="range" 
-                   min="2" 
-                   max="50" 
-                   value={penSize} 
-                   onChange={(e) => setPenSize(Number(e.target.value))}
-                   className="w-20 mx-2 accent-emerald-500"
-                 />
-                 <div className="flex items-center justify-center w-[50px] h-10">
-                   <div 
-                     className="rounded-full bg-emerald-500/80 transition-all duration-75"
-                     style={{ 
-                       width: penTool === "eraser" ? penSize * 4 : penSize, 
-                       height: penTool === "eraser" ? penSize * 4 : penSize,
-                       maxWidth: "40px",
-                       maxHeight: "40px"
-                     }}
-                   />
-                 </div>
-               </div>
-             )}
-             <button 
-               onClick={() => setDrawMode(!drawMode)}
-               className={cn("p-3 rounded-lg transition border h-11 flex items-center justify-center", drawMode ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white")}
-               title="Apple Pencil Annotations"
-             >
-               <PenTool className="size-5" />
-             </button>
-           </div>
-           
            <div className="w-px h-8 bg-white/10 mx-2" />
            
            {/* Navigation */}
@@ -750,7 +542,7 @@ export default function StageModeClient({
                type="button"
                aria-expanded={practiceToolsOpen}
                aria-controls="practice-tools-panel"
-               onClick={() => setPracticeToolsOpen(true)}
+               onClick={() => { setPracticeToolsMounted(true); setPracticeToolsOpen(true); }}
                className="min-h-11 rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 text-xs font-bold text-violet-200 transition hover:bg-violet-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
              >
                Practice & edit
@@ -795,20 +587,15 @@ export default function StageModeClient({
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
         >
-        <canvas
-          ref={canvasRef}
-          onPointerDown={startDrawing}
-          onPointerMove={draw}
-          onPointerUp={stopDrawing}
-          onPointerCancel={stopDrawing}
-          onPointerOut={stopDrawing}
-          className={cn(
-            "absolute top-0 left-0 z-20",
-            drawMode ? "pointer-events-auto cursor-crosshair" : "pointer-events-none"
-          )}
+        <ChartAnnotations
+          setlistId={setlist.id}
+          slotId={currentSetlistSong.id}
+          songId={currentSong.id}
+          editable={Boolean(renderPracticeTools)}
+          containerRef={scrollRef}
+          contentRef={chartContentRef}
         />
-        
-        <div className="max-w-4xl mx-auto space-y-8 relative z-10">
+        <div ref={chartContentRef} className="max-w-4xl mx-auto space-y-8 relative z-10">
           {transposedSections.map((section, idx) => (
             <div key={idx} id={`section-${idx}`} className="space-y-3 scroll-mt-6">
               {section.label && section.label !== "unknown" && (
@@ -889,24 +676,25 @@ export default function StageModeClient({
       </div>
       {!practiceToolsOpen && keySaveStatus && <p role="status" className="fixed bottom-4 left-4 z-[55] rounded-lg border border-white/10 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 shadow-lg">{keySaveStatus}</p>}
       {!practiceToolsOpen && keySaveError && <p role="alert" className="fixed bottom-4 left-4 z-[55] rounded-lg border border-red-400/30 bg-zinc-900 px-3 py-2 text-xs text-red-200 shadow-lg">{keySaveError}</p>}
-      {renderPracticeTools && practiceToolsOpen && currentSetlistSong && (
+      {renderPracticeTools && practiceToolsMounted && currentSetlistSong && (
         <>
-          <button
+          {practiceToolsOpen && <button
             type="button"
             aria-label="Close practice and edit panel"
             aria-hidden="true"
             tabIndex={-1}
             onClick={closePracticeTools}
             className="fixed inset-0 z-[60] cursor-default bg-black/70 backdrop-blur-sm"
-          />
+          />}
           <aside
             ref={practiceToolsRef}
             id="practice-tools-panel"
             role="dialog"
-            aria-modal="true"
+            aria-modal={practiceToolsOpen ? true : undefined}
             aria-labelledby="practice-tools-title"
+            hidden={!practiceToolsOpen}
             tabIndex={-1}
-            className="fixed inset-y-0 right-0 z-[61] flex w-full max-w-xl flex-col border-l border-white/10 bg-zinc-950 shadow-2xl"
+            className={cn("fixed inset-y-0 right-0 z-[61] w-full max-w-xl flex-col border-l border-white/10 bg-zinc-950 shadow-2xl", practiceToolsOpen ? "flex" : "hidden")}
           >
             <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
               <div className="min-w-0">
