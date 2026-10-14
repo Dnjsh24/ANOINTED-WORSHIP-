@@ -51,6 +51,35 @@ it("uses compact icon buttons and supports a custom text color", () => {
   expect(JSON.parse(localStorage.getItem("chart-notes_set_slot")!)[0].color).toBe("#e879f9");
 });
 
+it("exposes a nonmodal settings dialog and closes it with Escape", () => {
+  render(<Chart />);
+  fireEvent.click(screen.getByRole("button", { name: "Apple Pencil Annotations" }));
+  expect(screen.getByRole("dialog", { name: "Annotation settings" })).not.toHaveAttribute("aria-modal", "true");
+  screen.getByLabelText("Custom pen color").focus();
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(screen.queryByRole("dialog", { name: "Annotation settings" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Apple Pencil Annotations" })).toHaveAttribute("aria-pressed", "false");
+  expect(screen.getByRole("button", { name: "Apple Pencil Annotations" })).toHaveFocus();
+  fireEvent.click(screen.getByRole("button", { name: "Add text note" }));
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "Keep cue" } });
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(screen.getByRole("button", { name: "Add text note" })).toHaveFocus();
+  expect(screen.getByText("Keep cue")).toBeInTheDocument();
+});
+
+it("returns focus to an enabled dock control at the note limit", () => {
+  const note = { text: "Cue", x: 0, y: 100, font: "sans", fontSize: 24, bold: false, italic: false, underline: false, strike: false };
+  localStorage.setItem("chart-notes_set_slot", JSON.stringify(Array.from({ length: 100 }, (_, index) => ({ ...note, id: `note-${index}` }))));
+  render(<Chart />);
+  expect(screen.getByRole("button", { name: "Add text note" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: /^Edit text note 1$/ }));
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(screen.getByRole("button", { name: "Apple Pencil Annotations" })).toHaveFocus();
+  fireEvent.click(screen.getByRole("button", { name: /^Edit text note 1$/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Done editing" }));
+  expect(screen.getByRole("button", { name: "Apple Pencil Annotations" })).toHaveFocus();
+});
+
 it("keeps notes isolated across slot switches and restores them on return", () => {
   const chart = render(<Chart />);
   fireEvent.click(screen.getByRole("button", { name: "Add text note" }));
@@ -67,5 +96,8 @@ it("retains unsaved text and reports a device-storage failure", () => {
   fireEvent.click(screen.getByRole("button", { name: "Add text note" }));
   fireEvent.change(screen.getByRole("textbox"), { target: { value: "Keep this draft" } });
   expect(screen.getByRole("textbox")).toHaveValue("Keep this draft");
+  expect(screen.getByRole("alert")).toHaveTextContent("Could not save annotations");
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(screen.queryByRole("dialog", { name: "Annotation settings" })).toBeNull();
   expect(screen.getByRole("alert")).toHaveTextContent("Could not save annotations");
 });

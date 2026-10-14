@@ -23,8 +23,13 @@ test("Practice saves movable formatted text and drawings for read-only Stage", a
   page.on("pageerror", error => errors.push(error.message));
   await page.goto("/setlists/sunday-service/practice");
   await expect(page.getByRole("button", { name: "Add text note", exact: true })).toBeVisible();
+  const wooly = page.getByRole("button", { name: "Wooly", exact: true });
+  if (process.env.WOOLY_TUTORIAL_ENABLED === "1") await expect(wooly).toBeVisible();
+  const hasWooly = await wooly.count() > 0;
   await page.screenshot({ path: testInfo.outputPath("minimal-annotation-dock.png") });
   await page.getByRole("button", { name: "Add text note" }).click();
+  await expect(page.getByRole("dialog", { name: "Annotation settings" })).toBeVisible();
+  if (hasWooly) await expect(wooly).toHaveCount(0);
   await page.getByRole("textbox", { name: "Text note 1" }).fill("Quiet intro · watch the leader");
   await page.getByLabel("Note font", { exact: true }).selectOption("serif");
   await page.getByLabel("Note font size", { exact: true }).selectOption("32");
@@ -41,6 +46,7 @@ test("Practice saves movable formatted text and drawings for read-only Stage", a
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("heading", { name: "Opening Song" })).toBeVisible();
   await page.getByRole("button", { name: "Done editing" }).click();
+  if (hasWooly) await expect(wooly).toBeVisible();
   const touch = testInfo.project.name === "mobile";
   {
     const before = await page.evaluate(() => JSON.parse(Object.entries(localStorage).find(([key]) => key.startsWith("chart-notes_"))![1])[0]);
@@ -50,6 +56,13 @@ test("Practice saves movable formatted text and drawings for read-only Stage", a
     await page.getByRole("button", { name: "Done editing" }).click();
   }
   await page.getByRole("button", { name: "Apple Pencil Annotations" }).click();
+  await page.getByLabel("Custom pen color").focus();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Annotation settings" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Apple Pencil Annotations" })).toBeFocused();
+  if (hasWooly) await expect(wooly).toBeVisible();
+  await page.getByRole("button", { name: "Apple Pencil Annotations" }).click();
+  if (hasWooly) await expect(wooly).toHaveCount(0);
   await page.getByRole("button", { name: "Pen color: Mint", exact: true }).click();
   await page.screenshot({ path: testInfo.outputPath("pen-color-controls.png") });
   const canvas = page.getByLabel("Saved chart drawing");

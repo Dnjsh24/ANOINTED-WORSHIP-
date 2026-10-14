@@ -46,9 +46,30 @@ function LoadedAnnotations({ setlistId, slotId, songId, editable, containerRef, 
   const [penColor, setPenColor] = useState<string>("#facc15");
   const [saveError, setSaveError] = useState("");
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
   const drawing = useRef(false);
   const drag = useRef<{ id: string; x: number; y: number; clientX: number; clientY: number } | null>(null);
   const selectedNote = notes.find(note => note.id === selectedId);
+  const focusDock = useCallback((selectedTool: "pen" | "eraser" | "text") => {
+    const preferred = dockRef.current?.querySelector<HTMLButtonElement>(`[data-annotation-tool="${selectedTool}"]:not(:disabled)`);
+    (preferred ?? dockRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)"))?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!tool && !selectedId) return;
+    const closeSettings = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (document.activeElement?.closest("[data-chart-annotation]")) {
+        focusDock(tool ?? "text");
+      }
+      setTool(null);
+      setSelectedId(undefined);
+    };
+    window.addEventListener("keydown", closeSettings);
+    return () => window.removeEventListener("keydown", closeSettings);
+  }, [tool, selectedId, focusDock]);
 
   const persist = useCallback((key: string, value: string) => {
     try {
@@ -145,7 +166,7 @@ function LoadedAnnotations({ setlistId, slotId, songId, editable, containerRef, 
 
   return <>
     {editable && <div data-chart-annotation className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[55] -translate-x-1/2" aria-label="Practice annotations" role="group">
-      {(tool || selectedNote || saveError) && <div className="absolute bottom-full left-1/2 mb-3 max-h-[55dvh] -translate-x-1/2 overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900/95 p-3 shadow-2xl backdrop-blur-xl" style={{ width: "min(34rem, calc(100vw - 2rem))" }}>
+      {(tool || selectedNote || saveError) && <div role={tool || selectedNote ? "dialog" : undefined} aria-label={tool || selectedNote ? "Annotation settings" : undefined} className="absolute bottom-full left-1/2 mb-3 max-h-[55dvh] -translate-x-1/2 overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900/95 p-3 shadow-2xl backdrop-blur-xl" style={{ width: "min(34rem, calc(100vw - 2rem))" }}>
       {tool && <div className="flex items-center gap-3 px-1 text-xs text-zinc-300">
         <span>{tool === "pen" ? "Pen" : "Eraser"}</span>
         <input aria-label="Pen size" className="h-11 min-w-0 flex-1 accent-zinc-200" type="range" min="2" max="50" value={penSize} onChange={event => setPenSize(Number(event.target.value))} />
@@ -166,17 +187,17 @@ function LoadedAnnotations({ setlistId, slotId, songId, editable, containerRef, 
         <div className="flex flex-wrap items-center gap-1">
         {([['bold', 'Bold', Bold], ['italic', 'Italic', Italic], ['underline', 'Underline', Underline], ['strike', 'Strikethrough', Strikethrough]] as const).map(([property, label, Icon]) => <button type="button" key={property} title={label} aria-label={label} className={iconClass} aria-pressed={selectedNote[property]} onClick={() => updateNote(selectedNote.id, { [property]: !selectedNote[property] })}><Icon className="size-4" aria-hidden="true" /></button>)}
         <div className="mx-1 h-5 w-px bg-white/10" />
-        <button type="button" title="Delete note" aria-label="Delete note" className={iconClass} onClick={() => { saveNotes(notes.filter(note => note.id !== selectedNote.id)); setSelectedId(undefined); }}><Trash2 className="size-4" aria-hidden="true" /></button>
-        <button type="button" title="Done editing" aria-label="Done editing" className={iconClass} onClick={() => setSelectedId(undefined)}><Check className="size-4" aria-hidden="true" /></button>
+        <button type="button" title="Delete note" aria-label="Delete note" className={iconClass} onClick={() => { saveNotes(notes.filter(note => note.id !== selectedNote.id)); setSelectedId(undefined); focusDock("text"); }}><Trash2 className="size-4" aria-hidden="true" /></button>
+        <button type="button" title="Done editing" aria-label="Done editing" className={iconClass} onClick={() => { setSelectedId(undefined); focusDock("text"); }}><Check className="size-4" aria-hidden="true" /></button>
         </div>
         <AnnotationColorPicker label="Text color" value={selectedNote.color} onChange={color => updateNote(selectedNote.id, { color })} />
       </div>}
       </div>}
-      <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-zinc-900/90 p-1.5 shadow-xl backdrop-blur-xl">
-        <button type="button" className={iconClass} title="Pen" aria-label="Apple Pencil Annotations" aria-pressed={tool === "pen"} onClick={() => { setSelectedId(undefined); setTool(tool === "pen" ? null : "pen"); }}><PenLine className="size-5" aria-hidden="true" /></button>
-        <button type="button" className={iconClass} title="Eraser" aria-label="Eraser" aria-pressed={tool === "eraser"} onClick={() => { setSelectedId(undefined); setTool(tool === "eraser" ? null : "eraser"); }}><Eraser className="size-5" aria-hidden="true" /></button>
+      <div ref={dockRef} className="flex items-center gap-1 rounded-2xl border border-white/10 bg-zinc-900/90 p-1.5 shadow-xl backdrop-blur-xl">
+        <button data-annotation-tool="pen" type="button" className={iconClass} title="Pen" aria-label="Apple Pencil Annotations" aria-pressed={tool === "pen"} onClick={() => { setSelectedId(undefined); setTool(tool === "pen" ? null : "pen"); }}><PenLine className="size-5" aria-hidden="true" /></button>
+        <button data-annotation-tool="eraser" type="button" className={iconClass} title="Eraser" aria-label="Eraser" aria-pressed={tool === "eraser"} onClick={() => { setSelectedId(undefined); setTool(tool === "eraser" ? null : "eraser"); }}><Eraser className="size-5" aria-hidden="true" /></button>
         <div className="mx-1 h-5 w-px bg-white/10" />
-        <button type="button" className={iconClass} title="Add text note" aria-label="Add text note" aria-pressed={Boolean(selectedNote)} disabled={notes.length >= 100} onClick={addNote}><Type className="size-5" aria-hidden="true" /></button>
+        <button data-annotation-tool="text" type="button" className={iconClass} title="Add text note" aria-label="Add text note" aria-pressed={Boolean(selectedNote)} disabled={notes.length >= 100} onClick={addNote}><Type className="size-5" aria-hidden="true" /></button>
       </div>
     </div>}
     <canvas ref={canvasRef} data-chart-annotation aria-label="Saved chart drawing" className={`absolute left-0 top-0 z-20 ${editable && tool ? "cursor-crosshair" : "pointer-events-none"}`} style={{ touchAction: tool ? "none" : "auto" }}
