@@ -8,6 +8,15 @@ vi.mock("@/lib/supabase/client", () => ({ createOptionalClient: () => null }));
 const setlist: StageSetlist = { id: "set", date: "2026-10-11", type: "practice", songs: ["C", "G"].map((key, index) => ({ id: `slot-${index}`, order: index + 1, assignedKey: key, lead: "", arrangement: null, youtubeUrl: null, song: { id: `song-${index}`, title: `Song ${index}`, bpm: 80, originalKey: key, lyricsChords: "Verse\nC\nLyrics" } })) };
 beforeEach(() => { save.mockReset(); localStorage.clear(); });
 
+it("shows saved notes for the active setlist slot and changes them with the song", async () => {
+  const withNotes = { ...setlist, songs: setlist.songs.map((slot, index) => ({ ...slot, rehearsalNotes: index === 0 ? "Quiet intro and guitar cue" : "Hold the final harmony" })) };
+  render(<StageModeClient setlist={withNotes} />);
+  expect(screen.getByRole("region", { name: "Rehearsal notes" })).toHaveTextContent("Quiet intro and guitar cue");
+  fireEvent.click(screen.getByRole("button", { name: "Next song" }));
+  await waitFor(() => expect(screen.getByRole("region", { name: "Rehearsal notes" })).toHaveTextContent("Hold the final harmony"));
+  expect(screen.queryByText("Quiet intro and guitar cue")).not.toBeInTheDocument();
+});
+
 it("restores the last successfully saved key when a subsequent save fails", async () => {
   save.mockResolvedValueOnce({ ok: true, message: "Saved" }).mockResolvedValueOnce({ ok: false, message: "Offline" });
   render(<StageModeClient setlist={setlist} canManageSetlist renderPracticeTools={() => null} />);

@@ -98,7 +98,7 @@ export function PracticeToolsPanel({
         />
       ) : (
         <section className="space-y-3">
-          <ServicePreparation name={setlist.name} songs={practiceSongs} />
+          <ServicePreparation name={setlist.name} songs={practiceSongs} setlistId={preparation ? undefined : setlist.id} />
           {preparation && <p role="status" className="text-sm text-amber-200">{preparation.message}</p>}
         </section>
       )}

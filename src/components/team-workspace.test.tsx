@@ -17,13 +17,13 @@ describe("saved team preparation",()=>{
   it("saves a manager draft without losing focus on a stale response",async()=>{
     const user=userEvent.setup();actions.savePlan.mockResolvedValue({ok:false,message:"Keep your draft"});
     render(<SharedPreparation setlistId={id(2)} name="Sunday" songs={songs} workspace={preparation} memberId={id(4)} canManage/>);
-    const focus=screen.getByRole("textbox",{name:"Focus for Opening"});await user.clear(focus);await user.type(focus,"Ending harmony");await user.click(screen.getByRole("button",{name:"Save shared plan"}));
+    const focus=screen.getByRole("textbox",{name:"Rehearsal notes for Opening"});await user.clear(focus);await user.type(focus,"Ending harmony");await user.click(screen.getByRole("button",{name:"Save shared plan"}));
     expect(actions.savePlan).toHaveBeenCalledWith(expect.objectContaining({revision:1,allocations:[{slot_id:id(1),minutes:5,focus:"Ending harmony"}]}));
     expect(focus).toHaveValue("Ending harmony");expect(await screen.findByRole("status")).toHaveTextContent("Keep your draft");
   });
   it("allows only assigned checks and changes them after success",async()=>{
     const user=userEvent.setup();render(<SharedPreparation setlistId={id(2)} name="Sunday" songs={songs} workspace={preparation} memberId={id(4)} canManage={false}/>);
-    expect(screen.getByRole("textbox",{name:"Focus for Opening"})).toBeDisabled();
+    expect(screen.getByRole("textbox",{name:"Rehearsal notes for Opening"})).toBeDisabled();
     const checkbox=screen.getByRole("checkbox",{name:"Tune instruments and check cables"});await user.click(checkbox);
     await waitFor(()=>expect(checkbox).toBeChecked());expect(actions.respondTask).toHaveBeenCalledWith({setlistId:id(2),taskKey:"Tune instruments and check cables",completed:true});
   });
@@ -39,7 +39,7 @@ describe("saved team preparation",()=>{
     const user=userEvent.setup();actions.reloadPlan.mockResolvedValue({ok:true,data:{...preparation,plan:{...preparation.plan,revision:4,allocations:[{slot_id:id(1),minutes:10,focus:"Latest focus"}]}}});
     render(<SharedPreparation setlistId={id(2)} name="Sunday" songs={songs} workspace={preparation} memberId={id(4)} canManage/>);
     await user.click(screen.getByRole("button",{name:"Reload latest plan (replace draft)"}));
-    await waitFor(()=>expect(screen.getByRole("textbox",{name:"Focus for Opening"})).toHaveValue("Latest focus"));
+    await waitFor(()=>expect(screen.getByRole("textbox",{name:"Rehearsal notes for Opening"})).toHaveValue("Latest focus"));
     expect(screen.getByText(/Version 4/)).toBeInTheDocument();
   });
 });

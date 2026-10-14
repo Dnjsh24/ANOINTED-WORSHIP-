@@ -8,6 +8,7 @@ import type { Viewport } from "next";
 import type { Database } from "@/lib/supabase/database.types";
 import { setlists as sampleSetlists } from "@/lib/sample-data";
 import { formatSongToText } from "@/lib/domain/chords";
+import { loadRehearsalNotes } from "@/lib/supabase/workflow-data";
 
 type StageSetlistSongRow = Pick<
   Database["public"]["Tables"]["setlist_songs"]["Row"],
@@ -36,7 +37,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
   if (!hasSupabaseEnv()) {
     const sample = sampleSetlists.find(setlist => setlist.id === id);
     if (!sample) notFound();
-    return <StageModeClient setlist={{
+    return <StageModeClient demoMode setlist={{
       id: sample.id,
       date: sample.date,
       type: sample.eventType ?? "service",
@@ -87,6 +88,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
 
     if (dbSetlist) {
       const dbSetlistSongs = dbSetlist.setlist_songs || [];
+      const rehearsalNotes = await loadRehearsalNotes(supabase, teamContext.teamId, dbSetlist.id, dbSetlistSongs.map(slot => slot.id));
 
       // Sort by song_order
       dbSetlistSongs.sort((a, b) => (a.song_order ?? 0) - (b.song_order ?? 0));
@@ -101,6 +103,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
           lead: leadVocal,
           youtubeUrl: ss.song?.youtube_url || null,
           arrangement: ss.arrangement || null,
+          rehearsalNotes: rehearsalNotes.ok ? rehearsalNotes.data[ss.id] : undefined,
           song: {
             id: ss.song?.id,
             title: ss.song?.title || "Unknown Song",
@@ -119,7 +122,7 @@ export default async function SetlistStagePage({ params }: { params: Promise<{ i
         songs: songsList,
       };
 
-      return <StageModeClient setlist={setlist} />;
+      return <StageModeClient setlist={setlist} rehearsalNotesMessage={rehearsalNotes.ok ? undefined : rehearsalNotes.message} />;
     }
   }
 

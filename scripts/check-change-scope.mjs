@@ -13,7 +13,7 @@ function git(directory, args) {
 // Read-only: compare the complete candidate tree with the fetched main tree.
 export function checkChangeScope(directory, allowedFiles) {
   if (!allowedFiles.length || allowedFiles.some((file) =>
-    !file || file.startsWith("-") || /[\\:*?\[\]\x00-\x1f]/.test(file) ||
+    !file || file.startsWith("-") || /[\\:*?\x00-\x1f]/.test(file) ||
     file.split("/").some((part) => !part || part === "." || part === ".." || part === ".git")
   )) {
     throw new Error("Declare exact repository-relative paths; directories and globs are not supported.");
@@ -35,6 +35,7 @@ export function checkChangeScope(directory, allowedFiles) {
   const changedFiles = git(directory, ["diff", "--no-renames", "--name-only", "-z", baseCommit, candidateCommit, "--"])
     .split("\0").filter(Boolean);
   if (!changedFiles.length) throw new Error("Candidate has no changes relative to origin/main.");
+  // Match literal paths, including Next.js [id] segments; never expand globs.
   const unexpectedFiles = changedFiles.filter((file) => !allowedFiles.includes(file));
   if (unexpectedFiles.length) {
     throw new Error(`Files outside the declared task:\n${unexpectedFiles.join("\n")}`);

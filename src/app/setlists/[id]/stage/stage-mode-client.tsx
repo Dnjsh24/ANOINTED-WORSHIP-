@@ -11,6 +11,7 @@ import { createOptionalClient } from "@/lib/supabase/client";
 import { updateSetlistSongKeyAction } from "@/app/actions";
 import { useAccessibleDialog } from "@/components/ui/use-accessible-dialog";
 import type { ReactNode } from "react";
+import { RehearsalNote } from "@/components/rehearsal-note";
 
 const MAJOR_KEYS = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const MINOR_KEYS = ["Cm", "C#m", "Dm", "Ebm", "Em", "Fm", "F#m", "Gm", "G#m", "Am", "Bbm", "Bm"];
@@ -67,6 +68,7 @@ export type StageSetlist = {
     lead: string;
     youtubeUrl: string | null;
     arrangement: string | null;
+    rehearsalNotes?: string;
     song: {
       id: string | undefined;
       title: string;
@@ -96,10 +98,14 @@ export default function StageModeClient({
   setlist,
   renderPracticeTools,
   canManageSetlist = false,
+  demoMode = false,
+  rehearsalNotesMessage,
 }: {
   setlist: StageSetlist;
   renderPracticeTools?: PracticeToolsRenderer;
   canManageSetlist?: boolean;
+  demoMode?: boolean;
+  rehearsalNotesMessage?: string;
 }) {
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [practiceToolsOpen, setPracticeToolsOpen] = useState(false);
@@ -777,6 +783,8 @@ export default function StageModeClient({
         })}
       </div>
 
+      {rehearsalNotesMessage && <p role="status" className="shrink-0 px-4 py-2 text-sm text-amber-200">Rehearsal notes: {rehearsalNotesMessage}</p>}
+      <RehearsalNote setlistId={setlist.id} slotId={currentSetlistSong.id} note={currentSetlistSong.rehearsalNotes} demoMode={demoMode} stage />
       <div className="flex-1 flex overflow-hidden">
         {/* Chord Chart Area */}
         <div 

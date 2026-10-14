@@ -167,5 +167,5 @@ export default async function PracticeSetlistPage({ params }: { params: Promise<
 
   if (!setlist) notFound();
 
-  return <PracticeModeClient key={setlist.id} setlist={setlist} preparation={preparation} memberId={teamContext.memberId} canManage={canForTeam(teamContext, "setlists.manage")} proposeAction={requestRehearsalPlanAction.bind(null, setlist.id)} />;
+  return <PracticeModeClient key={setlist.id} setlist={setlist} preparation={preparation} memberId={teamContext.memberId} canManage={canForTeam(teamContext, "setlists.manage")} proposeAction={requestRehearsalPlanAction.bind(null, setlist.id)} demoMode={!hasSupabaseEnv()} />;
 }

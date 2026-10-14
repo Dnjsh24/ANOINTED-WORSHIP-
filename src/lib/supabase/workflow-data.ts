@@ -2,6 +2,8 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { AssignmentResponseRow, PreparationResponseRow, RehearsalPlanRow, ServiceOrderRow, SongReadinessRow, WorkflowDatabase } from "@/lib/supabase/workflow.types";
+import { z } from "zod";
+import { rehearsalAllocationSchema } from "@/lib/domain/team-workflows";
 
 export type WorkflowMember = { id: string; name: string };
 export type WorkflowAssignment = { id: string; team_member_id: string; assignment: string };
@@ -16,6 +18,18 @@ function unavailable(error?: { code?: string } | null) {
   return error?.code === "42P01" || error?.code === "PGRST205"
     ? "Shared planning is unavailable until the website database migration is applied."
     : "Shared planning could not be loaded. Check your connection and retry.";
+}
+
+export async function loadRehearsalNotes(baseClient: SupabaseClient<Database>, teamId: string, setlistId: string, slotIds: string[]): Promise<WorkspaceResult<Record<string, string>>> {
+  const client = baseClient as SupabaseClient<WorkflowDatabase>;
+  try {
+    const { data, error } = await client.from("rehearsal_plans").select("allocations").eq("setlist_id", setlistId).eq("team_id", teamId).maybeSingle();
+    if (error) return { ok: false, message: unavailable(error) };
+    const parsed = z.array(rehearsalAllocationSchema).max(200).safeParse(data?.allocations ?? []);
+    if (!parsed.success) return { ok: false, message: "Saved rehearsal notes could not be read. Reload the rehearsal plan and retry." };
+    const allowedSlots = new Set(slotIds);
+    return { ok: true, data: Object.fromEntries(parsed.data.filter(row => allowedSlots.has(row.slot_id)).map(row => [row.slot_id, row.focus])) };
+  } catch { return { ok: false, message: unavailable() }; }
 }
 
 export async function loadPreparationWorkspace(baseClient: SupabaseClient<Database>, teamId: string, setlistId: string, eventId: string | null, slotIds: string[] = []): Promise<WorkspaceResult<PreparationWorkspace>> {
