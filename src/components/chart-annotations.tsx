@@ -200,7 +200,8 @@ function LoadedAnnotations({ setlistId, slotId, songId, editable, containerRef, 
         <button data-annotation-tool="text" type="button" className={iconClass} title="Add text note" aria-label="Add text note" aria-pressed={Boolean(selectedNote)} disabled={notes.length >= 100} onClick={addNote}><Type className="size-5" aria-hidden="true" /></button>
       </div>
     </div>}
-    <canvas ref={canvasRef} data-chart-annotation aria-label="Saved chart drawing" className={`absolute left-0 top-0 z-20 ${editable && tool ? "cursor-crosshair" : "pointer-events-none"}`} style={{ touchAction: tool ? "none" : "auto" }}
+    <div className="absolute inset-0 z-20 overflow-x-clip pointer-events-none">
+    <canvas ref={canvasRef} data-chart-annotation aria-label="Saved chart drawing" className={`absolute left-0 top-0 ${editable && tool ? "cursor-crosshair pointer-events-auto" : "pointer-events-none"}`} style={{ touchAction: tool ? "none" : "auto" }}
       onPointerDown={event => {
         if (!editable || !tool || event.button !== 0) return;
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -222,6 +223,7 @@ function LoadedAnnotations({ setlistId, slotId, songId, editable, containerRef, 
         context.lineCap = "round";
         context.stroke();
       }} onPointerUp={stopDrawing} onPointerCancel={stopDrawing} onLostPointerCapture={stopDrawing} />
+    </div>
     {notes.map((note, index) => {
       const selected = editable && selectedId === note.id;
       const style: CSSProperties = {

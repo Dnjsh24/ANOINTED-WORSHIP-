@@ -416,14 +416,14 @@ export default function StageModeClient({
     <div data-wooly-target="stage-chart" className={cn("fixed inset-0 h-[100dvh] bg-black text-white flex flex-col font-sans overflow-hidden transition-shadow duration-300 z-50", metronomePlaying && currentBeat === 1 ? "shadow-[inset_0_0_100px_rgba(255,255,255,0.1)]" : "")}>
       
       {/* Top Bar - Tools */}
-      <div data-wooly-target="stage-controls" className="flex items-center justify-between px-2 md:px-6 py-3 md:py-4 bg-zinc-950 border-b border-white/10 shrink-0 overflow-x-auto no-scrollbar gap-4 md:gap-8">
-        <div className="flex items-center gap-2 md:gap-6 shrink-0">
+      <div data-wooly-target="stage-controls" className="flex flex-wrap items-center justify-between px-2 md:px-6 py-3 md:py-4 bg-zinc-950 border-b border-white/10 shrink-0 max-h-[40dvh] overflow-y-auto gap-3 md:gap-4">
+        <div className="flex items-center gap-2 md:gap-6 min-w-0 max-w-full">
           <Link href={`/setlists/${setlist.id}`} className="p-2 rounded-full hover:bg-white/10 transition">
             <X className="size-5 md:size-6 text-zinc-400" />
           </Link>
-          <div className="flex flex-col justify-center">
-            <h1 className="text-base md:text-xl font-bold flex items-center gap-2">
-               <span className="truncate max-w-[120px] sm:max-w-[200px] md:max-w-none">{currentSong.title}</span>
+          <div className="flex min-w-0 flex-col justify-center">
+            <h1 className="text-base md:text-xl font-bold flex flex-wrap items-center gap-2">
+               <span className="min-w-0 break-words [overflow-wrap:anywhere]">{currentSong.title}</span>
                {guitarMode && capoData && (
                  <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] md:text-xs font-black tracking-widest uppercase border border-red-500/30 whitespace-nowrap">
                    Capo {capoData.fret}
@@ -443,7 +443,7 @@ export default function StageModeClient({
         </div>
         
         {/* Stage Tools */}
-        <div className="flex items-center gap-4 md:gap-6 shrink-0">
+        <div className="flex flex-wrap items-center gap-4 md:gap-6 min-w-0 max-w-full">
            {/* Transpose */}
            <div className="flex items-center bg-white/5 rounded-lg border border-white/10 p-1">
              <button type="button" aria-label="Lower setlist key" disabled={isSavingKey} onClick={() => changeKey(-1)} className="p-2 hover:bg-white/10 rounded transition text-zinc-400 hover:text-white disabled:opacity-50">
@@ -568,16 +568,16 @@ export default function StageModeClient({
               )}
               <div className="space-y-4">
                 {section.lines.map((line, lIdx) => (
-                  <div key={lIdx} className="leading-relaxed max-w-full overflow-x-auto no-scrollbar">
+                  <div key={lIdx} className="leading-relaxed min-w-0 max-w-full">
                     {line.tokens ? (
                       // ChordPro inline: chord perfectly above each syllable
-                      <div className="flex flex-wrap items-end leading-none">
+                      <div className="flex flex-wrap items-end gap-y-3 leading-none">
                         {line.tokens.map((token, tIdx) => (
-                          <span key={tIdx} className="inline-flex flex-col items-start">
-                            <span className="font-mono font-bold text-violet-400 leading-none pb-1 min-h-[1em] block whitespace-pre text-[calc(0.85rem*var(--user-font-scale))]">
+                          <span key={tIdx} className="inline-flex min-w-0 max-w-full flex-col items-start">
+                            <span className="font-mono font-bold text-violet-400 leading-none pb-1 min-h-[1em] block max-w-full whitespace-pre-wrap [overflow-wrap:anywhere] text-[calc(0.85rem*var(--user-font-scale))]">
                               {token.chord || ""}
                             </span>
-                            <span className="font-semibold text-zinc-100 whitespace-pre text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
+                            <span className="font-semibold text-zinc-100 max-w-full whitespace-pre-wrap [overflow-wrap:anywhere] text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
                               {token.lyric || (token.chord ? "\u00a0" : "")}
                             </span>
                           </span>
@@ -587,12 +587,12 @@ export default function StageModeClient({
                       // Legacy space-aligned format
                       <>
                         {line.chords && (
-                          <div className="font-mono font-bold text-violet-400 whitespace-pre leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]">
+                          <div className="font-mono font-bold text-violet-400 whitespace-pre-wrap [overflow-wrap:anywhere] leading-none text-[calc(1rem*var(--user-font-scale))] md:text-[calc(1.25rem*var(--user-font-scale))]">
                             {line.chords}
                           </div>
                         )}
                         {line.lyric && (
-                          <div className="font-semibold text-zinc-100 whitespace-pre-wrap leading-tight mt-1 text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
+                          <div className="font-semibold text-zinc-100 whitespace-pre-wrap [overflow-wrap:anywhere] leading-tight mt-1 text-[calc(1.25rem*var(--user-font-scale))] md:text-[calc(1.5rem*var(--user-font-scale))]">
                             {line.lyric}
                           </div>
                         )}
