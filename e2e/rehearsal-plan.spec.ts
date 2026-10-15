@@ -43,16 +43,18 @@ test("rehearsal fields open immediately, align, and include a song timer", async
   await expect(focus).toBeVisible();
   await expect(minutes).toBeVisible();
   await expect(page.getByText("Open preparation tools", { exact: true })).toHaveCount(0);
-  const focusBox = await focus.boundingBox();
-  const minutesBox = await minutes.boundingBox();
-  expect(focusBox).not.toBeNull();
-  expect(minutesBox).not.toBeNull();
-  if ((page.viewportSize()?.width ?? 0) >= 640) {
-    expect(Math.abs(focusBox!.y - minutesBox!.y)).toBeLessThan(2);
-    expect(Math.abs(focusBox!.height - minutesBox!.height)).toBeLessThan(2);
-  } else {
-    expect(minutesBox!.y).toBeGreaterThan(focusBox!.y);
-  }
+  await expect(async () => {
+    const focusBox = await focus.boundingBox();
+    const minutesBox = await minutes.boundingBox();
+    expect(focusBox).not.toBeNull();
+    expect(minutesBox).not.toBeNull();
+    if ((page.viewportSize()?.width ?? 0) >= 640) {
+      expect(Math.abs(focusBox!.y - minutesBox!.y)).toBeLessThan(2);
+      expect(Math.abs(focusBox!.height - minutesBox!.height)).toBeLessThan(2);
+    } else {
+      expect(minutesBox!.y).toBeGreaterThan(focusBox!.y);
+    }
+  }).toPass({ timeout: 10_000 });
   await focus.fill("Practice ending and cue the next song");
   await minutes.fill("1");
   const runThrough = page.getByRole("region", { name: "Rehearsal run-through" });

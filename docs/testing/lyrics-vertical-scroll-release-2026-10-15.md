@@ -8,12 +8,13 @@ Practice and Stage previously allowed individual chart rows to scroll sideways. 
 
 Current main delegates Practice to the shared Stage renderer. This release ports 13 layout-class changes to that renderer rather than copying the older working-tree implementation. The saved drawing canvas retains its full backing buffer across viewport changes; a horizontal clipping wrapper now prevents that buffer from widening the chart after a desktop-to-phone resize. Its coordinate origin, vertical extent and stored drawings are unchanged. Current annotations, drawing persistence, rehearsal timer, Practice panel, section navigation, transpose saving, metronome, auto-scroll and song navigation remain intact. The existing floating section navigation is unchanged; the vertical-only behavior applies to chart lyrics/chords and header controls. No new double-view or chord-diagram features are introduced.
 
-Fetched base: `65a0e8a374cbe7552749cc8a0ed622de9c44bbc0`. Branch: `codex/lyrics-vertical-scroll`. Original dirty workspace preserved. Exactly five allowed release paths:
+Fetched base: `65a0e8a374cbe7552749cc8a0ed622de9c44bbc0`. Branch: `codex/lyrics-vertical-scroll`. Original dirty workspace preserved. Exactly six allowed release paths:
 
 - `src/app/setlists/[id]/stage/stage-mode-client.tsx`
 - `src/components/chart-annotations.tsx`
 - `src/app/setlists/[id]/practice/practice-tools-panel.test.tsx`
 - `e2e/lyrics-vertical-scroll.spec.ts`
+- `e2e/rehearsal-plan.spec.ts`
 - `docs/testing/lyrics-vertical-scroll-release-2026-10-15.md`
 
 Affected routes: `/setlists/[id]/practice` and `/setlists/[id]/stage`. No authorization, team scope, schema, storage format, caching, offline, dependency, environment or credential changes. No database or remote settings mutation. No manual deployment.
@@ -51,3 +52,5 @@ Effective agent model/effort and usage telemetry are unavailable; Laura role req
 Initial CI run `38673818475` passed its secret/audit/lint/type gates but the unit step hit an existing Practice notes test race. After the denied-save alert appeared, the test immediately queried the second submit button while React's pending transition still displayed `Saving…`. The panel implementation and action callbacks are unchanged by this release. The test already passed in the initial full suite and independent targeted runs; an isolated rerun also passed 8/8.
 
 The second click now awaits `findByRole("button", { name: "Save song notes" })` before resubmitting. This one-line test-only repair waits for the existing ready state and preserves all assertions, both action calls, saved values and permission-error behavior. It is the first repair for this CI timing issue. Final required CI repeats on the updated candidate; no failed check is bypassed.
+
+The initial browser run also exposed a pre-existing animated-layout measurement race on the separate Team rehearsal page. Sequential field bounding-box reads during its entrance animation reported a 4.695px y difference against the existing 2px alignment limit. The measurement and unchanged assertions now retry within a bounded 10 seconds, allowing the existing animation to settle. No layout, timer, data or threshold changes are made. This is the first repair for this separate browser-test timing issue. Focused production desktop/mobile rehearsal tests pass 4/4, with scoped lint and diff checks passing.
