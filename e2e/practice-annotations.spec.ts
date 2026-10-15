@@ -72,7 +72,7 @@ test("Practice saves movable formatted text and drawings for read-only Stage", a
   // Shrink and expand without clipping the underlying drawing.
   const originalViewport = page.viewportSize()!;
   await page.setViewportSize({ width: 320, height: 700 });
-  await expect(page.locator('[data-wooly-target="practice-chart"]')).toHaveJSProperty("clientWidth", 256);
+  await expect(page.locator('[data-wooly-target="practice-chart"]')).toHaveJSProperty("clientWidth", 320);
   await expect(page.getByLabel("Custom pen color")).toBeInViewport();
   expect(await page.getByLabel("Custom pen color").evaluate(element => {
     const box = element.getBoundingClientRect();

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import StageModeClient, { type StageSetlist } from "./stage-mode-client";
 
@@ -7,6 +7,28 @@ vi.mock("@/app/actions", () => ({ updateSetlistSongKeyAction: save }));
 vi.mock("@/lib/supabase/client", () => ({ createOptionalClient: () => null }));
 const setlist: StageSetlist = { id: "set", date: "2026-10-11", type: "practice", songs: ["C", "G"].map((key, index) => ({ id: `slot-${index}`, order: index + 1, assignedKey: key, lead: "", arrangement: null, youtubeUrl: null, song: { id: `song-${index}`, title: `Song ${index}`, bpm: 80, originalKey: key, lyricsChords: "Verse\nC\nLyrics" } })) };
 beforeEach(() => { save.mockReset(); localStorage.clear(); });
+
+it("shares full-name section navigation between Stage and Practice and jumps to the original chart section", () => {
+  const withSections = {
+    ...setlist,
+    songs: [{ ...setlist.songs[0], song: { ...setlist.songs[0].song, lyricsChords: "Unlabeled words\n[Intro]\nC\nIntro words\n[Chorus]\nG\nChorus words" } }],
+  };
+  const scrollIntoView = vi.fn();
+  const chart = render(<StageModeClient setlist={withSections} />);
+  const chorusSection = screen.getByText("Chorus words").closest("[id^=section-]") as HTMLElement;
+  chorusSection.scrollIntoView = scrollIntoView;
+  const navigation = screen.getByRole("navigation", { name: "Song sections" });
+  expect(within(navigation).getByRole("button", { name: "Jump to Intro" })).toHaveTextContent("Intro");
+  const chorus = within(navigation).getByRole("button", { name: "Jump to Chorus" });
+  fireEvent.click(chorus);
+  expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+  const target = scrollIntoView.mock.instances[0] as HTMLElement;
+  expect(target).toHaveTextContent("Chorus words");
+  chart.rerender(<StageModeClient setlist={withSections} renderPracticeTools={() => null} />);
+  expect(screen.getAllByRole("navigation", { name: "Song sections" })).toHaveLength(1);
+  expect(screen.getByRole("button", { name: "Add text note" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Jump to Chorus" })).toHaveTextContent("Chorus");
+});
 
 it("hides annotation editing in Stage and enables it in Practice", () => {
   const stage = render(<StageModeClient setlist={setlist} />);
