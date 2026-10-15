@@ -8,10 +8,11 @@ Practice and Stage previously allowed individual chart rows to scroll sideways. 
 
 Current main delegates Practice to the shared Stage renderer. This release ports 13 layout-class changes to that renderer rather than copying the older working-tree implementation. The saved drawing canvas retains its full backing buffer across viewport changes; a horizontal clipping wrapper now prevents that buffer from widening the chart after a desktop-to-phone resize. Its coordinate origin, vertical extent and stored drawings are unchanged. Current annotations, drawing persistence, rehearsal timer, Practice panel, section navigation, transpose saving, metronome, auto-scroll and song navigation remain intact. The existing floating section navigation is unchanged; the vertical-only behavior applies to chart lyrics/chords and header controls. No new double-view or chord-diagram features are introduced.
 
-Fetched base: `65a0e8a374cbe7552749cc8a0ed622de9c44bbc0`. Branch: `codex/lyrics-vertical-scroll`. Original dirty workspace preserved. Exactly four allowed release paths:
+Fetched base: `65a0e8a374cbe7552749cc8a0ed622de9c44bbc0`. Branch: `codex/lyrics-vertical-scroll`. Original dirty workspace preserved. Exactly five allowed release paths:
 
 - `src/app/setlists/[id]/stage/stage-mode-client.tsx`
 - `src/components/chart-annotations.tsx`
+- `src/app/setlists/[id]/practice/practice-tools-panel.test.tsx`
 - `e2e/lyrics-vertical-scroll.spec.ts`
 - `docs/testing/lyrics-vertical-scroll-release-2026-10-15.md`
 
@@ -44,3 +45,9 @@ Laura independently approved the source/test candidate with no actionable findin
 Gates 01–12 and 14–18 pass for scoped intake, ownership, current-main architecture, exact diff, CSS conventions and unchanged contracts. Gate 13 is N/A: one implementer and read-only independent reviewer. Gates 19–29 are N/A: no route loading, SSR, trust-boundary, error-handling, database or access-policy changes. Gates 30–36 pass through build/typecheck/lint/unit/coverage/security verification, independent review and actual browser text enlargement/reflow/interaction checks. Full WCAG audit is outside this layout-only change. Gate 37 requires final clean scope/ancestry, independent final review and protected-main CI before merge. Local database verification is delegated to that required CI job.
 
 Effective agent model/effort and usage telemetry are unavailable; Laura role requested gpt-6.1-sol medium. The first actual production browser run exposed the retained canvas-buffer width on shrink; the clipping wrapper is the first source repair for that issue. No check is waived; required quality/browser/local-database checks must pass on the final candidate before normal merge. Branch retained after merge; no force push, protection bypass or branch deletion.
+
+## CI test timing repair
+
+Initial CI run `38673818475` passed its secret/audit/lint/type gates but the unit step hit an existing Practice notes test race. After the denied-save alert appeared, the test immediately queried the second submit button while React's pending transition still displayed `Saving…`. The panel implementation and action callbacks are unchanged by this release. The test already passed in the initial full suite and independent targeted runs; an isolated rerun also passed 8/8.
+
+The second click now awaits `findByRole("button", { name: "Save song notes" })` before resubmitting. This one-line test-only repair waits for the existing ready state and preserves all assertions, both action calls, saved values and permission-error behavior. It is the first repair for this CI timing issue. Final required CI repeats on the updated candidate; no failed check is bypassed.

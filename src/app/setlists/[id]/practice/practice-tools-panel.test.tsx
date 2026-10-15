@@ -72,7 +72,7 @@ describe("PracticeToolsPanel", () => {
     expect(screen.getByLabelText("Lead vocal")).toHaveValue("Jordan");
     expect(screen.getByLabelText("Setlist notes")).toHaveValue("Hold the last line");
 
-    fireEvent.click(screen.getByRole("button", { name: "Save song notes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save song notes" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Notes updated.");
     await waitFor(() => expect(updateSetlistSongNotesAction).toHaveBeenCalledTimes(2));
     const savedValues = vi.mocked(updateSetlistSongNotesAction).mock.calls[1][0];
