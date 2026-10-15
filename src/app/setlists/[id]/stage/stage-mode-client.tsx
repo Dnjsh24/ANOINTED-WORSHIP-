@@ -45,19 +45,6 @@ function playClick(beat: number, volume: number = 0.5) {
   }
 }
 
-// Helper for abbreviation on mobile
-function getAbbr(label: string) {
-  const lbl = label.toLowerCase();
-  if (lbl.includes("pre-chorus") || lbl.includes("prechorus")) return "PC";
-  if (lbl.includes("verse")) return label.toUpperCase().replace("VERSE", "V").trim();
-  if (lbl.includes("chorus")) return label.toUpperCase().replace("CHORUS", "C").trim();
-  if (lbl.includes("bridge")) return label.toUpperCase().replace("BRIDGE", "B").trim();
-  if (lbl.includes("intro")) return "INT";
-  if (lbl.includes("outro")) return "OUT";
-  if (lbl.includes("instrumental") || lbl.includes("interlude")) return "INS";
-  return label.substring(0, 3).toUpperCase();
-}
-
 export type StageSetlist = {
   id: string;
   date: string;
@@ -551,38 +538,14 @@ export default function StageModeClient({
         </div>
       </div>
 
-      {/* Arrangement Blocks (Desktop) */}
-      <div className="hidden md:flex items-center gap-2 px-6 py-3 bg-zinc-900 border-b border-white/5 overflow-x-auto no-scrollbar shrink-0">
-        {transposedSections.map((section, idx) => {
-          if (!section.label || section.label === "unknown") return null;
-          
-          let colorClass = "bg-zinc-800 text-zinc-300 border-zinc-700";
-          const lbl = section.label.toLowerCase();
-          if (lbl.includes("chorus")) colorClass = "bg-blue-900/50 text-blue-300 border-blue-500/30";
-          else if (lbl.includes("bridge")) colorClass = "bg-rose-900/50 text-rose-300 border-rose-500/30";
-          else if (lbl.includes("verse")) colorClass = "bg-emerald-900/50 text-emerald-300 border-emerald-500/30";
-          else if (lbl.includes("intro") || lbl.includes("outro")) colorClass = "bg-amber-900/50 text-amber-300 border-amber-500/30";
-          
-          return (
-            <button 
-              key={idx}
-              onClick={() => handleJumpToSection(idx)}
-              className={cn("px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider whitespace-nowrap border transition hover:brightness-125", colorClass)}
-            >
-              {section.label}
-            </button>
-          );
-        })}
-      </div>
-
       {rehearsalNotesMessage && <p role="status" className="shrink-0 px-4 py-2 text-sm text-amber-200">Rehearsal notes: {rehearsalNotesMessage}</p>}
       <RehearsalNote setlistId={setlist.id} slotId={currentSetlistSong.id} note={currentSetlistSong.rehearsalNotes} demoMode={demoMode} stage />
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden relative">
         {/* Chord Chart Area */}
         <div data-wooly-target="practice-chart"
           ref={scrollRef} 
           style={{ "--user-font-scale": fontScale } as FontScaleStyle}
-          className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-10 pb-64 relative"
+          className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden px-4 md:px-8 py-10 pb-64 relative"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
@@ -643,10 +606,13 @@ export default function StageModeClient({
         </div>
       </div>
 
-      {/* Arrangement Blocks (Mobile Right Panel) */}
-      <div className="md:hidden flex flex-col items-center gap-3 py-4 w-16 bg-zinc-900 border-l border-white/5 overflow-y-auto shrink-0 z-40">
+      {/* Floating section navigation, shared by Stage and Practice */}
+      <nav aria-label="Song sections" className={cn(
+        "absolute left-1/2 z-40 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-2 overflow-x-auto overscroll-x-contain rounded-2xl border border-white/15 bg-zinc-950/90 p-3 shadow-2xl backdrop-blur-md",
+        renderPracticeTools ? "bottom-[calc(max(1rem,env(safe-area-inset-bottom))+4rem)]" : "bottom-[max(1rem,env(safe-area-inset-bottom))]",
+      )}>
         {transposedSections.map((section, idx) => {
-          if (!section.label || section.label === "unknown") return null;
+          if (!section.label || section.label.toLowerCase() === "unknown") return null;
           
           let colorClass = "bg-zinc-800 text-zinc-300 border-zinc-700";
           const lbl = section.label.toLowerCase();
@@ -656,18 +622,19 @@ export default function StageModeClient({
           else if (lbl.includes("intro") || lbl.includes("outro")) colorClass = "bg-amber-900/50 text-amber-300 border-amber-500/30";
           
           return (
-            <button 
+            <button
+              type="button"
+              aria-label={`Jump to ${section.label}`}
               key={idx}
               onClick={() => handleJumpToSection(idx)}
-              className={cn("w-12 py-3 rounded-lg text-xs font-black uppercase tracking-tighter border transition hover:brightness-125 shadow-md", colorClass)}
-              title={section.label}
+              className={cn("min-h-11 shrink-0 rounded-xl border px-3 text-xs font-bold uppercase tracking-wide whitespace-nowrap transition hover:brightness-125 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-300", colorClass)}
             >
-              {getAbbr(section.label)}
+              {section.label}
             </button>
           );
         })}
-      </div>
-      
+      </nav>
+
       {/* Floating Auto-Scroll Status */}
       <div className="absolute bottom-8 right-8 pointer-events-none z-50">
          <div className={cn("px-4 py-2 rounded-full font-bold text-xs uppercase tracking-widest transition-opacity duration-500", isScrolling ? "opacity-100 bg-violet-600/80 text-white shadow-lg" : "opacity-0")}>
