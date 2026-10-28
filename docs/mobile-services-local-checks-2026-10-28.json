@@ -1,0 +1,193 @@
+{
+  "date": "2026-10-28",
+  "status": "Testing; local draft only",
+  "baseCommit": "36cd2dc13e401094537b4a18f50ad448817a0763",
+  "source": {
+    "branch": "codex/mobile-services-release",
+    "declaredPaths": 665,
+    "codePaths": 660,
+    "exactCodeInputManifest": ".tmp/mobile-services-final-code-inputs.json",
+    "existingWebsiteHelpers": [
+      {
+        "path": "src/lib/domain/event-workflows.ts",
+        "matchesMain": true
+      },
+      {
+        "path": "src/lib/domain/validators.ts",
+        "matchesMain": true
+      },
+      {
+        "path": "src/lib/supabase/team-context.ts",
+        "matchesMain": true
+      },
+      {
+        "path": "src/lib/server/analytics.ts",
+        "matchesMain": true
+      },
+      {
+        "path": "src/lib/supabase/member-usage.ts",
+        "matchesMain": true
+      },
+      {
+        "path": "src/lib/server/wooly-records.ts",
+        "matchesMain": true
+      }
+    ],
+    "changesAfterFullSuite": [
+      "src/lib/server/mobile/http.ts",
+      "src/lib/server/mobile/v2/self-member-leave-context.ts",
+      "src/lib/server/mobile/v2/self-member-leave-context.test.ts",
+      "src/lib/server/mobile/http.test.ts"
+    ],
+    "clientArtifactsUnchanged": true,
+    "migrationBytesUnchanged": true
+  },
+  "checks": {
+    "fullPatchedSuiteBeforeCorsRepair": {
+      "command": "npm run test:website -- --maxWorkers 2",
+      "files": 388,
+      "passed": 2382,
+      "failed": 0,
+      "skipped": 0,
+      "sourceProof": ".tmp/mobile-services-patched-check-summary.json",
+      "fixtureCaveat": "39 captured PostgreSQL output contracts replayed; no fresh hosted DB run."
+    },
+    "corsRegression": {
+      "beforeRepair": "One new regression failed on missing member header.",
+      "repairAttempts": 1,
+      "command": "node node_modules/vitest/vitest.mjs run src/lib/server/mobile/http.test.ts src/lib/server/mobile/v2/self-member-leave-context.test.ts src/lib/server/mobile/v2/context.test.ts src/lib/mobile/api-route-paths.test.ts src/lib/supabase/proxy-rate-limit.test.ts --config vitest.website.config.ts --maxWorkers=2",
+      "files": 5,
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0
+    },
+    "types": {
+      "baseline": "Passed full tsc; final Next build also passed TypeScript after CORS repair."
+    },
+    "lint": {
+      "baseline": "npm run lint:website passed with zero warnings.",
+      "finalAffected": "Four changed CORS files passed ESLint --max-warnings=0."
+    },
+    "build": {
+      "command": "node node_modules/next/dist/bin/next build",
+      "exitCode": 0,
+      "log": ".tmp/mobile-services-production-build-final.log",
+      "environment": "Fixture example.invalid Supabase URL and dummy public key; E2E_FORCE_DEMO=1. Compile only, not hosted environment acceptance."
+    },
+    "compiledHttp": {
+      "command": "node .tmp/mobile-services-compiled-routing-smoke.cjs",
+      "exitCode": 0,
+      "passedChecks": 98,
+      "preflights": 93,
+      "unavailableJsonHandlers": 4,
+      "foreignOriginDenied": 1,
+      "productionMissingRedisGuard": {
+        "status": 429,
+        "retryAfterPresent": true
+      },
+      "scope": "Supplementary compiled routing/CORS check in existing demo mode; no real authentication or Redis integration.",
+      "originalProtectedHttpSmoke": "Blocked by intentionally missing production Redis configuration (429). The development NODE_ENV workaround also failed because production compilation inlines it. Assertions were not weakened.",
+      "productionRedisOrAuthenticatedSessionTested": false,
+      "report": ".tmp/mobile-services-compiled-routing-smoke.json"
+    },
+    "audit": {
+      "command": "npm audit --json",
+      "vulnerabilities": {
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      },
+      "dependencies": [
+        {
+          "name": "next",
+          "version": "16.4.3"
+        },
+        {
+          "name": "typescript",
+          "version": "5.9.3"
+        },
+        {
+          "name": "vitest",
+          "version": "4.1.12"
+        },
+        {
+          "name": "vite",
+          "version": "8.3.5"
+        },
+        {
+          "name": "zod",
+          "version": "4.6.7"
+        },
+        {
+          "name": "undici",
+          "version": "7.30.1"
+        },
+        {
+          "name": "@supabase/supabase-js",
+          "version": "2.108.2"
+        },
+        {
+          "name": "@supabase/ssr",
+          "version": "0.12.0"
+        }
+      ]
+    },
+    "secrets": {
+      "command": "node scripts/scan-secrets.mjs",
+      "exitCode": 1,
+      "findingCount": 6,
+      "classification": "Three historical binary Node compile-cache documentation placeholders (PEM payload XXXX); two synthetic header.payload.signature Bearer fixtures and one native-session-token test fixture. No real credential identified. Scanner remains nonzero; no suppression or history rewrite.",
+      "oversizedHistoryBlobsSkipped": 8,
+      "oversizedWorkingFilesSkipped": 1,
+      "report": ".tmp/mobile-services-secrets-final.json"
+    },
+    "scope": {
+      "command": "Import checkChangeScope from scripts/check-change-scope.mjs and pass allowedFiles from docs/mobile-services-release-files.json after local commit.",
+      "requiredReport": ".tmp/mobile-services-scope-final.json",
+      "note": "Only a report whose candidateCommit equals current HEAD proves this gate. The checker validates paths and clean ancestry, not semantics."
+    },
+    "defaultGitDiffWhitespace": {
+      "command": "git diff --cached --check",
+      "exitCode": 2,
+      "findings": 69,
+      "scope": "Inherited blank EOF lines/trailing spaces in the initial port, including two byte-identical previously tested migrations. No behavior defect. Left intact to preserve frozen source and migration evidence; style gate not claimed passed.",
+      "report": ".tmp/mobile-services-staged-whitespace.log"
+    }
+  },
+  "gates": {
+    "19": "93 App Router handlers compile; exact registry completeness passes.",
+    "20": "N/A for this server-only port; no client component or hydration changes.",
+    "34": "Supplementary compiled routing passes. Original production-auth HTTP smoke blocked; hosted and physical journeys remain open.",
+    "35": "Dependency audit zero; scanner returns six classified fixture/documentation findings. Formal security review deferred.",
+    "36": "N/A: no UI changed in backend candidate.",
+    "37": "Draft only. Independent final review, hosted migration/access checks, protected-main CI and release approval remain pending.",
+    "01-07,09-17": "Scoped outcome, criteria, constraints, dependencies, ownership and repository conventions recorded; isolated candidate and typed contracts retained.",
+    "08,11,18,21,22": "Existing boundary tests pass; independent architecture/code/security review remains deferred by user.",
+    "23-29": "Local migration/authorization evidence retained. Hosted schema compatibility, recovery plan against actual history and real RLS acceptance remain open.",
+    "30-33": "Build/types/lint and recorded full suite plus affected CORS regression pass."
+  },
+  "remaining": [
+    "Connect the account exposing Supabase project xvrndwkghxkqsvxxtqym and inspect applied migrations read-only.",
+    "Prepare exact hosted migration/recovery plan and real production Redis/auth checks.",
+    "Obtain deferred final review and explicit push/PR, SQL, merge and deployment authorization.",
+    "Release merged main only, verify production SHA and perform native live sync/physical acceptance."
+  ],
+  "noExternalWrites": true,
+  "checklist": {
+    "checked": 69,
+    "total": 93,
+    "remaining": 24,
+    "androidAcceptance": "0/8"
+  },
+  "telemetry": {
+    "coordinatorModelEffort": "Effective runtime setting unavailable; no specialist launched this turn.",
+    "allowanceAtTurnStart": {
+      "fiveHourUsedPercent": 0,
+      "weeklyUsedPercent": 0
+    },
+    "monetarySavings": "Not measured"
+  }
+}

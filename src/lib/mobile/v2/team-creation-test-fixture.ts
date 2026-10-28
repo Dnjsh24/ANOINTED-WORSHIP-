@@ -1,0 +1,4 @@
+import type { MobileTeamCreationRequest, MobileTeamCreationReceipt } from './team-creation';
+export const teamCreationId = (n: number) => `99930000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+export const teamCreationRequest: MobileTeamCreationRequest = { version: 2, userId: teamCreationId(1), requestNonce: teamCreationId(2), value: { name: 'Sunday Team', code: 'ST-12345', location: 'Main Sanctuary', callTime: '09:00:00', rehearsalTime: '08:15:00' } };
+export const teamCreationReceipt: MobileTeamCreationReceipt = { version: 2, request: teamCreationRequest, status: 'applied', workspace: { teamId: teamCreationId(3), memberId: teamCreationId(4), channelId: teamCreationId(5), name: teamCreationRequest.value.name, code: teamCreationRequest.value.code }, reason: null, recordedAt: '2026-10-23T04:00:00Z' };
