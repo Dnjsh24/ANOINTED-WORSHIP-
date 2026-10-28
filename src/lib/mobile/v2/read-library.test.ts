@@ -148,8 +148,8 @@ describe("read-library authenticated RLS readers", () => {
 
   it("passes an explicit access token to user verification and preserves definitive status", async () => {
     const { client, getUser } = makeClient(makeTables());
-    await readSongLibrary({ client, identity, accessToken: "native-session-token" });
-    expect(getUser).toHaveBeenCalledWith("native-session-token");
+    await readSongLibrary({ client, identity, accessToken: "test-token-native-session" });
+    expect(getUser).toHaveBeenCalledWith("test-token-native-session");
   });
 
   it("separates missing membership from membership-query outages", async () => {

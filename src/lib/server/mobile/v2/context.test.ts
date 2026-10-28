@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({ limit: vi.fn() }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: mocks.limit }));
 const id = (last: number) => `10000000-0000-4000-8000-${String(last).padStart(12, "0")}`;
 const userId = id(1);
-const authorization = "Bearer header.payload.signature";
+const authorization = "Bearer test-token.payload.signature";
 const membership = { id: id(3), team_id: id(2), profile_id: userId, role: "member", status: "active", custom_role_id: null, custom_roles: null, teams: { name: "Team" } };
 function request(headers: HeadersInit = {}) {
   return new Request("https://website.example/api/mobile/v2/workspaces", { headers: { authorization, "x-mobile-user-id": userId, "x-mobile-team-id": id(2), ...headers } });

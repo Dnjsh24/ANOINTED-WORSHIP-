@@ -6,7 +6,7 @@ const id = (last: number) => `10000000-0000-4000-8000-${String(last).padStart(12
 const userId = id(1);
 function request(body: unknown = { version: 2 }, headers: HeadersInit = {}) {
   return new Request("https://website.example/api/mobile/v2/workspaces", {
-    method: "POST", headers: { "Content-Type": "application/json", Origin: "capacitor://localhost", authorization: "Bearer header.payload.signature", "x-mobile-user-id": userId, ...headers }, body: JSON.stringify(body),
+    method: "POST", headers: { "Content-Type": "application/json", Origin: "capacitor://localhost", authorization: "Bearer test-token.payload.signature", "x-mobile-user-id": userId, ...headers }, body: JSON.stringify(body),
   });
 }
 beforeEach(() => {

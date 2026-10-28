@@ -10,6 +10,7 @@
     "docs/mobile-services-release-files.json",
     "package-lock.json",
     "package.json",
+    "scripts/scan-secrets.mjs",
     "src/app/api/mobile/v1/bootstrap/route.ts",
     "src/app/api/mobile/v1/catalog/route.test.ts",
     "src/app/api/mobile/v1/catalog/route.ts",

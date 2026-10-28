@@ -135,6 +135,16 @@ function entropy(value) {
   return result;
 }
 
+// These exact unusable test literals also exist in Git history. No real token
+// format or other test-file content is exempted from detection.
+function isKnownTestLiteral(value, meta) {
+  return (value === ['Bearer', 'header.payload.signature'].join(' ') && [
+    'src/app/api/mobile/v2/workspaces/route.test.ts',
+    'src/lib/server/mobile/v2/context.test.ts',
+  ].includes(meta.path)) || (value === ['native', 'session', 'token'].join('-')
+    && meta.path === 'src/lib/mobile/v2/read-library.test.ts');
+}
+
 function isPlaceholder(value) {
   return (
     value.length < 8 ||
@@ -171,7 +181,7 @@ function scanText(text, meta, includeGenericAssignments) {
   for (const detector of strictDetectors) {
     detector.pattern.lastIndex = 0;
     for (let match; (match = detector.pattern.exec(text)); ) {
-      if (!isPlaceholder(match[0])) {
+      if (!isPlaceholder(match[0]) && !isKnownTestLiteral(match[0], meta)) {
         recordFinding(
           meta,
           detector.type,
@@ -229,7 +239,7 @@ function scanText(text, meta, includeGenericAssignments) {
       if (
         /^(?:NEXT_PUBLIC_|PUBLIC_)/i.test(key) ||
         /publishable/i.test(key) ||
-        isPlaceholder(value)
+        (isPlaceholder(value) || isKnownTestLiteral(value, meta))
       ) {
         continue;
       }
@@ -429,6 +439,13 @@ function scanWorkingTree() {
 
 function runDetectorSelfTest() {
   const startingFindingCount = findings.length;
+  const fixturePath = { path: 'src/lib/server/mobile/v2/context.test.ts' };
+  const bearerFixture = ['Bearer', 'header.payload.signature'].join(' ');
+  if (!isKnownTestLiteral(bearerFixture, fixturePath)
+    || isKnownTestLiteral(bearerFixture, { path: 'src/lib/server/context.ts' })
+    || isKnownTestLiteral(['Bearer', 'header.payload.real-signature'].join(' '), fixturePath)) {
+    throw new Error('Synthetic credential classification must match exact value and test path.');
+  }
   const jwtHeader = Buffer.from(
     JSON.stringify({ alg: "HS256", typ: "JWT" }),
   ).toString("base64url");
