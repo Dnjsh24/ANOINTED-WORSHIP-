@@ -669,6 +669,7 @@
     "supabase/migrations/20261024020000_mobile_message_attachment_uploads.sql",
     "supabase/migrations/20261024030000_mobile_song_restores.sql",
     "supabase/migrations/20261024040000_mobile_song_purges.sql",
+    "supabase/migrations/20261029010000_mobile_function_lint.sql",
     "tickets.md"
   ]
 }
