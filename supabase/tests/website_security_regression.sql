@@ -437,6 +437,45 @@ begin
 end
 $$;
 
+-- Revision zero is a real saved base, not an absent rehearsal parent.
+reset role;
+do $rehearsal_initial_revisions$
+declare
+  team uuid := 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  member uuid := 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  command jsonb;
+  invalid jsonb;
+  revision numeric;
+  revision_path text[];
+begin
+  command := jsonb_build_object(
+    'commandId','cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    'setlistId','dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    'type','rehearsal.plan.save','baseValue',null,'dependsOn','[]'::jsonb,
+    'value',jsonb_build_object('allocations','[]'::jsonb,'tasks',(select jsonb_agg('{}'::jsonb) from generate_series(1,10))),
+    'baseParent',jsonb_build_object('setlistId','dddddddd-dddd-4ddd-8ddd-dddddddddddd','teamId',team,
+      'eventId','eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','eventRevision',0,'setlistRevision',0,
+      'slots',jsonb_build_array(jsonb_build_object('id','11111111-1111-4111-8111-111111111111','songId','22222222-2222-4222-8222-222222222222','revision',0))));
+  perform private.validate_mobile_rehearsal_command(command,team,member);
+  perform private.validate_mobile_rehearsal_command(
+    jsonb_set(jsonb_set(command,'{baseParent,eventId}','null'::jsonb),'{baseParent,eventRevision}','null'::jsonb),team,member);
+  foreach revision_path slice 1 in array array[
+    array['baseParent','setlistRevision',null,null],
+    array['baseParent','eventRevision',null,null],
+    array['baseParent','slots','0','revision']
+  ] loop
+    revision_path := array_remove(revision_path,null);
+    foreach revision in array array[-1::numeric,0.5::numeric,9007199254740992::numeric] loop
+      invalid := jsonb_set(command,revision_path,to_jsonb(revision));
+      begin
+        perform private.validate_mobile_rehearsal_command(invalid,team,member);
+        raise exception 'Invalid rehearsal revision was accepted';
+      exception when sqlstate '22023' then null;
+      end;
+    end loop;
+  end loop;
+end $rehearsal_initial_revisions$;
+
 rollback;
 
 \echo website_security_regression: PASS
