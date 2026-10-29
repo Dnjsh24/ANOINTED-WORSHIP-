@@ -1,0 +1,7 @@
+import { z } from 'zod';
+import { mobileIdentitySchema,type MobileIdentity } from '../contracts';
+import { assertTeamNoticesIdentity } from './team-notices';
+const time=z.iso.datetime({offset:true}).refine(value=>(value.match(/\.(\d+)/)?.[1].length??0)<=6);
+export const mobileMessageReadersPageSchema=z.object({version:z.literal(2),identity:mobileIdentitySchema,channelId:z.uuid(),messageId:z.uuid(),items:z.array(z.object({profileId:z.uuid(),fullName:z.string().max(500).nullable(),readAt:time}).strict()).max(50),after:z.uuid().nullable(),nextCursor:z.uuid().nullable(),fetchedAt:time}).strict();
+export type MobileMessageReadersPage=z.infer<typeof mobileMessageReadersPageSchema>;
+export function assertMobileMessageReadersPage(identity:MobileIdentity,channelId:string,messageId:string,after:string|null,value:unknown):MobileMessageReadersPage{const result=mobileMessageReadersPageSchema.parse(value);assertTeamNoticesIdentity(identity,result.identity);if(result.channelId!==channelId||result.messageId!==messageId||result.after!==after||result.items.some((row,index)=>row.profileId===identity.userId||after!==null&&row.profileId<=after||index>0&&row.profileId<=result.items[index-1].profileId)||result.nextCursor!==null&&(result.items.length!==50||result.nextCursor!==result.items.at(-1)?.profileId))throw new Error('Reader receipts differ from the original message scope or cursor.');return result;}

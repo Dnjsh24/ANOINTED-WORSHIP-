@@ -1,0 +1,58 @@
+\set ON_ERROR_STOP on
+set timezone='UTC';
+create schema support_close_test;
+create function support_close_test.id(n integer) returns uuid language sql immutable as $$select ('99910000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid$$;
+create table support_close_test.cases(name text primary key,request jsonb not null,receipt jsonb not null);
+create table support_close_test.pending(key text primary key,request jsonb not null);
+grant usage on schema support_close_test to authenticated;
+grant select,insert on all tables in schema support_close_test to authenticated;
+insert into auth.users(id,email) select support_close_test.id(n),'support-close-'||n||'@example.test' from generate_series(1,3) n;
+select set_config('request.jwt.claim.sub',support_close_test.id(1)::text,false);
+insert into public.wooly_support_requests(id,profile_id,question,details,page_path,status,created_at,updated_at,support_updated_at)
+select support_close_test.id(n),support_close_test.id(1),'Close fixture','','/help','answered','2026-10-23T03:00:00.123456Z','2026-10-23T04:00:00.123456Z','2026-10-23T04:00:00.123456Z' from generate_series(10,13) n;
+insert into public.wooly_support_accounts(profile_id) values(support_close_test.id(2));
+create function support_close_test.request(n integer,target integer) returns jsonb language sql stable security definer set search_path='' set timezone='UTC' as $$
+select jsonb_build_object('version',2,'userId',auth.uid(),'requestId',r.id,'requestNonce',support_close_test.id(n),'base',private.mobile_support_request_close_snapshot(r)) from public.wooly_support_requests r where id=support_close_test.id(target);
+$$;
+create function support_close_test.capture(label text,request jsonb) returns jsonb language plpgsql as $$declare result jsonb;begin result:=public.mobile_close_support_request(request);insert into support_close_test.cases values(label,request,result);return result;end$$;
+create function support_close_test.denied(request jsonb,expected text) returns void language plpgsql as $$declare blocked boolean:=false;begin begin perform public.mobile_close_support_request(request);exception when others then if sqlstate=expected then blocked:=true;else raise;end if;end;assert blocked,'Expected close denial';end$$;
+set role authenticated;
+insert into support_close_test.pending values('applied',support_close_test.request(100,10)),('race',support_close_test.request(101,11)),('late',support_close_test.request(102,12)),('replaced',support_close_test.request(103,13));
+select support_close_test.denied(support_close_test.request(100,10)||'{"extra":true}','22023');
+select support_close_test.capture('applied',support_close_test.request(100,10));
+reset role;
+-- Later support activity must not be re-closed by an exact original nonce.
+update public.wooly_support_requests set status='answered',updated_at='2026-10-23T05:00:00.123457Z',support_updated_at='2026-10-23T05:00:00.123457Z' where id=support_close_test.id(10);
+select set_config('request.jwt.claim.sub',support_close_test.id(1)::text,false);
+set role authenticated;
+do $$declare saved record;begin select * into saved from support_close_test.cases where name='applied';assert public.mobile_close_support_request(saved.request)=saved.receipt,'Exact close replay changed receipt';perform support_close_test.denied(jsonb_set(saved.request,'{base,status}','"open"'),'22023');end$$;
+select support_close_test.capture('later-reply-conflict',jsonb_set((select request from support_close_test.pending where key='applied'),'{requestNonce}',to_jsonb(support_close_test.id(104))));
+reset role;
+do $$begin assert (select status='answered' and updated_at='2026-10-23T05:00:00.123457Z'::timestamptz from public.wooly_support_requests where id=support_close_test.id(10)),'Replay closed newer reply';end$$;
+delete from public.wooly_support_requests where id=support_close_test.id(10);
+set role authenticated;
+do $$declare saved record;begin select * into saved from support_close_test.cases where name='applied';assert public.mobile_close_support_request(saved.request)=saved.receipt,'Parent deletion lost historical receipt';end$$;
+select support_close_test.capture('missing',jsonb_set((select request from support_close_test.pending where key='applied'),'{requestNonce}',to_jsonb(support_close_test.id(105))));
+reset role;
+create function support_close_test.fail_late() returns trigger language plpgsql as $$begin if new.request_nonce=support_close_test.id(102) then raise exception 'Synthetic close ledger failure';end if;return new;end$$;
+create trigger support_close_fail_late before insert on private.mobile_support_request_close_receipts for each row execute function support_close_test.fail_late();
+set role authenticated;
+select support_close_test.denied((select request from support_close_test.pending where key='late'),'P0001');
+reset role;
+do $$begin assert (select status='answered' and updated_at='2026-10-23T04:00:00.123456Z'::timestamptz from public.wooly_support_requests where id=support_close_test.id(12)),'Ledger failure failed to restore close';end$$;
+drop trigger support_close_fail_late on private.mobile_support_request_close_receipts;
+update public.wooly_support_requests set created_at='2026-10-23T03:00:00.123457Z' where id=support_close_test.id(13);
+set role authenticated;
+select support_close_test.capture('incarnation-conflict',(select request from support_close_test.pending where key='replaced'));
+reset role;
+select set_config('request.jwt.claim.sub',support_close_test.id(2)::text,false);
+set role authenticated;
+select support_close_test.denied(support_close_test.request(106,12),'42501');
+reset role;
+do $$declare blocked boolean:=false;begin begin update private.mobile_support_request_close_receipts set recorded_at=clock_timestamp();exception when others then blocked:=true;end;assert blocked,'Close ledger mutable';end$$;
+set role authenticated;
+do $$declare blocked boolean:=false;begin begin perform 1 from private.mobile_support_request_close_receipts;exception when insufficient_privilege then blocked:=true;end;assert blocked,'Private close ledger exposed';end$$;
+reset role;
+set role anon;
+do $$declare blocked boolean:=false;begin begin perform public.mobile_close_support_request(null);exception when insufficient_privilege then blocked:=true;end;assert blocked,'Anonymous close allowed';end$$;
+reset role;

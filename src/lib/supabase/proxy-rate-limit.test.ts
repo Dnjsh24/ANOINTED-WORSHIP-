@@ -1,3 +1,4 @@
+import { nativeMobileApiRoutes } from '@/lib/mobile/api-route-paths';
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import type { CookieOptions } from "@supabase/ssr";
@@ -32,6 +33,34 @@ describe("verified users sharing venue WiFi", () => {
     mocks.limit.mockReset().mockResolvedValue({ allowed: true, resetAt: Date.now() + 60_000 });
   });
   afterEach(() => vi.unstubAllEnvs());
+
+  it('forwards every registered native handler without requiring browser cookies', async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: null });
+    for (const route of nativeMobileApiRoutes) {
+      const path = route.replace(/\[[^\]]+\]/g, '11111111-1111-4111-8111-111111111111');
+      expect((await updateSession(request(path))).status, path).toBe(200);
+    }
+    expect(mocks.getUser).not.toHaveBeenCalled();
+    expect((await updateSession(request('/api/mobile/v2/workspaces/invalid/profile'))).status).not.toBe(200);
+  });
+
+  it('routes only exact mobile API paths to their Bearer authorization handlers', async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: null });
+    for (const path of ['/api/mobile/v1/bootstrap', '/api/mobile/v1/downloads', '/api/mobile/v1/commands', '/api/mobile/v1/catalog', '/api/mobile/v1/downloads/assets', '/api/mobile/v1/downloads/assets/url', '/api/mobile/v2/workspaces', '/api/mobile/v2/providers/song-import', '/api/mobile/v2/providers/spotify', '/api/mobile/v2/workspaces/11111111-1111-4111-8111-111111111111/home', '/api/mobile/v2/workspaces/11111111-1111-4111-8111-111111111111/commands']) {
+      expect((await updateSession(request(path))).status).toBe(200);
+    }
+    expect(mocks.getUser).not.toHaveBeenCalled();
+    expect(mocks.limit).toHaveBeenCalled();
+    expect((await updateSession(request('/api/mobile/v1/commands/extra'))).status).not.toBe(200);
+    expect((await updateSession(request('/api/mobile/v2/workspaces/extra'))).status).not.toBe(200);
+    expect((await updateSession(request('/api/mobile/v2/workspaces/11111111-1111-4111-8111-111111111111/home/extra'))).status).not.toBe(200);
+    for (const path of ['/api/mobile/v2/providers/song-import/extra', '/api/mobile/v2/providers/spotify/extra', '/api/mobile/v2/workspaces/11111111-1111-4111-8111-111111111111/commands/extra']) expect((await updateSession(request(path))).status).not.toBe(200);
+    mocks.getUser.mockClear();
+    expect((await updateSession(request('/api/mobile/v2/workspaces/11111111-1111-4111-8111-111111111111/event-commands'))).status).toBe(200);
+    expect(mocks.getUser).not.toHaveBeenCalled();
+    for (const path of ['/api/mobile/v2/workspaces/11111111-1111-4111-8111-111111111111/event-commands/extra', '/api/mobile/v2/workspaces/invalid/event-commands', '/api/mobile/v2/event-commands']) expect((await updateSession(request(path))).status).not.toBe(200);
+    expect(mocks.getUser).toHaveBeenCalledTimes(3);
+  });
 
   it("supports a 199-user API burst behind one IP with independent user enforcement", async () => {
     const counts = new Map<string, number>();

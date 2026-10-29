@@ -1,3 +1,4 @@
+import { isNativeMobileApiRoute } from '@/lib/mobile/api-route-paths';
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseEnv, hasSupabaseEnv } from "@/lib/supabase/env";
@@ -173,6 +174,12 @@ export async function updateSession(request: NextRequest) {
   let supabaseResponse = hasPrefix
     ? NextResponse.rewrite(targetUrl, { request: { headers: requestHeaders } })
     : NextResponse.next({ request: { headers: requestHeaders } });
+
+  // These exact versioned handlers authenticate Bearer tokens and apply their own
+  // per-user budgets. Cookie redirects would block native requests and OPTIONS.
+  if (isNativeMobileApiRoute(pathname)) {
+    return withContentSecurityPolicy(supabaseResponse, contentSecurityPolicy);
+  }
 
   const { url, publishableKey } = getSupabaseEnv();
 

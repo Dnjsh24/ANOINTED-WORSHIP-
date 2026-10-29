@@ -1,0 +1,10 @@
+// @vitest-environment node
+import { expect,it,vi } from 'vitest';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase/database.types';
+import { messageSendIdentity as identity,messageSendRequest } from '@/lib/mobile/v2/message-send-test-fixture';
+import { mobileMessageSearchQuerySchema } from '@/lib/mobile/v2/message-search';
+const mocks=vi.hoisted(()=>({selected:vi.fn()}));vi.mock('server-only',()=>({}));vi.mock('@/lib/mobile/v2/read-workspaces',()=>({readSelectedWorkspace:mocks.selected}));
+vi.mock('./direct-peer-labels',()=>({enrichDirectPeerLabels:async(_context:unknown,channels:unknown[])=>channels}));
+import { escapeMessageSearch,searchMobileMessages } from './message-search';
+it('escapes literal wildcards and validates bounded cursor pairs; denies private channel loss',async()=>{expect(escapeMessageSearch('50%_\\')).toBe('50\\%\\_\\\\');expect(mobileMessageSearchQuerySchema.safeParse({q:'  ',beforeId:identity.userId}).success).toBe(false);const channel={id:messageSendRequest.channelId,team_id:identity.teamId,name:'Private',channel_type:'direct',updated_at:'2026-10-24T00:00:00Z',own:[{team_member_id:identity.memberId}]};const calls:unknown[][]=[];const values:unknown[]=[channel,[],null];const client={from:()=>{const result={data:values.shift(),error:null};const query={then:<T>(resolve:(v:typeof result)=>T)=>Promise.resolve(result).then(resolve),select:vi.fn(),eq:vi.fn(),ilike:vi.fn(),order:vi.fn(),limit:vi.fn(),or:vi.fn(),maybeSingle:vi.fn(async()=>result)};for(const key of ['select','eq','ilike','order','limit','or'] as const)query[key].mockImplementation((...args:unknown[])=>{calls.push([key,...args]);return query;});return query;}} as unknown as SupabaseClient<Database>;mocks.selected.mockResolvedValue(identity);await expect(searchMobileMessages({client,identity,channelId:channel.id,query:'50%_',before:null})).rejects.toMatchObject({status:403});expect(calls).toContainEqual(['ilike','body','%50\\%\\_%']);expect(calls).toContainEqual(['eq','is_delivered',true]);expect(calls).toContainEqual(['limit',51]);});

@@ -1,0 +1,15 @@
+# Backend candidate handoff — 28 October 2026
+
+This is the isolated codex/mobile-services-release draft, based on fetched main 36cd2dc13e401094537b4a18f50ad448817a0763. Primary Android source and the canonical checklist remain at C:/Users/danje/.codex/worktrees/mobile-website-parity/Anointed worship setlist - Copy. Preserve both checkouts and the original dirty OneDrive checkout.
+
+The candidate adds 93 mobile handlers and 42 forward migrations. Six existing website helpers remain identical to main. Compatible dependency patches produce zero npm audit vulnerabilities. The final server CORS repair allows the member header already sent by the app, within the existing allowed-origin boundary. It does not change APK72 or any migration bytes.
+
+Read [candidate scope](docs/mobile-services-release-candidate.md), [local checks](docs/mobile-services-local-checks-2026-10-28.json) and [exact ownership](docs/mobile-services-release-files.json). The patched full suite passed 2,382 tests before the final CORS repair; 25 final focused checks passed. Strict lint and the final production compilation, including TypeScript, passed. All 93 compiled preflights, four unavailable-service JSON handlers and one foreign-origin denial passed in existing demo mode. This does not prove real authentication: the original protected HTTP smoke remains blocked by missing local production Redis configuration. The fail-closed 429 guard was preserved. The raw secret scanner remains nonzero for six classified documentation/test placeholders; no suppression or history rewrite was made.
+
+A clean local commit and path/ancestry proof are recorded in .tmp/mobile-services-scope-final.json when present; its candidateCommit must equal HEAD. Passing scope does not establish semantic review or authorize publication. Formal reviews remain deferred by the user. SERVER-RELEASE stays Testing.
+
+Next: connect the Supabase account exposing the actual app project xvrndwkghxkqsvxxtqym, inspect applied migrations read-only, and prepare the exact hosted compatibility/recovery plan. The connected account does not expose that project. Never modify the unrelated visible project. No production credentials were copied. Push/PR, hosted SQL/settings changes, merge and deployment need explicit authorization. Follow docs/GITHUB-SAFE-RELEASES.md, protected-main CI and production SHA verification.
+
+Latest client: C:/Users/danje/Downloads/SundaySetlist-Android-Clone-Checkpoint-72-1C40FBED.apk. Foreground Wi-Fi auto-refresh and the native member-header fix are packaged. Original nine failures and 40 skipped checks were addressed; two separate absent-desktop checks remain unavailable. Canonical checklist: 69/93 checked, 24 remaining; Android acceptance 0/8. Live sync, physical-device and store acceptance remain open. No new APK is required for this server-only repair.
+
+No external writes were performed. No worker, local server or emulator is intentionally left running. Usage at this turn's start was 0% five-hour / 0% weekly; effective model/effort and monetary telemetry are unavailable.
