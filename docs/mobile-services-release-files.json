@@ -670,6 +670,7 @@
     "supabase/migrations/20261024030000_mobile_song_restores.sql",
     "supabase/migrations/20261024040000_mobile_song_purges.sql",
     "supabase/migrations/20261029010000_mobile_function_lint.sql",
+    "supabase/migrations/20261029020000_mobile_asset_authorization_volatility.sql",
     "tickets.md"
   ]
 }
