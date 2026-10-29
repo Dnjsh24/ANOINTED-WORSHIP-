@@ -22,8 +22,9 @@ export const mobileRehearsalReadinessSchema = z.object({
   event_id: z.uuid(), slot_id: z.uuid(), team_member_id: z.uuid(), state: readinessStateSchema, note: z.string().max(500), updated_at: timestamp,
 }).strict();
 export const rehearsalParentSchema = z.object({
-  setlistId: z.uuid(), teamId: z.uuid(), eventId: z.uuid().nullable(), eventRevision: rehearsalRevisionSchema.positive().nullable(),
-  setlistRevision: rehearsalRevisionSchema.positive(), slots: z.array(z.object({ id: z.uuid(), songId: z.uuid(), revision: rehearsalRevisionSchema.positive() }).strict()).max(200),
+  // Existing records start at revision zero before their first synchronized edit.
+  setlistId: z.uuid(), teamId: z.uuid(), eventId: z.uuid().nullable(), eventRevision: rehearsalRevisionSchema.nullable(),
+  setlistRevision: rehearsalRevisionSchema, slots: z.array(z.object({ id: z.uuid(), songId: z.uuid(), revision: rehearsalRevisionSchema }).strict()).max(200),
 }).strict();
 export const mobileRehearsalWorkspaceSchema = rehearsalParentSchema.extend({
   plan: mobileRehearsalPlanSchema.nullable(), checks: z.array(mobileRehearsalCheckSchema).max(20000),
