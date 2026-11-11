@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { reviewEventAction } from "@/app/actions";
 import { Button } from "@/components/ui/button";
-import { Card, Panel } from "@/components/ui/card";
+import { Panel } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { Event } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -372,88 +372,78 @@ export function EventsClient({ events, canReviewEvents = false, memberSubmission
         </div>
       ) : (
         <section className="mt-7 grid gap-6 lg:grid-cols-[1fr_320px]">
-          {/* Left Column: Timeline List */}
-          <div className="relative pl-6 space-y-6">
-            {/* Vertical timeline connector line */}
-            <div className="absolute left-10 top-2 bottom-2 w-px bg-white/[0.08]" />
+          <div className="min-w-0">
+            {filtered.length > 0 ? (
+              <ul aria-label="Scheduled events" className="relative space-y-3 sm:space-y-6 sm:before:absolute sm:before:inset-y-0 sm:before:left-10 sm:before:w-px sm:before:bg-white/10 sm:before:content-['']">
+                {filtered.map((event) => {
+                  const { month, day } = getMonthDay(event.date);
+                  const eventHref = `/events/${event.id}`;
 
-            {filtered.map((event) => {
-              const { month, day } = getMonthDay(event.date);
-              const badgeStyles =
-                event.type === "service"
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                  : event.type === "service_rehearsal"
-                  ? "bg-violet-500/10 text-violet-400 border-violet-500/20"
-                  : event.type === "rehearsal"
-                  ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                  : event.type === "meeting"
-                  ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                  : "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
-
-              return (
-                <div key={event.id} className="relative flex gap-6 items-start group animate-fade-up">
-                  {/* Date block on the left */}
-                  <div className="flex flex-col items-center justify-center text-center w-12 shrink-0">
-                    <p className="font-mono text-[9px] font-bold text-zinc-500 tracking-wider uppercase">{month}</p>
-                    <p className="text-2xl font-extrabold text-white mt-0.5 leading-none">{day}</p>
-                  </div>
-
-                  {/* Bullet node on timeline */}
-                  <div className="absolute left-[38px] top-3.5 z-10 flex size-2.5 items-center justify-center">
-                    <div className={cn("size-2 rounded-full border border-[#0d0c12] bg-zinc-600 transition-all group-hover:scale-125 group-hover:bg-violet-400", event.type === "service" && "bg-emerald-500", event.type === "rehearsal" && "bg-amber-500", event.type === "service_rehearsal" && "bg-violet-500", event.type === "meeting" && "bg-blue-500")} />
-                  </div>
-
-                  {/* Details card */}
-                  <Card className="flex-1 p-4 border border-white/[0.06] bg-[#111014]/60 hover:border-violet-500/25 hover:bg-white/[0.02] transition-all">
-                    <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <Link href={`/events/${event.id}`} className="text-base font-extrabold text-white hover:text-violet-300 transition-colors">
-                            {event.name}
-                          </Link>
-                          <span className={cn("rounded-full border px-2 py-0.5 font-mono text-[9px] font-bold tracking-tight uppercase", badgeStyles)}>
-                            {event.type.replace("_", " ")}
-                          </span>
-                          {event.approvalStatus === "pending" ? (
-                            <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-tight text-amber-200">
-                              Pending approval
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="mt-2 flex flex-wrap items-center gap-4 text-xs font-semibold text-zinc-400">
-                          <span className="flex items-center gap-1.5"><Clock className="size-3.5 text-violet-400" /> {event.time}</span>
-                          <span className="flex items-center gap-1.5"><MapPin className="size-3.5 text-violet-400" /> {event.location}</span>
-                          {event.rehearsalDate && event.type === "service_rehearsal" && (
-                            <span className="flex items-center gap-1.5 text-amber-300"><CalendarDays className="size-3.5" /> Rehearsal: {event.rehearsalDate}{event.rehearsalStart ? ` ${event.rehearsalStart}` : ""}</span>
+                  return (
+                    <li key={event.id} className="relative grid grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-x-2 sm:grid-cols-[5rem_minmax(0,1fr)] sm:gap-x-4">
+                      <time dateTime={event.date} className="relative flex flex-col items-center gap-1 pt-1">
+                        <span className="bg-background text-[9px] font-semibold uppercase text-zinc-400">{month}</span>
+                        <span className="bg-background text-2xl font-extrabold leading-none tabular-nums">{day}</span>
+                        <span
+                          aria-hidden="true"
+                          className={cn(
+                            "absolute right-2.5 top-4 hidden size-1.5 rounded-full sm:block",
+                            {
+                              service: "bg-emerald-500",
+                              rehearsal: "bg-amber-500",
+                              service_rehearsal: "bg-violet-500",
+                              meeting: "bg-blue-500",
+                              special_event: "bg-zinc-500",
+                            }[event.type],
                           )}
+                        />
+                      </time>
+                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-lg border border-white/[0.08] bg-white/[0.01] p-3 sm:p-4">
+                        <div className="min-w-0 flex-1 basis-56">
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                            <Link href={eventHref} className="text-base font-extrabold [overflow-wrap:anywhere] underline-offset-4 hover:text-violet-300 hover:underline">
+                              {event.name}
+                            </Link>
+                            <span className={cn("rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-tight", {
+                              service: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+                              service_rehearsal: "border-violet-500/30 bg-violet-500/10 text-violet-300",
+                              rehearsal: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+                              meeting: "border-blue-500/30 bg-blue-500/10 text-blue-300",
+                              special_event: "border-zinc-500/30 bg-zinc-500/10 text-zinc-300",
+                            }[event.type])}>
+                              {event.type.replace("_", " ")}
+                            </span>
+                            {event.approvalStatus === "pending" && (
+                              <span className="text-xs font-medium text-amber-200">Pending approval</span>
+                            )}
+                          </div>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
+                            <span className="flex items-center gap-1.5"><Clock aria-hidden="true" className="size-3.5 shrink-0 text-violet-400" />{event.time}</span>
+                            <span className="flex min-w-0 items-center gap-1.5 [overflow-wrap:anywhere]"><MapPin aria-hidden="true" className="size-3.5 shrink-0 text-violet-400" />{event.location}</span>
+                            {event.rehearsalDate && event.type === "service_rehearsal" && (
+                              <span className="flex items-center gap-1.5 text-amber-300"><CalendarDays aria-hidden="true" className="size-3.5 shrink-0" />Rehearsal: {event.rehearsalDate}{event.rehearsalStart ? ` ${event.rehearsalStart}` : ""}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          {!memberSubmissionMode && (
+                            <Link href={`${eventHref}/edit`} aria-label={`Edit ${event.name}`} className="inline-flex transition-colors min-h-11 items-center rounded-lg bg-zinc-800 px-3 text-xs font-semibold text-zinc-200 hover:bg-zinc-700 sm:min-h-8">
+                              Edit
+                            </Link>
+                          )}
+                          <Link href={eventHref} aria-label={`Details for ${event.name}`} className="inline-flex transition-colors min-h-11 items-center rounded-lg bg-violet-600 px-3 text-xs font-semibold text-white hover:bg-violet-700 sm:min-h-8">
+                            Details
+                          </Link>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-2">
-                        {!memberSubmissionMode && (
-                          <Link
-                            href={`/events/${event.id}/edit`}
-                            className="rounded-lg bg-zinc-800 px-3 py-1.5 text-xs font-bold text-zinc-300 transition hover:bg-zinc-700 hover:text-white"
-                          >
-                            Edit
-                          </Link>
-                        )}
-                        <Link
-                          href={`/events/${event.id}`}
-                          className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-violet-500"
-                        >
-                          Details
-                        </Link>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-              );
-            })}
-
-            {filtered.length === 0 && (
-              <p className="rounded-2xl border border-white/[0.08] bg-[#111014]/40 p-10 text-center text-sm font-bold text-zinc-500">
-                No events scheduled for this period.
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="border-y border-white/10 py-8 text-sm text-zinc-400">
+                {query.trim() ? "No events match your search." : "No events scheduled for this period."}
               </p>
             )}
           </div>

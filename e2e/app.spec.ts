@@ -222,7 +222,15 @@ test("events filters and detail actions work", async ({ page }) => {
   await expect(page).not.toHaveURL(/q=Prayer/);
   await page.getByRole("button", { name: "All Events" }).click();
   await expect(page).toHaveURL(/view=all/);
-  await expect(page.getByRole("link", { name: /Midweek Band Rehearsal/i })).toBeVisible();
+  const timeline = page.getByRole("list", { name: "Scheduled events" });
+  const rehearsal = timeline.getByRole("listitem").filter({
+    has: page.getByRole("link", { name: "Midweek Band Rehearsal", exact: true }),
+  });
+  await expect(rehearsal).toBeVisible();
+  await expect(rehearsal.getByRole("link", { name: "Details for Midweek Band Rehearsal" })).toHaveAttribute(
+    "href",
+    /^\/events\/[^/]+$/,
+  );
   await page.getByRole("button", { name: "Calendar View" }).click();
   await expect(page.getByRole("heading", { name: "July 2026" })).toBeVisible();
   await expect(page.getByTitle(/Sunday Morning Worship/)).toBeVisible();
